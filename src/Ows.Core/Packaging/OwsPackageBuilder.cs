@@ -28,6 +28,20 @@ public sealed class OwsPackageBuilder : IPackageBuilder
 
         var timelineText = File.ReadAllText(timelinePath);
         const string versionGraphText = "{\"nodes\":[],\"edges\":[]}";
+        var artifactHashes = Directory
+            .EnumerateFiles(request.ProjectRootPath, "*", SearchOption.AllDirectories)
+            .Select(filePath => new
+            {
+                FilePath = filePath,
+                RelativePath = Path.GetRelativePath(request.ProjectRootPath, filePath)
+            })
+            .Where(file => !string.Equals(file.FilePath, request.OutputPackagePath, StringComparison.OrdinalIgnoreCase) &&
+                !file.RelativePath.StartsWith($"{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                file => $"artifacts/{file.RelativePath.Replace('\\', '/')}",
+                file => hashService.ComputeHash(File.ReadAllBytes(file.FilePath)),
+                StringComparer.Ordinal);
 
         var manifest = new OwsManifest
         {
@@ -35,7 +49,8 @@ public sealed class OwsPackageBuilder : IPackageBuilder
             Platform = Environment.OSVersion.Platform.ToString(),
             TrackedPath = request.ProjectRootPath,
             TimelineHash = hashService.ComputeHash(timelineText),
-            VersionGraphHash = hashService.ComputeHash(versionGraphText)
+            VersionGraphHash = hashService.ComputeHash(versionGraphText),
+            ArtifactHashes = artifactHashes
         };
 
         if (File.Exists(request.OutputPackagePath))
@@ -63,17 +78,10 @@ public sealed class OwsPackageBuilder : IPackageBuilder
                 graphWriter.Write(versionGraphText);
             }
 
-            foreach (var filePath in Directory.EnumerateFiles(request.ProjectRootPath, "*", SearchOption.AllDirectories))
+            foreach (var artifactPath in artifactHashes.Keys)
             {
-                var relativePath = Path.GetRelativePath(request.ProjectRootPath, filePath);
-
-                if (string.Equals(filePath, request.OutputPackagePath, StringComparison.OrdinalIgnoreCase) ||
-                    relativePath.StartsWith($"{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                archive.CreateEntryFromFile(filePath, $"artifacts/{relativePath.Replace('\\', '/')}");
+                var relativePath = artifactPath["artifacts/".Length..].Replace('/', Path.DirectorySeparatorChar);
+                archive.CreateEntryFromFile(Path.Combine(request.ProjectRootPath, relativePath), artifactPath);
             }
         }
 

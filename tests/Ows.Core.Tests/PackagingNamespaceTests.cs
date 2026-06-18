@@ -48,6 +48,7 @@ public sealed class PackagingNamespaceTests
         using var manifestDocument = JsonDocument.Parse(manifestReader.ReadToEnd());
         manifestDocument.RootElement.GetProperty("TimelineHash").GetString().Should().NotBeNullOrWhiteSpace();
         manifestDocument.RootElement.GetProperty("VersionGraphHash").GetString().Should().NotBeNullOrWhiteSpace();
+        manifestDocument.RootElement.GetProperty("ArtifactHashes").GetProperty("artifacts/src/draft.txt").GetString().Should().NotBeNullOrWhiteSpace();
         }
         finally
         {

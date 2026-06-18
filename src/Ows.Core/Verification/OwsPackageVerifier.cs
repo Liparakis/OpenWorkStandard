@@ -62,6 +62,12 @@ public sealed class OwsPackageVerifier : IPackageVerifier
                 : VerificationResult.Failure("OWS verify failed.", errors));
     }
 
+    /// <summary>
+    /// Validates and deserializes the package manifest entry.
+    /// </summary>
+    /// <param name="archive">The package archive being verified.</param>
+    /// <param name="errors">The mutable verification error collection.</param>
+    /// <returns>The deserialized manifest when valid; otherwise <see langword="null"/>.</returns>
     private static OwsManifest? ValidateManifest(ZipArchive archive, List<string> errors)
     {
         using var reader = new StreamReader(archive.GetEntry(OwsConstants.ManifestFileName)!.Open());
@@ -79,6 +85,11 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         }
     }
 
+    /// <summary>
+    /// Validates that each non-empty timeline line is valid event JSON.
+    /// </summary>
+    /// <param name="archive">The package archive being verified.</param>
+    /// <param name="errors">The mutable verification error collection.</param>
     private static void ValidateTimeline(ZipArchive archive, List<string> errors)
     {
         using var reader = new StreamReader(archive.GetEntry(OwsConstants.TimelineFileName)!.Open());
@@ -106,6 +117,11 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         }
     }
 
+    /// <summary>
+    /// Validates that the packaged version graph entry is valid JSON.
+    /// </summary>
+    /// <param name="archive">The package archive being verified.</param>
+    /// <param name="errors">The mutable verification error collection.</param>
     private static void ValidateVersionGraph(ZipArchive archive, List<string> errors)
     {
         using var reader = new StreamReader(archive.GetEntry(OwsConstants.VersionGraphFileName)!.Open());
@@ -122,6 +138,12 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         }
     }
 
+    /// <summary>
+    /// Validates manifest hashes for timeline, version graph, and packaged artifacts.
+    /// </summary>
+    /// <param name="archive">The package archive being verified.</param>
+    /// <param name="manifest">The manifest declaring expected hashes.</param>
+    /// <param name="errors">The mutable verification error collection.</param>
     private static void ValidateHashes(ZipArchive archive, OwsManifest manifest, List<string> errors)
     {
         var hashService = new Sha256HashService();
@@ -145,6 +167,27 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             if (!string.Equals(actualGraphHash, manifest.VersionGraphHash, StringComparison.OrdinalIgnoreCase))
             {
                 errors.Add("Version graph hash does not match manifest.");
+            }
+        }
+
+        foreach (var artifact in manifest.ArtifactHashes)
+        {
+            var artifactEntry = archive.GetEntry(artifact.Key);
+
+            if (artifactEntry is null)
+            {
+                errors.Add($"Missing artifact entry declared in manifest: {artifact.Key}");
+                continue;
+            }
+
+            using var artifactStream = artifactEntry.Open();
+            using var memoryStream = new MemoryStream();
+            artifactStream.CopyTo(memoryStream);
+            var actualArtifactHash = hashService.ComputeHash(memoryStream.ToArray());
+
+            if (!string.Equals(actualArtifactHash, artifact.Value, StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add($"Artifact hash does not match manifest: {artifact.Key}");
             }
         }
     }

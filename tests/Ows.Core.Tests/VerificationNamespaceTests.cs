@@ -35,7 +35,8 @@ public sealed class VerificationNamespaceTests
                     Platform = "Win32NT",
                     TrackedPath = "sample",
                     TimelineHash = hashService.ComputeHash(timelineText),
-                    VersionGraphHash = hashService.ComputeHash(graphText)
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
                 }));
                 WriteEntry(archive, "timeline.jsonl", timelineText);
                 WriteEntry(archive, "version_graph.json", graphText);
@@ -246,6 +247,61 @@ public sealed class VerificationNamespaceTests
         }
     }
 
+    /// <summary>
+    /// Verifies that artifact tampering after packaging fails hash validation.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenArtifactHashDoesNotMatchManifest()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-verify-artifact-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(projectRoot);
+        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "original");
+        var localFolder = Path.Combine(projectRoot, ".ows");
+        Directory.CreateDirectory(localFolder);
+        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+        var packagePath = Path.Combine(projectRoot, "submission.owspkg");
+
+        try
+        {
+            var builder = new OwsPackageBuilder();
+            await builder.CreatePackageAsync(
+                new PackageCreationRequest
+                {
+                    ProjectRootPath = projectRoot,
+                    OutputPackagePath = packagePath
+                },
+                CancellationToken.None);
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update))
+            {
+                archive.GetEntry("artifacts/draft.txt")!.Delete();
+                WriteEntry(archive, "artifacts/draft.txt", "tampered");
+            }
+
+            var verifier = new OwsPackageVerifier();
+
+            var result = await verifier.VerifyAsync(
+                new PackageVerificationRequest { PackagePath = packagePath },
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.Errors.Should().Contain(error => error.Contains("artifact hash", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Writes a text entry into the target archive for test setup.
+    /// </summary>
+    /// <param name="archive">The archive to update.</param>
+    /// <param name="entryName">The entry path to create.</param>
+    /// <param name="content">The text content to write.</param>
     private static void WriteEntry(ZipArchive archive, string entryName, string content)
     {
         var entry = archive.CreateEntry(entryName);
