@@ -35,7 +35,7 @@ public sealed class OwsPackageCommandTests
             File.Exists(packagePath).Should().BeTrue();
 
             using var archive = ZipFile.OpenRead(packagePath);
-            archive.Entries.Select(entry => entry.FullName).Should().Contain(["manifest.json", "timeline.jsonl"]);
+            archive.Entries.Select(entry => entry.FullName).Should().Contain(["manifest.json", "timeline.jsonl", "artifacts/draft.txt"]);
         }
         finally
         {

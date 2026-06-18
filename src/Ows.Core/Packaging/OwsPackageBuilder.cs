@@ -58,8 +58,23 @@ public sealed class OwsPackageBuilder : IPackageBuilder
             }
 
             var graphEntry = archive.CreateEntry(OwsConstants.VersionGraphFileName);
-            using var graphWriter = new StreamWriter(graphEntry.Open());
-            graphWriter.Write(versionGraphText);
+            using (var graphWriter = new StreamWriter(graphEntry.Open()))
+            {
+                graphWriter.Write(versionGraphText);
+            }
+
+            foreach (var filePath in Directory.EnumerateFiles(request.ProjectRootPath, "*", SearchOption.AllDirectories))
+            {
+                var relativePath = Path.GetRelativePath(request.ProjectRootPath, filePath);
+
+                if (string.Equals(filePath, request.OutputPackagePath, StringComparison.OrdinalIgnoreCase) ||
+                    relativePath.StartsWith($"{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                archive.CreateEntryFromFile(filePath, $"artifacts/{relativePath.Replace('\\', '/')}");
+            }
         }
 
         return Task.FromResult(new PackageCreationResult

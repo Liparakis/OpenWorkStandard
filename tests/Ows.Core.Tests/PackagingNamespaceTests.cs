@@ -18,6 +18,8 @@ public sealed class PackagingNamespaceTests
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-package-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
+        Directory.CreateDirectory(Path.Combine(projectRoot, "src"));
+        File.WriteAllText(Path.Combine(projectRoot, "src", "draft.txt"), "draft");
         var localFolder = Path.Combine(projectRoot, ".ows");
         Directory.CreateDirectory(localFolder);
         File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), "{\"eventType\":\"FileCreated\"}");
@@ -39,7 +41,7 @@ public sealed class PackagingNamespaceTests
         File.Exists(outputPath).Should().BeTrue();
 
         using var archive = ZipFile.OpenRead(outputPath);
-        archive.Entries.Select(entry => entry.FullName).Should().Contain(["manifest.json", "timeline.jsonl"]);
+        archive.Entries.Select(entry => entry.FullName).Should().Contain(["manifest.json", "timeline.jsonl", "artifacts/src/draft.txt"]);
         archive.GetEntry("manifest.json")!.Open().Should().NotBeNull();
 
         using var manifestReader = new StreamReader(archive.GetEntry("manifest.json")!.Open());
