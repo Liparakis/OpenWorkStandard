@@ -6,6 +6,7 @@ namespace Ows.Cli.Tests;
 /// <summary>
 /// Tests CLI command construction.
 /// </summary>
+[Collection(CliCommandCollection.Name)]
 public sealed class OwsCommandFactoryTests
 {
     /// <summary>

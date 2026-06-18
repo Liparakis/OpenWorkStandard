@@ -1,5 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
+using Ows.Core.Events;
 
 namespace Ows.Core.Agent;
 
@@ -38,14 +40,41 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        Status = TrackingAgentStatus.NotImplemented;
-        logger.LogInformation("Tracking start requested for {ProjectRootPath}.", options?.ProjectRootPath ?? "<unconfigured>");
+        if (options is null)
+        {
+            throw new InvalidOperationException("Tracking agent must be prepared before start.");
+        }
+
+        var timelinePath = Path.Combine(options.ProjectRootPath, OwsConstants.LocalFolderName, OwsConstants.TimelineFileName);
+        var trackedFiles = Directory
+            .EnumerateFiles(options.ProjectRootPath, "*", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
+
+        foreach (var path in trackedFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var relativePath = Path.GetRelativePath(options.ProjectRootPath, path);
+            var owsEvent = new OwsEvent
+            {
+                EventType = OwsEventType.FileCreated,
+                ProjectId = Path.GetFileName(options.ProjectRootPath),
+                RelativePath = relativePath,
+                ToolName = "ows watch",
+                BytesChanged = new FileInfo(path).Length
+            };
+
+            File.AppendAllText(timelinePath, $"{JsonSerializer.Serialize(owsEvent)}{Environment.NewLine}");
+        }
+
+        Status = TrackingAgentStatus.Ready;
+        logger.LogInformation("Tracked {FileCount} existing files for {ProjectRootPath}.", trackedFiles.Count(), options.ProjectRootPath);
 
         return Task.FromResult(new TrackingAgentOperationResult
         {
-            Succeeded = false,
+            Succeeded = true,
             Status = Status,
-            Message = "OWS watch: not implemented yet"
+            Message = "OWS watch completed one scan."
         });
     }
 }

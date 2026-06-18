@@ -10,22 +10,23 @@ namespace Ows.Core.Tests;
 public sealed class ReportingNamespaceTests
 {
     /// <summary>
-    /// Verifies the report generator skeleton still reports an unimplemented state.
+    /// Verifies that the report generator emits a useful text summary.
     /// </summary>
     [Fact]
-    public async Task GenerateAsync_ShouldReturnPlaceholderContent()
+    public async Task GenerateAsync_ShouldReturnTextSummary()
     {
         var generator = new OwsReportGenerator();
 
         var result = await generator.GenerateAsync(
             new ReportRequest
             {
-                Format = ReportFormat.Html,
-                VerificationResult = VerificationResult.Success("Verified")
+                Format = ReportFormat.Text,
+                VerificationResult = VerificationResult.Success("OWS verify succeeded.")
             },
             CancellationToken.None);
 
-        result.Format.Should().Be(ReportFormat.Html);
-        result.Content.Should().Be("OWS report: not implemented yet");
+        result.Format.Should().Be(ReportFormat.Text);
+        result.Content.Should().Contain("Status: Success");
+        result.Content.Should().Contain("OWS verify succeeded.");
     }
 }

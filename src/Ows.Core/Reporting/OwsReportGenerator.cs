@@ -11,10 +11,21 @@ public sealed class OwsReportGenerator : IReportGenerator
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var status = request.VerificationResult.IsSuccess ? "Success" : "Failure";
+        var errors = request.VerificationResult.Errors.Count == 0
+            ? "None"
+            : string.Join(", ", request.VerificationResult.Errors);
+
+        var content = request.Format switch
+        {
+            ReportFormat.Text => $"Status: {status}{Environment.NewLine}Summary: {request.VerificationResult.Summary}{Environment.NewLine}Errors: {errors}",
+            _ => $"Status: {status}{Environment.NewLine}Summary: {request.VerificationResult.Summary}{Environment.NewLine}Errors: {errors}"
+        };
+
         return Task.FromResult(new ReportGenerationResult
         {
             Format = request.Format,
-            Content = "OWS report: not implemented yet"
+            Content = content
         });
     }
 }
