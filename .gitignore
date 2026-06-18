@@ -1,0 +1,39 @@
+# Build outputs
+bin/
+obj/
+artifacts/
+TestResults/
+
+# OWS local evidence
+.ows/
+*.owspkg
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# JetBrains Rider / IntelliJ
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# .NET user files
+*.rsuser
+
+# Windows artifacts
+Thumbs.db
+Desktop.ini
+
+# macOS artifacts
+.DS_Store
+
+# Logs
+*.log
+
+# Package lock files created by tooling
+packages/

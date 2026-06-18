@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ows.Core\Ows.Core.csproj" />
+    <ProjectReference Include="..\Ows.Agent\Ows.Agent.csproj" />
+    <ProjectReference Include="..\Ows.Packaging\Ows.Packaging.csproj" />
+    <ProjectReference Include="..\Ows.Verification\Ows.Verification.csproj" />
+    <ProjectReference Include="..\Ows.Reporting\Ows.Reporting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.9" />
+    <PackageReference Include="System.CommandLine" Version="2.0.9" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
