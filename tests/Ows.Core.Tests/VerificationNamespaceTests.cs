@@ -2,6 +2,7 @@ using FluentAssertions;
 using System.IO.Compression;
 using System.Text.Json;
 using Ows.Core.Events;
+using Ows.Core.Graph;
 using Ows.Core.Packaging;
 using Ows.Core.Verification;
 
@@ -26,7 +27,7 @@ public sealed class VerificationNamespaceTests
             {
                 WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest { ProjectName = "sample", Platform = "Win32NT", TrackedPath = "sample" }));
                 WriteEntry(archive, "timeline.jsonl", JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
-                WriteEntry(archive, "version_graph.json", "{\"nodes\":[],\"edges\":[]}");
+                WriteEntry(archive, "version_graph.json", JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty()));
             }
 
         var verifier = new OwsPackageVerifier();
@@ -60,7 +61,7 @@ public sealed class VerificationNamespaceTests
             using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
             {
                 WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest { ProjectName = "sample", Platform = "Win32NT", TrackedPath = "sample" }));
-                WriteEntry(archive, "version_graph.json", "{\"nodes\":[],\"edges\":[]}");
+                WriteEntry(archive, "version_graph.json", JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty()));
             }
 
             var verifier = new OwsPackageVerifier();
@@ -95,7 +96,7 @@ public sealed class VerificationNamespaceTests
             {
                 WriteEntry(archive, "manifest.json", "{bad json");
                 WriteEntry(archive, "timeline.jsonl", JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
-                WriteEntry(archive, "version_graph.json", "{\"nodes\":[],\"edges\":[]}");
+                WriteEntry(archive, "version_graph.json", JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty()));
             }
 
             var verifier = new OwsPackageVerifier();
@@ -130,7 +131,7 @@ public sealed class VerificationNamespaceTests
             {
                 WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest { ProjectName = "sample", Platform = "Win32NT", TrackedPath = "sample" }));
                 WriteEntry(archive, "timeline.jsonl", "{bad json");
-                WriteEntry(archive, "version_graph.json", "{\"nodes\":[],\"edges\":[]}");
+                WriteEntry(archive, "version_graph.json", JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty()));
             }
 
             var verifier = new OwsPackageVerifier();
@@ -141,6 +142,41 @@ public sealed class VerificationNamespaceTests
 
             result.IsSuccess.Should().BeFalse();
             result.Errors.Should().Contain(error => error.Contains("timeline.jsonl"));
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that invalid version graph JSON fails verification.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenVersionGraphJsonIsInvalid()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-bad-graph-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest { ProjectName = "sample", Platform = "Win32NT", TrackedPath = "sample" }));
+                WriteEntry(archive, "timeline.jsonl", JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+                WriteEntry(archive, "version_graph.json", "{bad json");
+            }
+
+            var verifier = new OwsPackageVerifier();
+
+            var result = await verifier.VerifyAsync(
+                new PackageVerificationRequest { PackagePath = packagePath },
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.Errors.Should().Contain(error => error.Contains("version_graph.json"));
         }
         finally
         {

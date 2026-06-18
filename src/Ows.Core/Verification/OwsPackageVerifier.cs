@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 
 using Ows.Core.Events;
+using Ows.Core.Graph;
 using Ows.Core.Packaging;
 using Ows.Core.Verification;
 
@@ -46,6 +47,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         {
             ValidateManifest(archive, errors);
             ValidateTimeline(archive, errors);
+            ValidateVersionGraph(archive, errors);
         }
 
         return Task.FromResult(
@@ -94,6 +96,22 @@ public sealed class OwsPackageVerifier : IPackageVerifier
                 errors.Add($"Invalid JSON in {OwsConstants.TimelineFileName} at line {lineNumber}");
                 return;
             }
+        }
+    }
+
+    private static void ValidateVersionGraph(ZipArchive archive, List<string> errors)
+    {
+        using var reader = new StreamReader(archive.GetEntry(OwsConstants.VersionGraphFileName)!.Open());
+        var graphText = reader.ReadToEnd();
+
+        try
+        {
+            _ = JsonSerializer.Deserialize<WorkVersionGraph>(graphText)
+                ?? throw new JsonException("Version graph deserialized to null.");
+        }
+        catch (JsonException)
+        {
+            errors.Add($"Invalid JSON in {OwsConstants.VersionGraphFileName}");
         }
     }
 }
