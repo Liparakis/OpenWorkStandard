@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using Ows.Core.Events;
 using Ows.Core.Graph;
+using Ows.Core.Hashing;
 using Ows.Core.Packaging;
 using Ows.Core.Verification;
 
@@ -23,11 +24,21 @@ public sealed class VerificationNamespaceTests
 
         try
         {
+            var hashService = new Sha256HashService();
+            var timelineText = JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" });
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
             using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
             {
-                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest { ProjectName = "sample", Platform = "Win32NT", TrackedPath = "sample" }));
-                WriteEntry(archive, "timeline.jsonl", JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
-                WriteEntry(archive, "version_graph.json", JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty()));
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText)
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
             }
 
         var verifier = new OwsPackageVerifier();
@@ -183,6 +194,54 @@ public sealed class VerificationNamespaceTests
             if (File.Exists(packagePath))
             {
                 File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that timeline tampering after packaging fails hash validation.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenTimelineHashDoesNotMatchManifest()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-verify-hash-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(projectRoot);
+        var localFolder = Path.Combine(projectRoot, ".ows");
+        Directory.CreateDirectory(localFolder);
+        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+        var packagePath = Path.Combine(projectRoot, "submission.owspkg");
+
+        try
+        {
+            var builder = new OwsPackageBuilder();
+            await builder.CreatePackageAsync(
+                new PackageCreationRequest
+                {
+                    ProjectRootPath = projectRoot,
+                    OutputPackagePath = packagePath
+                },
+                CancellationToken.None);
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update))
+            {
+                archive.GetEntry("timeline.jsonl")!.Delete();
+                WriteEntry(archive, "timeline.jsonl", "{\"tampered\":true}");
+            }
+
+            var verifier = new OwsPackageVerifier();
+
+            var result = await verifier.VerifyAsync(
+                new PackageVerificationRequest { PackagePath = packagePath },
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.Errors.Should().Contain(error => error.Contains("timeline hash", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
             }
         }
     }

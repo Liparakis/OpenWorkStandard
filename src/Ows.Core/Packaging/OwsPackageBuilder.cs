@@ -1,6 +1,8 @@
 using System.IO.Compression;
 using System.Text.Json;
 
+using Ows.Core.Hashing;
+
 namespace Ows.Core.Packaging;
 
 /// <summary>
@@ -17,17 +19,23 @@ public sealed class OwsPackageBuilder : IPackageBuilder
         var localFolder = Path.Combine(request.ProjectRootPath, OwsConstants.LocalFolderName);
         var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
         var outputDirectory = Path.GetDirectoryName(request.OutputPackagePath);
+        var hashService = new Sha256HashService();
 
         if (!string.IsNullOrWhiteSpace(outputDirectory))
         {
             Directory.CreateDirectory(outputDirectory);
         }
 
+        var timelineText = File.ReadAllText(timelinePath);
+        const string versionGraphText = "{\"nodes\":[],\"edges\":[]}";
+
         var manifest = new OwsManifest
         {
             ProjectName = Path.GetFileName(request.ProjectRootPath),
             Platform = Environment.OSVersion.Platform.ToString(),
-            TrackedPath = request.ProjectRootPath
+            TrackedPath = request.ProjectRootPath,
+            TimelineHash = hashService.ComputeHash(timelineText),
+            VersionGraphHash = hashService.ComputeHash(versionGraphText)
         };
 
         if (File.Exists(request.OutputPackagePath))
@@ -43,11 +51,15 @@ public sealed class OwsPackageBuilder : IPackageBuilder
                 writer.Write(JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
             }
 
-            archive.CreateEntryFromFile(timelinePath, OwsConstants.TimelineFileName);
+            var timelineEntry = archive.CreateEntry(OwsConstants.TimelineFileName);
+            using (var timelineWriter = new StreamWriter(timelineEntry.Open()))
+            {
+                timelineWriter.Write(timelineText);
+            }
 
             var graphEntry = archive.CreateEntry(OwsConstants.VersionGraphFileName);
             using var graphWriter = new StreamWriter(graphEntry.Open());
-            graphWriter.Write("{\"nodes\":[],\"edges\":[]}");
+            graphWriter.Write(versionGraphText);
         }
 
         return Task.FromResult(new PackageCreationResult

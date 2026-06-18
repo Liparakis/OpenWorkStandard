@@ -3,6 +3,7 @@ using System.Text.Json;
 
 using Ows.Core.Events;
 using Ows.Core.Graph;
+using Ows.Core.Hashing;
 using Ows.Core.Packaging;
 using Ows.Core.Verification;
 
@@ -45,9 +46,14 @@ public sealed class OwsPackageVerifier : IPackageVerifier
 
         if (errors.Count == 0)
         {
-            ValidateManifest(archive, errors);
+            var manifest = ValidateManifest(archive, errors);
             ValidateTimeline(archive, errors);
             ValidateVersionGraph(archive, errors);
+
+            if (manifest is not null)
+            {
+                ValidateHashes(archive, manifest, errors);
+            }
         }
 
         return Task.FromResult(
@@ -56,19 +62,20 @@ public sealed class OwsPackageVerifier : IPackageVerifier
                 : VerificationResult.Failure("OWS verify failed.", errors));
     }
 
-    private static void ValidateManifest(ZipArchive archive, List<string> errors)
+    private static OwsManifest? ValidateManifest(ZipArchive archive, List<string> errors)
     {
         using var reader = new StreamReader(archive.GetEntry(OwsConstants.ManifestFileName)!.Open());
         var manifestText = reader.ReadToEnd();
 
         try
         {
-            _ = JsonSerializer.Deserialize<OwsManifest>(manifestText)
+            return JsonSerializer.Deserialize<OwsManifest>(manifestText)
                 ?? throw new JsonException("Manifest deserialized to null.");
         }
         catch (JsonException)
         {
             errors.Add($"Invalid JSON in {OwsConstants.ManifestFileName}");
+            return null;
         }
     }
 
@@ -112,6 +119,33 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         catch (JsonException)
         {
             errors.Add($"Invalid JSON in {OwsConstants.VersionGraphFileName}");
+        }
+    }
+
+    private static void ValidateHashes(ZipArchive archive, OwsManifest manifest, List<string> errors)
+    {
+        var hashService = new Sha256HashService();
+
+        using (var timelineReader = new StreamReader(archive.GetEntry(OwsConstants.TimelineFileName)!.Open()))
+        {
+            var timelineText = timelineReader.ReadToEnd();
+            var actualTimelineHash = hashService.ComputeHash(timelineText);
+
+            if (!string.Equals(actualTimelineHash, manifest.TimelineHash, StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("Timeline hash does not match manifest.");
+            }
+        }
+
+        using (var graphReader = new StreamReader(archive.GetEntry(OwsConstants.VersionGraphFileName)!.Open()))
+        {
+            var graphText = graphReader.ReadToEnd();
+            var actualGraphHash = hashService.ComputeHash(graphText);
+
+            if (!string.Equals(actualGraphHash, manifest.VersionGraphHash, StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("Version graph hash does not match manifest.");
+            }
         }
     }
 }

@@ -39,4 +39,14 @@ public sealed record OwsManifest
     /// Gets the relative path to the tracked project root.
     /// </summary>
     public string TrackedPath { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the SHA-256 hash of the packaged timeline content.
+    /// </summary>
+    public string TimelineHash { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the SHA-256 hash of the packaged version graph content.
+    /// </summary>
+    public string VersionGraphHash { get; init; } = string.Empty;
 }
