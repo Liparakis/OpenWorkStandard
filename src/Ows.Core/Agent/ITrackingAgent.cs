@@ -1,4 +1,4 @@
-namespace Ows.Agent;
+namespace Ows.Core.Agent;
 
 /// <summary>
 /// Defines the local tracking agent contract used by the CLI.

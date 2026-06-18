@@ -1,4 +1,4 @@
-namespace Ows.Packaging;
+namespace Ows.Core.Packaging;
 
 /// <summary>
 /// Provides the initial OWS package builder skeleton.

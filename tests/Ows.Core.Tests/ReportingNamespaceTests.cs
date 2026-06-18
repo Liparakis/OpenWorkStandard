@@ -1,16 +1,16 @@
 using FluentAssertions;
+using Ows.Core.Reporting;
 using Ows.Core.Verification;
-using Ows.Reporting;
 
-namespace Ows.Reporting.Tests;
+namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests the report generator skeleton.
+/// Tests reporting types after consolidation into Ows.Core.
 /// </summary>
-public sealed class OwsReportGeneratorTests
+public sealed class ReportingNamespaceTests
 {
     /// <summary>
-    /// Verifies the current placeholder response.
+    /// Verifies the report generator skeleton still reports an unimplemented state.
     /// </summary>
     [Fact]
     public async Task GenerateAsync_ShouldReturnPlaceholderContent()

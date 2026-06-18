@@ -1,6 +1,6 @@
 using Ows.Core.Verification;
 
-namespace Ows.Reporting;
+namespace Ows.Core.Reporting;
 
 /// <summary>
 /// Describes the inputs required to generate an OWS report.

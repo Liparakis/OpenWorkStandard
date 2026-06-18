@@ -1,15 +1,15 @@
 using FluentAssertions;
-using Ows.Packaging;
+using Ows.Core.Packaging;
 
-namespace Ows.Packaging.Tests;
+namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests the package builder skeleton.
+/// Tests packaging types after consolidation into Ows.Core.
 /// </summary>
-public sealed class OwsPackageBuilderTests
+public sealed class PackagingNamespaceTests
 {
     /// <summary>
-    /// Verifies the current placeholder response.
+    /// Verifies the package builder skeleton still reports an unimplemented state.
     /// </summary>
     [Fact]
     public async Task CreatePackageAsync_ShouldReportNotImplemented()

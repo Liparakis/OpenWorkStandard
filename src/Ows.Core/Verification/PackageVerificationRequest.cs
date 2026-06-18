@@ -1,4 +1,4 @@
-namespace Ows.Verification;
+namespace Ows.Core.Verification;
 
 /// <summary>
 /// Describes the inputs required to verify an OWS package.

@@ -3,10 +3,10 @@
 ## System layers
 
 - `Ows.Core`: domain types, hashing, manifests, version graph, verification primitives, constants.
-- `Ows.Agent`: local tracking and file-watching shell for future event capture.
-- `Ows.Packaging`: package assembly boundary for `.owspkg`.
-- `Ows.Verification`: package validation and integrity review boundary.
-- `Ows.Reporting`: report rendering boundary for JSON, text, and HTML output.
+- `Ows.Core.Agent`: local tracking and file-watching shell for future event capture.
+- `Ows.Core.Packaging`: package assembly boundary for `.owspkg`.
+- `Ows.Core.Verification`: package validation and integrity review boundary.
+- `Ows.Core.Reporting`: report rendering boundary for JSON, text, and HTML output.
 - `Ows.Cli`: operator-facing entry point for the reference implementation.
 - `Ows.Desktop`: future Avalonia surface, intentionally unimplemented today.
 

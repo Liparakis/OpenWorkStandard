@@ -1,4 +1,4 @@
-namespace Ows.Agent;
+namespace Ows.Core.Agent;
 
 /// <summary>
 /// Configures the local tracking agent skeleton.

@@ -1,4 +1,4 @@
-namespace Ows.Packaging;
+namespace Ows.Core.Packaging;
 
 /// <summary>
 /// Defines the package creation contract for OWS submission archives.

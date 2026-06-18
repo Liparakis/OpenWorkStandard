@@ -1,4 +1,4 @@
-namespace Ows.Agent;
+namespace Ows.Core.Agent;
 
 /// <summary>
 /// Represents the outcome of a tracking agent operation.

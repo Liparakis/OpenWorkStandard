@@ -1,4 +1,4 @@
-namespace Ows.Reporting;
+namespace Ows.Core.Reporting;
 
 /// <summary>
 /// Provides the initial report generation skeleton.

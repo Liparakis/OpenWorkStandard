@@ -1,4 +1,4 @@
-namespace Ows.Reporting;
+namespace Ows.Core.Reporting;
 
 /// <summary>
 /// Defines report generation for verification outcomes.

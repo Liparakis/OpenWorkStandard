@@ -1,4 +1,4 @@
-namespace Ows.Reporting;
+namespace Ows.Core.Reporting;
 
 /// <summary>
 /// Represents the outcome of generating a report.

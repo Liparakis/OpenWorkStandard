@@ -1,4 +1,4 @@
-namespace Ows.Packaging;
+namespace Ows.Core.Packaging;
 
 /// <summary>
 /// Describes the inputs required to create an OWS package.

@@ -1,4 +1,4 @@
-namespace Ows.Agent;
+namespace Ows.Core.Agent;
 
 /// <summary>
 /// Describes the current lifecycle state of the local tracking agent skeleton.

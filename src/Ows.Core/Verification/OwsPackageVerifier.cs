@@ -1,6 +1,6 @@
 using Ows.Core.Verification;
 
-namespace Ows.Verification;
+namespace Ows.Core.Verification;
 
 /// <summary>
 /// Provides the initial package verification skeleton.

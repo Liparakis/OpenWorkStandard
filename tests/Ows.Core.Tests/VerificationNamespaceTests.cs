@@ -1,15 +1,15 @@
 using FluentAssertions;
-using Ows.Verification;
+using Ows.Core.Verification;
 
-namespace Ows.Verification.Tests;
+namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests the package verifier skeleton.
+/// Tests verification types after consolidation into Ows.Core.
 /// </summary>
-public sealed class OwsPackageVerifierTests
+public sealed class VerificationNamespaceTests
 {
     /// <summary>
-    /// Verifies the current placeholder response.
+    /// Verifies the package verifier skeleton still reports an unimplemented state.
     /// </summary>
     [Fact]
     public async Task VerifyAsync_ShouldReturnFailurePlaceholder()

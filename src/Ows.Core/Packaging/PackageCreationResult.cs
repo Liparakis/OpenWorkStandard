@@ -1,4 +1,4 @@
-namespace Ows.Packaging;
+namespace Ows.Core.Packaging;
 
 /// <summary>
 /// Represents the outcome of a package creation request.

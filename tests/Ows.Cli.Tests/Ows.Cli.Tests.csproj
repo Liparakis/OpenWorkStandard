@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ows.Cli\Ows.Cli.csproj" />
+    <ProjectReference Include="..\..\src\Ows.Core\Ows.Core.csproj" />
   </ItemGroup>
 
 </Project>

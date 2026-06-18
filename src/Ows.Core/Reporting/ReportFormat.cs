@@ -1,4 +1,4 @@
-namespace Ows.Reporting;
+namespace Ows.Core.Reporting;
 
 /// <summary>
 /// Identifies the supported report output formats.

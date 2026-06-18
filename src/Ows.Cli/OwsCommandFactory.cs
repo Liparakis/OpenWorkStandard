@@ -1,8 +1,8 @@
 using System.CommandLine;
-using Ows.Agent;
-using Ows.Packaging;
-using Ows.Reporting;
-using Ows.Verification;
+using Ows.Core.Agent;
+using Ows.Core.Packaging;
+using Ows.Core.Reporting;
+using Ows.Core.Verification;
 
 namespace Ows.Cli;
 
@@ -29,6 +29,10 @@ public static class OwsCommandFactory
         return rootCommand;
     }
 
+    /// <summary>
+    /// Builds the placeholder command for project initialization.
+    /// </summary>
+    /// <returns>The configured <c>init</c> command.</returns>
     private static Command BuildInitCommand()
     {
         var command = new Command("init", "Initialize local OWS tracking metadata for a project.");
@@ -42,6 +46,10 @@ public static class OwsCommandFactory
         return command;
     }
 
+    /// <summary>
+    /// Builds the placeholder command for starting local tracking.
+    /// </summary>
+    /// <returns>The configured <c>watch</c> command.</returns>
     private static Command BuildWatchCommand()
     {
         var command = new Command("watch", "Start the local tracking agent skeleton.");
@@ -56,6 +64,10 @@ public static class OwsCommandFactory
         return command;
     }
 
+    /// <summary>
+    /// Builds the placeholder command for package creation.
+    /// </summary>
+    /// <returns>The configured <c>package</c> command.</returns>
     private static Command BuildPackageCommand()
     {
         var command = new Command("package", "Create an OWS submission package.");
@@ -70,6 +82,10 @@ public static class OwsCommandFactory
         return command;
     }
 
+    /// <summary>
+    /// Builds the placeholder command for package verification.
+    /// </summary>
+    /// <returns>The configured <c>verify</c> command.</returns>
     private static Command BuildVerifyCommand()
     {
         var command = new Command("verify", "Verify an OWS submission package.");
@@ -84,6 +100,10 @@ public static class OwsCommandFactory
         return command;
     }
 
+    /// <summary>
+    /// Builds the placeholder command for report generation.
+    /// </summary>
+    /// <returns>The configured <c>report</c> command.</returns>
     private static Command BuildReportCommand()
     {
         var command = new Command("report", "Generate an OWS verification report.");

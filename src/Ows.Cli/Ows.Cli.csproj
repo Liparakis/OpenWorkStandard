@@ -2,10 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ows.Core\Ows.Core.csproj" />
-    <ProjectReference Include="..\Ows.Agent\Ows.Agent.csproj" />
-    <ProjectReference Include="..\Ows.Packaging\Ows.Packaging.csproj" />
-    <ProjectReference Include="..\Ows.Verification\Ows.Verification.csproj" />
-    <ProjectReference Include="..\Ows.Reporting\Ows.Reporting.csproj" />
   </ItemGroup>
 
   <ItemGroup>

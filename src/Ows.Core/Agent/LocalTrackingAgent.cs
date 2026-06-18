@@ -1,7 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 
-namespace Ows.Agent;
+namespace Ows.Core.Agent;
 
 /// <summary>
 /// Provides the initial local tracking agent skeleton for future file watching work.

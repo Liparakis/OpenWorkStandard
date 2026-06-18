@@ -23,14 +23,11 @@ dotnet run --project src/Ows.Cli -- --help
 
 ## Repository structure
 
-- `src/Ows.Core`: shared domain models, hashing, graph primitives, constants, manifest types.
+- `src/Ows.Core`: shared domain models plus agent, packaging, verification, and reporting namespaces.
 - `src/Ows.Cli`: command-line entry point and placeholder commands.
-- `src/Ows.Agent`: local tracking and file watching skeleton.
-- `src/Ows.Packaging`: `.owspkg` creation skeleton.
-- `src/Ows.Verification`: package verification skeleton.
-- `src/Ows.Reporting`: JSON/text/HTML report generation skeleton.
 - `src/Ows.Desktop`: placeholder project for a future Avalonia UI.
-- `tests/*`: xUnit test projects covering current behavior.
+- `tests/Ows.Core.Tests`: xUnit coverage for core behavior and collapsed MVP service skeletons.
+- `tests/Ows.Cli.Tests`: xUnit coverage for command construction.
 - `docs`: specification, architecture, privacy, security, package format, CLI, and glossary.
 - `samples/sample-project`: tiny sample tree used for demos and future integration tests.
 
