@@ -170,6 +170,15 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             }
         }
 
+        var declaredArtifactPaths = manifest.ArtifactHashes.Keys.ToHashSet(StringComparer.Ordinal);
+        foreach (var artifactEntry in archive.Entries.Where(entry => entry.FullName.StartsWith("artifacts/", StringComparison.Ordinal)))
+        {
+            if (!declaredArtifactPaths.Contains(artifactEntry.FullName))
+            {
+                errors.Add($"Unexpected artifact entry not declared in manifest: {artifactEntry.FullName}");
+            }
+        }
+
         foreach (var artifact in manifest.ArtifactHashes)
         {
             var artifactEntry = archive.GetEntry(artifact.Key);

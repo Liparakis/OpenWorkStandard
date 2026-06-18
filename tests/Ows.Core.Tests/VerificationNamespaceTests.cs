@@ -297,6 +297,54 @@ public sealed class VerificationNamespaceTests
     }
 
     /// <summary>
+    /// Verifies that undeclared artifact entries fail verification.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenUnexpectedArtifactEntryExists()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-verify-extra-artifact-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(projectRoot);
+        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "original");
+        var localFolder = Path.Combine(projectRoot, ".ows");
+        Directory.CreateDirectory(localFolder);
+        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+        var packagePath = Path.Combine(projectRoot, "submission.owspkg");
+
+        try
+        {
+            var builder = new OwsPackageBuilder();
+            await builder.CreatePackageAsync(
+                new PackageCreationRequest
+                {
+                    ProjectRootPath = projectRoot,
+                    OutputPackagePath = packagePath
+                },
+                CancellationToken.None);
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update))
+            {
+                WriteEntry(archive, "artifacts/extra.txt", "surprise");
+            }
+
+            var verifier = new OwsPackageVerifier();
+
+            var result = await verifier.VerifyAsync(
+                new PackageVerificationRequest { PackagePath = packagePath },
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.Errors.Should().Contain(error => error.Contains("unexpected artifact", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Writes a text entry into the target archive for test setup.
     /// </summary>
     /// <param name="archive">The archive to update.</param>
