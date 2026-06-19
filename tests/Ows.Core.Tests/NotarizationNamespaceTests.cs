@@ -143,4 +143,72 @@ public sealed class NotarizationNamespaceTests
             }
         }
     }
+
+    /// <summary>
+    /// Verifies that the in-memory service issues receipts into a valid chain.
+    /// </summary>
+    [Fact]
+    public void SubmitCheckpoint_ShouldAppendReceiptToSessionChain()
+    {
+        var service = new InMemoryReceiptService();
+        var sessionId = service.StartSession();
+
+        var firstReceipt = service.SubmitCheckpoint(new Checkpoint
+        {
+            SessionId = sessionId,
+            SequenceNumber = 1,
+            TimelineHeadHash = "head-1"
+        });
+        var secondReceipt = service.SubmitCheckpoint(new Checkpoint
+        {
+            SessionId = sessionId,
+            SequenceNumber = 2,
+            TimelineHeadHash = "head-2"
+        });
+        var chain = service.GetReceiptChain(sessionId);
+
+        firstReceipt.SequenceNumber.Should().Be(1);
+        secondReceipt.PreviousReceiptHash.Should().Be(firstReceipt.ReceiptHash);
+        chain.Receipts.Should().HaveCount(2);
+        ReceiptChainVerifier.IsValid(chain).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Verifies that checkpoints for unknown sessions are rejected.
+    /// </summary>
+    [Fact]
+    public void SubmitCheckpoint_ShouldRejectUnknownSession()
+    {
+        var service = new InMemoryReceiptService();
+
+        var act = () => service.SubmitCheckpoint(new Checkpoint
+        {
+            SessionId = AssessmentSessionId.Create(),
+            SequenceNumber = 1,
+            TimelineHeadHash = "head-1"
+        });
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("Unknown assessment session*");
+    }
+
+    /// <summary>
+    /// Verifies that out-of-order checkpoint sequences are rejected.
+    /// </summary>
+    [Fact]
+    public void SubmitCheckpoint_ShouldRejectOutOfOrderSequence()
+    {
+        var service = new InMemoryReceiptService();
+        var sessionId = service.StartSession();
+
+        var act = () => service.SubmitCheckpoint(new Checkpoint
+        {
+            SessionId = sessionId,
+            SequenceNumber = 2,
+            TimelineHeadHash = "head-2"
+        });
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("Checkpoint sequence 2 is invalid*Expected 1.");
+    }
 }
