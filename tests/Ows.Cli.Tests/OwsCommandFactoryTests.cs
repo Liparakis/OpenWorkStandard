@@ -18,6 +18,6 @@ public sealed class OwsCommandFactoryTests
         var rootCommand = OwsCommandFactory.BuildRootCommand();
 
         rootCommand.Subcommands.Select(command => command.Name).Should().BeEquivalentTo(
-            ["init", "watch", "package", "verify", "report"]);
+            ["init", "session", "watch", "package", "verify", "report"]);
     }
 }

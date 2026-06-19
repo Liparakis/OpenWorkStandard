@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core;
 using Ows.Core.Agent;
@@ -23,6 +24,7 @@ public static class OwsCommandFactory
         var rootCommand = new RootCommand("Open Work Standard command-line interface")
         {
             BuildInitCommand(),
+            BuildSessionCommand(),
             BuildWatchCommand(),
             BuildPackageCommand(),
             BuildVerifyCommand(),
@@ -45,6 +47,54 @@ public static class OwsCommandFactory
             var initializer = new OwsProjectInitializer();
             var result = initializer.Initialize(Directory.GetCurrentDirectory());
             Console.WriteLine($"OWS initialized at {result.LocalFolderPath}");
+            return Task.FromResult(0);
+        });
+
+        return command;
+    }
+
+    /// <summary>
+    /// Builds the command group for local session and checkpoint operations.
+    /// </summary>
+    /// <returns>The configured <c>session</c> command.</returns>
+    private static Command BuildSessionCommand()
+    {
+        var command = new Command("session", "Manage local OWS session state.");
+        command.Subcommands.Add(BuildSessionStartCommand());
+        command.Subcommands.Add(BuildCheckpointCommand());
+        return command;
+    }
+
+    /// <summary>
+    /// Builds the command for starting a local session.
+    /// </summary>
+    /// <returns>The configured <c>session start</c> command.</returns>
+    private static Command BuildSessionStartCommand()
+    {
+        var command = new Command("start", "Start a local OWS assessment session.");
+        command.SetAction(parseResult =>
+        {
+            _ = parseResult;
+            var sessionId = OwsSessionStore.StartSession(Directory.GetCurrentDirectory());
+            Console.WriteLine($"OWS session started: {sessionId}");
+            return Task.FromResult(0);
+        });
+
+        return command;
+    }
+
+    /// <summary>
+    /// Builds the command for checkpointing the current timeline head locally.
+    /// </summary>
+    /// <returns>The configured <c>checkpoint</c> command.</returns>
+    private static Command BuildCheckpointCommand()
+    {
+        var command = new Command("checkpoint", "Issue a local receipt for the current timeline head.");
+        command.SetAction(parseResult =>
+        {
+            _ = parseResult;
+            var receipt = OwsSessionStore.AddCheckpoint(Directory.GetCurrentDirectory());
+            Console.WriteLine($"OWS checkpoint recorded: {receipt.ReceiptHash}");
             return Task.FromResult(0);
         });
 
@@ -161,7 +211,7 @@ public static class OwsCommandFactory
                 CancellationToken.None);
 
             var reportPath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}.report.txt");
-            File.WriteAllText(reportPath, reportResult.Content);
+            await File.WriteAllTextAsync(reportPath, reportResult.Content);
             Console.WriteLine($"OWS report created at {reportPath}");
             return 0;
         });
