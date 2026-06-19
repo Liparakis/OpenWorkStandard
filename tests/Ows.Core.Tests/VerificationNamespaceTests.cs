@@ -52,7 +52,7 @@ public sealed class VerificationNamespaceTests
         result.IsSuccess.Should().BeTrue();
         result.TrustStatus.Should().Be(TrustStatus.Unverified);
         result.Errors.Should().BeEmpty();
-        result.Findings.Should().ContainSingle(finding => finding.Code == "remote-receipts-missing");
+        result.Findings.Should().Contain(finding => finding.Code == "receipt.chain.missing");
         }
         finally
         {
@@ -115,7 +115,8 @@ public sealed class VerificationNamespaceTests
 
             result.IsSuccess.Should().BeTrue();
             result.TrustStatus.Should().Be(TrustStatus.Verified);
-            result.Findings.Should().BeEmpty();
+            result.Findings.Should().Contain(finding => finding.Code == "timeline.chain.valid");
+            result.Findings.Should().Contain(finding => finding.Code == "receipt.chain.valid");
         }
         finally
         {
@@ -308,7 +309,7 @@ public sealed class VerificationNamespaceTests
 
             result.IsSuccess.Should().BeTrue();
             result.TrustStatus.Should().Be(TrustStatus.Unverified);
-            result.Findings.Should().Contain(finding => finding.Code == "remote-receipts-not-packaged");
+            result.Findings.Should().Contain(finding => finding.Code == "receipt.chain.missing");
         }
         finally
         {
@@ -948,7 +949,7 @@ public sealed class VerificationNamespaceTests
 
             var verifier = new OwsPackageVerifier();
 
-            // Case A: Short lease gap (e.g., 120 seconds, limit is 300) -> Degraded + session-gap-short
+            // Case A: Short lease gap (e.g., 120 seconds, limit is 300) -> Degraded + lease.gap.short
             {
                 var request = new PackageVerificationRequest
                 {
@@ -968,10 +969,10 @@ public sealed class VerificationNamespaceTests
                 var result = await verifier.VerifyAsync(request, CancellationToken.None);
                 result.IsSuccess.Should().BeTrue();
                 result.TrustStatus.Should().Be(TrustStatus.Degraded);
-                result.Findings.Should().Contain(f => f.Code == "session-gap-short");
+                result.Findings.Should().Contain(f => f.Code == "lease.gap.short");
             }
 
-            // Case B: Significant lease gap (e.g., 600 seconds, limit is 300) -> Unverified + session-gap-significant
+            // Case B: Significant lease gap (e.g., 600 seconds, limit is 300) -> Unverified + lease.gap.long
             {
                 var request = new PackageVerificationRequest
                 {
@@ -991,10 +992,10 @@ public sealed class VerificationNamespaceTests
                 var result = await verifier.VerifyAsync(request, CancellationToken.None);
                 result.IsSuccess.Should().BeTrue();
                 result.TrustStatus.Should().Be(TrustStatus.Unverified);
-                result.Findings.Should().Contain(f => f.Code == "session-gap-significant");
+                result.Findings.Should().Contain(f => f.Code == "lease.gap.long");
             }
 
-            // Case C: Work after lease expiration (short delay e.g., 10 seconds) -> Degraded + work-after-lease-expiration
+            // Case C: Work after lease expiration (short delay e.g., 10 seconds) -> Degraded + lease.work_after_expiration
             {
                 var request = new PackageVerificationRequest
                 {
@@ -1013,10 +1014,10 @@ public sealed class VerificationNamespaceTests
                 var result = await verifier.VerifyAsync(request, CancellationToken.None);
                 result.IsSuccess.Should().BeTrue();
                 result.TrustStatus.Should().Be(TrustStatus.Degraded);
-                result.Findings.Should().Contain(f => f.Code == "work-after-lease-expiration");
+                result.Findings.Should().Contain(f => f.Code == "lease.work_after_expiration");
             }
 
-            // Case D: Work after lease expiration (long delay e.g., 600 seconds) -> Unverified + work-after-lease-expiration
+            // Case D: Work after lease expiration (long delay e.g., 600 seconds) -> Unverified + lease.work_after_expiration
             {
                 var request = new PackageVerificationRequest
                 {
@@ -1035,7 +1036,7 @@ public sealed class VerificationNamespaceTests
                 var result = await verifier.VerifyAsync(request, CancellationToken.None);
                 result.IsSuccess.Should().BeTrue();
                 result.TrustStatus.Should().Be(TrustStatus.Unverified);
-                result.Findings.Should().Contain(f => f.Code == "work-after-lease-expiration");
+                result.Findings.Should().Contain(f => f.Code == "lease.work_after_expiration");
             }
         }
         finally

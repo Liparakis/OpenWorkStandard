@@ -4,7 +4,7 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Improve professor-facing review reports to clearly display session lease continuity status, gap findings, and trust grading explanations.
+Validate cold-start from clean clones and package verification in restricted environment runtimes.
 
 ## 1. Current MVP Status
 
@@ -85,7 +85,7 @@ Improve professor-facing review reports to clearly display session lease continu
 
 - [x] Basic text report output
 - [x] JSON report output
-- [ ] Rich professor review report - Status: Partial
+- [x] Rich professor review report
 - [x] Better degraded-state review guidance
 
 ## 9. Security, Threat Model, and Privacy

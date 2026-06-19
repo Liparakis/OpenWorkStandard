@@ -27,18 +27,17 @@ public sealed class ReportingNamespaceTests
             CancellationToken.None);
 
         result.Format.Should().Be(ReportFormat.Text);
-        result.Content.Should().Contain("Status: Success");
-        result.Content.Should().Contain("Trust: Unverified");
+        result.Content.Should().Contain("Status: Unverified");
         result.Content.Should().Contain("OWS verify succeeded.");
         result.Content.Should().Contain("Findings:");
-        result.Content.Should().Contain("Review Signals:");
+        result.Content.Should().Contain("Verification Scope:");
     }
 
     /// <summary>
-    /// Verifies that the text report surfaces findings and review signals for human review.
+    /// Verifies that the text report surfaces findings for human review.
     /// </summary>
     [Fact]
-    public async Task GenerateAsync_ShouldIncludeFindingsAndReviewSignalsInTextReport()
+    public async Task GenerateAsync_ShouldIncludeFindingsInTextReport()
     {
         var generator = new OwsReportGenerator();
 
@@ -53,28 +52,21 @@ public sealed class ReportingNamespaceTests
                     [
                         new VerificationFinding
                         {
-                            Code = "remote-receipts-missing",
-                            Title = "Remote receipts missing",
-                            Detail = "No remote receipts were packaged."
-                        }
-                    ],
-                    reviewSignals:
-                    [
-                        new ReviewSignal
-                        {
-                            SignalType = ReviewSignalType.MissingHistory,
-                            Title = "Missing history interval",
-                            Detail = "A capture gap requires human review.",
-                            Severity = 3
+                            Code = "receipt.chain.missing",
+                            Severity = "Medium",
+                            Title = "Receipt chain missing",
+                            Detail = "No remote receipts were packaged.",
+                            TechnicalDetail = "No receipts found.",
+                            ReviewerAction = "Verify local-only mode."
                         }
                     ])
             },
             CancellationToken.None);
 
-        result.Content.Should().Contain("Remote receipts missing (remote-receipts-missing)");
-        result.Content.Should().Contain("No remote receipts were packaged.");
-        result.Content.Should().Contain("Missing history interval [MissingHistory] severity 3");
-        result.Content.Should().Contain("A capture gap requires human review.");
+        result.Content.Should().Contain("[Medium] receipt.chain.missing");
+        result.Content.Should().Contain("Receipt chain missing: No remote receipts were packaged.");
+        result.Content.Should().Contain("Suggested Action: Verify local-only mode.");
+        result.Content.Should().Contain("Technical Details: No receipts found.");
     }
 
     /// <summary>
@@ -95,12 +87,8 @@ public sealed class ReportingNamespaceTests
 
         using var document = JsonDocument.Parse(result.Content);
         result.Format.Should().Be(ReportFormat.Json);
-        document.RootElement.GetProperty("status").GetString().Should().Be("Success");
-        document.RootElement.GetProperty("trust").GetString().Should().Be("Verified");
+        document.RootElement.GetProperty("status").GetString().Should().Be("Verified");
         document.RootElement.GetProperty("summary").GetString().Should().Be("OWS verify succeeded.");
-        document.RootElement.GetProperty("errors").EnumerateArray().Should().ContainSingle()
-            .Which.GetString().Should().Be("None");
         document.RootElement.GetProperty("findings").EnumerateArray().Should().BeEmpty();
-        document.RootElement.GetProperty("reviewSignals").EnumerateArray().Should().BeEmpty();
     }
 }
