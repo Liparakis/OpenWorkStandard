@@ -58,6 +58,7 @@ It is not a real institutional trust boundary because:
 - `POST /packages` registers package metadata for packages already stored in object storage
 - package metadata registration supports `Idempotency-Key` retries
 - package metadata captures the current verifier session head when `sessionId` is supplied
+- duplicate package object registrations must match the original metadata exactly
 - `GET /packages/{id}` returns registered package metadata by durable submission ID
 
 ## Intended Durable Backend

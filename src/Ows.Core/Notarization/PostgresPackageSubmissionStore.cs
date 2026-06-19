@@ -71,8 +71,7 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
         var existing = await TryGetExistingAsync(connection, request, cancellationToken);
         if (existing is not null)
         {
-            if (!string.Equals(existing.PackageSha256, request.PackageSha256, StringComparison.OrdinalIgnoreCase) ||
-                existing.PackageSizeBytes != request.PackageSizeBytes)
+            if (!MatchesRequest(existing, request))
             {
                 throw new InvalidOperationException("Package object is already registered with different metadata.");
             }
