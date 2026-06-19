@@ -145,7 +145,10 @@ That script checks:
 - receipt-chain fetch
 - head fetch
 
-Use `doctor-local-verifier` when you want a read-only preflight check before starting anything. It reports missing `dotnet`, missing Docker CLI, missing build output, PostgreSQL reachability, and current verifier state.
+Use `validate-local-verifier.ps1` (or `validate-local-verifier.sh` on Unix/macOS) when you want a comprehensive read-only environmental preflight check before starting anything. It diagnostics-checks .NET SDK, Docker, PostgreSQL reachability, verifier port binds, health/readiness endpoints, API keys, paths containing spaces, PowerShell Execution Policies, and non-admin shell warnings.
+
+Refer to [LOCAL_DEMO.md](LOCAL_DEMO.md) for a detailed, step-by-step local validation guide, and [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for a complete troubleshooting diagnostics matrix.
+
 
 ## Environment Modes and Production Hardening
 

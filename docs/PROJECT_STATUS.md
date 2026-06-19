@@ -211,7 +211,7 @@ PostgreSQL setup model today:
 Local verifier dev flow today:
 
 - `docker-compose.local.yml` starts PostgreSQL using `D:\Containers\OWS\postgres\data`
-- `scripts/doctor-local-verifier.ps1` performs a read-only local verifier preflight check
+- `scripts/doctor-local-verifier.ps1` and `scripts/validate-local-verifier.ps1` / `.sh` perform read-only local environment diagnostics and preflight checks
 - `scripts/run-local-verifier.ps1` runs PostgreSQL, migrations, and the verifier in the foreground
 - `scripts/start-local-verifier.ps1`, `status-local-verifier.ps1`, `logs-local-verifier.ps1`, and `stop-local-verifier.ps1` provide background lifecycle helpers on Windows
 - `scripts/test-local-verifier.ps1` performs a direct API smoke check
@@ -315,14 +315,10 @@ Net result:
 
 The main missing pieces are:
 
-- heartbeat and lease model for the watcher
 - platform-specific hosts for VS Code, Rider, and desktop
-- cold-start and operator validation of the local verifier helper scripts across more environments
 - multi-instance verifier deployment model
-- server-side package submission and verification
-- richer degraded-policy handling
-- stronger human review reports
 - desktop UI beyond placeholder state
+- multi-tenant education models (institutions, courses, classes, students)
 
 ## Reality Check
 
@@ -333,6 +329,7 @@ What is solid:
 - command/test discipline
 - small, coherent project structure
 - local verifier storage seam and local dev ergonomics
+- comprehensive environment diagnostics and troubleshooting procedures
 
 What is still weak:
 
@@ -348,10 +345,9 @@ The weakest assumption to avoid: thinking the current verifier server is already
 
 Best next steps, in order:
 
-1. harden the local verifier helper lifecycle across restricted environments and confirm cold-start behavior end to end
-2. keep the verifier API narrow and boring while hardening storage semantics
-3. add a minimal package-submission or package-anchor path only after storage is durable
-4. defer IDE plugins and background hosts until the watcher lifecycle is clearer
+1. Define the multi-tenant education domain models (institutions, courses, classes).
+2. Build production-grade deployment packaging (Docker Compose or Helm charts) for self-hosting.
+3. Defer IDE plugins and background hosts until the education models and watcher lifecycle are clear.
 
 ## Bottom Line
 

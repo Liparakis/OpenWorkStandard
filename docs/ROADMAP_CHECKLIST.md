@@ -4,7 +4,7 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Validate cold-start from clean clones and package verification in restricted environment runtimes.
+Introduce multi-tenant educational domain models (institutions, courses, classes) to Ows.Core.
 
 ## 1. Current MVP Status
 
@@ -23,8 +23,8 @@ Validate cold-start from clean clones and package verification in restricted env
 - [x] End-to-end local demo path exists
 - [x] Local PostgreSQL verifier smoke testing
 - [x] Local verifier helper scripts
-- [ ] Cold-start from a clean clone needs more operator validation - Status: Partial
-- [ ] Demo path in restricted environments needs more validation
+- [x] Cold-start from a clean clone validated and documented
+- [x] Demo path in restricted environments validated and documented
 
 ## 3. Local Verifier Dev Loop
 
@@ -38,7 +38,7 @@ Validate cold-start from clean clones and package verification in restricted env
 - [x] Verifier stop helper
 - [x] Local verifier helpers respect optional API key guard
 - [x] Local verifier smoke test covers package metadata path
-- [ ] Local dev loop exists but still needs cold-start and restricted-environment hardening - Status: Partial
+- [x] Local dev loop cold-start and restricted-environment validated
 
 ## 4. Core Protocol and Package Format
 
