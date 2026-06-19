@@ -4,7 +4,7 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Introduce multi-tenant educational domain models (institutions, courses, classes) to Ows.Core.
+Establish database persistence and verifier API endpoints for educational domain models.
 
 ## 1. Current MVP Status
 
@@ -98,9 +98,9 @@ Introduce multi-tenant educational domain models (institutions, courses, classes
 ## 10. Deployment and Self-Hosting
 
 - [x] Local Docker and PostgreSQL dev path
-- [ ] Deployment exists only for local Docker/PostgreSQL today - Status: Partial
+- [x] Deployment supports local Docker/PostgreSQL and production Docker Compose
 - [x] Verifier server Docker image
-- [ ] Production Compose or Helm packaging
+- [x] Production Compose packaging
 - [x] Self-hosting operator guide
 
 ## 11. Multi-Tenant Education Model

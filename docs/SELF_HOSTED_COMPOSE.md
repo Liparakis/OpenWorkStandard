@@ -1,0 +1,116 @@
+# Self-Hosting with Docker Compose
+
+This guide explains how to deploy the Open Work Standard (OWS) verifier server in a self-hosted environment using Docker Compose. This deployment model is designed for pilot programs and local institutional testing.
+
+---
+
+## Architecture Overview
+
+The Compose stack packages two core components:
+1. **`postgres`**: A PostgreSQL 17 database service using a persistent named volume (`ows-postgres-data-prod`) for durable notarization storage.
+2. **`ows-verifier`**: The ASP.NET Core OWS Verifier Web API service, running on port `8080` internally and mounting a named volume (`ows-verifier-package-data`) for secure package submission file storage.
+
+---
+
+## 1. Prerequisites
+
+Before starting, ensure the host system has:
+- **Docker** (v20.10 or newer)
+- **Docker Compose** (v2.0 or newer)
+- Port **5078** free on the host network (or customizable in `.env`)
+- Port **5432** free on the host network (if PostgreSQL is exposed externally)
+
+---
+
+## 2. Configuration (`.env`)
+
+1. Navigate to the compose directory:
+   ```bash
+   cd deploy/compose
+   ```
+2. Copy the environment template file:
+   ```bash
+   cp .env.example .env
+   ```
+3. Edit the `.env` file to customize your configurations. Make sure to set strong, private secrets:
+
+> [!IMPORTANT]
+> **Production Key Enforcement**: When `VerifierEnvironment` is set to `Production`, the verifier will execute startup preflight checks and abort immediately if weak configurations or default keys are detected.
+> Ensure that both `VerifierSecurity__ApiKey` and `VerifierSecurity__SigningKey` are at least 16 characters long.
+
+---
+
+## 3. Starting the Stack
+
+Build the OWS verifier Docker image locally if you haven't already:
+```bash
+docker build -t ows-verifier:latest -f src/Ows.Verifier.Server/Dockerfile .
+```
+
+Start the containers in detached (background) mode:
+```bash
+docker compose up -d
+```
+
+### Run Migrations
+On the initial start, execute the database migration tool inside the verifier container:
+```bash
+docker compose exec ows-verifier dotnet Ows.Verifier.Server.dll migrate
+```
+
+---
+
+## 4. Health and Observability Checks
+
+Verify the system is running and database connections are healthy:
+
+### 1. `/health` Endpoint
+Confirms the ASP.NET Core web server is online:
+```bash
+curl -f http://localhost:5078/health
+# Returns: { "status": "Healthy" }
+```
+
+### 2. `/ready` Endpoint
+Checks DB reachability and receipt signing key validation:
+```bash
+curl -f http://localhost:5078/ready
+# Returns: { "status": "Healthy" } (or HTTP 503 if DB is unreachable)
+```
+
+### 3. Read Container Logs
+To inspect verifier logs in real time:
+```bash
+docker compose logs -f ows-verifier
+```
+
+---
+
+## 5. Security Warnings and Best Practices
+
+> [!CAUTION]
+> **Production Deployment Hardening Checklist**:
+> 1. **TLS / HTTPS Termination**: The OWS Verifier does NOT handle TLS termination natively in the container. **You must run a reverse proxy (e.g. Nginx, Traefik, Caddy, or an AWS ALB) in front of the Compose stack to enforce HTTPS.**
+> 2. **Secret Privacy**: Never commit the `.env` file to version control.
+> 3. **API Key Guard limits**: The shared-key API guard (`VerifierSecurity__ApiKey`) acts as a basic trust boundary to prevent unauthorized scans. It does not replace full OAuth/OIDC authentication or fine-grained RBAC.
+> 4. **No Dev Keys**: Double-check that dev-mode default signing keys are not active in production environments.
+
+---
+
+## 6. Backups and Upgrades
+
+### Database Backup
+The PostgreSQL database stores all notarized session heads and checkpoints. Back up the PostgreSQL named volume by copying the raw files or using `pg_dump`:
+```bash
+docker compose exec -t postgres pg_dump -U ows -d ows_verifier > ows_backup_$(date +%F).sql
+```
+
+### Package Storage Backup
+Submitted student `.owspkg` package archives are stored in the named volume configured under `VerifierStorage__LocalStoragePath`. If you configured OWS to retain package submissions, ensure you back up the volume directory files.
+
+### Upgrades
+To upgrade to a new release:
+1. Pull or build the latest `ows-verifier` image.
+2. Stop the current stack: `docker compose down`.
+3. Restart the stack: `docker compose up -d`.
+4. Rerun migrations: `docker compose exec ows-verifier dotnet Ows.Verifier.Server.dll migrate`.
