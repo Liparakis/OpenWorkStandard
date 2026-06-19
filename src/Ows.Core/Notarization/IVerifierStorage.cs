@@ -45,6 +45,20 @@ public interface IVerifierStorage
     Task<SessionHeadResponse> GetHeadAsync(AssessmentSessionId sessionId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Records a session heartbeat, updating lease and checking for continuity gaps.
+    /// </summary>
+    /// <param name="sessionId">The verifier session identifier.</param>
+    /// <param name="lastKnownEventHash">The last known event head hash reported by the client, when available.</param>
+    /// <param name="leaseDuration">The duration of the lease extension.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The updated verifier session record.</returns>
+    Task<VerifierSessionRecord> RecordHeartbeatAsync(
+        AssessmentSessionId sessionId,
+        string? lastKnownEventHash,
+        TimeSpan leaseDuration,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Eagerly initializes storage resources (e.g. running migrations or loading snapshot).
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>

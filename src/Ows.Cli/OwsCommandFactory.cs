@@ -65,6 +65,7 @@ public static class OwsCommandFactory
         var command = new Command("session", "Manage local OWS session state.");
         command.Subcommands.Add(BuildSessionStartCommand());
         command.Subcommands.Add(BuildCheckpointCommand());
+        command.Subcommands.Add(BuildSessionHeartbeatCommand());
         return command;
     }
 
@@ -106,6 +107,31 @@ public static class OwsCommandFactory
             var receipt =
                 await OwsSessionStore.AddCheckpointAsync(Directory.GetCurrentDirectory(), CancellationToken.None);
             Console.WriteLine($"OWS checkpoint recorded: {receipt.ReceiptHash}");
+            return 0;
+        });
+
+        return command;
+    }
+
+    /// <summary>
+    /// Builds the command for sending a heartbeat for the active session.
+    /// </summary>
+    /// <returns>The configured <c>heartbeat</c> command.</returns>
+    private static Command BuildSessionHeartbeatCommand()
+    {
+        var command = new Command("heartbeat", "Send a heartbeat to the verifier for the active session.");
+        var serverOption = new Option<string?>("--server")
+        {
+            Description = "Override the verifier base URL for the heartbeat."
+        };
+        command.Options.Add(serverOption);
+        command.SetAction(async parseResult =>
+        {
+            await OwsSessionStore.SendHeartbeatAsync(
+                Directory.GetCurrentDirectory(),
+                parseResult.GetValue(serverOption),
+                CancellationToken.None);
+            Console.WriteLine("OWS session heartbeat sent successfully.");
             return 0;
         });
 

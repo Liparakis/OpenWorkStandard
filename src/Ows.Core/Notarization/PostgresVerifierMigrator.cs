@@ -97,6 +97,16 @@ public static class PostgresVerifierMigrator
                                                                         add column if not exists verification_result_json text null;
                                                                     """;
 
+    private const string Migration006SessionLeasesSql = """
+                                                        alter table verifier_sessions
+                                                            add column if not exists last_heartbeat_at timestamptz null,
+                                                            add column if not exists lease_expires_at timestamptz null,
+                                                            add column if not exists last_known_event_hash text null,
+                                                            add column if not exists has_lease_gap boolean not null default false,
+                                                            add column if not exists max_lease_gap_seconds integer not null default 0,
+                                                            add column if not exists first_lease_gap_at timestamptz null;
+                                                        """;
+
     /// <summary>
     /// Applies any missing ordered verifier schema migrations using a fresh data source.
     /// </summary>
@@ -150,7 +160,8 @@ public static class PostgresVerifierMigrator
         new(2, "package-submissions", Migration002PackageSubmissionsSql),
         new(3, "package-session-anchors", Migration003PackageSessionAnchorsSql),
         new(4, "package-idempotency", Migration004PackageIdempotencySql),
-        new(5, "package-verification-results", Migration005PackageVerificationResultSql)
+        new(5, "package-verification-results", Migration005PackageVerificationResultSql),
+        new(6, "session-leases", Migration006SessionLeasesSql)
     ];
 
     /// <summary>

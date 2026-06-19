@@ -39,11 +39,16 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
         lock (_gate)
         {
             var sessionId = _receiptService.StartSession();
+            var now = DateTimeOffset.UtcNow;
             var sessionRecord = new VerifierSessionRecord
             {
                 Id = sessionId,
                 HeadReceiptHash = ReceiptChainVerifier.GenesisPreviousReceiptHash,
-                HeadEventHash = Events.OwsEventChain.GenesisPreviousEventHash
+                HeadEventHash = Events.OwsEventChain.GenesisPreviousEventHash,
+                LastHeartbeatAt = now,
+                LeaseExpiresAt = now.Add(TimeSpan.FromSeconds(120)),
+                HasLeaseGap = false,
+                MaxLeaseGapSeconds = 0
             };
             _sessions.Add(sessionId, sessionRecord);
             SaveToDisk();
@@ -102,12 +107,32 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
                 return Task.FromResult(existingReceipt);
             }
 
+            var now = DateTimeOffset.UtcNow;
+            var leaseDuration = TimeSpan.FromSeconds(120);
+
+            DateTimeOffset? firstLeaseGapAt = session.FirstLeaseGapAt;
+            var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
+            var hasLeaseGap = session.HasLeaseGap;
+
+            if (session.LeaseExpiresAt.HasValue && now > session.LeaseExpiresAt.Value)
+            {
+                hasLeaseGap = true;
+                var gapSeconds = (int)(now - session.LeaseExpiresAt.Value).TotalSeconds;
+                maxLeaseGapSeconds = Math.Max(maxLeaseGapSeconds, gapSeconds);
+                firstLeaseGapAt ??= session.LeaseExpiresAt.Value;
+            }
+
             var receipt = _receiptService.SubmitCheckpoint(checkpoint);
             _sessions[checkpoint.SessionId] = _sessions[checkpoint.SessionId] with
             {
                 HeadReceiptHash = receipt.ReceiptHash,
                 HeadEventHash = receipt.TimelineHeadHash,
-                CheckpointCount = receipt.SequenceNumber
+                CheckpointCount = receipt.SequenceNumber,
+                LastHeartbeatAt = now,
+                LeaseExpiresAt = now.Add(leaseDuration),
+                HasLeaseGap = hasLeaseGap,
+                MaxLeaseGapSeconds = maxLeaseGapSeconds,
+                FirstLeaseGapAt = firstLeaseGapAt
             };
             RememberIdempotencyKey(checkpoint);
             SaveToDisk();
@@ -142,6 +167,48 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
                 LastTimelineHeadHash = session.HeadEventHash,
                 LastReceiptHash = session.HeadReceiptHash
             });
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<VerifierSessionRecord> RecordHeartbeatAsync(
+        AssessmentSessionId sessionId,
+        string? lastKnownEventHash,
+        TimeSpan leaseDuration,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_gate)
+        {
+            var session = GetRequiredSession(sessionId);
+            var now = DateTimeOffset.UtcNow;
+
+            DateTimeOffset? firstLeaseGapAt = session.FirstLeaseGapAt;
+            var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
+            var hasLeaseGap = session.HasLeaseGap;
+
+            if (session.LeaseExpiresAt.HasValue && now > session.LeaseExpiresAt.Value)
+            {
+                hasLeaseGap = true;
+                var gapSeconds = (int)(now - session.LeaseExpiresAt.Value).TotalSeconds;
+                maxLeaseGapSeconds = Math.Max(maxLeaseGapSeconds, gapSeconds);
+                firstLeaseGapAt ??= session.LeaseExpiresAt.Value;
+            }
+
+            var updatedSession = session with
+            {
+                LastHeartbeatAt = now,
+                LeaseExpiresAt = now.Add(leaseDuration),
+                LastKnownEventHash = lastKnownEventHash ?? session.LastKnownEventHash,
+                HasLeaseGap = hasLeaseGap,
+                MaxLeaseGapSeconds = maxLeaseGapSeconds,
+                FirstLeaseGapAt = firstLeaseGapAt
+            };
+
+            _sessions[sessionId] = updatedSession;
+            SaveToDisk();
+            return Task.FromResult(updatedSession);
         }
     }
 

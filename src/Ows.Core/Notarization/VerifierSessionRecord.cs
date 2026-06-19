@@ -44,4 +44,34 @@ public sealed record VerifierSessionRecord
     /// Gets the optional metadata payload serialized as JSON.
     /// </summary>
     public string MetadataJson { get; init; } = "{}";
+
+    /// <summary>
+    /// Gets the timestamp of the last recorded session heartbeat or checkpoint in UTC.
+    /// </summary>
+    public DateTimeOffset? LastHeartbeatAt { get; init; }
+
+    /// <summary>
+    /// Gets the timestamp when the current session lease expires in UTC.
+    /// </summary>
+    public DateTimeOffset? LeaseExpiresAt { get; init; }
+
+    /// <summary>
+    /// Gets the last known event head hash reported by the client.
+    /// </summary>
+    public string? LastKnownEventHash { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether a lease expiration gap occurred during this session.
+    /// </summary>
+    public bool HasLeaseGap { get; init; }
+
+    /// <summary>
+    /// Gets the maximum lease expiration gap duration observed during this session, in seconds.
+    /// </summary>
+    public int MaxLeaseGapSeconds { get; init; }
+
+    /// <summary>
+    /// Gets the UTC timestamp when the first lease gap started.
+    /// </summary>
+    public DateTimeOffset? FirstLeaseGapAt { get; init; }
 }

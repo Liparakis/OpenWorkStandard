@@ -56,6 +56,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
 
         var sessionId = AssessmentSessionId.Create();
         var createdAtUtc = DateTimeOffset.UtcNow;
+        var leaseExpiresAt = createdAtUtc.Add(TimeSpan.FromSeconds(120));
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -66,7 +67,11 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                                   metadata_json,
                                   head_receipt_hash,
                                   head_event_hash,
-                                  checkpoint_count
+                                  checkpoint_count,
+                                  last_heartbeat_at,
+                                  lease_expires_at,
+                                  has_lease_gap,
+                                  max_lease_gap_seconds
                               )
                               values (
                                   @id,
@@ -74,7 +79,11 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                                   cast(@metadata_json as jsonb),
                                   @head_receipt_hash,
                                   @head_event_hash,
-                                  @checkpoint_count
+                                  @checkpoint_count,
+                                  @last_heartbeat_at,
+                                  @lease_expires_at,
+                                  @has_lease_gap,
+                                  @max_lease_gap_seconds
                               );
                               """;
         command.Parameters.AddWithValue("id", sessionId.Value);
@@ -83,6 +92,10 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("head_receipt_hash", ReceiptChainVerifier.GenesisPreviousReceiptHash);
         command.Parameters.AddWithValue("head_event_hash", Ows.Core.Events.OwsEventChain.GenesisPreviousEventHash);
         command.Parameters.AddWithValue("checkpoint_count", 0);
+        command.Parameters.AddWithValue("last_heartbeat_at", createdAtUtc);
+        command.Parameters.AddWithValue("lease_expires_at", leaseExpiresAt);
+        command.Parameters.AddWithValue("has_lease_gap", false);
+        command.Parameters.AddWithValue("max_lease_gap_seconds", 0);
         await command.ExecuteNonQueryAsync(cancellationToken);
 
         return new VerifierSessionRecord
@@ -91,7 +104,11 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
             CreatedAtUtc = createdAtUtc,
             HeadReceiptHash = ReceiptChainVerifier.GenesisPreviousReceiptHash,
             HeadEventHash = Ows.Core.Events.OwsEventChain.GenesisPreviousEventHash,
-            CheckpointCount = 0
+            CheckpointCount = 0,
+            LastHeartbeatAt = createdAtUtc,
+            LeaseExpiresAt = leaseExpiresAt,
+            HasLeaseGap = false,
+            MaxLeaseGapSeconds = 0
         };
     }
 
@@ -153,9 +170,33 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                 $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {expectedSequenceNumber}.");
         }
 
+        var now = DateTimeOffset.UtcNow;
+        var leaseDuration = TimeSpan.FromSeconds(120);
+
+        DateTimeOffset? firstLeaseGapAt = session.FirstLeaseGapAt;
+        var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
+        var hasLeaseGap = session.HasLeaseGap;
+
+        if (session.LeaseExpiresAt.HasValue && now > session.LeaseExpiresAt.Value)
+        {
+            hasLeaseGap = true;
+            var gapSeconds = (int)(now - session.LeaseExpiresAt.Value).TotalSeconds;
+            maxLeaseGapSeconds = Math.Max(maxLeaseGapSeconds, gapSeconds);
+            firstLeaseGapAt ??= session.LeaseExpiresAt.Value;
+        }
+
         var receipt = ReceiptChainVerifier.IssueReceipt(checkpoint, session.HeadReceiptHash, _signingKey);
         await InsertCheckpointAsync(connection, checkpoint, session, receipt, cancellationToken);
-        await UpdateSessionHeadAsync(connection, session.Id, receipt, cancellationToken);
+        await UpdateSessionHeadAsync(
+            connection,
+            session.Id,
+            receipt,
+            now,
+            now.Add(leaseDuration),
+            hasLeaseGap,
+            maxLeaseGapSeconds,
+            firstLeaseGapAt,
+            cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return receipt;
     }
@@ -215,6 +256,69 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     }
 
     /// <inheritdoc />
+    public async Task<VerifierSessionRecord> RecordHeartbeatAsync(
+        AssessmentSessionId sessionId,
+        string? lastKnownEventHash,
+        TimeSpan leaseDuration,
+        CancellationToken cancellationToken)
+    {
+        await AwaitInitializationAsync(cancellationToken);
+
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        var session = await GetRequiredSessionAsync(connection, sessionId, lockForUpdate: true, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+
+        DateTimeOffset? firstLeaseGapAt = session.FirstLeaseGapAt;
+        var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
+        var hasLeaseGap = session.HasLeaseGap;
+
+        if (session.LeaseExpiresAt.HasValue && now > session.LeaseExpiresAt.Value)
+        {
+            hasLeaseGap = true;
+            var gapSeconds = (int)(now - session.LeaseExpiresAt.Value).TotalSeconds;
+            maxLeaseGapSeconds = Math.Max(maxLeaseGapSeconds, gapSeconds);
+            firstLeaseGapAt ??= session.LeaseExpiresAt.Value;
+        }
+
+        var updatedLeaseExpiresAt = now.Add(leaseDuration);
+        var updatedEventHash = lastKnownEventHash ?? session.LastKnownEventHash;
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+                              update verifier_sessions
+                              set last_heartbeat_at = @last_heartbeat_at,
+                                  lease_expires_at = @lease_expires_at,
+                                  last_known_event_hash = @last_known_event_hash,
+                                  has_lease_gap = @has_lease_gap,
+                                  max_lease_gap_seconds = @max_lease_gap_seconds,
+                                  first_lease_gap_at = @first_lease_gap_at
+                              where id = @id;
+                              """;
+        command.Parameters.AddWithValue("id", sessionId.Value);
+        command.Parameters.AddWithValue("last_heartbeat_at", now);
+        command.Parameters.AddWithValue("lease_expires_at", updatedLeaseExpiresAt);
+        command.Parameters.AddWithValue("last_known_event_hash", (object?)updatedEventHash ?? DBNull.Value);
+        command.Parameters.AddWithValue("has_lease_gap", hasLeaseGap);
+        command.Parameters.AddWithValue("max_lease_gap_seconds", maxLeaseGapSeconds);
+        command.Parameters.AddWithValue("first_lease_gap_at", (object?)firstLeaseGapAt ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return session with
+        {
+            LastHeartbeatAt = now,
+            LeaseExpiresAt = updatedLeaseExpiresAt,
+            LastKnownEventHash = updatedEventHash,
+            HasLeaseGap = hasLeaseGap,
+            MaxLeaseGapSeconds = maxLeaseGapSeconds,
+            FirstLeaseGapAt = firstLeaseGapAt
+        };
+    }
+
+    /// <inheritdoc />
     public ValueTask DisposeAsync() => _dataSource.DisposeAsync();
 
     /// <summary>
@@ -249,7 +353,13 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                                    metadata_json::text,
                                    head_receipt_hash,
                                    head_event_hash,
-                                   checkpoint_count
+                                   checkpoint_count,
+                                   last_heartbeat_at,
+                                   lease_expires_at,
+                                   last_known_event_hash,
+                                   has_lease_gap,
+                                   max_lease_gap_seconds,
+                                   first_lease_gap_at
                                from verifier_sessions
                                where id = @id
                                {(lockForUpdate ? "for update" : string.Empty)};
@@ -271,7 +381,13 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
             MetadataJson = reader.GetString(4),
             HeadReceiptHash = reader.GetString(5),
             HeadEventHash = reader.GetString(6),
-            CheckpointCount = reader.GetInt32(7)
+            CheckpointCount = reader.GetInt32(7),
+            LastHeartbeatAt = reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8),
+            LeaseExpiresAt = reader.IsDBNull(9) ? null : reader.GetFieldValue<DateTimeOffset>(9),
+            LastKnownEventHash = reader.IsDBNull(10) ? null : reader.GetString(10),
+            HasLeaseGap = reader.GetBoolean(11),
+            MaxLeaseGapSeconds = reader.GetInt32(12),
+            FirstLeaseGapAt = reader.IsDBNull(13) ? null : reader.GetFieldValue<DateTimeOffset>(13)
         };
         await reader.CloseAsync();
         return session;
@@ -437,6 +553,11 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         NpgsqlConnection connection,
         AssessmentSessionId sessionId,
         CheckpointReceipt receipt,
+        DateTimeOffset lastHeartbeatAt,
+        DateTimeOffset leaseExpiresAt,
+        bool hasLeaseGap,
+        int maxLeaseGapSeconds,
+        DateTimeOffset? firstLeaseGapAt,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
@@ -444,13 +565,23 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                               update verifier_sessions
                               set head_receipt_hash = @head_receipt_hash,
                                   head_event_hash = @head_event_hash,
-                                  checkpoint_count = @checkpoint_count
+                                  checkpoint_count = @checkpoint_count,
+                                  last_heartbeat_at = @last_heartbeat_at,
+                                  lease_expires_at = @lease_expires_at,
+                                  has_lease_gap = @has_lease_gap,
+                                  max_lease_gap_seconds = @max_lease_gap_seconds,
+                                  first_lease_gap_at = @first_lease_gap_at
                               where id = @id;
                               """;
         command.Parameters.AddWithValue("id", sessionId.Value);
         command.Parameters.AddWithValue("head_receipt_hash", receipt.ReceiptHash);
         command.Parameters.AddWithValue("head_event_hash", receipt.TimelineHeadHash);
         command.Parameters.AddWithValue("checkpoint_count", receipt.SequenceNumber);
+        command.Parameters.AddWithValue("last_heartbeat_at", lastHeartbeatAt);
+        command.Parameters.AddWithValue("lease_expires_at", leaseExpiresAt);
+        command.Parameters.AddWithValue("has_lease_gap", hasLeaseGap);
+        command.Parameters.AddWithValue("max_lease_gap_seconds", maxLeaseGapSeconds);
+        command.Parameters.AddWithValue("first_lease_gap_at", (object?)firstLeaseGapAt ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 

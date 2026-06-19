@@ -228,6 +228,69 @@ public sealed class OwsSessionCommandTests
         }
     }
 
+    /// <summary>
+    /// Verifies that session heartbeat CLI command parses arguments and sends the request to the verifier.
+    /// </summary>
+    [Fact]
+    public async Task SessionHeartbeat_ShouldSendRequestToVerifier()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-heartbeat-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(projectRoot);
+        var originalDirectory = Directory.GetCurrentDirectory();
+
+        using var verifierServer = new StubVerifierServer((method, path) => path switch
+        {
+            "sessions" when method == "POST" => new StartSessionResponse { SessionId = RemoteSessionId.Value },
+            var p when p == $"sessions/{RemoteSessionId.Value}/heartbeat" && method == "POST" => new SessionHeartbeatResponse
+            {
+                ServerTime = DateTimeOffset.UtcNow,
+                LeaseExpiresAt = DateTimeOffset.UtcNow.AddMinutes(2),
+                SessionTrustState = "Verified",
+                SessionHead = new SessionHeadResponse
+                {
+                    SessionId = RemoteSessionId.Value,
+                    LastSequenceNumber = 0,
+                    LastTimelineHeadHash = "genesis",
+                    LastReceiptHash = "genesis-receipt"
+                }
+            },
+            _ => null
+        });
+
+        try
+        {
+            Directory.SetCurrentDirectory(projectRoot);
+            (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
+            (await OwsCommandFactory.BuildRootCommand()
+                .Parse(["session", "start", "--server", verifierServer.BaseUrl])
+                .InvokeAsync()).Should().Be(0);
+
+            // Now send a heartbeat using the CLI
+            var exitCode = await OwsCommandFactory.BuildRootCommand()
+                .Parse(["session", "heartbeat"])
+                .InvokeAsync();
+
+            exitCode.Should().Be(0);
+            verifierServer.RequestedPaths.Should().Contain($"sessions/{RemoteSessionId.Value}/heartbeat");
+
+            // Test with server override
+            var exitCodeWithOverride = await OwsCommandFactory.BuildRootCommand()
+                .Parse(["session", "heartbeat", "--server", verifierServer.BaseUrl])
+                .InvokeAsync();
+
+            exitCodeWithOverride.Should().Be(0);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDirectory);
+
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
     private static readonly AssessmentSessionId RemoteSessionId = new("remote-session-1");
     private const string RemoteReceiptHash = "remote-receipt-1";
 

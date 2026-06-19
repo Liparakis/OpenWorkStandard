@@ -4,7 +4,7 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Harden verifier operational security in small steps, then add server-side package submission and verification only after the verifier is reliable.
+Improve professor-facing review reports to clearly display session lease continuity status, gap findings, and trust grading explanations.
 
 ## 1. Current MVP Status
 
@@ -49,13 +49,13 @@ Harden verifier operational security in small steps, then add server-side packag
 - [x] Artifact hash verification
 - [x] Receipt chain verification
 - [x] Trust grades `Verified`, `Unverified`, and `Invalid`
-- [ ] `Degraded` trust state exists but is not meaningful policy yet - Status: Partial
+- [x] `Degraded` trust state exists and is integrated with lease gap policy
 - [x] Formal package specification
 
 ## 5. Local Watcher and Capture Fidelity
 
 - [x] Persistent always-on watcher
-- [ ] Heartbeat and lease model
+- [x] Heartbeat and lease model
 - [x] Higher-fidelity capture beyond one-shot scans
 - [ ] IDE or host-managed long-running watcher lifecycle
 

@@ -583,4 +583,65 @@ public sealed class VerifierServerTests
             }
         }
     }
+
+    /// <summary>
+    /// Verifies that POST /sessions/{id}/heartbeat registers heartbeats and manages leases.
+    /// </summary>
+    [Fact]
+    public async Task PostHeartbeat_ShouldRecordSessionHeartbeat()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKey", "" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            using (factory)
+            {
+                // Start a session
+                var startResponse = await client.PostAsync("/sessions", null);
+                startResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var startJson = await startResponse.Content.ReadAsStringAsync();
+                var startSession = JsonSerializer.Deserialize<StartSessionResponse>(startJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                startSession.Should().NotBeNull();
+                var sessionId = startSession!.SessionId;
+
+                // Send heartbeat
+                var request = new SessionHeartbeatRequest
+                {
+                    LastKnownEventHash = "last-hash",
+                    ClientTimestamp = DateTimeOffset.UtcNow,
+                    ClientStatusSummary = "Active"
+                };
+
+                var response = await client.PostAsJsonAsync($"/sessions/{sessionId}/heartbeat", request);
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var json = await response.Content.ReadAsStringAsync();
+                var heartbeatResponse = JsonSerializer.Deserialize<SessionHeartbeatResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                heartbeatResponse.Should().NotBeNull();
+                heartbeatResponse!.SessionHead.SessionId.Should().Be(sessionId);
+                heartbeatResponse.SessionTrustState.Should().Be("Active");
+                heartbeatResponse.LeaseExpiresAt.Should().BeAfter(DateTimeOffset.UtcNow);
+
+                // Non-existent session returns 404
+                var badResponse = await client.PostAsJsonAsync("/sessions/nonexistent/heartbeat", request);
+                badResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
 }

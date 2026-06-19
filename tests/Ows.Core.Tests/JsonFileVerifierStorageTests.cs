@@ -481,4 +481,100 @@ public sealed class JsonFileVerifierStorageTests
             }
         }
     }
+
+    /// <summary>
+    /// Verifies that RecordHeartbeatAsync updates the lease properties and detects lease continuity gaps correctly.
+    /// </summary>
+    [Fact]
+    public async Task RecordHeartbeatAsync_ShouldUpdateLeaseAndDetectGaps()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-heartbeat-{Guid.NewGuid():N}");
+        var storePath = Path.Combine(directoryPath, "receipts.json");
+
+        try
+        {
+            var storage = new JsonFileVerifierStorage(storePath);
+            var session = await storage.CreateSessionAsync(CancellationToken.None);
+
+            // Initial state: heartbeat and lease initialized on session creation
+            session.LastHeartbeatAt.Should().NotBeNull();
+            session.LeaseExpiresAt.Should().NotBeNull();
+            session.HasLeaseGap.Should().BeFalse();
+
+            // 1. First heartbeat with negative duration to set LeaseExpiresAt in the past
+            var leaseDuration1 = TimeSpan.FromSeconds(-10);
+            var updated1 = await storage.RecordHeartbeatAsync(session.Id, "hash1", leaseDuration1, CancellationToken.None);
+
+            updated1.LastHeartbeatAt.Should().NotBeNull();
+            updated1.LeaseExpiresAt.Should().BeBefore(DateTimeOffset.UtcNow);
+            updated1.LastKnownEventHash.Should().Be("hash1");
+            updated1.HasLeaseGap.Should().BeFalse(); // Gap isn't evaluated until the *next* request that occurs *after* LeaseExpiresAt
+
+            // 2. Second heartbeat with positive lease duration. Since the lease expired in updated1, this should trigger a lease gap.
+            var leaseDuration2 = TimeSpan.FromSeconds(60);
+            var updated2 = await storage.RecordHeartbeatAsync(session.Id, "hash2", leaseDuration2, CancellationToken.None);
+
+            updated2.HasLeaseGap.Should().BeTrue();
+            updated2.MaxLeaseGapSeconds.Should().BeGreaterThanOrEqualTo(10);
+            updated2.FirstLeaseGapAt.Should().Be(updated1.LeaseExpiresAt);
+            updated2.LastKnownEventHash.Should().Be("hash2");
+            updated2.LeaseExpiresAt.Should().BeAfter(DateTimeOffset.UtcNow);
+
+            // Verify it was persisted by reloading the storage
+            var storageReloaded = new JsonFileVerifierStorage(storePath);
+            var sessionReloaded = await storageReloaded.GetSessionAsync(session.Id, CancellationToken.None);
+            sessionReloaded.HasLeaseGap.Should().BeTrue();
+            sessionReloaded.MaxLeaseGapSeconds.Should().Be(updated2.MaxLeaseGapSeconds);
+            sessionReloaded.FirstLeaseGapAt.Should().Be(updated2.FirstLeaseGapAt);
+        }
+        finally
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that AppendCheckpointAsync also refreshes the lease and detects lease gaps.
+    /// </summary>
+    [Fact]
+    public async Task AppendCheckpointAsync_ShouldUpdateLeaseAndDetectGaps()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-checkpoint-lease-{Guid.NewGuid():N}");
+        var storePath = Path.Combine(directoryPath, "receipts.json");
+
+        try
+        {
+            var storage = new JsonFileVerifierStorage(storePath);
+            var session = await storage.CreateSessionAsync(CancellationToken.None);
+
+            // Set lease in the past via negative duration heartbeat
+            var updated1 = await storage.RecordHeartbeatAsync(session.Id, "hash1", TimeSpan.FromSeconds(-5), CancellationToken.None);
+
+            // Append checkpoint, which should trigger a gap because now > LeaseExpiresAt
+            var receipt = await storage.AppendCheckpointAsync(
+                new Checkpoint
+                {
+                    SessionId = session.Id,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = "head-1"
+                },
+                CancellationToken.None);
+
+            var sessionState = await storage.GetSessionAsync(session.Id, CancellationToken.None);
+            sessionState.HasLeaseGap.Should().BeTrue();
+            sessionState.MaxLeaseGapSeconds.Should().BeGreaterThanOrEqualTo(5);
+            sessionState.FirstLeaseGapAt.Should().Be(updated1.LeaseExpiresAt);
+            sessionState.HeadEventHash.Should().Be("head-1");
+        }
+        finally
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, true);
+            }
+        }
+    }
 }

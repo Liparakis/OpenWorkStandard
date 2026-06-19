@@ -899,4 +899,151 @@ public sealed class VerificationNamespaceTests
 
         return chainedEvents;
     }
+
+    /// <summary>
+    /// Verifies that OwsPackageVerifier trust grading logic handles session lease gaps and work after lease expiration correctly.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldApplyTrustGradingForLeaseGapsAndWorkAfterLease()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-leases-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            var hashService = new Sha256HashService();
+            var eventTime = DateTimeOffset.Parse("2026-06-19T12:00:00Z");
+            var timelineEvents = CreateChainedEvents(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample", TimestampUtc = eventTime });
+            var timelineText = string.Join(Environment.NewLine, timelineEvents.Select(owsEvent => JsonSerializer.Serialize(owsEvent)));
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
+            var sessionId = AssessmentSessionId.Create();
+            var receipt = ReceiptChainVerifier.IssueReceipt(
+                new Checkpoint
+                {
+                    SessionId = sessionId,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = timelineEvents[^1].EventHash
+                },
+                ReceiptChainVerifier.GenesisPreviousReceiptHash);
+            var receiptChain = new ReceiptChain
+            {
+                SessionId = sessionId,
+                Receipts = [receipt]
+            };
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
+                WriteEntry(archive, OwsConstants.ReceiptsFileName, JsonSerializer.Serialize(receiptChain));
+            }
+
+            var verifier = new OwsPackageVerifier();
+
+            // Case A: Short lease gap (e.g., 120 seconds, limit is 300) -> Degraded + session-gap-short
+            {
+                var request = new PackageVerificationRequest
+                {
+                    PackagePath = packagePath,
+                    TrustedReceiptChain = receiptChain,
+                    TrustedSessionHead = new SessionHeadResponse
+                    {
+                        SessionId = sessionId.Value,
+                        LastSequenceNumber = 1,
+                        LastTimelineHeadHash = timelineEvents[^1].EventHash,
+                        LastReceiptHash = receipt.ReceiptHash
+                    },
+                    SessionHasLeaseGap = true,
+                    SessionMaxLeaseGapSeconds = 120,
+                    SignificantGapSeconds = 300
+                };
+                var result = await verifier.VerifyAsync(request, CancellationToken.None);
+                result.IsSuccess.Should().BeTrue();
+                result.TrustStatus.Should().Be(TrustStatus.Degraded);
+                result.Findings.Should().Contain(f => f.Code == "session-gap-short");
+            }
+
+            // Case B: Significant lease gap (e.g., 600 seconds, limit is 300) -> Unverified + session-gap-significant
+            {
+                var request = new PackageVerificationRequest
+                {
+                    PackagePath = packagePath,
+                    TrustedReceiptChain = receiptChain,
+                    TrustedSessionHead = new SessionHeadResponse
+                    {
+                        SessionId = sessionId.Value,
+                        LastSequenceNumber = 1,
+                        LastTimelineHeadHash = timelineEvents[^1].EventHash,
+                        LastReceiptHash = receipt.ReceiptHash
+                    },
+                    SessionHasLeaseGap = true,
+                    SessionMaxLeaseGapSeconds = 600,
+                    SignificantGapSeconds = 300
+                };
+                var result = await verifier.VerifyAsync(request, CancellationToken.None);
+                result.IsSuccess.Should().BeTrue();
+                result.TrustStatus.Should().Be(TrustStatus.Unverified);
+                result.Findings.Should().Contain(f => f.Code == "session-gap-significant");
+            }
+
+            // Case C: Work after lease expiration (short delay e.g., 10 seconds) -> Degraded + work-after-lease-expiration
+            {
+                var request = new PackageVerificationRequest
+                {
+                    PackagePath = packagePath,
+                    TrustedReceiptChain = receiptChain,
+                    TrustedSessionHead = new SessionHeadResponse
+                    {
+                        SessionId = sessionId.Value,
+                        LastSequenceNumber = 1,
+                        LastTimelineHeadHash = timelineEvents[^1].EventHash,
+                        LastReceiptHash = receipt.ReceiptHash
+                    },
+                    SessionLeaseExpiresAt = eventTime.AddSeconds(-10),
+                    SignificantGapSeconds = 300
+                };
+                var result = await verifier.VerifyAsync(request, CancellationToken.None);
+                result.IsSuccess.Should().BeTrue();
+                result.TrustStatus.Should().Be(TrustStatus.Degraded);
+                result.Findings.Should().Contain(f => f.Code == "work-after-lease-expiration");
+            }
+
+            // Case D: Work after lease expiration (long delay e.g., 600 seconds) -> Unverified + work-after-lease-expiration
+            {
+                var request = new PackageVerificationRequest
+                {
+                    PackagePath = packagePath,
+                    TrustedReceiptChain = receiptChain,
+                    TrustedSessionHead = new SessionHeadResponse
+                    {
+                        SessionId = sessionId.Value,
+                        LastSequenceNumber = 1,
+                        LastTimelineHeadHash = timelineEvents[^1].EventHash,
+                        LastReceiptHash = receipt.ReceiptHash
+                    },
+                    SessionLeaseExpiresAt = eventTime.AddSeconds(-600),
+                    SignificantGapSeconds = 300
+                };
+                var result = await verifier.VerifyAsync(request, CancellationToken.None);
+                result.IsSuccess.Should().BeTrue();
+                result.TrustStatus.Should().Be(TrustStatus.Unverified);
+                result.Findings.Should().Contain(f => f.Code == "work-after-lease-expiration");
+            }
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
 }

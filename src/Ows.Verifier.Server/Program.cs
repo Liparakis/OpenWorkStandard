@@ -255,6 +255,43 @@ app.MapPost("/sessions", async (IVerifierStorage storage, CancellationToken canc
     return Results.Ok(new StartSessionResponse { SessionId = session.Id.Value });
 });
 
+app.MapPost("/sessions/{id}/heartbeat", async (string id, SessionHeartbeatRequest request,
+    IVerifierStorage storage, CancellationToken cancellationToken) =>
+{
+    var sessionId = new AssessmentSessionId(id);
+    try
+    {
+        var leaseDuration = TimeSpan.FromSeconds(120);
+        var session = await storage.RecordHeartbeatAsync(
+            sessionId,
+            request.LastKnownEventHash,
+            leaseDuration,
+            cancellationToken);
+
+        var headResponse = new SessionHeadResponse
+        {
+            SessionId = session.Id.Value,
+            LastSequenceNumber = session.CheckpointCount,
+            LastTimelineHeadHash = session.HeadEventHash,
+            LastReceiptHash = session.HeadReceiptHash
+        };
+
+        var response = new SessionHeartbeatResponse
+        {
+            ServerTime = DateTimeOffset.UtcNow,
+            LeaseExpiresAt = session.LeaseExpiresAt ?? DateTimeOffset.UtcNow,
+            SessionTrustState = session.HasLeaseGap ? "Degraded" : "Active",
+            SessionHead = headResponse
+        };
+
+        return Results.Ok(response);
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.NotFound($"Unknown assessment session: {id}");
+    }
+});
+
 app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest request, HttpRequest httpRequest,
     IVerifierStorage storage, CancellationToken cancellationToken) =>
 {
@@ -349,6 +386,7 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
 
             ReceiptChain? trustedReceiptChain = null;
             SessionHeadResponse? trustedSessionHead = null;
+            VerifierSessionRecord? verifierSession = null;
 
             if (!string.IsNullOrWhiteSpace(submissionResponse.SessionId))
             {
@@ -357,6 +395,7 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
                 {
                     trustedReceiptChain = await storage.GetReceiptsAsync(assessmentSessionId, cancellationToken);
                     trustedSessionHead = await storage.GetHeadAsync(assessmentSessionId, cancellationToken);
+                    verifierSession = await storage.GetSessionAsync(assessmentSessionId, cancellationToken);
                 }
                 catch (InvalidOperationException)
                 {
@@ -368,7 +407,12 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
             {
                 PackagePath = packageFilePath,
                 TrustedReceiptChain = trustedReceiptChain,
-                TrustedSessionHead = trustedSessionHead
+                TrustedSessionHead = trustedSessionHead,
+                SessionLastHeartbeatAt = verifierSession?.LastHeartbeatAt,
+                SessionLeaseExpiresAt = verifierSession?.LeaseExpiresAt,
+                SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
+                SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
+                SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt
             };
 
             var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
@@ -486,6 +530,7 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubm
 
         ReceiptChain? trustedReceiptChain = null;
         SessionHeadResponse? trustedSessionHead = null;
+        VerifierSessionRecord? verifierSession = null;
 
         if (!string.IsNullOrWhiteSpace(submission.SessionId))
         {
@@ -494,6 +539,7 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubm
             {
                 trustedReceiptChain = await storage.GetReceiptsAsync(assessmentSessionId, cancellationToken);
                 trustedSessionHead = await storage.GetHeadAsync(assessmentSessionId, cancellationToken);
+                verifierSession = await storage.GetSessionAsync(assessmentSessionId, cancellationToken);
             }
             catch (InvalidOperationException)
             {
@@ -505,7 +551,12 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubm
         {
             PackagePath = packageFilePath,
             TrustedReceiptChain = trustedReceiptChain,
-            TrustedSessionHead = trustedSessionHead
+            TrustedSessionHead = trustedSessionHead,
+            SessionLastHeartbeatAt = verifierSession?.LastHeartbeatAt,
+            SessionLeaseExpiresAt = verifierSession?.LeaseExpiresAt,
+            SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
+            SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
+            SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt
         };
 
         var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
@@ -553,6 +604,7 @@ app.MapPost("/packages/{id}/verify", async (string id, IPackageSubmissionStore p
 
     ReceiptChain? trustedReceiptChain = null;
     SessionHeadResponse? trustedSessionHead = null;
+    VerifierSessionRecord? verifierSession = null;
 
     if (!string.IsNullOrWhiteSpace(submission.SessionId))
     {
@@ -561,6 +613,7 @@ app.MapPost("/packages/{id}/verify", async (string id, IPackageSubmissionStore p
         {
             trustedReceiptChain = await storage.GetReceiptsAsync(assessmentSessionId, cancellationToken);
             trustedSessionHead = await storage.GetHeadAsync(assessmentSessionId, cancellationToken);
+            verifierSession = await storage.GetSessionAsync(assessmentSessionId, cancellationToken);
         }
         catch (InvalidOperationException)
         {
@@ -572,7 +625,12 @@ app.MapPost("/packages/{id}/verify", async (string id, IPackageSubmissionStore p
     {
         PackagePath = packageFilePath,
         TrustedReceiptChain = trustedReceiptChain,
-        TrustedSessionHead = trustedSessionHead
+        TrustedSessionHead = trustedSessionHead,
+        SessionLastHeartbeatAt = verifierSession?.LastHeartbeatAt,
+        SessionLeaseExpiresAt = verifierSession?.LeaseExpiresAt,
+        SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
+        SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
+        SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt
     };
 
     var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);

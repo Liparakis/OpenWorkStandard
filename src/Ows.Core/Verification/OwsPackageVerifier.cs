@@ -27,6 +27,27 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         Detail = "The live verifier returned matching receipts, but the package did not include them."
     };
 
+    private static readonly VerificationFinding ShortLeaseGapFinding = new()
+    {
+        Code = "session-gap-short",
+        Title = "Short session continuity gap",
+        Detail = "A short heartbeat gap occurred, but session continuity was mostly preserved."
+    };
+
+    private static readonly VerificationFinding SignificantLeaseGapFinding = new()
+    {
+        Code = "session-gap-significant",
+        Title = "Significant session continuity gap",
+        Detail = "Session continuity could not be verified due to a significant heartbeat gap."
+    };
+
+    private static readonly VerificationFinding WorkAfterLeaseExpirationFinding = new()
+    {
+        Code = "work-after-lease-expiration",
+        Title = "Work after lease expiration",
+        Detail = "Timeline events were recorded after the remote verifier session lease expired."
+    };
+
     /// <inheritdoc />
     public Task<VerificationResult> VerifyAsync(PackageVerificationRequest request, CancellationToken cancellationToken)
     {
@@ -61,7 +82,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         if (errors.Count == 0)
         {
             var manifest = ValidateManifest(archive, errors);
-            var timelineHeadHash = ValidateTimeline(archive, errors);
+            var timelineHeadHash = ValidateTimeline(archive, errors, out var eventTimestamps);
             ValidateVersionGraph(archive, errors);
 
             if (manifest is not null)
@@ -78,6 +99,69 @@ public sealed class OwsPackageVerifier : IPackageVerifier
                         errors,
                         findings,
                         out var verifiedKeyFingerprints);
+
+                    if (errors.Count == 0 && trustStatus != TrustStatus.Invalid)
+                    {
+                        if (request.SessionHasLeaseGap)
+                        {
+                            if (request.SessionMaxLeaseGapSeconds > request.SignificantGapSeconds)
+                            {
+                                findings.Add(SignificantLeaseGapFinding);
+                                if (trustStatus == TrustStatus.Verified || trustStatus == TrustStatus.Degraded)
+                                {
+                                    trustStatus = TrustStatus.Unverified;
+                                }
+                            }
+                            else
+                            {
+                                findings.Add(ShortLeaseGapFinding);
+                                if (trustStatus == TrustStatus.Verified)
+                                {
+                                    trustStatus = TrustStatus.Degraded;
+                                }
+                            }
+                        }
+
+                        if (request.SessionFirstLeaseGapAt.HasValue && request.SessionMaxLeaseGapSeconds > request.SignificantGapSeconds)
+                        {
+                            var hasEventsAfterGap = eventTimestamps.Any(t => t > request.SessionFirstLeaseGapAt.Value);
+                            if (hasEventsAfterGap)
+                            {
+                                if (trustStatus == TrustStatus.Verified || trustStatus == TrustStatus.Degraded)
+                                {
+                                    trustStatus = TrustStatus.Unverified;
+                                }
+                            }
+                        }
+
+                        if (request.SessionLeaseExpiresAt.HasValue)
+                        {
+                            var hasWorkAfterLease = eventTimestamps.Any(t => t > request.SessionLeaseExpiresAt.Value);
+                            if (hasWorkAfterLease)
+                            {
+                                findings.Add(WorkAfterLeaseExpirationFinding);
+                                var exceedDuration = eventTimestamps.Where(t => t > request.SessionLeaseExpiresAt.Value)
+                                    .Select(t => (t - request.SessionLeaseExpiresAt.Value).TotalSeconds)
+                                    .DefaultIfEmpty(0)
+                                    .Max();
+                                if (exceedDuration > request.SignificantGapSeconds)
+                                {
+                                    if (trustStatus == TrustStatus.Verified || trustStatus == TrustStatus.Degraded)
+                                    {
+                                        trustStatus = TrustStatus.Unverified;
+                                    }
+                                }
+                                else
+                                {
+                                    if (trustStatus == TrustStatus.Verified)
+                                    {
+                                        trustStatus = TrustStatus.Degraded;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     return Task.FromResult(
                         errors.Count == 0
                             ? VerificationResult.Success("OWS verify succeeded.", trustStatus, findings, verifiedKeyFingerprints: verifiedKeyFingerprints)
@@ -118,8 +202,10 @@ public sealed class OwsPackageVerifier : IPackageVerifier
     /// </summary>
     /// <param name="archive">The package archive being verified.</param>
     /// <param name="errors">The mutable verification error collection.</param>
-    private static string ValidateTimeline(ZipArchive archive, List<string> errors)
+    /// <param name="eventTimestamps">Output containing all the parsed timeline event timestamps.</param>
+    private static string ValidateTimeline(ZipArchive archive, List<string> errors, out List<DateTimeOffset> eventTimestamps)
     {
+        eventTimestamps = new List<DateTimeOffset>();
         using var reader = new StreamReader(archive.GetEntry(OwsConstants.TimelineFileName)!.Open());
         var lineNumber = 0;
         var expectedPreviousHash = OwsEventChain.GenesisPreviousEventHash;
@@ -138,6 +224,8 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             {
                 var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line)
                                ?? throw new JsonException("Timeline event deserialized to null.");
+
+                eventTimestamps.Add(owsEvent.TimestampUtc);
 
                 if (!string.Equals(owsEvent.PreviousEventHash, expectedPreviousHash, StringComparison.Ordinal))
                 {
