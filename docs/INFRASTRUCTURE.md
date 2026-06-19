@@ -26,6 +26,8 @@ Expected responsibilities:
 - assessment sessions
 - checkpoints
 - checkpoint receipts
+- verifier sessions
+- verifier checkpoints
 - verification reports
 - package metadata
 - audit events
@@ -61,6 +63,11 @@ Examples:
 - optional encrypted starter files
 
 Store metadata in PostgreSQL and blobs in object storage.
+
+Current verifier note:
+
+- the reference verifier server still defaults to local JSON storage for development
+- the production-intended verifier backend is PostgreSQL behind the same storage boundary
 
 ## Optional NATS JetStream
 

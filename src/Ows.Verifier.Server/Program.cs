@@ -1,18 +1,32 @@
 using Ows.Core.Notarization;
+using Ows.Verifier.Server;
 
 var builder = WebApplication.CreateBuilder(args);
-var receiptStorePath = Path.Combine(builder.Environment.ContentRootPath, ".ows-verifier", "receipts.json");
-builder.Services.AddSingleton(new JsonFileReceiptService(receiptStorePath));
+var storageOptions = builder.Configuration.GetSection("VerifierStorage").Get<VerifierStorageOptions>()
+    ?? new VerifierStorageOptions();
+var normalizedStorageOptions = string.IsNullOrWhiteSpace(storageOptions.JsonStorePath)
+    ? storageOptions with
+    {
+        JsonStorePath = Path.Combine(builder.Environment.ContentRootPath, ".ows-verifier", "receipts.json")
+    }
+    : storageOptions;
+builder.Services.AddSingleton(normalizedStorageOptions);
+builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
+{
+    "json" => new JsonFileVerifierStorage(normalizedStorageOptions.JsonStorePath),
+    "postgres" => throw new NotSupportedException("PostgreSQL verifier storage is not wired yet. Use VerifierStorage:Provider=json for local development."),
+    _ => throw new NotSupportedException($"Unsupported verifier storage provider: {normalizedStorageOptions.Provider}")
+});
 
 var app = builder.Build();
 
-app.MapPost("/sessions", (JsonFileReceiptService receiptService) =>
+app.MapPost("/sessions", async (IVerifierStorage storage, CancellationToken cancellationToken) =>
 {
-    var sessionId = receiptService.StartSession();
-    return Results.Ok(new StartSessionResponse { SessionId = sessionId.Value });
+    var session = await storage.CreateSessionAsync(cancellationToken);
+    return Results.Ok(new StartSessionResponse { SessionId = session.Id.Value });
 });
 
-app.MapPost("/sessions/{id}/checkpoints", (string id, CheckpointRequest request, JsonFileReceiptService receiptService) =>
+app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest request, IVerifierStorage storage, CancellationToken cancellationToken) =>
 {
     if (!string.Equals(id, request.SessionId, StringComparison.Ordinal))
     {
@@ -21,12 +35,12 @@ app.MapPost("/sessions/{id}/checkpoints", (string id, CheckpointRequest request,
 
     try
     {
-        var receipt = receiptService.SubmitCheckpoint(new Checkpoint
+        var receipt = await storage.AppendCheckpointAsync(new Checkpoint
         {
             SessionId = new AssessmentSessionId(request.SessionId),
             SequenceNumber = request.SequenceNumber,
             TimelineHeadHash = request.TimelineHeadHash
-        });
+        }, cancellationToken);
         return Results.Ok(receipt);
     }
     catch (InvalidOperationException exception)
@@ -35,11 +49,11 @@ app.MapPost("/sessions/{id}/checkpoints", (string id, CheckpointRequest request,
     }
 });
 
-app.MapGet("/sessions/{id}/receipts", (string id, JsonFileReceiptService receiptService) =>
+app.MapGet("/sessions/{id}/receipts", async (string id, IVerifierStorage storage, CancellationToken cancellationToken) =>
 {
     try
     {
-        return Results.Ok(receiptService.GetReceiptChain(new AssessmentSessionId(id)));
+        return Results.Ok(await storage.GetReceiptsAsync(new AssessmentSessionId(id), cancellationToken));
     }
     catch (InvalidOperationException exception)
     {
@@ -47,20 +61,11 @@ app.MapGet("/sessions/{id}/receipts", (string id, JsonFileReceiptService receipt
     }
 });
 
-app.MapGet("/sessions/{id}/head", (string id, JsonFileReceiptService receiptService) =>
+app.MapGet("/sessions/{id}/head", async (string id, IVerifierStorage storage, CancellationToken cancellationToken) =>
 {
     try
     {
-        var receiptChain = receiptService.GetReceiptChain(new AssessmentSessionId(id));
-        var lastReceipt = receiptChain.Receipts.LastOrDefault();
-
-        return Results.Ok(new SessionHeadResponse
-        {
-            SessionId = receiptChain.SessionId.Value,
-            LastSequenceNumber = lastReceipt?.SequenceNumber ?? 0,
-            LastTimelineHeadHash = lastReceipt?.TimelineHeadHash ?? Ows.Core.Events.OwsEventChain.GenesisPreviousEventHash,
-            LastReceiptHash = lastReceipt?.ReceiptHash ?? ReceiptChainVerifier.GenesisPreviousReceiptHash
-        });
+        return Results.Ok(await storage.GetHeadAsync(new AssessmentSessionId(id), cancellationToken));
     }
     catch (InvalidOperationException exception)
     {

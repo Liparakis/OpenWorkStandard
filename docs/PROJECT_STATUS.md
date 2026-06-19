@@ -4,16 +4,20 @@ Last updated: 2026-06-19
 
 ## Summary
 
-OWS is past the bootstrap stage and now has a working local MVP slice in the .NET solution:
+Open Work Standard now has a real end-to-end reference flow, not just placeholders.
 
-- project initialization works
-- timeline capture exists, but only as a one-shot filesystem scan
-- package creation works and produces real `.owspkg` archives
-- package verification works and checks structure, content integrity, and trust grading
-- text report generation works and includes trust status
-- core and CLI tests are in place and passing
+What works today:
 
-The main weakness is tracking. `ows watch` is not a persistent watcher yet. It does one scan of the current project and appends `FileCreated` events for existing files.
+- local project initialization
+- one-shot timeline capture
+- local or remote-backed session start and checkpoint issuance
+- real `.owspkg` package creation
+- package verification with trust grading
+- optional live verifier cross-checking during verification
+- text report generation
+- a minimal ASP.NET Core verifier server with local JSON persistence
+
+The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
 ## Current Solution Shape
 
@@ -22,6 +26,7 @@ Source projects:
 - `src/Ows.Core`
 - `src/Ows.Cli`
 - `src/Ows.Desktop`
+- `src/Ows.Verifier.Server`
 
 Test projects:
 
@@ -30,8 +35,9 @@ Test projects:
 
 Notes:
 
-- the earlier fragmented source projects were collapsed into `Ows.Core` namespaces
-- `Ows.Desktop` is still a placeholder project
+- `Ows.Core` remains the collapsed MVP domain project
+- `Ows.Desktop` is still placeholder-only
+- `Ows.Verifier.Server` is intentionally small and self-hostable, not production-ready
 
 ## Implemented Capabilities
 
@@ -39,13 +45,13 @@ Notes:
 
 What works:
 
-- creates the local `.ows/` folder
+- creates `.ows/`
 - creates `.ows/config.json`
 - creates `.ows/timeline.jsonl`
 
 Status:
 
-- usable
+- working
 - minimal
 
 ### `ows watch`
@@ -55,32 +61,59 @@ What works:
 - prepares the local tracking agent
 - scans the project tree once
 - skips files under `.ows/`
-- appends `FileCreated` events to `.ows/timeline.jsonl`
+- appends chained file events to `.ows/timeline.jsonl`
 
 What does not work yet:
 
 - no long-running watcher
-- no automatic background tracking
-- no platform-specific host integration
-- no tamper-evident chain yet
+- no background lifecycle
+- no IDE host integration
+- no lease or heartbeat model
 
 Status:
 
-- functional proof of concept
-- not a real watcher
+- useful proof of capture
+- not an always-on watcher
+
+### `ows session start`
+
+What works:
+
+- starts a local session by default
+- starts a remote verifier session with `--server <url>`
+- persists `.ows/session.json`
+- persists an initial `.ows/receipts.json`
+
+Status:
+
+- working MVP command
+
+### `ows session checkpoint`
+
+What works:
+
+- derives the checkpoint from the current local `timeline.jsonl` head
+- issues the next local receipt or remote verifier receipt
+- refreshes `.ows/receipts.json`
+
+Status:
+
+- working MVP command
 
 ### `ows package`
 
 What works:
 
-- creates a real `.owspkg` zip archive
+- creates a real `.owspkg` archive
 - writes `manifest.json`
 - writes `timeline.jsonl`
 - writes `version_graph.json`
+- includes `session.json` when present
+- includes `receipts.json` when present
 - includes project files under `artifacts/`
-- excludes `.ows/` content from packaged artifacts
+- excludes `.ows/` files from packaged artifacts
 - excludes the output package itself from packaged artifacts
-- computes and stores hashes for timeline, version graph, and every packaged artifact
+- hashes timeline, version graph, session state, and packaged artifacts
 
 Status:
 
@@ -90,126 +123,168 @@ Status:
 
 What works:
 
-- checks package existence
-- checks required archive entries
+- validates package structure
 - validates manifest JSON
-- validates timeline JSONL line by line
+- validates timeline JSONL and chained event hashes
 - validates version graph JSON
-- validates timeline hash against manifest
-- validates version graph hash against manifest
-- validates each packaged artifact hash against manifest
-- rejects undeclared extra `artifacts/` entries
+- validates timeline, version graph, session-state, and artifact hashes
+- validates packaged receipt chains when present
+- can cross-check packaged receipt chains against a live verifier with `--server <url>`
+- can resolve the remote session from packaged `session.json` even if `receipts.json` is absent
+- can fall back to verifier session head comparison when only packaged session metadata is present
+
+Trust behavior today:
+
+- `Unverified`: package is locally consistent but remote trust anchors are missing or incomplete
+- `Verified`: package and receipt evidence align cleanly
+- `Invalid`: structural, hash, event-chain, or receipt-integrity checks fail
+- `Degraded`: reserved for later policy work, not meaningfully used yet
 
 Status:
 
-- working MVP implementation
-- strongest area of the current codebase
+- strongest part of the current codebase
 
 ### `ows report`
 
 What works:
 
 - runs verification first
-- generates a text report from verification output
 - writes `<project>.report.txt`
+- includes status, trust grade, summary, and errors
 
 Status:
 
-- working MVP implementation
-- still basic in format and depth
+- working
+- basic output only
 
-## Core Domains Already Present
+## Verifier Server
 
-`Ows.Core` currently contains these namespaces and working building blocks:
+`src/Ows.Verifier.Server` currently provides:
+
+- `POST /sessions`
+- `POST /sessions/{id}/checkpoints`
+- `GET /sessions/{id}/receipts`
+- `GET /sessions/{id}/head`
+
+Storage model today:
+
+- local JSON snapshot file under the server working directory
+- in-memory issuance logic backed by snapshot persistence
+
+This is enough for local dev and architectural validation. It is not enough for multi-instance deployment, durability guarantees, or institutional trust claims.
+
+## Core Domains Present
+
+`Ows.Core` currently includes:
 
 - `Ows.Core.Agent`
 - `Ows.Core.Events`
 - `Ows.Core.Graph`
 - `Ows.Core.Hashing`
 - `Ows.Core.Init`
+- `Ows.Core.Notarization`
 - `Ows.Core.Packaging`
 - `Ows.Core.Reporting`
-- `Ows.Core.Notarization`
 - `Ows.Core.Verification`
 
-This is the right collapsed shape for the MVP. No extra project split is needed right now.
+Important implemented pieces:
+
+- chained local event model
+- receipt/session/checkpoint models
+- receipt-chain verification
+- JSON-backed verifier receipt persistence
+- package assembly
+- package verification and trust grading
 
 ## Testing Status
 
-Current automated coverage exists for:
+Current automated coverage includes:
 
-- project initialization
-- one-shot watch scan behavior
+- initialization
+- one-shot watch behavior
+- session start and checkpoint flows
+- local and remote receipt transport paths
 - package creation
 - package verification success and failure cases
+- receipt-chain verification
+- live verifier cross-check behavior
 - report generation
-- command construction and CLI command behavior
-- serialization and hashing basics
-- version graph primitives
+- serialization and hashing primitives
 
-Recent verified commands:
+Latest verified commands:
 
 ```powershell
-dotnet build
-dotnet test
+dotnet build OWS.sln -nologo
+dotnet test OWS.sln -nologo
 ```
 
-Both were passing at the latest implementation checkpoints before this document was written.
+Both were passing at the time this document was updated.
 
 ## Recent Progress
 
-Recent milestones from git history:
+Recent milestones:
 
-- `62b3507` `chore: initialize OWS .NET solution structure`
-- `7e85a76` `refactor: collapse MVP project structure`
-- `a6eb0b8` `feat: implement minimal OWS CLI workflow`
-- `e03aa22` `feat: validate package version graph json`
-- `7121b9c` `feat: verify package content hashes`
-- `39d645f` `feat: include project artifacts in packages`
-- `e26e6ce` `feat: verify packaged artifact hashes`
-- `0003f21` `feat: reject undeclared package artifacts`
+- `eae9f45` `feat: persist verifier receipts locally`
+- `7b65159` `feat: wire cli sessions to verifier api`
+- `d1e895a` `feat: cross-check packaged receipts with verifier api`
+- `434ad35` `feat: package session metadata for verifier lookup`
+- `1f35295` `feat: add verifier session head endpoint`
 
 Net result:
 
-- the repository moved from honest placeholders to a thin but real end-to-end local workflow
+- OWS now has a real remote receipt path
+- package verification can meaningfully consult a verifier
+- the package format now carries enough session context to resolve remote anchors
 
 ## Current Gaps
 
-The biggest missing pieces are:
+The main missing pieces are:
 
-- persistent watcher lifecycle
-- platform-specific host integrations for VS Code, Rider, and desktop
-- local tamper-evident event chaining
-- receipt-aware remote verification
-- stronger report output
+- persistent always-on watcher lifecycle
+- platform-specific hosts for VS Code, Rider, and desktop
+- durable server storage beyond local JSON snapshots
+- multi-instance verifier deployment model
+- server-side package submission and verification
+- richer degraded-policy handling
+- stronger human review reports
 - desktop UI beyond placeholder state
 
 ## Reality Check
 
-Some existing docs are stale relative to the code:
+What is solid:
 
-- `README.md` still describes the repository as mostly bootstrap-stage
-- `docs/CLI.md` still says the commands are placeholders
+- packaging and verification logic
+- trust-model direction
+- command/test discipline
+- small, coherent project structure
 
-That is no longer true for `init`, `package`, `verify`, and `report`. It is only partly true for `watch`.
+What is still weak:
+
+- capture fidelity
+- long-running tracking
+- operational trust guarantees
+- production verifier storage and hosting
+
+The weakest assumption to avoid: thinking the current verifier server is already a real institutional trust boundary. It is not. It is a good foundation, not the finished boundary.
 
 ## Recommended Next Steps
 
-If progress stays MVP-focused, the next worthwhile steps are:
+Best next steps, in order:
 
-1. add tamper-evident event chaining to the local timeline
-2. scaffold the remote verifier boundary instead of growing the fake watcher first
-3. add receipt-aware verification so `Verified` means something concrete
-4. leave `Ows.Desktop` as a placeholder until tracking architecture is settled
+1. replace local JSON verifier persistence with durable storage
+2. keep the verifier API narrow and boring while hardening storage semantics
+3. add a minimal package-submission or package-anchor path only after storage is durable
+4. defer IDE plugins and background hosts until the watcher lifecycle is clearer
 
 ## Bottom Line
 
-OWS currently has a credible local MVP for:
+OWS currently has a credible MVP for:
 
-- initializing project state
-- capturing a minimal timeline snapshot
-- packaging evidence
-- verifying package integrity
-- producing a basic report
+- local evidence initialization
+- tamper-evident local event capture in one-shot form
+- local or remote receipt issuance
+- packaging evidence into `.owspkg`
+- verifying package integrity and receipt alignment
+- consulting a live verifier during verification
 
-It does not yet have a credible always-on tracking model or a real remote verifier, but it now has the first trust-grading and receipt-model foundation for that direction.
+It does not yet have a credible always-on capture model or a production-grade remote trust boundary, but it now has the right minimal seams to grow into both.

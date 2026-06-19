@@ -144,6 +144,11 @@ The system must fail in a way that preserves honest uncertainty:
 - temporary failures should degrade trust when appropriate
 - reports should say what could not be verified
 
+Current caveat:
+
+- the verifier is not yet a strong trust boundary while receipt issuance still uses the JSON development store
+- stronger trust claims depend on PostgreSQL-backed durable receipt issuance
+
 ## Secrets and Supply Chain
 
 Directional hardening requirements:
