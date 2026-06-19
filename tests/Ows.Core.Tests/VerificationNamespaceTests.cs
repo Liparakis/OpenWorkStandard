@@ -190,6 +190,78 @@ public sealed class VerificationNamespaceTests
     }
 
     /// <summary>
+    /// Verifies that verifier-backed verification rejects packaged receipts that differ from the trusted remote chain.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenPackagedReceiptChainDiffersFromTrustedRemoteChain()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-receipts-remote-mismatch-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            var hashService = new Sha256HashService();
+            var timelineEvents = CreateChainedEvents(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" });
+            var timelineText = string.Join(Environment.NewLine, timelineEvents.Select(owsEvent => JsonSerializer.Serialize(owsEvent)));
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
+            var sessionId = AssessmentSessionId.Create();
+            var trustedReceipt = ReceiptChainVerifier.IssueReceipt(
+                new Checkpoint
+                {
+                    SessionId = sessionId,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = timelineEvents[^1].EventHash
+                },
+                ReceiptChainVerifier.GenesisPreviousReceiptHash);
+            var packagedReceiptChain = new ReceiptChain
+            {
+                SessionId = sessionId,
+                Receipts = [trustedReceipt with { TimelineHeadHash = "tampered-head" }]
+            };
+            var trustedReceiptChain = new ReceiptChain
+            {
+                SessionId = sessionId,
+                Receipts = [trustedReceipt]
+            };
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
+                WriteEntry(archive, OwsConstants.ReceiptsFileName, JsonSerializer.Serialize(packagedReceiptChain));
+            }
+
+            var verifier = new OwsPackageVerifier();
+            var result = await verifier.VerifyAsync(
+                new PackageVerificationRequest
+                {
+                    PackagePath = packagePath,
+                    TrustedReceiptChain = trustedReceiptChain
+                },
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
+            result.Errors.Should().Contain(error => error.Contains("trusted remote receipt chain", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that a package missing required entries fails verification.
     /// </summary>
     [Fact]

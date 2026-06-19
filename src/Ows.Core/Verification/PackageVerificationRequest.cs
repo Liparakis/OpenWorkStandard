@@ -9,4 +9,9 @@ public sealed record PackageVerificationRequest
     /// Gets the package path to verify.
     /// </summary>
     public string PackagePath { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the optional trusted receipt chain fetched from a live verifier.
+    /// </summary>
+    public Notarization.ReceiptChain? TrustedReceiptChain { get; init; }
 }

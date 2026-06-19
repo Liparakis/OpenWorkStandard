@@ -71,13 +71,15 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
 ## `ows verify`
 
 - Purpose: verify a submission package.
-- Usage: `ows verify`
-- Options: none yet
+- Usage: `ows verify [--server <url>]`
+- Options:
+  - `--server <url>`: cross-check packaged receipts against a live verifier API
 - Current behavior:
   - validates package structure
   - validates manifest, timeline, and version graph JSON
   - validates timeline, version graph, and artifact hashes
   - rejects undeclared packaged artifacts
+  - optionally cross-checks packaged receipts against a live verifier receipt chain
   - returns a trust grade
 - Current trust behavior:
   - locally valid packages are currently graded `Unverified`
@@ -102,7 +104,6 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
 
 These are directionally planned, not implemented yet:
 
-- `ows verify --server <url>`
 - `ows package --include-receipts`
 - `ows report --format text|json`
 

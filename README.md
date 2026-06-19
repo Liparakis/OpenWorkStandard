@@ -50,7 +50,7 @@ This repository now has a thin but real local MVP:
 - `ows watch` performs a one-shot project scan
 - `ows session start` and `ows session checkpoint` work locally or against a configured verifier API
 - `ows package` creates real `.owspkg` archives
-- `ows verify` validates package integrity and assigns a trust grade
+- `ows verify` validates package integrity and can cross-check packaged receipts against a live verifier API
 - `ows report` writes a basic text integrity report
 
 The main architectural gap is the durable trust boundary. Local capture alone is not enough, so the next milestone is turning the current in-memory verifier scaffold into a self-hostable service with durable storage and hardened transport.

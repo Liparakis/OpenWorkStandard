@@ -21,6 +21,12 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         Title = "Remote receipts missing",
         Detail = "The package is locally consistent, but no remote verifier receipts were provided."
     };
+    private static readonly VerificationFinding RemoteReceiptsNotPackagedFinding = new()
+    {
+        Code = "remote-receipts-not-packaged",
+        Title = "Remote receipts not packaged",
+        Detail = "The live verifier returned matching receipts, but the package did not include them."
+    };
 
     /// <inheritdoc />
     public Task<VerificationResult> VerifyAsync(PackageVerificationRequest request, CancellationToken cancellationToken)
@@ -65,7 +71,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
 
                 if (errors.Count == 0)
                 {
-                    var trustStatus = ValidateReceipts(archive, timelineHeadHash, errors, findings);
+                    var trustStatus = ValidateReceipts(archive, timelineHeadHash, request.TrustedReceiptChain, errors, findings);
                     return Task.FromResult(
                         errors.Count == 0
                             ? VerificationResult.Success("OWS verify succeeded.", trustStatus, findings)
@@ -242,40 +248,70 @@ public sealed class OwsPackageVerifier : IPackageVerifier
     /// </summary>
     /// <param name="archive">The package archive being verified.</param>
     /// <param name="timelineHeadHash">The verified local timeline head hash.</param>
+    /// <param name="trustedReceiptChain">The optional authoritative receipt chain fetched from a live verifier.</param>
     /// <param name="errors">The mutable verification error collection.</param>
     /// <param name="findings">The mutable verification findings collection.</param>
     /// <returns>The resulting trust grade.</returns>
-    private static TrustStatus ValidateReceipts(ZipArchive archive, string timelineHeadHash, List<string> errors, List<VerificationFinding> findings)
+    private static TrustStatus ValidateReceipts(
+        ZipArchive archive,
+        string timelineHeadHash,
+        ReceiptChain? trustedReceiptChain,
+        List<string> errors,
+        List<VerificationFinding> findings)
     {
-        var receiptsEntry = archive.GetEntry(OwsConstants.ReceiptsFileName);
-        if (receiptsEntry is null)
+        var packagedReceiptChain = ReadPackagedReceiptChain(archive, errors);
+        if (errors.Count > 0)
+        {
+            return TrustStatus.Invalid;
+        }
+
+        if (trustedReceiptChain is not null)
+        {
+            if (!ReceiptChainVerifier.IsValid(trustedReceiptChain))
+            {
+                errors.Add("Trusted remote receipt chain is invalid.");
+                return TrustStatus.Invalid;
+            }
+
+            if (packagedReceiptChain is null)
+            {
+                var trustedLastReceipt = trustedReceiptChain.Receipts.LastOrDefault();
+                if (trustedLastReceipt is null)
+                {
+                    findings.Add(MissingRemoteReceiptsFinding);
+                    return TrustStatus.Unverified;
+                }
+
+                if (!string.Equals(trustedLastReceipt.TimelineHeadHash, timelineHeadHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add("Trusted remote receipt chain head does not match the local timeline head.");
+                    return TrustStatus.Invalid;
+                }
+
+                findings.Add(RemoteReceiptsNotPackagedFinding);
+                return TrustStatus.Unverified;
+            }
+
+            if (!AreEquivalentReceiptChains(packagedReceiptChain, trustedReceiptChain))
+            {
+                errors.Add("Packaged receipt chain does not match the trusted remote receipt chain.");
+                return TrustStatus.Invalid;
+            }
+        }
+
+        if (packagedReceiptChain is null)
         {
             findings.Add(MissingRemoteReceiptsFinding);
             return TrustStatus.Unverified;
         }
 
-        using var reader = new StreamReader(receiptsEntry.Open());
-        var receiptsText = reader.ReadToEnd();
-
-        ReceiptChain receiptChain;
-        try
-        {
-            receiptChain = JsonSerializer.Deserialize<ReceiptChain>(receiptsText)
-                ?? throw new JsonException("Receipt chain deserialized to null.");
-        }
-        catch (JsonException)
-        {
-            errors.Add($"Invalid JSON in {OwsConstants.ReceiptsFileName}");
-            return TrustStatus.Invalid;
-        }
-
-        if (!ReceiptChainVerifier.IsValid(receiptChain))
+        if (!ReceiptChainVerifier.IsValid(packagedReceiptChain))
         {
             errors.Add("Receipt chain is invalid.");
             return TrustStatus.Invalid;
         }
 
-        var lastReceipt = receiptChain.Receipts.LastOrDefault();
+        var lastReceipt = packagedReceiptChain.Receipts.LastOrDefault();
         if (lastReceipt is null)
         {
             findings.Add(MissingRemoteReceiptsFinding);
@@ -290,4 +326,43 @@ public sealed class OwsPackageVerifier : IPackageVerifier
 
         return TrustStatus.Verified;
     }
+
+    /// <summary>
+    /// Reads and deserializes the packaged receipt chain when present.
+    /// </summary>
+    /// <param name="archive">The package archive being verified.</param>
+    /// <param name="errors">The mutable verification error collection.</param>
+    /// <returns>The deserialized receipt chain when present and valid JSON; otherwise <see langword="null"/>.</returns>
+    private static ReceiptChain? ReadPackagedReceiptChain(ZipArchive archive, List<string> errors)
+    {
+        var receiptsEntry = archive.GetEntry(OwsConstants.ReceiptsFileName);
+        if (receiptsEntry is null)
+        {
+            return null;
+        }
+
+        using var reader = new StreamReader(receiptsEntry.Open());
+        var receiptsText = reader.ReadToEnd();
+
+        try
+        {
+            return JsonSerializer.Deserialize<ReceiptChain>(receiptsText)
+                ?? throw new JsonException("Receipt chain deserialized to null.");
+        }
+        catch (JsonException)
+        {
+            errors.Add($"Invalid JSON in {OwsConstants.ReceiptsFileName}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Compares two receipt chains for exact session and ordered-receipt equality.
+    /// </summary>
+    /// <param name="left">The first receipt chain.</param>
+    /// <param name="right">The second receipt chain.</param>
+    /// <returns><see langword="true"/> when both chains match exactly; otherwise <see langword="false"/>.</returns>
+    private static bool AreEquivalentReceiptChains(ReceiptChain left, ReceiptChain right) =>
+        left.SessionId == right.SessionId &&
+        left.Receipts.SequenceEqual(right.Receipts);
 }

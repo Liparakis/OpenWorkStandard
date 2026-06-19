@@ -1,7 +1,10 @@
 using System.CommandLine;
+using System.IO.Compression;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core;
 using Ows.Core.Agent;
+using Ows.Core.Notarization;
 using Ows.Core.Init;
 using Ows.Core.Packaging;
 using Ows.Core.Reporting;
@@ -168,20 +171,70 @@ public static class OwsCommandFactory
     private static Command BuildVerifyCommand()
     {
         var command = new Command("verify", "Verify an OWS submission package.");
+        var serverOption = new Option<string?>("--server")
+        {
+            Description = "Cross-check packaged receipts against a live verifier API."
+        };
+        command.Options.Add(serverOption);
         command.SetAction(async parseResult =>
         {
-            _ = parseResult;
             var projectRoot = Directory.GetCurrentDirectory();
             var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             var verifier = new OwsPackageVerifier();
+            var verifierUrl = parseResult.GetValue(serverOption);
+            var trustedReceiptChain = string.IsNullOrWhiteSpace(verifierUrl)
+                ? null
+                : await FetchTrustedReceiptChainAsync(packagePath, verifierUrl, CancellationToken.None);
             var result = await verifier.VerifyAsync(
-                new PackageVerificationRequest { PackagePath = packagePath },
+                new PackageVerificationRequest
+                {
+                    PackagePath = packagePath,
+                    TrustedReceiptChain = trustedReceiptChain
+                },
                 CancellationToken.None);
             Console.WriteLine(result.Summary);
             return result.IsSuccess ? 0 : 1;
         });
 
         return command;
+    }
+
+    /// <summary>
+    /// Fetches the authoritative receipt chain for the packaged session from a live verifier.
+    /// </summary>
+    /// <param name="packagePath">The package being verified.</param>
+    /// <param name="verifierUrl">The verifier base URL.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The trusted remote receipt chain.</returns>
+    private static async Task<ReceiptChain> FetchTrustedReceiptChainAsync(
+        string packagePath,
+        string verifierUrl,
+        CancellationToken cancellationToken)
+    {
+        var packagedReceiptChain = ReadPackagedReceiptChain(packagePath)
+            ?? throw new InvalidOperationException("The package does not contain receipts.json, so verifier-backed verification cannot resolve a remote session.");
+        using var httpClient = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
+        var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint());
+        transport.RestoreSession(packagedReceiptChain.SessionId, packagedReceiptChain.Receipts.Count + 1);
+        return await transport.GetReceiptsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads the packaged receipt chain from the target package when present.
+    /// </summary>
+    /// <param name="packagePath">The package path.</param>
+    /// <returns>The packaged receipt chain when present; otherwise <see langword="null"/>.</returns>
+    private static ReceiptChain? ReadPackagedReceiptChain(string packagePath)
+    {
+        using var archive = ZipFile.OpenRead(packagePath);
+        var receiptsEntry = archive.GetEntry(OwsConstants.ReceiptsFileName);
+        if (receiptsEntry is null)
+        {
+            return null;
+        }
+
+        using var reader = new StreamReader(receiptsEntry.Open());
+        return JsonSerializer.Deserialize<ReceiptChain>(reader.ReadToEnd());
     }
 
     /// <summary>
