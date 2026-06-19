@@ -47,6 +47,7 @@ Current remote retained data may include:
 - durable checkpoints
 - durable receipts
 - verifier metadata needed to reconstruct session head state
+- verifier request logs containing method, path, status code, duration, and possible session IDs in paths
 
 ## Current Retention Behavior
 
@@ -55,6 +56,7 @@ Today, retention is mostly manual and operator-controlled.
 - local project evidence stays on disk until the user deletes it
 - local verifier logs stay on disk until the operator deletes them
 - PostgreSQL-backed verifier data stays in the configured database until the operator applies retention policy outside the app
+- verifier request logs do not intentionally include request bodies, file contents, raw headers, API keys, or receipt signing keys
 
 OWS does not yet enforce automatic retention expiry, institutional retention windows, or legal hold behavior.
 

@@ -68,7 +68,7 @@ Harden verifier operational security in small steps, then add server-side packag
 - [ ] Production-grade verifier hosting
 - [ ] Server signing key management hardening - Status: Partial
 - [ ] Auth and RBAC - Status: Partial
-- [ ] Observability
+- [ ] Observability - Status: Partial
 
 ## 7. Package Submission and Server-Side Verification
 

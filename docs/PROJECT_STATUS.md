@@ -23,6 +23,7 @@ What works today:
 - local PostgreSQL-backed verifier startup, smoke testing, and helper-script generation
 - optional verifier receipt signing with a configured server key
 - optional shared-key verifier API guard
+- structured verifier request logging for method, path, status, and duration
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -190,6 +191,7 @@ PostgreSQL setup model today:
 - idempotent checkpoint retries are enforced in both JSON and PostgreSQL storage
 - receipts include an HMAC server signature when `VerifierStorage:ReceiptSigningKey` is configured
 - requests require `X-OWS-Verifier-Key` when `VerifierSecurity:ApiKey` is configured
+- request logs include method, path, status code, and elapsed time, but not bodies or headers
 
 Local verifier dev flow today:
 
@@ -204,6 +206,7 @@ Local verifier dev flow today:
 - foreground and background verifier helpers auto-build the verifier server when the local build output is missing
 - verifier status and smoke-test helpers send `X-OWS-Verifier-Key` from `OWS_VERIFIER_API_KEY` when present
 - `dotnet build` emits platform-specific launcher copies to `artifacts/generated-scripts/`
+- verifier logs now include per-request method, path, status, and duration
 
 This is enough for architectural validation and the first durable-backend pass. It is still not enough for institutional trust claims until the PostgreSQL path is exercised in a real deployed environment.
 

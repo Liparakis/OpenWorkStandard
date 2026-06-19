@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using Ows.Core.Notarization;
@@ -55,6 +56,26 @@ builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Pr
 });
 
 var app = builder.Build();
+var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Requests");
+
+app.Use(async (context, next) =>
+{
+    var stopwatch = Stopwatch.StartNew();
+    try
+    {
+        await next(context);
+    }
+    finally
+    {
+        stopwatch.Stop();
+        requestLogger.LogInformation(
+            "Verifier request {Method} {Path} returned {StatusCode} in {ElapsedMilliseconds} ms.",
+            context.Request.Method,
+            context.Request.Path.Value,
+            context.Response.StatusCode,
+            stopwatch.ElapsedMilliseconds);
+    }
+});
 
 if (!string.IsNullOrWhiteSpace(securityOptions.ApiKey))
 {

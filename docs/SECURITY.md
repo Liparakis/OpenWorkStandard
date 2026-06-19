@@ -56,6 +56,7 @@ The current repository already implements:
 - optional packaged receipt-chain verification
 - optional HMAC verifier receipt signatures when a server signing key is configured
 - optional shared-key verifier API guard for MVP self-hosting
+- structured verifier request logging without request bodies or headers
 - trust grading with `Verified`, `Unverified`, and `Invalid`
 
 Current trust behavior:
