@@ -92,7 +92,7 @@ Harden the local verifier dev loop and cold-start behavior, then add server-side
 - [ ] Deployment exists only for local Docker/PostgreSQL today - Status: Partial
 - [ ] Docker images
 - [ ] Production Compose or Helm packaging
-- [ ] Self-hosting operator guide
+- [x] Self-hosting operator guide
 
 ## 11. Multi-Tenant Education Model
 
