@@ -50,7 +50,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             .EnumerateFiles(options.ProjectRootPath, "*", SearchOption.AllDirectories)
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
-        var previousEventHash = ReadLastEventHash(timelinePath);
+        var previousEventHash = OwsEventChain.ReadLastEventHash(timelinePath);
 
         foreach (var path in trackedFiles)
         {
@@ -79,32 +79,5 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             Status = Status,
             Message = "OWS watch completed one scan."
         });
-    }
-
-    /// <summary>
-    /// Reads the hash of the last timeline event, or the genesis value when the timeline is empty.
-    /// </summary>
-    /// <param name="timelinePath">The path to the local timeline file.</param>
-    /// <returns>The previous event hash to use for the next appended event.</returns>
-    private static string ReadLastEventHash(string timelinePath)
-    {
-        string? lastNonEmptyLine = null;
-        foreach (var line in File.ReadLines(timelinePath))
-        {
-            if (!string.IsNullOrWhiteSpace(line))
-            {
-                lastNonEmptyLine = line;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(lastNonEmptyLine))
-        {
-            return OwsEventChain.GenesisPreviousEventHash;
-        }
-
-        var lastEvent = JsonSerializer.Deserialize<OwsEvent>(lastNonEmptyLine)
-            ?? throw new JsonException("Timeline event deserialized to null.");
-
-        return lastEvent.EventHash;
     }
 }

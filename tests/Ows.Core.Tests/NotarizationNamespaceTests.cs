@@ -1,4 +1,6 @@
+using System.Text.Json;
 using FluentAssertions;
+using Ows.Core.Events;
 using Ows.Core.Notarization;
 
 namespace Ows.Core.Tests;
@@ -39,5 +41,62 @@ public sealed class NotarizationNamespaceTests
         chain.SessionId.Should().Be(sessionId);
         chain.Receipts.Should().ContainSingle();
         checkpoint.SequenceNumber.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Verifies that checkpoints can be derived from the current timeline head.
+    /// </summary>
+    [Fact]
+    public void FromTimeline_ShouldUseLastChainedEventHash()
+    {
+        var timelinePath = Path.Combine(Path.GetTempPath(), $"ows-checkpoint-{Guid.NewGuid():N}.jsonl");
+        var firstEvent = OwsEventChain.CreateChainedEvent(
+            new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample", RelativePath = "a.txt" },
+            OwsEventChain.GenesisPreviousEventHash);
+        var secondEvent = OwsEventChain.CreateChainedEvent(
+            new OwsEvent { EventType = OwsEventType.FileModified, ProjectId = "sample", RelativePath = "a.txt" },
+            firstEvent.EventHash);
+
+        try
+        {
+            File.WriteAllText(timelinePath, $"{JsonSerializer.Serialize(firstEvent)}{Environment.NewLine}{JsonSerializer.Serialize(secondEvent)}");
+
+            var checkpoint = Checkpoint.FromTimeline(timelinePath, AssessmentSessionId.Create(), 2);
+
+            checkpoint.SequenceNumber.Should().Be(2);
+            checkpoint.TimelineHeadHash.Should().Be(secondEvent.EventHash);
+        }
+        finally
+        {
+            if (File.Exists(timelinePath))
+            {
+                File.Delete(timelinePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that empty timelines produce the genesis head hash.
+    /// </summary>
+    [Fact]
+    public void FromTimeline_ShouldUseGenesisHashWhenTimelineIsEmpty()
+    {
+        var timelinePath = Path.Combine(Path.GetTempPath(), $"ows-checkpoint-empty-{Guid.NewGuid():N}.jsonl");
+
+        try
+        {
+            File.WriteAllText(timelinePath, string.Empty);
+
+            var checkpoint = Checkpoint.FromTimeline(timelinePath, AssessmentSessionId.Create(), 1);
+
+            checkpoint.TimelineHeadHash.Should().Be(OwsEventChain.GenesisPreviousEventHash);
+        }
+        finally
+        {
+            if (File.Exists(timelinePath))
+            {
+                File.Delete(timelinePath);
+            }
+        }
     }
 }

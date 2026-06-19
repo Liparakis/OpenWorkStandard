@@ -61,4 +61,33 @@ public static class OwsEventChain
         var eventWithPreviousHash = owsEvent with { PreviousEventHash = previousEventHash };
         return eventWithPreviousHash with { EventHash = ComputeEventHash(eventWithPreviousHash) };
     }
+
+    /// <summary>
+    /// Reads the current timeline head hash from a JSONL event stream.
+    /// </summary>
+    /// <param name="timelinePath">The path to the timeline file.</param>
+    /// <returns>The last event hash, or the genesis value when the timeline is empty.</returns>
+    public static string ReadLastEventHash(string timelinePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(timelinePath);
+
+        string? lastNonEmptyLine = null;
+        foreach (var line in File.ReadLines(timelinePath))
+        {
+            if (!string.IsNullOrWhiteSpace(line))
+            {
+                lastNonEmptyLine = line;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(lastNonEmptyLine))
+        {
+            return GenesisPreviousEventHash;
+        }
+
+        var lastEvent = JsonSerializer.Deserialize<OwsEvent>(lastNonEmptyLine, SerializerOptions)
+            ?? throw new JsonException("Timeline event deserialized to null.");
+
+        return lastEvent.EventHash;
+    }
 }
