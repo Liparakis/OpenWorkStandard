@@ -5,10 +5,12 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Implements the receipt transport contract over HTTPS using the planned verifier API shape.
 /// </summary>
-public sealed class HttpsReceiptTransport(HttpClient httpClient, Func<AssessmentSessionId, int, Checkpoint> checkpointFactory) : IReceiptTransport
+public sealed class HttpsReceiptTransport(
+    HttpClient httpClient,
+    Func<AssessmentSessionId, int, Checkpoint> checkpointFactory) : IReceiptTransport
 {
-    private AssessmentSessionId? activeSessionId;
-    private int nextSequenceNumber = 1;
+    private AssessmentSessionId? _activeSessionId;
+    private int _nextSequenceNumber = 1;
 
     /// <summary>
     /// Restores an already-started session so the transport can continue from persisted state.
@@ -21,11 +23,12 @@ public sealed class HttpsReceiptTransport(HttpClient httpClient, Func<Assessment
 
         if (nextSequenceNumber < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(nextSequenceNumber), "The next sequence number must be at least 1.");
+            throw new ArgumentOutOfRangeException(nameof(nextSequenceNumber),
+                "The next sequence number must be at least 1.");
         }
 
-        activeSessionId = sessionId;
-        this.nextSequenceNumber = nextSequenceNumber;
+        _activeSessionId = sessionId;
+        this._nextSequenceNumber = nextSequenceNumber;
     }
 
     /// <inheritdoc />
@@ -40,30 +43,28 @@ public sealed class HttpsReceiptTransport(HttpClient httpClient, Func<Assessment
             throw new InvalidOperationException("The verifier returned an invalid session response.");
         }
 
-        activeSessionId = new AssessmentSessionId(body.SessionId);
-        nextSequenceNumber = 1;
-        return activeSessionId.Value;
+        _activeSessionId = new AssessmentSessionId(body.SessionId);
+        _nextSequenceNumber = 1;
+        return _activeSessionId.Value;
     }
 
     /// <inheritdoc />
     public async Task<CheckpointReceipt> SendCheckpointAsync(CancellationToken cancellationToken)
     {
-        if (activeSessionId is null)
+        if (_activeSessionId is null)
         {
             throw new InvalidOperationException("No active assessment session. Start a session first.");
         }
 
-        var checkpoint = checkpointFactory(activeSessionId.Value, nextSequenceNumber);
+        var checkpoint = checkpointFactory(_activeSessionId.Value, _nextSequenceNumber);
         var requestBody = new CheckpointRequest
         {
             SessionId = checkpoint.SessionId.Value,
             SequenceNumber = checkpoint.SequenceNumber,
             TimelineHeadHash = checkpoint.TimelineHeadHash
         };
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"sessions/{activeSessionId.Value}/checkpoints")
-        {
-            Content = JsonContent.Create(requestBody)
-        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"sessions/{_activeSessionId.Value}/checkpoints");
+        request.Content = JsonContent.Create(requestBody);
         if (!string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
         {
             request.Headers.Add("Idempotency-Key", checkpoint.IdempotencyKey);
@@ -73,25 +74,25 @@ public sealed class HttpsReceiptTransport(HttpClient httpClient, Func<Assessment
         response.EnsureSuccessStatusCode();
 
         var receipt = await response.Content.ReadFromJsonAsync<CheckpointReceipt>(cancellationToken)
-            ?? throw new InvalidOperationException("The verifier returned an invalid checkpoint receipt.");
-        nextSequenceNumber = receipt.SequenceNumber + 1;
+                      ?? throw new InvalidOperationException("The verifier returned an invalid checkpoint receipt.");
+        _nextSequenceNumber = receipt.SequenceNumber + 1;
         return receipt;
     }
 
     /// <inheritdoc />
     public async Task<ReceiptChain> GetReceiptsAsync(CancellationToken cancellationToken)
     {
-        if (activeSessionId is null)
+        if (_activeSessionId is null)
         {
             throw new InvalidOperationException("No active assessment session. Start a session first.");
         }
 
-        var response = await httpClient.GetAsync($"sessions/{activeSessionId.Value}/receipts", cancellationToken);
+        var response = await httpClient.GetAsync($"sessions/{_activeSessionId.Value}/receipts", cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var receiptChain = await response.Content.ReadFromJsonAsync<ReceiptChain>(cancellationToken)
-            ?? throw new InvalidOperationException("The verifier returned an invalid receipt chain.");
-        nextSequenceNumber = receiptChain.Receipts.Count + 1;
+                           ?? throw new InvalidOperationException("The verifier returned an invalid receipt chain.");
+        _nextSequenceNumber = receiptChain.Receipts.Count + 1;
         return receiptChain;
     }
 }

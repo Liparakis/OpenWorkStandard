@@ -1,5 +1,4 @@
 using System.Text.Json;
-
 using Ows.Core;
 using Ows.Core.Notarization;
 
@@ -54,7 +53,8 @@ public static class OwsSessionStore
     /// <param name="projectRoot">The current project root.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The issued receipt.</returns>
-    public static async Task<CheckpointReceipt> AddCheckpointAsync(string projectRoot, CancellationToken cancellationToken)
+    public static async Task<CheckpointReceipt> AddCheckpointAsync(string projectRoot,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
         cancellationToken.ThrowIfCancellationRequested();
@@ -72,8 +72,8 @@ public static class OwsSessionStore
         var sessionState = ReadSessionState(sessionPath);
         var sessionId = new AssessmentSessionId(sessionState.SessionId);
         var receiptChain = File.Exists(receiptsPath)
-            ? JsonSerializer.Deserialize<ReceiptChain>(File.ReadAllText(receiptsPath))
-                ?? throw new JsonException("Receipt chain deserialized to null.")
+            ? JsonSerializer.Deserialize<ReceiptChain>(await File.ReadAllTextAsync(receiptsPath, cancellationToken))
+              ?? throw new JsonException("Receipt chain deserialized to null.")
             : new ReceiptChain { SessionId = sessionId, Receipts = [] };
 
         CheckpointReceipt receipt;
@@ -92,7 +92,8 @@ public static class OwsSessionStore
             using var httpClient = CreateHttpClient(sessionState.VerifierUrl);
             var transport = new HttpsReceiptTransport(
                 httpClient,
-                (activeSessionId, sequenceNumber) => Checkpoint.FromTimeline(timelinePath, activeSessionId, sequenceNumber));
+                (activeSessionId, sequenceNumber) =>
+                    Checkpoint.FromTimeline(timelinePath, activeSessionId, sequenceNumber));
             transport.RestoreSession(sessionId, receiptChain.Receipts.Count + 1);
             receipt = await transport.SendCheckpointAsync(cancellationToken);
             updatedReceiptChain = await transport.GetReceiptsAsync(cancellationToken);
@@ -102,6 +103,7 @@ public static class OwsSessionStore
 
         return receipt;
     }
+
     /// <summary>
     /// Reads the persisted receipt chain for the current project.
     /// </summary>
@@ -133,7 +135,7 @@ public static class OwsSessionStore
         }
 
         return JsonSerializer.Deserialize<ReceiptChain>(File.ReadAllText(receiptsPath))
-            ?? throw new JsonException("Receipt chain deserialized to null.");
+               ?? throw new JsonException("Receipt chain deserialized to null.");
     }
 
     /// <summary>
@@ -142,7 +144,8 @@ public static class OwsSessionStore
     /// <param name="verifierUrl">The remote verifier base URL.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The started remote session identifier.</returns>
-    private static async Task<AssessmentSessionId> StartRemoteSessionAsync(string verifierUrl, CancellationToken cancellationToken)
+    private static async Task<AssessmentSessionId> StartRemoteSessionAsync(string verifierUrl,
+        CancellationToken cancellationToken)
     {
         using var httpClient = CreateHttpClient(verifierUrl);
         var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint());

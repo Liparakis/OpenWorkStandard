@@ -13,5 +13,5 @@ public sealed record ReceiptChain
     /// <summary>
     /// Gets the ordered receipts currently known for the session.
     /// </summary>
-    public IReadOnlyList<CheckpointReceipt> Receipts { get; init; } = Array.Empty<CheckpointReceipt>();
+    public IReadOnlyList<CheckpointReceipt> Receipts { get; init; } = [];
 }

@@ -8,11 +8,14 @@ namespace Ows.Core.Notarization;
 public sealed class JsonFileVerifierStorage : IVerifierStorage
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
-    private readonly object gate = new();
-    private readonly Dictionary<AssessmentSessionId, Dictionary<string, PersistedCheckpointRequest>> idempotencyKeys = [];
-    private readonly InMemoryReceiptService receiptService = new();
-    private readonly Dictionary<AssessmentSessionId, VerifierSessionRecord> sessions = [];
-    private readonly string storePath;
+    private readonly Lock _gate = new();
+
+    private readonly Dictionary<AssessmentSessionId, Dictionary<string, PersistedCheckpointRequest>> _idempotencyKeys =
+        [];
+
+    private readonly InMemoryReceiptService _receiptService = new();
+    private readonly Dictionary<AssessmentSessionId, VerifierSessionRecord> _sessions = [];
+    private readonly string _storePath;
 
     /// <summary>
     /// Initializes a new file-backed verifier storage instance and restores any existing sessions.
@@ -22,7 +25,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storePath);
 
-        this.storePath = storePath;
+        this._storePath = storePath;
         LoadFromDisk();
     }
 
@@ -31,27 +34,28 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (gate)
+        lock (_gate)
         {
-            var sessionId = receiptService.StartSession();
+            var sessionId = _receiptService.StartSession();
             var sessionRecord = new VerifierSessionRecord
             {
                 Id = sessionId,
                 HeadReceiptHash = ReceiptChainVerifier.GenesisPreviousReceiptHash,
-                HeadEventHash = Ows.Core.Events.OwsEventChain.GenesisPreviousEventHash
+                HeadEventHash = Events.OwsEventChain.GenesisPreviousEventHash
             };
-            sessions.Add(sessionId, sessionRecord);
+            _sessions.Add(sessionId, sessionRecord);
             SaveToDisk();
             return Task.FromResult(sessionRecord);
         }
     }
 
     /// <inheritdoc />
-    public Task<VerifierSessionRecord> GetSessionAsync(AssessmentSessionId sessionId, CancellationToken cancellationToken)
+    public Task<VerifierSessionRecord> GetSessionAsync(AssessmentSessionId sessionId,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (gate)
+        lock (_gate)
         {
             return Task.FromResult(GetRequiredSession(sessionId));
         }
@@ -63,7 +67,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
         ArgumentNullException.ThrowIfNull(checkpoint);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (gate)
+        lock (_gate)
         {
             var session = GetRequiredSession(checkpoint.SessionId);
             if (!string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
@@ -77,7 +81,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
 
             if (checkpoint.SequenceNumber <= session.CheckpointCount)
             {
-                var existingReceipt = receiptService.GetReceiptChain(checkpoint.SessionId)
+                var existingReceipt = _receiptService.GetReceiptChain(checkpoint.SessionId)
                     .Receipts
                     .SingleOrDefault(receipt => receipt.SequenceNumber == checkpoint.SequenceNumber);
                 if (existingReceipt is null)
@@ -86,7 +90,8 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
                         $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {session.CheckpointCount + 1}.");
                 }
 
-                if (!string.Equals(existingReceipt.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal))
+                if (!string.Equals(existingReceipt.TimelineHeadHash, checkpoint.TimelineHeadHash,
+                        StringComparison.Ordinal))
                 {
                     throw new InvalidOperationException(
                         $"Checkpoint sequence {checkpoint.SequenceNumber} already exists for session {checkpoint.SessionId} with a different payload.");
@@ -95,8 +100,8 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
                 return Task.FromResult(existingReceipt);
             }
 
-            var receipt = receiptService.SubmitCheckpoint(checkpoint);
-            sessions[checkpoint.SessionId] = sessions[checkpoint.SessionId] with
+            var receipt = _receiptService.SubmitCheckpoint(checkpoint);
+            _sessions[checkpoint.SessionId] = _sessions[checkpoint.SessionId] with
             {
                 HeadReceiptHash = receipt.ReceiptHash,
                 HeadEventHash = receipt.TimelineHeadHash,
@@ -113,10 +118,10 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (gate)
+        lock (_gate)
         {
             _ = GetRequiredSession(sessionId);
-            return Task.FromResult(receiptService.GetReceiptChain(sessionId));
+            return Task.FromResult(_receiptService.GetReceiptChain(sessionId));
         }
     }
 
@@ -125,7 +130,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (gate)
+        lock (_gate)
         {
             var session = GetRequiredSession(sessionId);
             return Task.FromResult(new SessionHeadResponse
@@ -143,36 +148,37 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     /// </summary>
     private void LoadFromDisk()
     {
-        if (!File.Exists(storePath))
+        if (!File.Exists(_storePath))
         {
             return;
         }
 
-        var json = File.ReadAllText(storePath);
+        var json = File.ReadAllText(_storePath);
         if (string.IsNullOrWhiteSpace(json))
         {
             return;
         }
 
         var snapshot = JsonSerializer.Deserialize<VerifierStorageSnapshot>(json, SerializerOptions)
-            ?? throw new InvalidOperationException($"Verifier store {storePath} could not be deserialized.");
+                       ?? throw new InvalidOperationException(
+                           $"Verifier store {_storePath} could not be deserialized.");
 
         foreach (var session in snapshot.Sessions)
         {
-            sessions.Add(session.Id, session);
+            _sessions.Add(session.Id, session);
         }
 
         foreach (var receiptChain in snapshot.ReceiptChains)
         {
-            receiptService.RestoreSession(receiptChain.SessionId, receiptChain.Receipts);
+            _receiptService.RestoreSession(receiptChain.SessionId, receiptChain.Receipts);
         }
 
         foreach (var request in snapshot.IdempotencyKeys)
         {
-            if (!idempotencyKeys.TryGetValue(request.SessionId, out var sessionKeys))
+            if (!_idempotencyKeys.TryGetValue(request.SessionId, out var sessionKeys))
             {
                 sessionKeys = [];
-                idempotencyKeys.Add(request.SessionId, sessionKeys);
+                _idempotencyKeys.Add(request.SessionId, sessionKeys);
             }
 
             sessionKeys[request.IdempotencyKey] = request;
@@ -184,25 +190,30 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     /// </summary>
     private void SaveToDisk()
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(storePath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(_storePath)!);
 
         // ponytail: rewrite the full snapshot on each change; switch to database transactions when concurrent multi-instance writes become the real problem.
         var json = JsonSerializer.Serialize(
             new VerifierStorageSnapshot
             {
-                Sessions = [.. sessions.Values.OrderBy(session => session.Id.Value, StringComparer.Ordinal)],
-                ReceiptChains = [.. sessions.Keys.OrderBy(sessionId => sessionId.Value, StringComparer.Ordinal).Select(receiptService.GetReceiptChain)],
+                Sessions = [.. _sessions.Values.OrderBy(session => session.Id.Value, StringComparer.Ordinal)],
+                ReceiptChains =
+                [
+                    .. _sessions.Keys.OrderBy(sessionId => sessionId.Value, StringComparer.Ordinal)
+                        .Select(_receiptService.GetReceiptChain)
+                ],
                 IdempotencyKeys =
                 [
-                    .. idempotencyKeys
+                    .. _idempotencyKeys
                         .OrderBy(entry => entry.Key.Value, StringComparer.Ordinal)
-                        .SelectMany(entry => entry.Value.Values.OrderBy(request => request.IdempotencyKey, StringComparer.Ordinal))
+                        .SelectMany(entry =>
+                            entry.Value.Values.OrderBy(request => request.IdempotencyKey, StringComparer.Ordinal))
                 ]
             },
             SerializerOptions);
-        var temporaryPath = $"{storePath}.{Guid.NewGuid():N}.tmp";
+        var temporaryPath = $"{_storePath}.{Guid.NewGuid():N}.tmp";
         File.WriteAllText(temporaryPath, json);
-        File.Move(temporaryPath, storePath, true);
+        File.Move(temporaryPath, _storePath, true);
     }
 
     /// <summary>
@@ -212,7 +223,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     /// <returns>The persisted verifier session record.</returns>
     private VerifierSessionRecord GetRequiredSession(AssessmentSessionId sessionId)
     {
-        if (!sessions.TryGetValue(sessionId, out var session))
+        if (!_sessions.TryGetValue(sessionId, out var session))
         {
             throw new InvalidOperationException($"Unknown assessment session: {sessionId}");
         }
@@ -228,7 +239,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     /// <returns>The committed receipt when the idempotency key already exists; otherwise <see langword="null"/>.</returns>
     private CheckpointReceipt? TryGetReceiptByIdempotencyKey(AssessmentSessionId sessionId, Checkpoint checkpoint)
     {
-        if (!idempotencyKeys.TryGetValue(sessionId, out var sessionKeys) ||
+        if (!_idempotencyKeys.TryGetValue(sessionId, out var sessionKeys) ||
             !sessionKeys.TryGetValue(checkpoint.IdempotencyKey!, out var persistedRequest))
         {
             return null;
@@ -241,7 +252,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
                 $"Idempotency key {checkpoint.IdempotencyKey} already exists for session {sessionId} with a different payload.");
         }
 
-        return receiptService.GetReceiptChain(sessionId)
+        return _receiptService.GetReceiptChain(sessionId)
             .Receipts
             .Single(receipt => receipt.SequenceNumber == persistedRequest.SequenceNumber);
     }
@@ -257,10 +268,10 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
             return;
         }
 
-        if (!idempotencyKeys.TryGetValue(checkpoint.SessionId, out var sessionKeys))
+        if (!_idempotencyKeys.TryGetValue(checkpoint.SessionId, out var sessionKeys))
         {
             sessionKeys = [];
-            idempotencyKeys.Add(checkpoint.SessionId, sessionKeys);
+            _idempotencyKeys.Add(checkpoint.SessionId, sessionKeys);
         }
 
         sessionKeys[checkpoint.IdempotencyKey] = new PersistedCheckpointRequest
@@ -278,7 +289,8 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
 
         public IReadOnlyList<ReceiptChain> ReceiptChains { get; init; } = Array.Empty<ReceiptChain>();
 
-        public IReadOnlyList<PersistedCheckpointRequest> IdempotencyKeys { get; init; } = Array.Empty<PersistedCheckpointRequest>();
+        public IReadOnlyList<PersistedCheckpointRequest> IdempotencyKeys { get; init; } =
+            Array.Empty<PersistedCheckpointRequest>();
     }
 
     private sealed record PersistedCheckpointRequest

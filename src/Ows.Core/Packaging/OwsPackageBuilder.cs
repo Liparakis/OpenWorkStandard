@@ -1,6 +1,5 @@
 using System.IO.Compression;
 using System.Text.Json;
-
 using Ows.Core.Hashing;
 
 namespace Ows.Core.Packaging;
@@ -11,7 +10,8 @@ namespace Ows.Core.Packaging;
 public sealed class OwsPackageBuilder : IPackageBuilder
 {
     /// <inheritdoc />
-    public Task<PackageCreationResult> CreatePackageAsync(PackageCreationRequest request, CancellationToken cancellationToken)
+    public Task<PackageCreationResult> CreatePackageAsync(PackageCreationRequest request,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
@@ -38,8 +38,10 @@ public sealed class OwsPackageBuilder : IPackageBuilder
                 FilePath = filePath,
                 RelativePath = Path.GetRelativePath(request.ProjectRootPath, filePath)
             })
-            .Where(file => !string.Equals(file.FilePath, request.OutputPackagePath, StringComparison.OrdinalIgnoreCase) &&
-                !file.RelativePath.StartsWith($"{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+            .Where(file =>
+                !string.Equals(file.FilePath, request.OutputPackagePath, StringComparison.OrdinalIgnoreCase) &&
+                !file.RelativePath.StartsWith($"{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}",
+                    StringComparison.OrdinalIgnoreCase))
             .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 file => $"artifacts/{file.RelativePath.Replace('\\', '/')}",

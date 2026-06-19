@@ -7,7 +7,7 @@ namespace Ows.Core.Notarization;
 /// </summary>
 public sealed class InMemoryReceiptService
 {
-    private readonly ConcurrentDictionary<AssessmentSessionId, List<CheckpointReceipt>> receiptChains = new();
+    private readonly ConcurrentDictionary<AssessmentSessionId, List<CheckpointReceipt>> _receiptChains = new();
 
     /// <summary>
     /// Starts a new assessment session.
@@ -16,12 +16,9 @@ public sealed class InMemoryReceiptService
     public AssessmentSessionId StartSession()
     {
         var sessionId = AssessmentSessionId.Create();
-        if (!receiptChains.TryAdd(sessionId, []))
-        {
-            throw new InvalidOperationException("Failed to create a unique assessment session.");
-        }
-
-        return sessionId;
+        return !_receiptChains.TryAdd(sessionId, [])
+            ? throw new InvalidOperationException("Failed to create a unique assessment session.")
+            : sessionId;
     }
 
     /// <summary>
@@ -46,7 +43,7 @@ public sealed class InMemoryReceiptService
             throw new InvalidOperationException($"Cannot restore invalid receipt chain for session {sessionId}.");
         }
 
-        if (!receiptChains.TryAdd(sessionId, restoredReceipts))
+        if (!_receiptChains.TryAdd(sessionId, restoredReceipts))
         {
             throw new InvalidOperationException($"Assessment session {sessionId} is already loaded.");
         }
@@ -61,7 +58,7 @@ public sealed class InMemoryReceiptService
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
 
-        if (!receiptChains.TryGetValue(checkpoint.SessionId, out var receipts))
+        if (!_receiptChains.TryGetValue(checkpoint.SessionId, out var receipts))
         {
             throw new InvalidOperationException($"Unknown assessment session: {checkpoint.SessionId}");
         }
@@ -91,7 +88,7 @@ public sealed class InMemoryReceiptService
     /// <returns>The ordered receipt chain.</returns>
     public ReceiptChain GetReceiptChain(AssessmentSessionId sessionId)
     {
-        if (!receiptChains.TryGetValue(sessionId, out var receipts))
+        if (!_receiptChains.TryGetValue(sessionId, out var receipts))
         {
             throw new InvalidOperationException($"Unknown assessment session: {sessionId}");
         }

@@ -8,32 +8,32 @@ public sealed record VerificationResult
     /// <summary>
     /// Gets a value indicating whether the verification passed.
     /// </summary>
-    public bool IsSuccess { get; init; }
+    public bool IsSuccess { get; private init; }
 
     /// <summary>
     /// Gets the trust grade assigned to the verification outcome.
     /// </summary>
-    public TrustStatus TrustStatus { get; init; }
+    public TrustStatus TrustStatus { get; private init; }
 
     /// <summary>
     /// Gets a summary suitable for CLI and report output.
     /// </summary>
-    public string Summary { get; init; } = string.Empty;
+    public string Summary { get; private init; } = string.Empty;
 
     /// <summary>
     /// Gets any verification errors that prevented a clean result.
     /// </summary>
-    public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> Errors { get; private init; } = [];
 
     /// <summary>
     /// Gets the review signals raised during verification.
     /// </summary>
-    public IReadOnlyList<ReviewSignal> ReviewSignals { get; init; } = Array.Empty<ReviewSignal>();
+    public IReadOnlyList<ReviewSignal> ReviewSignals { get; private init; } = [];
 
     /// <summary>
     /// Gets concrete verification findings that explain the assigned trust grade.
     /// </summary>
-    public IReadOnlyList<VerificationFinding> Findings { get; init; } = Array.Empty<VerificationFinding>();
+    public IReadOnlyList<VerificationFinding> Findings { get; private init; } = [];
 
     /// <summary>
     /// Creates a successful verification result.
@@ -53,8 +53,8 @@ public sealed record VerificationResult
             IsSuccess = true,
             TrustStatus = trustStatus,
             Summary = summary,
-            Findings = findings ?? Array.Empty<VerificationFinding>(),
-            ReviewSignals = reviewSignals ?? Array.Empty<ReviewSignal>()
+            Findings = findings ?? [],
+            ReviewSignals = reviewSignals ?? []
         };
 
     /// <summary>
@@ -75,8 +75,8 @@ public sealed record VerificationResult
             IsSuccess = false,
             TrustStatus = TrustStatus.Invalid,
             Summary = summary,
-            Errors = errors ?? Array.Empty<string>(),
-            Findings = findings ?? Array.Empty<VerificationFinding>(),
-            ReviewSignals = reviewSignals ?? Array.Empty<ReviewSignal>()
+            Errors = errors ?? [],
+            Findings = findings ?? [],
+            ReviewSignals = reviewSignals ?? []
         };
 }

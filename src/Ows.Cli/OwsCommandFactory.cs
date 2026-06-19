@@ -103,7 +103,8 @@ public static class OwsCommandFactory
         command.SetAction(async parseResult =>
         {
             _ = parseResult;
-            var receipt = await OwsSessionStore.AddCheckpointAsync(Directory.GetCurrentDirectory(), CancellationToken.None);
+            var receipt =
+                await OwsSessionStore.AddCheckpointAsync(Directory.GetCurrentDirectory(), CancellationToken.None);
             Console.WriteLine($"OWS checkpoint recorded: {receipt.ReceiptHash}");
             return 0;
         });
@@ -149,7 +150,8 @@ public static class OwsCommandFactory
         {
             _ = parseResult;
             var projectRoot = Directory.GetCurrentDirectory();
-            var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
+            var packagePath = Path.Combine(projectRoot,
+                $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             var builder = new OwsPackageBuilder();
             var result = await builder.CreatePackageAsync(
                 new PackageCreationRequest
@@ -180,16 +182,19 @@ public static class OwsCommandFactory
         command.SetAction(async parseResult =>
         {
             var projectRoot = Directory.GetCurrentDirectory();
-            var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
+            var packagePath = Path.Combine(projectRoot,
+                $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             var verifier = new OwsPackageVerifier();
             var verifierUrl = parseResult.GetValue(serverOption);
             var packagedReceiptChain = ReadPackagedReceiptChain(packagePath);
             var trustedReceiptChain = string.IsNullOrWhiteSpace(verifierUrl)
                 ? null
-                : await FetchTrustedReceiptChainAsync(packagePath, verifierUrl, packagedReceiptChain is not null, CancellationToken.None);
+                : await FetchTrustedReceiptChainAsync(packagePath, verifierUrl, packagedReceiptChain is not null,
+                    CancellationToken.None);
             var trustedSessionHead = string.IsNullOrWhiteSpace(verifierUrl)
                 ? null
-                : await FetchTrustedSessionHeadAsync(packagePath, verifierUrl, packagedReceiptChain is null, CancellationToken.None);
+                : await FetchTrustedSessionHeadAsync(packagePath, verifierUrl, packagedReceiptChain is null,
+                    CancellationToken.None);
             var result = await verifier.VerifyAsync(
                 new PackageVerificationRequest
                 {
@@ -232,7 +237,8 @@ public static class OwsCommandFactory
                 $"The package does not contain {OwsConstants.SessionFileName} or {OwsConstants.ReceiptsFileName}, so verifier-backed verification cannot resolve a remote session.");
         }
 
-        using var httpClient = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
+        using var httpClient = new HttpClient();
+        httpClient.BaseAddress = new Uri(verifierUrl, UriKind.Absolute);
         var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint());
         transport.RestoreSession(
             sessionId ?? packagedReceiptChain!.SessionId,
@@ -260,11 +266,13 @@ public static class OwsCommandFactory
         }
 
         var sessionId = ReadPackagedSessionId(packagePath)
-            ?? throw new InvalidOperationException(
-                $"The package does not contain {OwsConstants.SessionFileName}, so verifier-backed verification cannot resolve a remote session head.");
-        using var httpClient = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
-        return await httpClient.GetFromJsonAsync<SessionHeadResponse>($"sessions/{sessionId.Value}/head", cancellationToken)
-            ?? throw new InvalidOperationException("The verifier returned an invalid session head response.");
+                        ?? throw new InvalidOperationException(
+                            $"The package does not contain {OwsConstants.SessionFileName}, so verifier-backed verification cannot resolve a remote session head.");
+        using var httpClient = new HttpClient();
+        httpClient.BaseAddress = new Uri(verifierUrl, UriKind.Absolute);
+        return await httpClient.GetFromJsonAsync<SessionHeadResponse>($"sessions/{sessionId.Value}/head",
+                   cancellationToken)
+               ?? throw new InvalidOperationException("The verifier returned an invalid session head response.");
     }
 
     /// <summary>
@@ -301,7 +309,7 @@ public static class OwsCommandFactory
 
         using var reader = new StreamReader(sessionEntry.Open());
         var sessionState = JsonSerializer.Deserialize<SessionState>(reader.ReadToEnd())
-            ?? throw new JsonException("Session state deserialized to null.");
+                           ?? throw new JsonException("Session state deserialized to null.");
         return string.IsNullOrWhiteSpace(sessionState.SessionId)
             ? null
             : new AssessmentSessionId(sessionState.SessionId);
@@ -322,7 +330,8 @@ public static class OwsCommandFactory
         command.SetAction(async parseResult =>
         {
             var projectRoot = Directory.GetCurrentDirectory();
-            var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
+            var packagePath = Path.Combine(projectRoot,
+                $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             var verifier = new OwsPackageVerifier();
             var verificationResult = await verifier.VerifyAsync(
                 new PackageVerificationRequest { PackagePath = packagePath },
@@ -339,7 +348,8 @@ public static class OwsCommandFactory
             {
                 "text" => ReportFormat.Text,
                 "json" => ReportFormat.Json,
-                var unsupported => throw new ArgumentException($"Unsupported report format '{unsupported}'. Supported values: text, json.")
+                var unsupported => throw new ArgumentException(
+                    $"Unsupported report format '{unsupported}'. Supported values: text, json.")
             };
             var reportResult = await generator.GenerateAsync(
                 new ReportRequest

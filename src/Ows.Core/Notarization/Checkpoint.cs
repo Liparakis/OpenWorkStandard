@@ -30,7 +30,7 @@ public sealed record Checkpoint
     /// <summary>
     /// Gets the UTC time when the client created the checkpoint.
     /// </summary>
-    public DateTimeOffset CreatedAtUtc { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset CreatedAtUtc { get; } = DateTimeOffset.UtcNow;
 
     /// <summary>
     /// Creates a checkpoint from the current head of a local timeline.

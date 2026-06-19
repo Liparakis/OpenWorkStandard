@@ -10,18 +10,19 @@ namespace Ows.Core.Agent;
 /// </summary>
 public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITrackingAgent
 {
-    private TrackingAgentOptions? options;
+    private TrackingAgentOptions? _options;
 
     /// <inheritdoc />
     public TrackingAgentStatus Status { get; private set; } = TrackingAgentStatus.Idle;
 
     /// <inheritdoc />
-    public Task<TrackingAgentOperationResult> PrepareAsync(TrackingAgentOptions options, CancellationToken cancellationToken)
+    public Task<TrackingAgentOperationResult> PrepareAsync(TrackingAgentOptions options,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
 
-        this.options = options;
+        _options = options;
         _ = new SqliteConnectionStringBuilder { DataSource = options.DatabasePath }.ToString();
         Status = TrackingAgentStatus.Ready;
 
@@ -40,15 +41,19 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (options is null)
+        if (_options is null)
         {
             throw new InvalidOperationException("Tracking agent must be prepared before start.");
         }
 
-        var timelinePath = Path.Combine(options.ProjectRootPath, OwsConstants.LocalFolderName, OwsConstants.TimelineFileName);
+        var timelinePath = Path.Combine(_options.ProjectRootPath, OwsConstants.LocalFolderName,
+            OwsConstants.TimelineFileName);
         var trackedFiles = Directory
-            .EnumerateFiles(options.ProjectRootPath, "*", SearchOption.AllDirectories)
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .EnumerateFiles(_options.ProjectRootPath, "*", SearchOption.AllDirectories)
+            .Where(path =>
+                !path.Contains(
+                    $"{Path.DirectorySeparatorChar}{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal))
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
         var previousEventHash = OwsEventChain.ReadLastEventHash(timelinePath);
 
@@ -56,11 +61,11 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var relativePath = Path.GetRelativePath(options.ProjectRootPath, path);
+            var relativePath = Path.GetRelativePath(_options.ProjectRootPath, path);
             var owsEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
             {
                 EventType = OwsEventType.FileCreated,
-                ProjectId = Path.GetFileName(options.ProjectRootPath),
+                ProjectId = Path.GetFileName(_options.ProjectRootPath),
                 RelativePath = relativePath,
                 ToolName = "ows watch",
                 BytesChanged = new FileInfo(path).Length
@@ -71,7 +76,8 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         }
 
         Status = TrackingAgentStatus.Ready;
-        logger.LogInformation("Tracked {FileCount} existing files for {ProjectRootPath}.", trackedFiles.Count(), options.ProjectRootPath);
+        logger.LogInformation("Tracked {FileCount} existing files for {ProjectRootPath}.", trackedFiles.Count(),
+            _options.ProjectRootPath);
 
         return Task.FromResult(new TrackingAgentOperationResult
         {

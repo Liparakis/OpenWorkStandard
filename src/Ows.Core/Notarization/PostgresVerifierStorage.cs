@@ -7,8 +7,8 @@ namespace Ows.Core.Notarization;
 /// </summary>
 public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
 {
-    private readonly NpgsqlDataSource dataSource;
-    private readonly Task initializationTask;
+    private readonly NpgsqlDataSource _dataSource;
+    private readonly Task _initializationTask;
 
     /// <summary>
     /// Initializes a new PostgreSQL-backed verifier storage instance.
@@ -18,8 +18,8 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
-        dataSource = NpgsqlDataSource.Create(connectionString);
-        initializationTask = PostgresVerifierMigrator.MigrateAsync(dataSource);
+        _dataSource = NpgsqlDataSource.Create(connectionString);
+        _initializationTask = PostgresVerifierMigrator.MigrateAsync(_dataSource);
     }
 
     /// <inheritdoc />
@@ -30,26 +30,26 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         var sessionId = AssessmentSessionId.Create();
         var createdAtUtc = DateTimeOffset.UtcNow;
 
-        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            insert into verifier_sessions (
-                id,
-                created_at,
-                metadata_json,
-                head_receipt_hash,
-                head_event_hash,
-                checkpoint_count
-            )
-            values (
-                @id,
-                @created_at,
-                cast(@metadata_json as jsonb),
-                @head_receipt_hash,
-                @head_event_hash,
-                @checkpoint_count
-            );
-            """;
+                              insert into verifier_sessions (
+                                  id,
+                                  created_at,
+                                  metadata_json,
+                                  head_receipt_hash,
+                                  head_event_hash,
+                                  checkpoint_count
+                              )
+                              values (
+                                  @id,
+                                  @created_at,
+                                  cast(@metadata_json as jsonb),
+                                  @head_receipt_hash,
+                                  @head_event_hash,
+                                  @checkpoint_count
+                              );
+                              """;
         command.Parameters.AddWithValue("id", sessionId.Value);
         command.Parameters.AddWithValue("created_at", createdAtUtc);
         command.Parameters.AddWithValue("metadata_json", "{}");
@@ -69,23 +69,26 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public async Task<VerifierSessionRecord> GetSessionAsync(AssessmentSessionId sessionId, CancellationToken cancellationToken)
+    public async Task<VerifierSessionRecord> GetSessionAsync(AssessmentSessionId sessionId,
+        CancellationToken cancellationToken)
     {
         await AwaitInitializationAsync(cancellationToken);
 
-        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         return await GetRequiredSessionAsync(connection, sessionId, lockForUpdate: false, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<CheckpointReceipt> AppendCheckpointAsync(Checkpoint checkpoint, CancellationToken cancellationToken)
+    public async Task<CheckpointReceipt> AppendCheckpointAsync(Checkpoint checkpoint,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
         await AwaitInitializationAsync(cancellationToken);
 
-        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var session = await GetRequiredSessionAsync(connection, checkpoint.SessionId, lockForUpdate: true, cancellationToken);
+        var session =
+            await GetRequiredSessionAsync(connection, checkpoint.SessionId, lockForUpdate: true, cancellationToken);
         var expectedSequenceNumber = session.CheckpointCount + 1;
         if (!string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
         {
@@ -99,7 +102,8 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
 
         if (checkpoint.SequenceNumber <= session.CheckpointCount)
         {
-            var existingReceipt = await TryGetReceiptBySequenceAsync(connection, checkpoint.SessionId, checkpoint.SequenceNumber, cancellationToken);
+            var existingReceipt = await TryGetReceiptBySequenceAsync(connection, checkpoint.SessionId,
+                checkpoint.SequenceNumber, cancellationToken);
             if (existingReceipt is null)
             {
                 throw new InvalidOperationException(
@@ -134,21 +138,21 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     {
         await AwaitInitializationAsync(cancellationToken);
 
-        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         _ = await GetRequiredSessionAsync(connection, sessionId, lockForUpdate: false, cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            select
-                session_id,
-                sequence_number,
-                current_event_hash,
-                previous_receipt_hash,
-                receipt_hash,
-                server_time
-            from verifier_checkpoints
-            where session_id = @session_id
-            order by sequence_number asc;
-            """;
+                              select
+                                  session_id,
+                                  sequence_number,
+                                  current_event_hash,
+                                  previous_receipt_hash,
+                                  receipt_hash,
+                                  server_time
+                              from verifier_checkpoints
+                              where session_id = @session_id
+                              order by sequence_number asc;
+                              """;
         command.Parameters.AddWithValue("session_id", sessionId.Value);
 
         var receipts = new List<CheckpointReceipt>();
@@ -166,11 +170,12 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public async Task<SessionHeadResponse> GetHeadAsync(AssessmentSessionId sessionId, CancellationToken cancellationToken)
+    public async Task<SessionHeadResponse> GetHeadAsync(AssessmentSessionId sessionId,
+        CancellationToken cancellationToken)
     {
         await AwaitInitializationAsync(cancellationToken);
 
-        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         var session = await GetRequiredSessionAsync(connection, sessionId, lockForUpdate: false, cancellationToken);
         return new SessionHeadResponse
         {
@@ -182,7 +187,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() => dataSource.DisposeAsync();
+    public ValueTask DisposeAsync() => _dataSource.DisposeAsync();
 
     /// <summary>
     /// Waits for schema initialization before serving storage operations.
@@ -190,7 +195,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when initialization is ready.</returns>
     private Task AwaitInitializationAsync(CancellationToken cancellationToken) =>
-        initializationTask.WaitAsync(cancellationToken);
+        _initializationTask.WaitAsync(cancellationToken);
 
     /// <summary>
     /// Loads a required persisted verifier session row.
@@ -208,19 +213,19 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     {
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
-            select
-                id,
-                created_at,
-                client_id,
-                assessment_id,
-                metadata_json::text,
-                head_receipt_hash,
-                head_event_hash,
-                checkpoint_count
-            from verifier_sessions
-            where id = @id
-            {(lockForUpdate ? "for update" : string.Empty)};
-            """;
+                               select
+                                   id,
+                                   created_at,
+                                   client_id,
+                                   assessment_id,
+                                   metadata_json::text,
+                                   head_receipt_hash,
+                                   head_event_hash,
+                                   checkpoint_count
+                               from verifier_sessions
+                               where id = @id
+                               {(lockForUpdate ? "for update" : string.Empty)};
+                               """;
         command.Parameters.AddWithValue("id", sessionId.Value);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -260,16 +265,16 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            select
-                session_id,
-                sequence_number,
-                current_event_hash,
-                previous_receipt_hash,
-                receipt_hash,
-                server_time
-            from verifier_checkpoints
-            where session_id = @session_id and sequence_number = @sequence_number;
-            """;
+                              select
+                                  session_id,
+                                  sequence_number,
+                                  current_event_hash,
+                                  previous_receipt_hash,
+                                  receipt_hash,
+                                  server_time
+                              from verifier_checkpoints
+                              where session_id = @session_id and sequence_number = @sequence_number;
+                              """;
         command.Parameters.AddWithValue("session_id", sessionId.Value);
         command.Parameters.AddWithValue("sequence_number", sequenceNumber);
 
@@ -301,33 +306,33 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            insert into verifier_checkpoints (
-                session_id,
-                sequence_number,
-                client_time,
-                server_time,
-                previous_event_hash,
-                current_event_hash,
-                project_state_hash,
-                previous_receipt_hash,
-                receipt_hash,
-                server_signature,
-                idempotency_key
-            )
-            values (
-                @session_id,
-                @sequence_number,
-                @client_time,
-                @server_time,
-                @previous_event_hash,
-                @current_event_hash,
-                @project_state_hash,
-                @previous_receipt_hash,
-                @receipt_hash,
-                @server_signature,
-                @idempotency_key
-            );
-            """;
+                              insert into verifier_checkpoints (
+                                  session_id,
+                                  sequence_number,
+                                  client_time,
+                                  server_time,
+                                  previous_event_hash,
+                                  current_event_hash,
+                                  project_state_hash,
+                                  previous_receipt_hash,
+                                  receipt_hash,
+                                  server_signature,
+                                  idempotency_key
+                              )
+                              values (
+                                  @session_id,
+                                  @sequence_number,
+                                  @client_time,
+                                  @server_time,
+                                  @previous_event_hash,
+                                  @current_event_hash,
+                                  @project_state_hash,
+                                  @previous_receipt_hash,
+                                  @receipt_hash,
+                                  @server_signature,
+                                  @idempotency_key
+                              );
+                              """;
         command.Parameters.AddWithValue("session_id", checkpoint.SessionId.Value);
         command.Parameters.AddWithValue("sequence_number", checkpoint.SequenceNumber);
         command.Parameters.AddWithValue("client_time", checkpoint.CreatedAtUtc);
@@ -356,16 +361,16 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            select
-                session_id,
-                sequence_number,
-                current_event_hash,
-                previous_receipt_hash,
-                receipt_hash,
-                server_time
-            from verifier_checkpoints
-            where session_id = @session_id and idempotency_key = @idempotency_key;
-            """;
+                              select
+                                  session_id,
+                                  sequence_number,
+                                  current_event_hash,
+                                  previous_receipt_hash,
+                                  receipt_hash,
+                                  server_time
+                              from verifier_checkpoints
+                              where session_id = @session_id and idempotency_key = @idempotency_key;
+                              """;
         command.Parameters.AddWithValue("session_id", checkpoint.SessionId.Value);
         command.Parameters.AddWithValue("idempotency_key", checkpoint.IdempotencyKey!);
 
@@ -402,12 +407,12 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            update verifier_sessions
-            set head_receipt_hash = @head_receipt_hash,
-                head_event_hash = @head_event_hash,
-                checkpoint_count = @checkpoint_count
-            where id = @id;
-            """;
+                              update verifier_sessions
+                              set head_receipt_hash = @head_receipt_hash,
+                                  head_event_hash = @head_event_hash,
+                                  checkpoint_count = @checkpoint_count
+                              where id = @id;
+                              """;
         command.Parameters.AddWithValue("id", sessionId.Value);
         command.Parameters.AddWithValue("head_receipt_hash", receipt.ReceiptHash);
         command.Parameters.AddWithValue("head_event_hash", receipt.TimelineHeadHash);

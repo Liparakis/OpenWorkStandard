@@ -1,5 +1,4 @@
 using System.Text.Json;
-
 using Ows.Core.Hashing;
 
 namespace Ows.Core.Notarization;
@@ -40,7 +39,7 @@ public static class ReceiptChainVerifier
     /// </summary>
     /// <param name="receipt">The receipt to hash.</param>
     /// <returns>The lower-case SHA-256 digest of the canonical receipt JSON.</returns>
-    public static string ComputeReceiptHash(CheckpointReceipt receipt)
+    private static string ComputeReceiptHash(CheckpointReceipt receipt)
     {
         ArgumentNullException.ThrowIfNull(receipt);
 

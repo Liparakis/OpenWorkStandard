@@ -1,12 +1,10 @@
 using System.IO.Compression;
 using System.Text.Json;
-
 using Ows.Core.Events;
 using Ows.Core.Graph;
 using Ows.Core.Hashing;
 using Ows.Core.Notarization;
 using Ows.Core.Packaging;
-using Ows.Core.Verification;
 
 namespace Ows.Core.Verification;
 
@@ -21,6 +19,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         Title = "Remote receipts missing",
         Detail = "The package is locally consistent, but no remote verifier receipts were provided."
     };
+
     private static readonly VerificationFinding RemoteReceiptsNotPackagedFinding = new()
     {
         Code = "remote-receipts-not-packaged",
@@ -104,7 +103,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         try
         {
             return JsonSerializer.Deserialize<OwsManifest>(manifestText)
-                ?? throw new JsonException("Manifest deserialized to null.");
+                   ?? throw new JsonException("Manifest deserialized to null.");
         }
         catch (JsonException)
         {
@@ -137,7 +136,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             try
             {
                 var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line)
-                    ?? throw new JsonException("Timeline event deserialized to null.");
+                               ?? throw new JsonException("Timeline event deserialized to null.");
 
                 if (!string.Equals(owsEvent.PreviousEventHash, expectedPreviousHash, StringComparison.Ordinal))
                 {
@@ -239,7 +238,8 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         }
 
         var declaredArtifactPaths = manifest.ArtifactHashes.Keys.ToHashSet(StringComparer.Ordinal);
-        foreach (var artifactEntry in archive.Entries.Where(entry => entry.FullName.StartsWith("artifacts/", StringComparison.Ordinal)))
+        foreach (var artifactEntry in archive.Entries.Where(entry =>
+                     entry.FullName.StartsWith("artifacts/", StringComparison.Ordinal)))
         {
             if (!declaredArtifactPaths.Contains(artifactEntry.FullName))
             {
@@ -310,7 +310,8 @@ public sealed class OwsPackageVerifier : IPackageVerifier
                     return TrustStatus.Unverified;
                 }
 
-                if (!string.Equals(trustedLastReceipt.TimelineHeadHash, timelineHeadHash, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(trustedLastReceipt.TimelineHeadHash, timelineHeadHash,
+                        StringComparison.OrdinalIgnoreCase))
                 {
                     errors.Add("Trusted remote receipt chain head does not match the local timeline head.");
                     return TrustStatus.Invalid;
@@ -336,7 +337,8 @@ public sealed class OwsPackageVerifier : IPackageVerifier
 
             if (packagedReceiptChain is null)
             {
-                if (!string.Equals(trustedSessionHead.LastTimelineHeadHash, timelineHeadHash, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(trustedSessionHead.LastTimelineHeadHash, timelineHeadHash,
+                        StringComparison.OrdinalIgnoreCase))
                 {
                     errors.Add("Trusted remote session head does not match the local timeline head.");
                     return TrustStatus.Invalid;
@@ -354,8 +356,10 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             }
 
             if (packagedLastReceipt.SequenceNumber != trustedSessionHead.LastSequenceNumber ||
-                !string.Equals(packagedLastReceipt.TimelineHeadHash, trustedSessionHead.LastTimelineHeadHash, StringComparison.OrdinalIgnoreCase) ||
-                !string.Equals(packagedLastReceipt.ReceiptHash, trustedSessionHead.LastReceiptHash, StringComparison.OrdinalIgnoreCase))
+                !string.Equals(packagedLastReceipt.TimelineHeadHash, trustedSessionHead.LastTimelineHeadHash,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(packagedLastReceipt.ReceiptHash, trustedSessionHead.LastReceiptHash,
+                    StringComparison.OrdinalIgnoreCase))
             {
                 errors.Add("Packaged receipt head does not match the trusted remote session head.");
                 return TrustStatus.Invalid;
@@ -410,7 +414,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         try
         {
             return JsonSerializer.Deserialize<ReceiptChain>(receiptsText)
-                ?? throw new JsonException("Receipt chain deserialized to null.");
+                   ?? throw new JsonException("Receipt chain deserialized to null.");
         }
         catch (JsonException)
         {

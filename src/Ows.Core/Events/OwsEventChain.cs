@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
 using Ows.Core.Hashing;
 
 namespace Ows.Core.Events;
@@ -86,7 +85,7 @@ public static class OwsEventChain
         }
 
         var lastEvent = JsonSerializer.Deserialize<OwsEvent>(lastNonEmptyLine, SerializerOptions)
-            ?? throw new JsonException("Timeline event deserialized to null.");
+                        ?? throw new JsonException("Timeline event deserialized to null.");
 
         return lastEvent.EventHash;
     }
