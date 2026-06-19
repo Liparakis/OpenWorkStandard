@@ -211,11 +211,19 @@ public static class OwsCommandFactory
         string verifierUrl,
         CancellationToken cancellationToken)
     {
-        var packagedReceiptChain = ReadPackagedReceiptChain(packagePath)
-            ?? throw new InvalidOperationException("The package does not contain receipts.json, so verifier-backed verification cannot resolve a remote session.");
+        var sessionId = ReadPackagedSessionId(packagePath);
+        var packagedReceiptChain = ReadPackagedReceiptChain(packagePath);
+        if (sessionId is null && packagedReceiptChain is null)
+        {
+            throw new InvalidOperationException(
+                $"The package does not contain {OwsConstants.SessionFileName} or {OwsConstants.ReceiptsFileName}, so verifier-backed verification cannot resolve a remote session.");
+        }
+
         using var httpClient = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
         var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint());
-        transport.RestoreSession(packagedReceiptChain.SessionId, packagedReceiptChain.Receipts.Count + 1);
+        transport.RestoreSession(
+            sessionId ?? packagedReceiptChain!.SessionId,
+            packagedReceiptChain?.Receipts.Count + 1 ?? 1);
         return await transport.GetReceiptsAsync(cancellationToken);
     }
 
@@ -235,6 +243,28 @@ public static class OwsCommandFactory
 
         using var reader = new StreamReader(receiptsEntry.Open());
         return JsonSerializer.Deserialize<ReceiptChain>(reader.ReadToEnd());
+    }
+
+    /// <summary>
+    /// Reads the packaged session identifier from session metadata when present.
+    /// </summary>
+    /// <param name="packagePath">The package path.</param>
+    /// <returns>The packaged session identifier when present; otherwise <see langword="null"/>.</returns>
+    private static AssessmentSessionId? ReadPackagedSessionId(string packagePath)
+    {
+        using var archive = ZipFile.OpenRead(packagePath);
+        var sessionEntry = archive.GetEntry(OwsConstants.SessionFileName);
+        if (sessionEntry is null)
+        {
+            return null;
+        }
+
+        using var reader = new StreamReader(sessionEntry.Open());
+        var sessionState = JsonSerializer.Deserialize<SessionState>(reader.ReadToEnd())
+            ?? throw new JsonException("Session state deserialized to null.");
+        return string.IsNullOrWhiteSpace(sessionState.SessionId)
+            ? null
+            : new AssessmentSessionId(sessionState.SessionId);
     }
 
     /// <summary>

@@ -89,8 +89,8 @@ Current implemented flow:
 3. `ows session start` can create a local or remote-backed receipt session, depending on transport wiring.
 4. `ows session checkpoint` can append a receipt to the current session, depending on transport wiring.
 5. `ows package` writes a real `.owspkg` archive.
-6. optional `receipts.json` is included when present locally.
-7. `ows verify` validates event-chain integrity, artifact integrity, and optional receipt-chain integrity, with optional live verifier cross-checking.
+6. optional `session.json` and `receipts.json` are included when present locally.
+7. `ows verify` validates event-chain integrity, packaged session integrity, artifact integrity, and optional receipt-chain integrity, with optional live verifier cross-checking.
 8. `ows report` renders a basic text integrity report.
 
 Target flow:

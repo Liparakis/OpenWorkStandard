@@ -19,6 +19,7 @@ public sealed class OwsPackageBuilder : IPackageBuilder
         var localFolder = Path.Combine(request.ProjectRootPath, OwsConstants.LocalFolderName);
         var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
         var receiptsPath = Path.Combine(localFolder, OwsConstants.ReceiptsFileName);
+        var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         var outputDirectory = Path.GetDirectoryName(request.OutputPackagePath);
         var hashService = new Sha256HashService();
 
@@ -29,6 +30,7 @@ public sealed class OwsPackageBuilder : IPackageBuilder
 
         var timelineText = File.ReadAllText(timelinePath);
         const string versionGraphText = "{\"nodes\":[],\"edges\":[]}";
+        var sessionText = File.Exists(sessionPath) ? File.ReadAllText(sessionPath) : null;
         var artifactHashes = Directory
             .EnumerateFiles(request.ProjectRootPath, "*", SearchOption.AllDirectories)
             .Select(filePath => new
@@ -51,6 +53,7 @@ public sealed class OwsPackageBuilder : IPackageBuilder
             TrackedPath = request.ProjectRootPath,
             TimelineHash = hashService.ComputeHash(timelineText),
             VersionGraphHash = hashService.ComputeHash(versionGraphText),
+            SessionStateHash = sessionText is null ? string.Empty : hashService.ComputeHash(sessionText),
             ArtifactHashes = artifactHashes
         };
 
@@ -82,6 +85,11 @@ public sealed class OwsPackageBuilder : IPackageBuilder
             if (File.Exists(receiptsPath))
             {
                 archive.CreateEntryFromFile(receiptsPath, OwsConstants.ReceiptsFileName);
+            }
+
+            if (sessionText is not null)
+            {
+                archive.CreateEntryFromFile(sessionPath, OwsConstants.SessionFileName);
             }
 
             foreach (var artifactPath in artifactHashes.Keys)

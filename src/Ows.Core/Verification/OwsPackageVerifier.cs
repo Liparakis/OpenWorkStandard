@@ -212,6 +212,26 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(manifest.SessionStateHash))
+        {
+            var sessionEntry = archive.GetEntry(OwsConstants.SessionFileName);
+            if (sessionEntry is null)
+            {
+                errors.Add($"Missing session state entry declared in manifest: {OwsConstants.SessionFileName}");
+            }
+            else
+            {
+                using var sessionReader = new StreamReader(sessionEntry.Open());
+                var sessionText = sessionReader.ReadToEnd();
+                var actualSessionHash = hashService.ComputeHash(sessionText);
+
+                if (!string.Equals(actualSessionHash, manifest.SessionStateHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add("Session state hash does not match manifest.");
+                }
+            }
+        }
+
         var declaredArtifactPaths = manifest.ArtifactHashes.Keys.ToHashSet(StringComparer.Ordinal);
         foreach (var artifactEntry in archive.Entries.Where(entry => entry.FullName.StartsWith("artifacts/", StringComparison.Ordinal)))
         {

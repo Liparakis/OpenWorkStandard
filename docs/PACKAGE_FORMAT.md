@@ -4,13 +4,15 @@ The target package layout is:
 
 ```text
 submission.owspkg
-├─ manifest.json
-├─ timeline.jsonl
-├─ version_graph.json
-├─ artifacts/
-├─ deltas/
-├─ metadata/
-└─ signature.json
+|- manifest.json
+|- timeline.jsonl
+|- version_graph.json
+|- session.json
+|- receipts.json
+|- artifacts/
+|- deltas/
+|- metadata/
+`- signature.json
 ```
 
 ## Purpose
@@ -22,6 +24,8 @@ The package captures enough provenance to verify work evolution later without de
 - `manifest.json`: package metadata, toolchain, identifiers, and generation context.
 - `timeline.jsonl`: append-friendly chronological event stream.
 - `version_graph.json`: graph structure for version reconstruction and integrity checks.
+- `session.json`: packaged session metadata used to resolve the authoritative verifier session when available.
+- `receipts.json`: packaged remote receipt chain snapshot when available.
 - `artifacts/`: final or intermediate project artifacts chosen for submission or inspection.
 - `deltas/`: change units or snapshots used to reconstruct work history.
 - `metadata/`: auxiliary information that does not fit the main manifest.
@@ -30,5 +34,5 @@ The package captures enough provenance to verify work evolution later without de
 ## Notes
 
 - `.owspkg` names the OWS package format and replaces any older `.oapkg` terminology.
-- The current repository implements real package assembly for `manifest.json`, `timeline.jsonl`, `version_graph.json`, and `artifacts/`.
+- The current repository implements real package assembly for `manifest.json`, `timeline.jsonl`, `version_graph.json`, optional `session.json`, optional `receipts.json`, and `artifacts/`.
 - Report output is intentionally external to this initial minimal package shape so the submission artifact stays focused on provenance data.

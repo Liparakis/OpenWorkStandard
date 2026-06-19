@@ -10,7 +10,6 @@ namespace Ows.Cli;
 /// </summary>
 public static class OwsSessionStore
 {
-    private const string SessionFileName = "session.json";
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
     /// <summary>
@@ -43,6 +42,11 @@ public static class OwsSessionStore
 
         return sessionId;
     }
+
+    /// <summary>
+    /// Gets the packaged session-state file path.
+    /// </summary>
+    private static string SessionFileName => OwsConstants.SessionFileName;
 
     /// <summary>
     /// Derives the next checkpoint from the local timeline head, issues a receipt, and persists the updated chain.
@@ -98,7 +102,6 @@ public static class OwsSessionStore
 
         return receipt;
     }
-
     /// <summary>
     /// Reads the persisted receipt chain for the current project.
     /// </summary>
@@ -181,11 +184,4 @@ public static class OwsSessionStore
     /// <param name="receiptChain">The receipt chain to persist.</param>
     private static void WriteReceiptChain(string receiptsPath, ReceiptChain receiptChain) =>
         File.WriteAllText(receiptsPath, JsonSerializer.Serialize(receiptChain, SerializerOptions));
-
-    private sealed record SessionState
-    {
-        public string SessionId { get; init; } = string.Empty;
-
-        public string? VerifierUrl { get; init; }
-    }
 }

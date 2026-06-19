@@ -34,4 +34,9 @@ public static class OwsConstants
     /// Gets the receipt chain file name stored inside a package when receipts are available.
     /// </summary>
     public const string ReceiptsFileName = "receipts.json";
+
+    /// <summary>
+    /// Gets the session-state file name used locally and optionally stored inside a package.
+    /// </summary>
+    public const string SessionFileName = "session.json";
 }

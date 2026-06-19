@@ -49,10 +49,10 @@ public sealed class OwsVerifyCommandTests
     }
 
     /// <summary>
-    /// Verifies that live verifier cross-check succeeds for an untampered packaged receipt chain.
+    /// Verifies that live verifier cross-check succeeds even when packaged receipts are omitted.
     /// </summary>
     [Fact]
-    public async Task VerifyCommand_WithServer_ShouldSucceedWhenRemoteReceiptsMatchPackage()
+    public async Task VerifyCommand_WithServer_ShouldSucceedWhenRemoteReceiptsMatchPackageWithoutPackagedReceipts()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-verify-remote-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
@@ -90,8 +90,15 @@ public sealed class OwsVerifyCommandTests
                 Path.Combine(projectRoot, ".ows", OwsConstants.ReceiptsFileName),
                 JsonSerializer.Serialize(remoteReceiptChain));
             (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
+            var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update))
+            {
+                archive.GetEntry(OwsConstants.ReceiptsFileName)!.Delete();
+            }
 
-            var verifyResult = await OwsCommandFactory.BuildRootCommand().Parse(["verify", "--server", verifierServer.BaseUrl]).InvokeAsync();
+            var verifyResult = await OwsCommandFactory.BuildRootCommand()
+                .Parse(["verify", "--server", verifierServer.BaseUrl])
+                .InvokeAsync();
 
             verifyResult.Should().Be(0);
             verifierServer.RequestedPaths.Should().Contain($"sessions/{sessionId}/receipts");
@@ -108,10 +115,10 @@ public sealed class OwsVerifyCommandTests
     }
 
     /// <summary>
-    /// Verifies that live verifier cross-check fails when packaged receipts are tampered.
+    /// Verifies that live verifier cross-check fails when packaged session metadata resolves a different remote chain.
     /// </summary>
     [Fact]
-    public async Task VerifyCommand_WithServer_ShouldFailWhenPackagedReceiptsDoNotMatchRemote()
+    public async Task VerifyCommand_WithServer_ShouldFailWhenPackagedSessionResolvesMismatchedRemoteChain()
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-verify-remote-mismatch-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
@@ -154,14 +161,14 @@ public sealed class OwsVerifyCommandTests
             using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update))
             {
                 archive.GetEntry(OwsConstants.ReceiptsFileName)!.Delete();
-                var tamperedChain = new ReceiptChain
+                archive.GetEntry(OwsConstants.SessionFileName)!.Delete();
+                var tamperedSessionEntry = archive.CreateEntry(OwsConstants.SessionFileName);
+                using var writer = new StreamWriter(tamperedSessionEntry.Open());
+                writer.Write(JsonSerializer.Serialize(new SessionState
                 {
-                    SessionId = sessionId,
-                    Receipts = [remoteReceiptChain.Receipts[0] with { ReceiptHash = "tampered-receipt-hash" }]
-                };
-                var entry = archive.CreateEntry(OwsConstants.ReceiptsFileName);
-                using var writer = new StreamWriter(entry.Open());
-                writer.Write(JsonSerializer.Serialize(tamperedChain));
+                    SessionId = "wrong-session",
+                    VerifierUrl = verifierServer.BaseUrl
+                }));
             }
 
             var verifyResult = await OwsCommandFactory.BuildRootCommand().Parse(["verify", "--server", verifierServer.BaseUrl]).InvokeAsync();

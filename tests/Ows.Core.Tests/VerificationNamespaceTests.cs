@@ -504,6 +504,65 @@ public sealed class VerificationNamespaceTests
     }
 
     /// <summary>
+    /// Verifies that session metadata tampering after packaging fails hash validation.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenSessionStateHashDoesNotMatchManifest()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-verify-session-hash-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(projectRoot);
+        var localFolder = Path.Combine(projectRoot, ".ows");
+        Directory.CreateDirectory(localFolder);
+        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), SerializeTimeline(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+        File.WriteAllText(
+            Path.Combine(localFolder, OwsConstants.SessionFileName),
+            JsonSerializer.Serialize(new SessionState
+            {
+                SessionId = "session-1",
+                VerifierUrl = "https://verifier.test/"
+            }));
+        var packagePath = Path.Combine(projectRoot, "submission.owspkg");
+
+        try
+        {
+            var builder = new OwsPackageBuilder();
+            await builder.CreatePackageAsync(
+                new PackageCreationRequest
+                {
+                    ProjectRootPath = projectRoot,
+                    OutputPackagePath = packagePath
+                },
+                CancellationToken.None);
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update))
+            {
+                archive.GetEntry(OwsConstants.SessionFileName)!.Delete();
+                WriteEntry(archive, OwsConstants.SessionFileName, JsonSerializer.Serialize(new SessionState
+                {
+                    SessionId = "session-2",
+                    VerifierUrl = "https://verifier.test/"
+                }));
+            }
+
+            var verifier = new OwsPackageVerifier();
+            var result = await verifier.VerifyAsync(
+                new PackageVerificationRequest { PackagePath = packagePath },
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
+            result.Errors.Should().Contain(error => error.Contains("session state hash", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that undeclared artifact entries fail verification.
     /// </summary>
     [Fact]

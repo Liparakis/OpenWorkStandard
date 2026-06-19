@@ -51,6 +51,11 @@ public sealed record OwsManifest
     public string VersionGraphHash { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the SHA-256 hash of the packaged session state when session metadata is available.
+    /// </summary>
+    public string SessionStateHash { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets the SHA-256 hashes of packaged artifact entries keyed by archive path.
     /// </summary>
     public IReadOnlyDictionary<string, string> ArtifactHashes { get; init; } = new Dictionary<string, string>();

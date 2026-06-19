@@ -11,7 +11,7 @@ Near-term architecture:
 - the final package proves
 - the professor decides
 
-Today, the CLI is still mostly local-only. It can now start sessions and submit checkpoints against a configured verifier API, while keeping `timeline.jsonl` and `receipts.json` as the local package inputs.
+Today, the CLI is still mostly local-only. It can now start sessions and submit checkpoints against a configured verifier API, while keeping `timeline.jsonl`, `session.json`, and `receipts.json` as the local package inputs.
 
 ## `ows session start`
 
@@ -63,6 +63,8 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
 - Current behavior:
   - creates a real `.owspkg` archive
   - writes `manifest.json`, `timeline.jsonl`, and `version_graph.json`
+  - includes `session.json` when local session metadata exists
+  - includes `receipts.json` when local receipts exist
   - includes project files under `artifacts/`
   - stores hashes for timeline, version graph, and packaged artifacts
 - Example output: `OWS package created at <path>`
@@ -73,18 +75,20 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
 - Purpose: verify a submission package.
 - Usage: `ows verify [--server <url>]`
 - Options:
-  - `--server <url>`: cross-check packaged receipts against a live verifier API
+  - `--server <url>`: cross-check packaged session and receipts against a live verifier API
 - Current behavior:
   - validates package structure
   - validates manifest, timeline, and version graph JSON
+  - validates packaged session metadata when present
   - validates timeline, version graph, and artifact hashes
   - rejects undeclared packaged artifacts
-  - optionally cross-checks packaged receipts against a live verifier receipt chain
+  - optionally cross-checks the packaged session against a live verifier receipt chain
   - returns a trust grade
 - Current trust behavior:
   - locally valid packages are currently graded `Unverified`
   - structural or hash failures are graded `Invalid`
-  - remote receipts are not integrated yet
+  - valid packaged receipts can upgrade trust to `Verified`
+  - `verify --server` can resolve the remote session from packaged `session.json` even when `receipts.json` is absent
 - Example output: `OWS verify succeeded.`
 - Status: implemented MVP command with trust grading foundation
 
