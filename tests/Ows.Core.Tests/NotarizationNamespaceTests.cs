@@ -265,4 +265,41 @@ public sealed class NotarizationNamespaceTests
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("Cannot restore invalid receipt chain*");
     }
+
+    /// <summary>
+    /// Verifies that the in-memory remote transport can start a session and issue receipts.
+    /// </summary>
+    [Fact]
+    public async Task InMemoryRemoteReceiptTransport_ShouldIssueReceiptsForActiveSession()
+    {
+        var transport = new InMemoryRemoteReceiptTransport(
+            new InMemoryReceiptService(),
+            () => new Checkpoint { TimelineHeadHash = "head-1" });
+
+        var sessionId = await transport.StartSessionAsync(CancellationToken.None);
+        var receipt = await transport.SendCheckpointAsync(CancellationToken.None);
+        var chain = await transport.GetReceiptsAsync(CancellationToken.None);
+
+        sessionId.Value.Should().NotBeNullOrWhiteSpace();
+        receipt.SequenceNumber.Should().Be(1);
+        chain.SessionId.Should().Be(sessionId);
+        chain.Receipts.Should().ContainSingle();
+        ReceiptChainVerifier.IsValid(chain).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Verifies that the in-memory remote transport rejects checkpoint submission before session start.
+    /// </summary>
+    [Fact]
+    public async Task InMemoryRemoteReceiptTransport_ShouldRequireActiveSession()
+    {
+        var transport = new InMemoryRemoteReceiptTransport(
+            new InMemoryReceiptService(),
+            () => new Checkpoint { TimelineHeadHash = "head-1" });
+
+        var act = async () => await transport.SendCheckpointAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("No active assessment session*");
+    }
 }
