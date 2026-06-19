@@ -73,6 +73,7 @@ What does not exist yet:
 - issue chained receipts
 - persist durable verified history
 - verify final packages against known receipt history
+- expose both full receipt-chain reads and a cheap current-head read
 
 ### Human reviewer
 

@@ -83,6 +83,7 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
   - validates timeline, version graph, and artifact hashes
   - rejects undeclared packaged artifacts
   - optionally cross-checks the packaged session against a live verifier receipt chain
+  - uses the verifier session head when `session.json` exists but `receipts.json` is absent
   - returns a trust grade
 - Current trust behavior:
   - locally valid packages are currently graded `Unverified`
