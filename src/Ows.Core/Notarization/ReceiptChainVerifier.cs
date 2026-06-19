@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Ows.Core.Hashing;
 
@@ -18,8 +20,9 @@ public static class ReceiptChainVerifier
     /// </summary>
     /// <param name="checkpoint">The checkpoint to receipt.</param>
     /// <param name="previousReceiptHash">The previous receipt hash, or the genesis value for the first receipt.</param>
+    /// <param name="signingKey">The optional server signing key used to sign the receipt hash.</param>
     /// <returns>A newly issued chained receipt.</returns>
-    public static CheckpointReceipt IssueReceipt(Checkpoint checkpoint, string previousReceiptHash)
+    public static CheckpointReceipt IssueReceipt(Checkpoint checkpoint, string previousReceiptHash, string? signingKey = null)
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
 
@@ -31,7 +34,12 @@ public static class ReceiptChainVerifier
             PreviousReceiptHash = previousReceiptHash
         };
 
-        return receiptWithoutHash with { ReceiptHash = ComputeReceiptHash(receiptWithoutHash) };
+        var receiptHash = ComputeReceiptHash(receiptWithoutHash);
+        return receiptWithoutHash with
+        {
+            ReceiptHash = receiptHash,
+            ServerSignature = ComputeServerSignature(receiptHash, signingKey)
+        };
     }
 
     /// <summary>
@@ -56,11 +64,36 @@ public static class ReceiptChainVerifier
     }
 
     /// <summary>
+    /// Computes the optional HMAC server signature for a receipt hash.
+    /// </summary>
+    /// <param name="receiptHash">The committed receipt hash to sign.</param>
+    /// <param name="signingKey">The server signing key, or empty for unsigned local receipts.</param>
+    /// <returns>The lower-case HMAC-SHA256 signature, or an empty string when no signing key is configured.</returns>
+    private static string ComputeServerSignature(string receiptHash, string? signingKey)
+    {
+        if (string.IsNullOrWhiteSpace(signingKey))
+        {
+            return string.Empty;
+        }
+
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(signingKey));
+        return Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(receiptHash))).ToLowerInvariant();
+    }
+
+    /// <summary>
     /// Verifies that a receipt chain is continuous and internally consistent.
     /// </summary>
     /// <param name="receiptChain">The receipt chain to verify.</param>
     /// <returns><see langword="true"/> when the chain is valid; otherwise, <see langword="false"/>.</returns>
-    public static bool IsValid(ReceiptChain receiptChain)
+    public static bool IsValid(ReceiptChain receiptChain) => IsValid(receiptChain, signingKey: null);
+
+    /// <summary>
+    /// Verifies that a receipt chain is continuous, internally consistent, and signed when a key is provided.
+    /// </summary>
+    /// <param name="receiptChain">The receipt chain to verify.</param>
+    /// <param name="signingKey">The optional server signing key used to verify receipt signatures.</param>
+    /// <returns><see langword="true"/> when the chain is valid; otherwise, <see langword="false"/>.</returns>
+    public static bool IsValid(ReceiptChain receiptChain, string? signingKey)
     {
         ArgumentNullException.ThrowIfNull(receiptChain);
 
@@ -85,6 +118,15 @@ public static class ReceiptChainVerifier
             }
 
             if (!string.Equals(receipt.ReceiptHash, ComputeReceiptHash(receipt), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(signingKey) &&
+                !string.Equals(
+                    receipt.ServerSignature,
+                    ComputeServerSignature(receipt.ReceiptHash, signingKey),
+                    StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }

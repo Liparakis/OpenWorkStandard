@@ -31,6 +31,11 @@ public sealed record CheckpointReceipt
     public string ReceiptHash { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the optional server signature over the receipt hash.
+    /// </summary>
+    public string ServerSignature { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets the server-issued timestamp for the receipt.
     /// </summary>
     public ServerTimestamp ServerTimestamp { get; init; } = new();

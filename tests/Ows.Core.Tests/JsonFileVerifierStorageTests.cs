@@ -88,6 +88,80 @@ public sealed class JsonFileVerifierStorageTests
     }
 
     /// <summary>
+    /// Verifies that JSON storage preserves configured receipt signatures across restart.
+    /// </summary>
+    [Fact]
+    public async Task AppendCheckpointAsync_ShouldPersistSignedReceipts()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-signed-{Guid.NewGuid():N}");
+        var storePath = Path.Combine(directoryPath, "receipts.json");
+
+        try
+        {
+            var firstStorage = new JsonFileVerifierStorage(storePath, "test-signing-key");
+            var session = await firstStorage.CreateSessionAsync(CancellationToken.None);
+            var receipt = await firstStorage.AppendCheckpointAsync(
+                new Checkpoint
+                {
+                    SessionId = session.Id,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = "head-1"
+                },
+                CancellationToken.None);
+
+            var secondStorage = new JsonFileVerifierStorage(storePath, "test-signing-key");
+            var restoredChain = await secondStorage.GetReceiptsAsync(session.Id, CancellationToken.None);
+
+            receipt.ServerSignature.Should().NotBeNullOrWhiteSpace();
+            restoredChain.Receipts[0].ServerSignature.Should().Be(receipt.ServerSignature);
+            ReceiptChainVerifier.IsValid(restoredChain, "test-signing-key").Should().BeTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that signed JSON storage rejects restart with the wrong signing key.
+    /// </summary>
+    [Fact]
+    public async Task Constructor_ShouldRejectSignedReceiptsWithWrongKey()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-wrong-key-{Guid.NewGuid():N}");
+        var storePath = Path.Combine(directoryPath, "receipts.json");
+
+        try
+        {
+            var storage = new JsonFileVerifierStorage(storePath, "test-signing-key");
+            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            _ = await storage.AppendCheckpointAsync(
+                new Checkpoint
+                {
+                    SessionId = session.Id,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = "head-1"
+                },
+                CancellationToken.None);
+
+            var act = () => new JsonFileVerifierStorage(storePath, "wrong-key");
+
+            act.Should().Throw<InvalidOperationException>()
+                .WithMessage("Cannot restore invalid receipt chain*");
+        }
+        finally
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that multiple appended checkpoints preserve durable order.
     /// </summary>
     [Fact]

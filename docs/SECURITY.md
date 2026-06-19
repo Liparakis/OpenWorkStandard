@@ -54,6 +54,7 @@ The current repository already implements:
 - tamper-evident local event chaining in `timeline.jsonl`
 - in-memory receipt chain issuance/validation helpers
 - optional packaged receipt-chain verification
+- optional HMAC verifier receipt signatures when a server signing key is configured
 - trust grading with `Verified`, `Unverified`, and `Invalid`
 
 Current trust behavior:
@@ -151,14 +152,15 @@ The system must fail in a way that preserves honest uncertainty:
 
 Current caveat:
 
-- the verifier is not yet a strong trust boundary while receipt issuance still uses the JSON development store
-- stronger trust claims depend on PostgreSQL-backed durable receipt issuance
+- the verifier is not a strong trust boundary when receipt issuance uses the JSON development store
+- stronger trust claims depend on PostgreSQL-backed durable receipt issuance and disciplined signing-key custody
 
 ## Secrets and Supply Chain
 
 Directional hardening requirements:
 
 - secret management via cloud secret managers, Vault, or External Secrets
+- public-key receipt signatures, key IDs, and key rotation later
 - container/image signing later
 - SBOM generation later
 - dependency/update hygiene

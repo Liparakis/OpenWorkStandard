@@ -1,6 +1,6 @@
 # Open Work Standard
 
-Open Work Standard (OWS) is an open assessment provenance and notarization protocol. Its purpose is to capture the evolution of coursework, package that evidence into `.owspkg` archives, and support verification against local integrity signals and, later, remote verifier receipts.
+Open Work Standard (OWS) is an academic work provenance and notarization protocol. Its purpose is to capture the evolution of coursework, package that evidence into `.owspkg` archives, and support verification against local integrity signals and remote verifier receipts.
 
 OWS is not an AI detector, proctoring tool, surveillance product, or automated misconduct judge. It is provenance and notarization infrastructure for preserving work history and supporting human review.
 
@@ -26,7 +26,7 @@ dotnet run --project src/Ows.Cli -- --help
 - `src/Ows.Core`: shared domain models plus agent, packaging, notarization, verification, and reporting namespaces.
 - `src/Ows.Cli`: command-line entry point for the reference client.
 - `src/Ows.Desktop`: placeholder project for a future Avalonia UI.
-- `src/Ows.Verifier.Server`: minimal ASP.NET Core verifier API scaffold backed by a local JSON receipt snapshot.
+- `src/Ows.Verifier.Server`: minimal ASP.NET Core verifier API backed by local JSON snapshots or PostgreSQL.
 - `tests/Ows.Core.Tests`: xUnit coverage for core behavior and collapsed MVP service skeletons.
 - `tests/Ows.Cli.Tests`: xUnit coverage for command construction.
 - `docs`: specification, architecture, privacy, security, package format, CLI, and glossary.
@@ -57,7 +57,7 @@ This repository now has a thin but real local MVP:
 - `ows verify` validates package integrity and can cross-check packaged receipts against a live verifier API
 - `ows report` writes a text or JSON integrity report with findings and review signals
 
-The main architectural gap is the durable trust boundary. Local capture alone is not enough, so the next milestone is turning the current in-memory verifier scaffold into a self-hostable service with durable storage and hardened transport.
+The main architectural gap is operational hardening. Local capture alone is not enough, so the verifier path now focuses on durable storage, signing-key custody, auth, and deployment discipline.
 
 ## Verifier schema setup
 
@@ -70,6 +70,8 @@ dotnet run --project src/Ows.Verifier.Server -- migrate
 ```
 
 Normal PostgreSQL-backed verifier startup also applies missing ordered migrations automatically. DevOps still owns the database instance, credentials, backups, and deployment policy; OWS owns the verifier schema shape.
+
+Set `VerifierStorage__ReceiptSigningKey` to sign issued receipts. Keep that key outside the repository and deployment image.
 
 ## Local durable verifier
 

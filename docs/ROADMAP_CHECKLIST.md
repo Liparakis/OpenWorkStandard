@@ -4,7 +4,7 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Harden the local verifier dev loop and cold-start behavior, then add server-side package submission and verification only after the verifier is reliable.
+Harden verifier operational security in small steps, then add server-side package submission and verification only after the verifier is reliable.
 
 ## 1. Current MVP Status
 
@@ -62,8 +62,9 @@ Harden the local verifier dev loop and cold-start behavior, then add server-side
 - [x] PostgreSQL verifier storage foundation
 - [x] App-owned verifier migrations
 - [x] `Idempotency-Key` support
+- [x] MVP verifier receipt signing key support
 - [ ] Production-grade verifier hosting
-- [ ] Server signing key management hardening
+- [ ] Server signing key management hardening - Status: Partial
 - [ ] Auth and RBAC
 - [ ] Observability
 

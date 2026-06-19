@@ -8,6 +8,16 @@ namespace Ows.Core.Notarization;
 public sealed class InMemoryReceiptService
 {
     private readonly ConcurrentDictionary<AssessmentSessionId, List<CheckpointReceipt>> _receiptChains = new();
+    private readonly string? _signingKey;
+
+    /// <summary>
+    /// Initializes a new in-memory receipt service.
+    /// </summary>
+    /// <param name="signingKey">The optional server signing key used to sign issued receipts.</param>
+    public InMemoryReceiptService(string? signingKey = null)
+    {
+        _signingKey = signingKey;
+    }
 
     /// <summary>
     /// Starts a new assessment session.
@@ -38,7 +48,7 @@ public sealed class InMemoryReceiptService
             Receipts = restoredReceipts
         };
 
-        if (!ReceiptChainVerifier.IsValid(receiptChain))
+        if (!ReceiptChainVerifier.IsValid(receiptChain, _signingKey))
         {
             throw new InvalidOperationException($"Cannot restore invalid receipt chain for session {sessionId}.");
         }
@@ -75,7 +85,7 @@ public sealed class InMemoryReceiptService
             var previousReceiptHash = receipts.Count == 0
                 ? ReceiptChainVerifier.GenesisPreviousReceiptHash
                 : receipts[^1].ReceiptHash;
-            var receipt = ReceiptChainVerifier.IssueReceipt(checkpoint, previousReceiptHash);
+            var receipt = ReceiptChainVerifier.IssueReceipt(checkpoint, previousReceiptHash, _signingKey);
             receipts.Add(receipt);
             return receipt;
         }

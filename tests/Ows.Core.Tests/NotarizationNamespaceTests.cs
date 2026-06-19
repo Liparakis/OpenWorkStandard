@@ -68,6 +68,28 @@ public sealed class NotarizationNamespaceTests
     }
 
     /// <summary>
+    /// Verifies that issued receipts are signed when a server signing key is configured.
+    /// </summary>
+    [Fact]
+    public void IssueReceipt_ShouldSignReceiptWhenSigningKeyIsConfigured()
+    {
+        var sessionId = AssessmentSessionId.Create();
+        var receipt = ReceiptChainVerifier.IssueReceipt(
+            new Checkpoint { SessionId = sessionId, SequenceNumber = 1, TimelineHeadHash = "head-1" },
+            ReceiptChainVerifier.GenesisPreviousReceiptHash,
+            signingKey: "test-signing-key");
+        var chain = new ReceiptChain
+        {
+            SessionId = sessionId,
+            Receipts = [receipt]
+        };
+
+        receipt.ServerSignature.Should().NotBeNullOrWhiteSpace();
+        ReceiptChainVerifier.IsValid(chain, "test-signing-key").Should().BeTrue();
+        ReceiptChainVerifier.IsValid(chain, "wrong-key").Should().BeFalse();
+    }
+
+    /// <summary>
     /// Verifies that tampered receipts fail chain validation.
     /// </summary>
     [Fact]

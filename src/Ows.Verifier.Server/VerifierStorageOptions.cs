@@ -16,7 +16,12 @@ public sealed record VerifierStorageOptions
     public string JsonStorePath { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the PostgreSQL connection string reserved for the future durable backend.
+    /// Gets the PostgreSQL connection string used by the durable backend.
     /// </summary>
     public string PostgresConnectionString { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the optional verifier receipt signing key.
+    /// </summary>
+    public string ReceiptSigningKey { get; init; } = string.Empty;
 }

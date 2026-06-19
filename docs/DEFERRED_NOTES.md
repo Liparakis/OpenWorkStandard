@@ -19,6 +19,12 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 - Do not split migration execution from normal startup yet for local dev and MVP self-hosting.
 - Add a migration-only rollout path or startup flag before multi-replica production deployment.
 
+## Verifier Signing
+
+- Do not add public-key receipt signatures yet.
+- Do not add signing key rotation, key IDs, or KMS/Vault integration yet.
+- The current `ReceiptSigningKey` HMAC path is enough until receipts must be independently verified outside the server boundary.
+
 ## Watcher / Hosts
 
 - Do not build full IDE plugins yet.

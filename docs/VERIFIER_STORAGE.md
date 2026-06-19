@@ -28,6 +28,7 @@ Current provider selection:
 
 - `VerifierStorage:Provider=json`
 - `VerifierStorage:Provider=postgres`
+- `VerifierStorage:ReceiptSigningKey=<secret>` signs issued receipts when configured
 
 This JSON-backed store is for local development only.
 
@@ -52,6 +53,7 @@ It is not a real institutional trust boundary because:
 - the verifier server can also run an explicit `migrate` bootstrap path
 - checkpoint retries can use the `Idempotency-Key` header end-to-end
 - append uses a database transaction and session-row locking
+- issued receipts can include an HMAC server signature when `VerifierStorage:ReceiptSigningKey` is configured
 
 ## Intended Durable Backend
 
@@ -130,6 +132,7 @@ TODO later:
 
 - decide whether external clients need a wider idempotency API contract or a dedicated idempotency service
 - split migration execution from normal startup before multi-replica production rollout
+- replace the MVP HMAC receipt signature with public-key signing or managed key custody when external verification requires it
 
 Do not add yet:
 

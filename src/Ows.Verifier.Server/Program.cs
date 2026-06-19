@@ -37,12 +37,15 @@ if (args.Any(static arg => string.Equals(arg, "migrate", StringComparison.Ordina
 builder.Services.AddSingleton(normalizedStorageOptions);
 builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
 {
-    "json" => new JsonFileVerifierStorage(normalizedStorageOptions.JsonStorePath),
+    "json" => new JsonFileVerifierStorage(
+        normalizedStorageOptions.JsonStorePath,
+        normalizedStorageOptions.ReceiptSigningKey),
     "postgres" => new PostgresVerifierStorage(
         !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
             ? normalizedStorageOptions.PostgresConnectionString
             : throw new InvalidOperationException(
-                "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres.")),
+                "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."),
+        normalizedStorageOptions.ReceiptSigningKey),
     _ => throw new NotSupportedException($"Unsupported verifier storage provider: {normalizedStorageOptions.Provider}")
 });
 

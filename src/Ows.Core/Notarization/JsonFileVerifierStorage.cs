@@ -13,7 +13,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     private readonly Dictionary<AssessmentSessionId, Dictionary<string, PersistedCheckpointRequest>> _idempotencyKeys =
         [];
 
-    private readonly InMemoryReceiptService _receiptService = new();
+    private readonly InMemoryReceiptService _receiptService;
     private readonly Dictionary<AssessmentSessionId, VerifierSessionRecord> _sessions = [];
     private readonly string _storePath;
 
@@ -21,11 +21,13 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     /// Initializes a new file-backed verifier storage instance and restores any existing sessions.
     /// </summary>
     /// <param name="storePath">The snapshot file path.</param>
-    public JsonFileVerifierStorage(string storePath)
+    /// <param name="signingKey">The optional server signing key used to sign issued receipts.</param>
+    public JsonFileVerifierStorage(string storePath, string? signingKey = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storePath);
 
         this._storePath = storePath;
+        _receiptService = new InMemoryReceiptService(signingKey);
         LoadFromDisk();
     }
 

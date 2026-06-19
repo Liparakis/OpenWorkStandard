@@ -51,12 +51,14 @@ Required verifier settings:
 
 - `VerifierStorage__Provider=postgres`
 - `VerifierStorage__PostgresConnectionString=<your-postgres-connection-string>`
+- `VerifierStorage__ReceiptSigningKey=<secret-outside-the-repo>`
 
 Example:
 
 ```powershell
 $env:VerifierStorage__Provider = "postgres"
 $env:VerifierStorage__PostgresConnectionString = "Host=db.example;Port=5432;Database=ows_verifier;Username=ows;Password=change-me"
+$env:VerifierStorage__ReceiptSigningKey = "<long-random-secret>"
 ```
 
 ## First Bootstrap
@@ -96,6 +98,8 @@ The verifier also applies missing PostgreSQL migrations during normal startup.
 That is acceptable for MVP and simple self-hosting, but not the final answer for stricter multi-replica production rollout.
 
 See `docs/DEFERRED_NOTES.md` for that explicit deferral.
+
+Receipts are HMAC-signed when `VerifierStorage__ReceiptSigningKey` is configured. Keep that key outside the repository and deployment images. Public-key signatures, key IDs, and rotation are still deferred.
 
 ## What To Check After Startup
 

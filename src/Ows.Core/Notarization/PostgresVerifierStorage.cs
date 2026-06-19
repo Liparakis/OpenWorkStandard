@@ -9,15 +9,18 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
 {
     private readonly NpgsqlDataSource _dataSource;
     private readonly Task _initializationTask;
+    private readonly string? _signingKey;
 
     /// <summary>
     /// Initializes a new PostgreSQL-backed verifier storage instance.
     /// </summary>
     /// <param name="connectionString">The PostgreSQL connection string.</param>
-    public PostgresVerifierStorage(string connectionString)
+    /// <param name="signingKey">The optional server signing key used to sign issued receipts.</param>
+    public PostgresVerifierStorage(string connectionString, string? signingKey = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
+        _signingKey = signingKey;
         _dataSource = NpgsqlDataSource.Create(connectionString);
         _initializationTask = PostgresVerifierMigrator.MigrateAsync(_dataSource);
     }
@@ -126,7 +129,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                 $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {expectedSequenceNumber}.");
         }
 
-        var receipt = ReceiptChainVerifier.IssueReceipt(checkpoint, session.HeadReceiptHash);
+        var receipt = ReceiptChainVerifier.IssueReceipt(checkpoint, session.HeadReceiptHash, _signingKey);
         await InsertCheckpointAsync(connection, checkpoint, session, receipt, cancellationToken);
         await UpdateSessionHeadAsync(connection, session.Id, receipt, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -148,6 +151,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                                   current_event_hash,
                                   previous_receipt_hash,
                                   receipt_hash,
+                                  server_signature,
                                   server_time
                               from verifier_checkpoints
                               where session_id = @session_id
@@ -271,6 +275,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                                   current_event_hash,
                                   previous_receipt_hash,
                                   receipt_hash,
+                                  server_signature,
                                   server_time
                               from verifier_checkpoints
                               where session_id = @session_id and sequence_number = @sequence_number;
@@ -342,7 +347,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("project_state_hash", checkpoint.TimelineHeadHash);
         command.Parameters.AddWithValue("previous_receipt_hash", receipt.PreviousReceiptHash);
         command.Parameters.AddWithValue("receipt_hash", receipt.ReceiptHash);
-        command.Parameters.AddWithValue("server_signature", string.Empty);
+        command.Parameters.AddWithValue("server_signature", receipt.ServerSignature);
         command.Parameters.AddWithValue("idempotency_key", (object?)checkpoint.IdempotencyKey ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -367,6 +372,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                                   current_event_hash,
                                   previous_receipt_hash,
                                   receipt_hash,
+                                  server_signature,
                                   server_time
                               from verifier_checkpoints
                               where session_id = @session_id and idempotency_key = @idempotency_key;
@@ -433,9 +439,10 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
             TimelineHeadHash = reader.GetString(2),
             PreviousReceiptHash = reader.GetString(3),
             ReceiptHash = reader.GetString(4),
+            ServerSignature = reader.GetString(5),
             ServerTimestamp = new ServerTimestamp
             {
-                IssuedAtUtc = reader.GetFieldValue<DateTimeOffset>(5)
+                IssuedAtUtc = reader.GetFieldValue<DateTimeOffset>(6)
             }
         };
 }
