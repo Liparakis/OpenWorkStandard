@@ -11,7 +11,31 @@ Near-term architecture:
 - the final package proves
 - the professor decides
 
-Today, the CLI is still mostly local-only. Remote verifier integration has started at the domain-model and minimal API scaffold level, but the CLI does not call a live verifier over the network yet.
+Today, the CLI is still mostly local-only. It can now start sessions and submit checkpoints against a configured verifier API, while keeping `timeline.jsonl` and `receipts.json` as the local package inputs.
+
+## `ows session start`
+
+- Purpose: start an assessment session for local or remote receipt issuance.
+- Usage: `ows session start [--server <url>]`
+- Options:
+  - `--server <url>`: route receipt issuance through a verifier API instead of the local-only prototype flow
+- Current behavior:
+  - without `--server`, creates local `.ows/session.json` and `.ows/receipts.json`
+  - with `--server`, starts a remote session and persists the verifier URL locally
+- Example output: `OWS session started: <session-id>`
+- Status: implemented MVP command
+
+## `ows session checkpoint`
+
+- Purpose: issue the next receipt for the current timeline head.
+- Usage: `ows session checkpoint`
+- Options: none yet
+- Current behavior:
+  - derives the checkpoint from `.ows/timeline.jsonl`
+  - issues the next receipt locally or remotely based on `.ows/session.json`
+  - updates `.ows/receipts.json`
+- Example output: `OWS checkpoint recorded: <receipt-hash>`
+- Status: implemented MVP command
 
 ## `ows init`
 
@@ -78,8 +102,6 @@ Today, the CLI is still mostly local-only. Remote verifier integration has start
 
 These are directionally planned, not implemented yet:
 
-- `ows session start`
-- `ows checkpoint`
 - `ows verify --server <url>`
 - `ows package --include-receipts`
 - `ows report --format text|json`

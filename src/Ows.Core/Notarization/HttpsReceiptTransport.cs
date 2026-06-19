@@ -10,6 +10,24 @@ public sealed class HttpsReceiptTransport(HttpClient httpClient, Func<Assessment
     private AssessmentSessionId? activeSessionId;
     private int nextSequenceNumber = 1;
 
+    /// <summary>
+    /// Restores an already-started session so the transport can continue from persisted state.
+    /// </summary>
+    /// <param name="sessionId">The active session identifier.</param>
+    /// <param name="nextSequenceNumber">The next sequence number expected by the verifier.</param>
+    public void RestoreSession(AssessmentSessionId sessionId, int nextSequenceNumber)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId.Value);
+
+        if (nextSequenceNumber < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(nextSequenceNumber), "The next sequence number must be at least 1.");
+        }
+
+        activeSessionId = sessionId;
+        this.nextSequenceNumber = nextSequenceNumber;
+    }
+
     /// <inheritdoc />
     public async Task<AssessmentSessionId> StartSessionAsync(CancellationToken cancellationToken)
     {

@@ -48,7 +48,7 @@ This repository now has a thin but real local MVP:
 
 - `ows init` creates local `.ows` state
 - `ows watch` performs a one-shot project scan
-- `ows session start` and `ows session checkpoint` exercise the receipt flow foundation
+- `ows session start` and `ows session checkpoint` work locally or against a configured verifier API
 - `ows package` creates real `.owspkg` archives
 - `ows verify` validates package integrity and assigns a trust grade
 - `ows report` writes a basic text integrity report

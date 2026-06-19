@@ -11,28 +11,35 @@ namespace Ows.Cli;
 public static class OwsSessionStore
 {
     private const string SessionFileName = "session.json";
+    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
     /// <summary>
-    /// Starts a new local session and persists its identifier.
+    /// Starts a new session and persists its identifier and transport details.
     /// </summary>
     /// <param name="projectRoot">The current project root.</param>
+    /// <param name="verifierUrl">The optional remote verifier base URL.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The started session identifier.</returns>
-    public static AssessmentSessionId StartSession(string projectRoot)
+    public static async Task<AssessmentSessionId> StartSessionAsync(
+        string projectRoot,
+        string? verifierUrl,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         Directory.CreateDirectory(localFolder);
+        var sessionId = string.IsNullOrWhiteSpace(verifierUrl)
+            ? new InMemoryReceiptService().StartSession()
+            : await StartRemoteSessionAsync(verifierUrl, cancellationToken);
 
-        var receiptService = new InMemoryReceiptService();
-        var sessionId = receiptService.StartSession();
-
-        File.WriteAllText(
+        WriteSessionState(
             Path.Combine(localFolder, SessionFileName),
-            JsonSerializer.Serialize(new SessionState { SessionId = sessionId.Value }, new JsonSerializerOptions { WriteIndented = true }));
-        File.WriteAllText(
+            new SessionState { SessionId = sessionId.Value, VerifierUrl = verifierUrl });
+        WriteReceiptChain(
             Path.Combine(localFolder, OwsConstants.ReceiptsFileName),
-            JsonSerializer.Serialize(new ReceiptChain { SessionId = sessionId, Receipts = [] }, new JsonSerializerOptions { WriteIndented = true }));
+            new ReceiptChain { SessionId = sessionId, Receipts = [] });
 
         return sessionId;
     }
@@ -41,10 +48,12 @@ public static class OwsSessionStore
     /// Derives the next checkpoint from the local timeline head, issues a receipt, and persists the updated chain.
     /// </summary>
     /// <param name="projectRoot">The current project root.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The issued receipt.</returns>
-    public static CheckpointReceipt AddCheckpoint(string projectRoot)
+    public static async Task<CheckpointReceipt> AddCheckpointAsync(string projectRoot, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, SessionFileName);
@@ -56,22 +65,36 @@ public static class OwsSessionStore
             throw new InvalidOperationException("No active OWS session. Run 'ows session start' first.");
         }
 
-        var sessionState = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath))
-            ?? throw new JsonException("Session state deserialized to null.");
+        var sessionState = ReadSessionState(sessionPath);
         var sessionId = new AssessmentSessionId(sessionState.SessionId);
         var receiptChain = File.Exists(receiptsPath)
             ? JsonSerializer.Deserialize<ReceiptChain>(File.ReadAllText(receiptsPath))
                 ?? throw new JsonException("Receipt chain deserialized to null.")
             : new ReceiptChain { SessionId = sessionId, Receipts = [] };
-        var checkpoint = Checkpoint.FromTimeline(timelinePath, sessionId, receiptChain.Receipts.Count + 1);
-        var service = new InMemoryReceiptService();
-        service.RestoreSession(sessionId, receiptChain.Receipts);
-        var receipt = service.SubmitCheckpoint(checkpoint);
-        var updatedReceiptChain = service.GetReceiptChain(sessionId);
 
-        File.WriteAllText(
-            receiptsPath,
-            JsonSerializer.Serialize(updatedReceiptChain, new JsonSerializerOptions { WriteIndented = true }));
+        CheckpointReceipt receipt;
+        ReceiptChain updatedReceiptChain;
+
+        if (string.IsNullOrWhiteSpace(sessionState.VerifierUrl))
+        {
+            var checkpoint = Checkpoint.FromTimeline(timelinePath, sessionId, receiptChain.Receipts.Count + 1);
+            var service = new InMemoryReceiptService();
+            service.RestoreSession(sessionId, receiptChain.Receipts);
+            receipt = service.SubmitCheckpoint(checkpoint);
+            updatedReceiptChain = service.GetReceiptChain(sessionId);
+        }
+        else
+        {
+            using var httpClient = CreateHttpClient(sessionState.VerifierUrl);
+            var transport = new HttpsReceiptTransport(
+                httpClient,
+                (activeSessionId, sequenceNumber) => Checkpoint.FromTimeline(timelinePath, activeSessionId, sequenceNumber));
+            transport.RestoreSession(sessionId, receiptChain.Receipts.Count + 1);
+            receipt = await transport.SendCheckpointAsync(cancellationToken);
+            updatedReceiptChain = await transport.GetReceiptsAsync(cancellationToken);
+        }
+
+        WriteReceiptChain(receiptsPath, updatedReceiptChain);
 
         return receipt;
     }
@@ -94,8 +117,7 @@ public static class OwsSessionStore
             throw new InvalidOperationException("No active OWS session. Run 'ows session start' first.");
         }
 
-        var sessionState = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath))
-            ?? throw new JsonException("Session state deserialized to null.");
+        var sessionState = ReadSessionState(sessionPath);
         var sessionId = new AssessmentSessionId(sessionState.SessionId);
 
         if (!File.Exists(receiptsPath))
@@ -111,8 +133,59 @@ public static class OwsSessionStore
             ?? throw new JsonException("Receipt chain deserialized to null.");
     }
 
+    /// <summary>
+    /// Starts a remote session against the configured verifier API.
+    /// </summary>
+    /// <param name="verifierUrl">The remote verifier base URL.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The started remote session identifier.</returns>
+    private static async Task<AssessmentSessionId> StartRemoteSessionAsync(string verifierUrl, CancellationToken cancellationToken)
+    {
+        using var httpClient = CreateHttpClient(verifierUrl);
+        var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint());
+        return await transport.StartSessionAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Creates the HTTP client used for remote verifier calls.
+    /// </summary>
+    /// <param name="verifierUrl">The remote verifier base URL.</param>
+    /// <returns>The configured HTTP client.</returns>
+    private static HttpClient CreateHttpClient(string verifierUrl)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(verifierUrl);
+        return new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
+    }
+
+    /// <summary>
+    /// Reads the persisted session state for the current project.
+    /// </summary>
+    /// <param name="sessionPath">The persisted session-state path.</param>
+    /// <returns>The deserialized session state.</returns>
+    private static SessionState ReadSessionState(string sessionPath) =>
+        JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath))
+        ?? throw new JsonException("Session state deserialized to null.");
+
+    /// <summary>
+    /// Writes the current session state to disk.
+    /// </summary>
+    /// <param name="sessionPath">The persisted session-state path.</param>
+    /// <param name="sessionState">The session state to persist.</param>
+    private static void WriteSessionState(string sessionPath, SessionState sessionState) =>
+        File.WriteAllText(sessionPath, JsonSerializer.Serialize(sessionState, SerializerOptions));
+
+    /// <summary>
+    /// Writes the current receipt chain snapshot to disk.
+    /// </summary>
+    /// <param name="receiptsPath">The receipt-chain path.</param>
+    /// <param name="receiptChain">The receipt chain to persist.</param>
+    private static void WriteReceiptChain(string receiptsPath, ReceiptChain receiptChain) =>
+        File.WriteAllText(receiptsPath, JsonSerializer.Serialize(receiptChain, SerializerOptions));
+
     private sealed record SessionState
     {
         public string SessionId { get; init; } = string.Empty;
+
+        public string? VerifierUrl { get; init; }
     }
 }

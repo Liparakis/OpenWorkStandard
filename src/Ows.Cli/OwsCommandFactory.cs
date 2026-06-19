@@ -71,11 +71,17 @@ public static class OwsCommandFactory
     private static Command BuildSessionStartCommand()
     {
         var command = new Command("start", "Start a local OWS assessment session.");
+        var serverOption = new Option<string?>("--server")
+        {
+            Description = "Use a remote verifier base URL for receipt issuance."
+        };
+        command.Options.Add(serverOption);
         command.SetAction(async parseResult =>
         {
-            _ = parseResult;
-            var transport = new LocalReceiptTransport(Directory.GetCurrentDirectory());
-            var sessionId = await transport.StartSessionAsync(CancellationToken.None);
+            var sessionId = await OwsSessionStore.StartSessionAsync(
+                Directory.GetCurrentDirectory(),
+                parseResult.GetValue(serverOption),
+                CancellationToken.None);
             Console.WriteLine($"OWS session started: {sessionId}");
             return 0;
         });
@@ -93,8 +99,7 @@ public static class OwsCommandFactory
         command.SetAction(async parseResult =>
         {
             _ = parseResult;
-            var transport = new LocalReceiptTransport(Directory.GetCurrentDirectory());
-            var receipt = await transport.SendCheckpointAsync(CancellationToken.None);
+            var receipt = await OwsSessionStore.AddCheckpointAsync(Directory.GetCurrentDirectory(), CancellationToken.None);
             Console.WriteLine($"OWS checkpoint recorded: {receipt.ReceiptHash}");
             return 0;
         });

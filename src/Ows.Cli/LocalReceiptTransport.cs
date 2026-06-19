@@ -8,18 +8,12 @@ namespace Ows.Cli;
 public sealed class LocalReceiptTransport(string projectRoot) : IReceiptTransport
 {
     /// <inheritdoc />
-    public Task<AssessmentSessionId> StartSessionAsync(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(OwsSessionStore.StartSession(projectRoot));
-    }
+    public Task<AssessmentSessionId> StartSessionAsync(CancellationToken cancellationToken) =>
+        OwsSessionStore.StartSessionAsync(projectRoot, verifierUrl: null, cancellationToken);
 
     /// <inheritdoc />
-    public Task<CheckpointReceipt> SendCheckpointAsync(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(OwsSessionStore.AddCheckpoint(projectRoot));
-    }
+    public Task<CheckpointReceipt> SendCheckpointAsync(CancellationToken cancellationToken) =>
+        OwsSessionStore.AddCheckpointAsync(projectRoot, cancellationToken);
 
     /// <inheritdoc />
     public Task<ReceiptChain> GetReceiptsAsync(CancellationToken cancellationToken)
