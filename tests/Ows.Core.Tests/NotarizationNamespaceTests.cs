@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Net;
+using System.Net.Http;
 using FluentAssertions;
 using Ows.Core.Events;
 using Ows.Core.Notarization;
@@ -301,5 +303,121 @@ public sealed class NotarizationNamespaceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("No active assessment session*");
+    }
+
+    /// <summary>
+    /// Verifies that the HTTPS transport follows the planned session/checkpoint/receipt endpoints.
+    /// </summary>
+    [Fact]
+    public async Task HttpsReceiptTransport_ShouldUsePlannedApiContract()
+    {
+        var sessionId = AssessmentSessionId.Create();
+        var issuedReceipt = new CheckpointReceipt
+        {
+            SessionId = sessionId,
+            SequenceNumber = 1,
+            TimelineHeadHash = "head-1",
+            PreviousReceiptHash = ReceiptChainVerifier.GenesisPreviousReceiptHash,
+            ReceiptHash = "receipt-1"
+        };
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri!.PathAndQuery.TrimStart('/');
+
+            if (request.Method == HttpMethod.Post && path == "sessions")
+            {
+                return JsonResponse(new StartSessionResponse { SessionId = sessionId.Value });
+            }
+
+            if (request.Method == HttpMethod.Post && path == $"sessions/{sessionId}/checkpoints")
+            {
+                return JsonResponse(issuedReceipt);
+            }
+
+            if (request.Method == HttpMethod.Get && path == $"sessions/{sessionId}/receipts")
+            {
+                return JsonResponse(new ReceiptChain
+                {
+                    SessionId = sessionId,
+                    Receipts = [issuedReceipt]
+                });
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://ows.test/") };
+        var transport = new HttpsReceiptTransport(
+            httpClient,
+            (activeSessionId, sequenceNumber) => new Checkpoint
+            {
+                SessionId = activeSessionId,
+                SequenceNumber = sequenceNumber,
+                TimelineHeadHash = "head-1"
+            });
+
+        var startedSessionId = await transport.StartSessionAsync(CancellationToken.None);
+        var receipt = await transport.SendCheckpointAsync(CancellationToken.None);
+        var receiptChain = await transport.GetReceiptsAsync(CancellationToken.None);
+
+        startedSessionId.Should().Be(sessionId);
+        receipt.SequenceNumber.Should().Be(1);
+        receiptChain.Receipts.Should().ContainSingle();
+        handler.RequestedPaths.Should().ContainInOrder(
+            "sessions",
+            $"sessions/{sessionId}/checkpoints",
+            $"sessions/{sessionId}/receipts");
+    }
+
+    /// <summary>
+    /// Verifies that the HTTPS transport requires a started session before checkpoints can be sent.
+    /// </summary>
+    [Fact]
+    public async Task HttpsReceiptTransport_ShouldRequireActiveSession()
+    {
+        using var httpClient = new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)))
+        {
+            BaseAddress = new Uri("https://ows.test/")
+        };
+        var transport = new HttpsReceiptTransport(
+            httpClient,
+            (activeSessionId, sequenceNumber) => new Checkpoint
+            {
+                SessionId = activeSessionId,
+                SequenceNumber = sequenceNumber,
+                TimelineHeadHash = "head-1"
+            });
+
+        var act = async () => await transport.SendCheckpointAsync(CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("No active assessment session*");
+    }
+
+    /// <summary>
+    /// Builds a JSON HTTP response for transport contract tests.
+    /// </summary>
+    /// <param name="value">The response payload.</param>
+    /// <returns>The HTTP response containing the JSON payload.</returns>
+    private static HttpResponseMessage JsonResponse<T>(T value) =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(value))
+        };
+
+    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    {
+        public List<string> RequestedPaths { get; } = [];
+
+        /// <summary>
+        /// Handles HTTP requests for transport contract tests.
+        /// </summary>
+        /// <param name="request">The outgoing HTTP request.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The stubbed HTTP response.</returns>
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestedPaths.Add(request.RequestUri!.PathAndQuery.TrimStart('/'));
+            return Task.FromResult(responder(request));
+        }
     }
 }
