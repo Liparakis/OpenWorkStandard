@@ -157,12 +157,12 @@ What works:
 - runs verification first
 - writes `<project>.report.txt`
 - can write `<project>.report.json` with `ows report --format json`
-- includes status, trust grade, summary, and errors
+- includes status, trust grade, summary, errors, findings, and review signals
 
 Status:
 
 - working
-- basic output only
+- richer than the initial stub, but still not a full professor review workflow
 
 ## Verifier Server
 

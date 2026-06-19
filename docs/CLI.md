@@ -96,20 +96,21 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
 ## `ows report`
 
 - Purpose: generate an integrity report from verification output.
-- Usage: `ows report`
-- Options: none yet
+- Usage: `ows report [--format text|json]`
+- Options:
+  - `--format <text|json>`: choose text or JSON report output
 - Current behavior:
   - runs verification first
-  - writes a text report to `<project>.report.txt`
-  - includes verification status, trust grade, summary, and errors
+  - writes a text report to `<project>.report.txt` by default
+  - can write JSON to `<project>.report.json`
+  - includes verification status, trust grade, summary, errors, findings, and review signals
 - Example output: `OWS report created at <path>`
-- Status: implemented MVP command
+- Status: implemented MVP command with basic structured review output
 
 ## Planned CLI Extensions
 
 These are directionally planned, not implemented yet:
 
 - `ows package --include-receipts`
-- `ows report --format text|json`
 
 The current rule is simple: do not break the existing local workflow while adding the remote trust boundary foundation.

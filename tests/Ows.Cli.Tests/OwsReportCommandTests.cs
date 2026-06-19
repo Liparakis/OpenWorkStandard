@@ -35,6 +35,7 @@ public sealed class OwsReportCommandTests
             reportResult.Should().Be(0);
             File.Exists(reportPath).Should().BeTrue();
             File.ReadAllText(reportPath).Should().Contain("Status: Success");
+            File.ReadAllText(reportPath).Should().Contain("Findings:");
         }
         finally
         {
@@ -73,6 +74,7 @@ public sealed class OwsReportCommandTests
             File.Exists(reportPath).Should().BeTrue();
             using var document = JsonDocument.Parse(File.ReadAllText(reportPath));
             document.RootElement.GetProperty("status").GetString().Should().Be("Success");
+            document.RootElement.GetProperty("findings").EnumerateArray().Should().ContainSingle();
         }
         finally
         {
