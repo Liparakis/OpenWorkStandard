@@ -21,12 +21,13 @@ public sealed class ReportingNamespaceTests
             new ReportRequest
             {
                 Format = ReportFormat.Text,
-                VerificationResult = VerificationResult.Success("OWS verify succeeded.")
+                VerificationResult = VerificationResult.Success("OWS verify succeeded.", TrustStatus.Unverified)
             },
             CancellationToken.None);
 
         result.Format.Should().Be(ReportFormat.Text);
         result.Content.Should().Contain("Status: Success");
+        result.Content.Should().Contain("Trust: Unverified");
         result.Content.Should().Contain("OWS verify succeeded.");
     }
 }

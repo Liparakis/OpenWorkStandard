@@ -11,6 +11,11 @@ public sealed record VerificationResult
     public bool IsSuccess { get; init; }
 
     /// <summary>
+    /// Gets the trust grade assigned to the verification outcome.
+    /// </summary>
+    public TrustStatus TrustStatus { get; init; }
+
+    /// <summary>
     /// Gets a summary suitable for CLI and report output.
     /// </summary>
     public string Summary { get; init; } = string.Empty;
@@ -26,16 +31,29 @@ public sealed record VerificationResult
     public IReadOnlyList<ReviewSignal> ReviewSignals { get; init; } = Array.Empty<ReviewSignal>();
 
     /// <summary>
+    /// Gets concrete verification findings that explain the assigned trust grade.
+    /// </summary>
+    public IReadOnlyList<VerificationFinding> Findings { get; init; } = Array.Empty<VerificationFinding>();
+
+    /// <summary>
     /// Creates a successful verification result.
     /// </summary>
     /// <param name="summary">The result summary.</param>
+    /// <param name="trustStatus">The trust grade assigned to the result.</param>
+    /// <param name="findings">Optional verification findings.</param>
     /// <param name="reviewSignals">Optional review signals.</param>
     /// <returns>A successful verification result.</returns>
-    public static VerificationResult Success(string summary, IReadOnlyList<ReviewSignal>? reviewSignals = null) =>
+    public static VerificationResult Success(
+        string summary,
+        TrustStatus trustStatus = TrustStatus.Verified,
+        IReadOnlyList<VerificationFinding>? findings = null,
+        IReadOnlyList<ReviewSignal>? reviewSignals = null) =>
         new()
         {
             IsSuccess = true,
+            TrustStatus = trustStatus,
             Summary = summary,
+            Findings = findings ?? Array.Empty<VerificationFinding>(),
             ReviewSignals = reviewSignals ?? Array.Empty<ReviewSignal>()
         };
 
@@ -44,17 +62,21 @@ public sealed record VerificationResult
     /// </summary>
     /// <param name="summary">The result summary.</param>
     /// <param name="errors">The validation or verification errors.</param>
+    /// <param name="findings">Optional verification findings.</param>
     /// <param name="reviewSignals">Optional review signals.</param>
     /// <returns>A failed verification result.</returns>
     public static VerificationResult Failure(
         string summary,
         IReadOnlyList<string>? errors = null,
+        IReadOnlyList<VerificationFinding>? findings = null,
         IReadOnlyList<ReviewSignal>? reviewSignals = null) =>
         new()
         {
             IsSuccess = false,
+            TrustStatus = TrustStatus.Invalid,
             Summary = summary,
             Errors = errors ?? Array.Empty<string>(),
+            Findings = findings ?? Array.Empty<VerificationFinding>(),
             ReviewSignals = reviewSignals ?? Array.Empty<ReviewSignal>()
         };
 }

@@ -1,15 +1,15 @@
 # Open Work Standard
 
-Open Work Standard (OWS) is a local-first, cross-platform academic work provenance system. Its purpose is to capture the evolution of coursework, preserve evidence locally, package that evidence into `.owspkg` archives, and verify those archives later.
+Open Work Standard (OWS) is an open assessment provenance and notarization protocol. Its purpose is to capture the evolution of coursework, package that evidence into `.owspkg` archives, and support verification against local integrity signals and, later, remote verifier receipts.
 
-OWS is not an AI detector, proctoring tool, surveillance product, or automated misconduct judge. It is a provenance standard and reference implementation for preserving work history and supporting human review.
+OWS is not an AI detector, proctoring tool, surveillance product, or automated misconduct judge. It is provenance and notarization infrastructure for preserving work history and supporting human review.
 
 ## MVP goals
 
 - Establish the core OWS domain model and terminology.
 - Provide a CLI entry point for `init`, `watch`, `package`, `verify`, and `report`.
 - Define the local `.ows/` storage model and `.owspkg` package contract.
-- Keep all captured evidence local by default.
+- Keep local capture simple while preparing for remote trust boundaries.
 - Produce a testable, documented .NET solution that can grow into the full reference implementation.
 
 ## Quick start
@@ -23,8 +23,8 @@ dotnet run --project src/Ows.Cli -- --help
 
 ## Repository structure
 
-- `src/Ows.Core`: shared domain models plus agent, packaging, verification, and reporting namespaces.
-- `src/Ows.Cli`: command-line entry point and placeholder commands.
+- `src/Ows.Core`: shared domain models plus agent, packaging, notarization, verification, and reporting namespaces.
+- `src/Ows.Cli`: command-line entry point for the reference client.
 - `src/Ows.Desktop`: placeholder project for a future Avalonia UI.
 - `tests/Ows.Core.Tests`: xUnit coverage for core behavior and collapsed MVP service skeletons.
 - `tests/Ows.Cli.Tests`: xUnit coverage for command construction.
@@ -43,4 +43,12 @@ The repository includes a local `NuGet.Config` so it does not inherit broken mac
 
 ## Current status
 
-This repository is intentionally at the solution-bootstrap stage. The domain model, documentation, CI, and tests are in place. The command handlers and service projects are honest skeletons that compile and clearly report `not implemented yet` rather than pretending to provide tracking, packaging, verification, or reporting behavior that does not exist yet.
+This repository now has a thin but real local MVP:
+
+- `ows init` creates local `.ows` state
+- `ows watch` performs a one-shot project scan
+- `ows package` creates real `.owspkg` archives
+- `ows verify` validates package integrity and assigns a trust grade
+- `ows report` writes a basic text integrity report
+
+The main architectural gap is the trust boundary. Local capture alone is not enough, so the next milestone is remote trust boundary foundation: trust grading, receipt/session models, and later a self-hostable verifier service.

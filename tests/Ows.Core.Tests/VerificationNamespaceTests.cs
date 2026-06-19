@@ -49,7 +49,9 @@ public sealed class VerificationNamespaceTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
+        result.TrustStatus.Should().Be(TrustStatus.Unverified);
         result.Errors.Should().BeEmpty();
+        result.Findings.Should().ContainSingle(finding => finding.Code == "remote-receipts-missing");
         }
         finally
         {
@@ -83,6 +85,7 @@ public sealed class VerificationNamespaceTests
                 CancellationToken.None);
 
             result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
             result.Errors.Should().Contain(error => error.Contains("timeline.jsonl"));
         }
         finally
@@ -118,6 +121,7 @@ public sealed class VerificationNamespaceTests
                 CancellationToken.None);
 
             result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
             result.Errors.Should().Contain(error => error.Contains("manifest.json"));
         }
         finally
@@ -153,6 +157,7 @@ public sealed class VerificationNamespaceTests
                 CancellationToken.None);
 
             result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
             result.Errors.Should().Contain(error => error.Contains("timeline.jsonl"));
         }
         finally
@@ -188,6 +193,7 @@ public sealed class VerificationNamespaceTests
                 CancellationToken.None);
 
             result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
             result.Errors.Should().Contain(error => error.Contains("version_graph.json"));
         }
         finally
@@ -236,6 +242,7 @@ public sealed class VerificationNamespaceTests
                 CancellationToken.None);
 
             result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
             result.Errors.Should().Contain(error => error.Contains("timeline hash", StringComparison.OrdinalIgnoreCase));
         }
         finally
@@ -285,6 +292,7 @@ public sealed class VerificationNamespaceTests
                 CancellationToken.None);
 
             result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
             result.Errors.Should().Contain(error => error.Contains("artifact hash", StringComparison.OrdinalIgnoreCase));
         }
         finally
@@ -333,6 +341,7 @@ public sealed class VerificationNamespaceTests
                 CancellationToken.None);
 
             result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
             result.Errors.Should().Contain(error => error.Contains("unexpected artifact", StringComparison.OrdinalIgnoreCase));
         }
         finally

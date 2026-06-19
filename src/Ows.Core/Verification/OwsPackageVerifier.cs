@@ -14,6 +14,13 @@ namespace Ows.Core.Verification;
 /// </summary>
 public sealed class OwsPackageVerifier : IPackageVerifier
 {
+    private static readonly VerificationFinding MissingRemoteReceiptsFinding = new()
+    {
+        Code = "remote-receipts-missing",
+        Title = "Remote receipts missing",
+        Detail = "The package is locally consistent, but no remote verifier receipts were provided."
+    };
+
     /// <inheritdoc />
     public Task<VerificationResult> VerifyAsync(PackageVerificationRequest request, CancellationToken cancellationToken)
     {
@@ -58,7 +65,10 @@ public sealed class OwsPackageVerifier : IPackageVerifier
 
         return Task.FromResult(
             errors.Count == 0
-                ? VerificationResult.Success("OWS verify succeeded.")
+                ? VerificationResult.Success(
+                    "OWS verify succeeded.",
+                    TrustStatus.Unverified,
+                    [MissingRemoteReceiptsFinding])
                 : VerificationResult.Failure("OWS verify failed.", errors));
     }
 

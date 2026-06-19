@@ -14,10 +14,12 @@ public sealed class VerificationResultTests
     [Fact]
     public void Success_ShouldCreateSuccessfulResult()
     {
-        var result = VerificationResult.Success("Verified");
+        var result = VerificationResult.Success("Verified", TrustStatus.Verified);
 
         result.IsSuccess.Should().BeTrue();
+        result.TrustStatus.Should().Be(TrustStatus.Verified);
         result.Errors.Should().BeEmpty();
+        result.Findings.Should().BeEmpty();
         result.Summary.Should().Be("Verified");
     }
 
@@ -30,6 +32,7 @@ public sealed class VerificationResultTests
         var result = VerificationResult.Failure("Failed", ["hash mismatch"]);
 
         result.IsSuccess.Should().BeFalse();
+        result.TrustStatus.Should().Be(TrustStatus.Invalid);
         result.Errors.Should().ContainSingle().Which.Should().Be("hash mismatch");
         result.Summary.Should().Be("Failed");
     }
