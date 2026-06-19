@@ -147,6 +147,29 @@ That script checks:
 
 Use `doctor-local-verifier` when you want a read-only preflight check before starting anything. It reports missing `dotnet`, missing Docker CLI, missing build output, PostgreSQL reachability, and current verifier state.
 
+## Environment Modes and Production Hardening
+
+The verifier server supports three environment modes configured via the `VerifierEnvironment` configuration key (or falling back to the standard `ASPNETCORE_ENVIRONMENT` / `builder.Environment.EnvironmentName` if not set):
+
+- `Development`
+- `Local`
+- `Production`
+
+### Production Enforcement
+
+When starting in `Production` mode, the verifier will execute strict validation checks and immediately abort startup (throwing a fatal configuration exception) if any insecure configuration is detected:
+1. **JSON Storage Provider Disabled**: In production, the `json` storage provider is rejected; the verifier must use the `postgres` provider.
+2. **API Key Requirement**: The verifier API guard must be enabled with a strong key (at least 16 characters, not a known default dev-key).
+3. **Receipt Signing Key Requirement**: Receipts must be signed with a strong key (at least 16 characters, not a known default).
+
+In `Development` or `Local` modes, insecure configurations (such as using the JSON file provider or default/weak keys) will log high-visibility warning logs but allow startup to proceed.
+
+### Health and Readiness Endpoints
+
+The verifier exposes the following observability endpoints:
+- `GET /health`: Returns HTTP 200 OK and `{ "status": "Healthy" }` to indicate the web server is running.
+- `GET /ready`: Evaluates backend dependency status. Checks storage provider health (by running `select 1;` for PostgreSQL or verifying directories are writable for JSON storage) and verifies if receipt signing is enabled. If storage check fails, returns HTTP 503 Service Unavailable.
+
 ## Troubleshooting
 
 ### PowerShell execution policy

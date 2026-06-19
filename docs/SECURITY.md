@@ -176,16 +176,19 @@ These are production hardening concerns, not reasons to invent custom cryptograp
 
 For any self-hosted verifier that wants stronger security claims, the minimum hardening baseline should include:
 
-- PostgreSQL-backed durable receipt storage, not JSON development storage
-- object storage for `.owspkg` blobs, with PostgreSQL metadata only
-- TLS at the verifier edge
-- secrets kept outside the repository
-- shared API key configured only through deployment secrets while full auth is absent
-- controlled access to database credentials and signing material
-- backup and restore procedures for verifier data
-- migration discipline for schema changes
-- auditability for security-sensitive operational changes
-- log retention and access controls appropriate to institutional policy
+- Enforcing `Production` environment mode, which strictly rejects unsafe configurations (such as using the JSON file provider or weak/default keys less than 16 characters) and fails fast on startup.
+- PostgreSQL-backed durable receipt storage, not JSON development storage.
+- Stable signing key fingerprint calculation (SHA-256) displayed at startup and embedded on all issued receipts/reports to identify the signing key.
+- Object storage for `.owspkg` blobs, with PostgreSQL metadata only.
+- TLS at the verifier edge.
+- Secrets kept outside the repository.
+- Shared API key configured only through deployment secrets while full auth is absent (with strong keys >= 16 characters).
+- Controlled access to database credentials and signing material.
+- Backup and restore procedures for verifier data.
+- Migration discipline for schema changes.
+- Auditability for security-sensitive operational changes.
+- Portable, container-friendly stdout/stderr structured logging rather than platform-specific event logs (e.g. Windows Event Log).
+- Log retention and access controls appropriate to institutional policy.
 
 Do not overcomplicate this early:
 

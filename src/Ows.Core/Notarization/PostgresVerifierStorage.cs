@@ -26,6 +26,30 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     }
 
     /// <inheritdoc />
+    public async Task InitializeAsync(CancellationToken cancellationToken)
+    {
+        await AwaitInitializationAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CheckHealthAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await InitializeAsync(cancellationToken);
+            await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "select 1;";
+            var res = await command.ExecuteScalarAsync(cancellationToken);
+            return res is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<VerifierSessionRecord> CreateSessionAsync(CancellationToken cancellationToken)
     {
         await AwaitInitializationAsync(cancellationToken);
@@ -95,7 +119,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         var expectedSequenceNumber = session.CheckpointCount + 1;
         if (!string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
         {
-            var existingReceipt = await TryGetReceiptByIdempotencyKeyAsync(connection, checkpoint, cancellationToken);
+            var existingReceipt = await TryGetReceiptByIdempotencyKeyAsync(connection, checkpoint, _signingKey, cancellationToken);
             if (existingReceipt is not null)
             {
                 await transaction.RollbackAsync(cancellationToken);
@@ -106,7 +130,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         if (checkpoint.SequenceNumber <= session.CheckpointCount)
         {
             var existingReceipt = await TryGetReceiptBySequenceAsync(connection, checkpoint.SessionId,
-                checkpoint.SequenceNumber, cancellationToken);
+                checkpoint.SequenceNumber, _signingKey, cancellationToken);
             if (existingReceipt is null)
             {
                 throw new InvalidOperationException(
@@ -163,7 +187,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            receipts.Add(ReadReceipt(reader));
+            receipts.Add(ReadReceipt(reader, _signingKey));
         }
 
         return new ReceiptChain
@@ -259,12 +283,14 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     /// <param name="connection">The open database connection.</param>
     /// <param name="sessionId">The verifier session identifier.</param>
     /// <param name="sequenceNumber">The requested sequence number.</param>
+    /// <param name="signingKey">The optional server signing key.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The existing committed receipt when found; otherwise <see langword="null"/>.</returns>
     private static async Task<CheckpointReceipt?> TryGetReceiptBySequenceAsync(
         NpgsqlConnection connection,
         AssessmentSessionId sessionId,
         int sequenceNumber,
+        string? signingKey,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
@@ -289,7 +315,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
             return null;
         }
 
-        var receipt = ReadReceipt(reader);
+        var receipt = ReadReceipt(reader, signingKey);
         await reader.CloseAsync();
         return receipt;
     }
@@ -357,11 +383,13 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     /// </summary>
     /// <param name="connection">The open database connection.</param>
     /// <param name="checkpoint">The requested checkpoint.</param>
+    /// <param name="signingKey">The optional server signing key.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The existing committed receipt when found; otherwise <see langword="null"/>.</returns>
     private static async Task<CheckpointReceipt?> TryGetReceiptByIdempotencyKeyAsync(
         NpgsqlConnection connection,
         Checkpoint checkpoint,
+        string? signingKey,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
@@ -386,7 +414,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
             return null;
         }
 
-        var receipt = ReadReceipt(reader);
+        var receipt = ReadReceipt(reader, signingKey);
         await reader.CloseAsync();
         if (receipt.SequenceNumber != checkpoint.SequenceNumber ||
             !string.Equals(receipt.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal))
@@ -430,8 +458,9 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     /// Maps a checkpoint row reader to the public receipt model.
     /// </summary>
     /// <param name="reader">The active row reader.</param>
+    /// <param name="signingKey">The optional server signing key.</param>
     /// <returns>The mapped checkpoint receipt.</returns>
-    private static CheckpointReceipt ReadReceipt(NpgsqlDataReader reader) =>
+    private static CheckpointReceipt ReadReceipt(NpgsqlDataReader reader, string? signingKey) =>
         new()
         {
             SessionId = new AssessmentSessionId(reader.GetString(0)),
@@ -443,6 +472,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
             ServerTimestamp = new ServerTimestamp
             {
                 IssuedAtUtc = reader.GetFieldValue<DateTimeOffset>(6)
-            }
+            },
+            SigningKeyFingerprint = ReceiptChainVerifier.ComputeFingerprint(signingKey)
         };
 }

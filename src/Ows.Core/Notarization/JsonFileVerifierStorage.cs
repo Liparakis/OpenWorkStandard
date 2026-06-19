@@ -145,6 +145,32 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
         }
     }
 
+    /// <inheritdoc />
+    public Task InitializeAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task<bool> CheckHealthAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            var dir = Path.GetDirectoryName(_storePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            return Task.FromResult(true);
+        }
+        catch
+        {
+            return Task.FromResult(false);
+        }
+    }
+
     /// <summary>
     /// Restores existing session snapshots from disk when the server starts.
     /// </summary>

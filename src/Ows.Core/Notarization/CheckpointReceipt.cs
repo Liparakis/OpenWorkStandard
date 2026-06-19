@@ -39,4 +39,9 @@ public sealed record CheckpointReceipt
     /// Gets the server-issued timestamp for the receipt.
     /// </summary>
     public ServerTimestamp ServerTimestamp { get; init; } = new();
+
+    /// <summary>
+    /// Gets the fingerprint of the signing key used to sign the receipt.
+    /// </summary>
+    public string SigningKeyFingerprint { get; init; } = string.Empty;
 }

@@ -18,6 +18,89 @@ var normalizedStorageOptions = string.IsNullOrWhiteSpace(storageOptions.JsonStor
     }
     : storageOptions;
 
+var envString = builder.Configuration["VerifierEnvironment"] 
+                ?? builder.Environment.EnvironmentName 
+                ?? "Development";
+
+if (!Enum.TryParse<VerifierEnvironmentMode>(envString, true, out var envMode))
+{
+    envMode = VerifierEnvironmentMode.Development;
+}
+
+var isProduction = envMode == VerifierEnvironmentMode.Production;
+var startupWarnings = new List<string>();
+var startupErrors = new List<string>();
+
+// Check API Key
+if (string.IsNullOrWhiteSpace(securityOptions.ApiKey))
+{
+    if (isProduction)
+    {
+        startupErrors.Add("VerifierSecurity:ApiKey must be configured in Production mode.");
+    }
+    else
+    {
+        startupWarnings.Add("VerifierSecurity:ApiKey is not configured. Request guard is disabled.");
+    }
+}
+else if (IsWeakSecret(securityOptions.ApiKey))
+{
+    if (isProduction)
+    {
+        startupErrors.Add("VerifierSecurity:ApiKey is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
+    }
+    else
+    {
+        startupWarnings.Add("VerifierSecurity:ApiKey is weak or using a dev default.");
+    }
+}
+
+// Check Signing Key
+if (string.IsNullOrWhiteSpace(normalizedStorageOptions.ReceiptSigningKey))
+{
+    if (isProduction)
+    {
+        startupErrors.Add("VerifierStorage:ReceiptSigningKey must be configured in Production mode.");
+    }
+    else
+    {
+        startupWarnings.Add("VerifierStorage:ReceiptSigningKey is not configured. Receipts will not be signed.");
+    }
+}
+else if (IsWeakSecret(normalizedStorageOptions.ReceiptSigningKey))
+{
+    if (isProduction)
+    {
+        startupErrors.Add("VerifierStorage:ReceiptSigningKey is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
+    }
+    else
+    {
+        startupWarnings.Add("VerifierStorage:ReceiptSigningKey is weak or using a dev default.");
+    }
+}
+
+// Check Storage Provider
+if (string.Equals(normalizedStorageOptions.Provider, "json", StringComparison.OrdinalIgnoreCase))
+{
+    if (isProduction)
+    {
+        startupErrors.Add("JSON storage provider is not allowed in Production mode. Use 'postgres' provider.");
+    }
+    else
+    {
+        startupWarnings.Add("Using JSON file storage provider. This is only suitable for development/local use.");
+    }
+}
+
+if (startupErrors.Count > 0)
+{
+    foreach (var error in startupErrors)
+    {
+        Console.Error.WriteLine($"FATAL CONFIGURATION ERROR: {error}");
+    }
+    throw new InvalidOperationException("Fatal configuration errors detected in Production mode. See console output.");
+}
+
 if (args.Any(static arg => string.Equals(arg, "migrate", StringComparison.OrdinalIgnoreCase) ||
                            string.Equals(arg, "--migrate", StringComparison.OrdinalIgnoreCase)))
 {
@@ -60,6 +143,42 @@ builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Pr
 
 var app = builder.Build();
 var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Requests");
+var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+
+startupLogger.LogInformation("OWS Verifier starting up...");
+startupLogger.LogInformation("Environment Mode: {EnvironmentMode}", envMode);
+startupLogger.LogInformation("Storage Provider: {Provider}", normalizedStorageOptions.Provider);
+startupLogger.LogInformation("API Guard: {ApiGuardStatus}", string.IsNullOrWhiteSpace(securityOptions.ApiKey) ? "Disabled" : "Enabled");
+if (!string.IsNullOrWhiteSpace(securityOptions.ApiKey))
+{
+    startupLogger.LogInformation("API Header Name: {HeaderName}", securityOptions.HeaderName);
+}
+var keyFingerprint = ReceiptChainVerifier.ComputeFingerprint(normalizedStorageOptions.ReceiptSigningKey);
+startupLogger.LogInformation("Signing Key Fingerprint: {Fingerprint}", string.IsNullOrWhiteSpace(keyFingerprint) ? "None (Unsigned)" : keyFingerprint);
+
+foreach (var warning in startupWarnings)
+{
+    startupLogger.LogWarning("CONFIGURATION WARNING: {Warning}", warning);
+}
+
+// Eager storage initialization
+if (app.Services.GetService<IVerifierStorage>() is { } storage)
+{
+    try
+    {
+        startupLogger.LogInformation("Initializing verifier storage...");
+        await storage.InitializeAsync(CancellationToken.None);
+        startupLogger.LogInformation("Verifier storage initialized successfully (database/migrations ready).");
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogError(ex, "Failed to initialize verifier storage.");
+        if (isProduction)
+        {
+            throw; // Fail startup in production
+        }
+    }
+}
 
 app.Use(async (context, next) =>
 {
@@ -87,13 +206,42 @@ if (!string.IsNullOrWhiteSpace(securityOptions.ApiKey))
         if (!HasValidApiKey(context.Request, securityOptions))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await context.Response.WriteAsync("Verifier API key is required.");
+            var hasHeader = context.Request.Headers.ContainsKey(securityOptions.HeaderName);
+            var message = hasHeader ? "Invalid verifier API key." : "Verifier API key is required.";
+            await context.Response.WriteAsync(message);
             return;
         }
 
         await next(context);
     });
 }
+
+app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
+
+app.MapGet("/ready", async (IVerifierStorage storage, VerifierStorageOptions options, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var healthy = await storage.CheckHealthAsync(cancellationToken);
+        if (!healthy)
+        {
+            return Results.Json(new { status = "Unhealthy", error = "Storage health check failed." }, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        var signingStatus = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey) ? "Enabled" : "Disabled";
+
+        return Results.Ok(new
+        {
+            status = "Ready",
+            storage = options.Provider,
+            signing = signingStatus
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { status = "Unhealthy", error = ex.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+});
 
 app.MapPost("/sessions", async (IVerifierStorage storage, CancellationToken cancellationToken) =>
 {
@@ -213,3 +361,22 @@ static bool HasValidApiKey(HttpRequest request, VerifierSecurityOptions options)
     return suppliedBytes.Length == expectedBytes.Length &&
            CryptographicOperations.FixedTimeEquals(suppliedBytes, expectedBytes);
 }
+
+static bool IsWeakSecret(string secret)
+{
+    if (string.IsNullOrWhiteSpace(secret)) return true;
+    var normalized = secret.Trim().ToLowerInvariant();
+    if (normalized.Length < 16) return true;
+    
+    string[] unsafeDefaults = ["dev-key", "change-me", "change_me", "default", "placeholder", "development", "ows-dev", "ows_dev"];
+    return unsafeDefaults.Contains(normalized);
+}
+
+public enum VerifierEnvironmentMode
+{
+    Development,
+    Local,
+    Production
+}
+
+public partial class Program { }

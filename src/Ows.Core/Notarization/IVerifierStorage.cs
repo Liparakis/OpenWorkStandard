@@ -43,4 +43,18 @@ public interface IVerifierStorage
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The persisted session head.</returns>
     Task<SessionHeadResponse> GetHeadAsync(AssessmentSessionId sessionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Eagerly initializes storage resources (e.g. running migrations or loading snapshot).
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that completes when initialization is ready.</returns>
+    Task InitializeAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Checks the health of the storage backend.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task returning true if backend is healthy, otherwise false.</returns>
+    Task<bool> CheckHealthAsync(CancellationToken cancellationToken);
 }

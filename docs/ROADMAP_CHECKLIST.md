@@ -67,9 +67,9 @@ Harden verifier operational security in small steps, then add server-side packag
 - [x] MVP verifier receipt signing key support
 - [x] Optional shared-key verifier API guard
 - [ ] Production-grade verifier hosting
-- [ ] Server signing key management hardening - Status: Partial
+- [x] Server signing key management hardening
 - [ ] Auth and RBAC - Status: Partial
-- [ ] Observability - Status: Partial
+- [ ] Observability - Status: Partial (Endpoints /health and /ready, and structured startup logs implemented)
 
 ## 7. Package Submission and Server-Side Verification
 

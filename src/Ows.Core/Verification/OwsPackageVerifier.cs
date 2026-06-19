@@ -76,11 +76,12 @@ public sealed class OwsPackageVerifier : IPackageVerifier
                         request.TrustedReceiptChain,
                         request.TrustedSessionHead,
                         errors,
-                        findings);
+                        findings,
+                        out var verifiedKeyFingerprints);
                     return Task.FromResult(
                         errors.Count == 0
-                            ? VerificationResult.Success("OWS verify succeeded.", trustStatus, findings)
-                            : VerificationResult.Failure("OWS verify failed.", errors));
+                            ? VerificationResult.Success("OWS verify succeeded.", trustStatus, findings, verifiedKeyFingerprints: verifiedKeyFingerprints)
+                            : VerificationResult.Failure("OWS verify failed.", errors, findings));
                 }
             }
         }
@@ -278,6 +279,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
     /// <param name="trustedSessionHead">The optional authoritative session head fetched from a live verifier.</param>
     /// <param name="errors">The mutable verification error collection.</param>
     /// <param name="findings">The mutable verification findings collection.</param>
+    /// <param name="verifiedKeyFingerprints">The output list of verified key fingerprints.</param>
     /// <returns>The resulting trust grade.</returns>
     private static TrustStatus ValidateReceipts(
         ZipArchive archive,
@@ -285,9 +287,31 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         ReceiptChain? trustedReceiptChain,
         SessionHeadResponse? trustedSessionHead,
         List<string> errors,
-        List<VerificationFinding> findings)
+        List<VerificationFinding> findings,
+        out List<string> verifiedKeyFingerprints)
     {
+        verifiedKeyFingerprints = new List<string>();
         var packagedReceiptChain = ReadPackagedReceiptChain(archive, errors);
+        if (packagedReceiptChain is not null)
+        {
+            foreach (var receipt in packagedReceiptChain.Receipts)
+            {
+                if (!string.IsNullOrWhiteSpace(receipt.SigningKeyFingerprint) && !verifiedKeyFingerprints.Contains(receipt.SigningKeyFingerprint))
+                {
+                    verifiedKeyFingerprints.Add(receipt.SigningKeyFingerprint);
+                }
+            }
+        }
+        if (trustedReceiptChain is not null)
+        {
+            foreach (var receipt in trustedReceiptChain.Receipts)
+            {
+                if (!string.IsNullOrWhiteSpace(receipt.SigningKeyFingerprint) && !verifiedKeyFingerprints.Contains(receipt.SigningKeyFingerprint))
+                {
+                    verifiedKeyFingerprints.Add(receipt.SigningKeyFingerprint);
+                }
+            }
+        }
         if (errors.Count > 0)
         {
             return TrustStatus.Invalid;

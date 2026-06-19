@@ -31,7 +31,8 @@ public static class ReceiptChainVerifier
             SessionId = checkpoint.SessionId,
             SequenceNumber = checkpoint.SequenceNumber,
             TimelineHeadHash = checkpoint.TimelineHeadHash,
-            PreviousReceiptHash = previousReceiptHash
+            PreviousReceiptHash = previousReceiptHash,
+            SigningKeyFingerprint = ComputeFingerprint(signingKey)
         };
 
         var receiptHash = ComputeReceiptHash(receiptWithoutHash);
@@ -57,7 +58,8 @@ public static class ReceiptChainVerifier
             receipt.SequenceNumber,
             receipt.TimelineHeadHash,
             receipt.PreviousReceiptHash,
-            receipt.ServerTimestamp
+            receipt.ServerTimestamp,
+            receipt.SigningKeyFingerprint
         };
 
         return new Sha256HashService().ComputeHash(JsonSerializer.Serialize(canonicalReceipt));
@@ -78,6 +80,23 @@ public static class ReceiptChainVerifier
 
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(signingKey));
         return Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(receiptHash))).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Computes the SHA-256 fingerprint of the server signing key.
+    /// </summary>
+    /// <param name="signingKey">The server signing key.</param>
+    /// <returns>A lower-case hex-encoded SHA-256 fingerprint of the key, or an empty string if null/empty.</returns>
+    public static string ComputeFingerprint(string? signingKey)
+    {
+        if (string.IsNullOrWhiteSpace(signingKey))
+        {
+            return string.Empty;
+        }
+
+        using var sha = SHA256.Create();
+        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(signingKey));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
     /// <summary>

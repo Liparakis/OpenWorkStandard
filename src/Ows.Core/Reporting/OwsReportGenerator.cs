@@ -42,7 +42,8 @@ public sealed class OwsReportGenerator : IReportGenerator
                         signal.Title,
                         signal.Detail,
                         signal.Severity
-                    })
+                    }),
+                    verifiedKeyFingerprints = request.VerificationResult.VerifiedKeyFingerprints
                 },
                 new JsonSerializerOptions { WriteIndented = true }),
             _ => throw new NotSupportedException($"Report format '{request.Format}' is not supported yet.")
@@ -75,6 +76,10 @@ public sealed class OwsReportGenerator : IReportGenerator
         builder.AppendLine($"Status: {status}");
         builder.AppendLine($"Trust: {trust}");
         builder.AppendLine($"Summary: {request.VerificationResult.Summary}");
+        if (request.VerificationResult.VerifiedKeyFingerprints.Count > 0)
+        {
+            builder.AppendLine($"Verifier Key Fingerprints: {string.Join(", ", request.VerificationResult.VerifiedKeyFingerprints)}");
+        }
         builder.AppendLine();
         builder.AppendLine("Findings:");
 
