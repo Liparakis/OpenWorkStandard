@@ -83,6 +83,12 @@ docker build -f src/Ows.Verifier.Server/Dockerfile -t ows-verifier:local .
 
 Then run it with PostgreSQL configuration injected at runtime.
 
+Verified local image build:
+
+- image tag: `ows-verifier:local`
+- Dockerfile: `src/Ows.Verifier.Server/Dockerfile`
+- last validated: 2026-06-19
+
 ## Ongoing Startup
 
 The verifier also applies missing PostgreSQL migrations during normal startup.
@@ -119,7 +125,7 @@ Do not claim that the current self-hosted verifier already provides:
 - package submission workflow
 - production-grade multi-node rollout discipline
 
-The current Docker support is image-level only. Full production Compose or Helm packaging is still deferred.
+The current Docker support is verifier-image-level only. Full production Compose or Helm packaging is still deferred.
 
 ## Recommended Next Operational Steps
 

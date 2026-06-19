@@ -32,6 +32,7 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 - Add those only when the current PostgreSQL-backed verifier boundary is no longer enough.
 - Docker image runtime validation may be blocked in restricted local environments when Docker config or buildx state is not accessible.
 - Revisit image build/run validation on a machine with normal Docker permissions rather than patching around local access-denied noise.
+- The verifier image build was validated locally on 2026-06-19; full container runtime validation with PostgreSQL wiring is still deferred.
 
 ## Local Dev Runner
 

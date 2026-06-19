@@ -194,6 +194,7 @@ Local verifier dev flow today:
 - `scripts/run-local-verifier.ps1` runs PostgreSQL, migrations, and the verifier in the foreground
 - `scripts/start-local-verifier.ps1`, `status-local-verifier.ps1`, `logs-local-verifier.ps1`, and `stop-local-verifier.ps1` provide background lifecycle helpers on Windows
 - `scripts/test-local-verifier.ps1` performs a direct API smoke check
+- `src/Ows.Verifier.Server/Dockerfile` builds the `ows-verifier:local` verifier image
 - helper scripts now resolve the repo root correctly from both `scripts/` and `artifacts/generated-scripts/`
 - helper status distinguishes `not_started`, `running`, `stale_pid`, `crashed`, `unreachable`, and `port_in_use`
 - foreground and background verifier helpers auto-build the verifier server when the local build output is missing
