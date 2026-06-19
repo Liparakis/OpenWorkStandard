@@ -47,7 +47,7 @@ Harden the local verifier dev loop and cold-start behavior, then add server-side
 - [x] Receipt chain verification
 - [x] Trust grades `Verified`, `Unverified`, and `Invalid`
 - [ ] `Degraded` trust state exists but is not meaningful policy yet - Status: Partial
-- [ ] Formal package specification
+- [x] Formal package specification
 
 ## 5. Local Watcher and Capture Fidelity
 

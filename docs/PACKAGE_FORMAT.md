@@ -1,38 +1,133 @@
 # OWS Package Format
 
-The target package layout is:
+## Scope
+
+This document defines the current MVP `.owspkg` package format as implemented by this repository.
+
+It is a package format specification for the current codebase, not a future wishlist.
+
+## Container
+
+- extension: `.owspkg`
+- container type: ZIP archive
+- path separator inside the archive: `/`
+
+## Required Entries
+
+Every valid MVP package must contain:
+
+- `manifest.json`
+- `timeline.jsonl`
+- `version_graph.json`
+
+## Optional Entries
+
+A package may also contain:
+
+- `session.json`
+- `receipts.json`
+- `artifacts/...`
+
+## Current Archive Shape
+
+Typical current package layout:
 
 ```text
 submission.owspkg
 |- manifest.json
 |- timeline.jsonl
 |- version_graph.json
-|- session.json
-|- receipts.json
-|- artifacts/
-|- deltas/
-|- metadata/
-`- signature.json
+|- session.json              (optional)
+|- receipts.json             (optional)
+`- artifacts/
 ```
 
-## Purpose
+## Entry Semantics
 
-The package captures enough provenance to verify work evolution later without depending on the original local machine.
+### `manifest.json`
 
-## Entries
+The manifest currently carries:
 
-- `manifest.json`: package metadata, toolchain, identifiers, and generation context.
-- `timeline.jsonl`: append-friendly chronological event stream.
-- `version_graph.json`: graph structure for version reconstruction and integrity checks.
-- `session.json`: packaged session metadata used to resolve the authoritative verifier session when available.
-- `receipts.json`: packaged remote receipt chain snapshot when available.
-- `artifacts/`: final or intermediate project artifacts chosen for submission or inspection.
-- `deltas/`: change units or snapshots used to reconstruct work history.
-- `metadata/`: auxiliary information that does not fit the main manifest.
-- `signature.json`: reserved for future digital signature support.
+- `owsVersion`
+- `generatedAtUtc`
+- `packageId`
+- `projectName`
+- `platform`
+- `toolchain`
+- `trackedPath`
+- `timelineHash`
+- `versionGraphHash`
+- `sessionStateHash`
+- `artifactHashes`
 
-## Notes
+Current behavior:
 
-- `.owspkg` names the OWS package format and replaces any older `.oapkg` terminology.
-- The current repository implements real package assembly for `manifest.json`, `timeline.jsonl`, `version_graph.json`, optional `session.json`, optional `receipts.json`, and `artifacts/`.
-- Report output is intentionally external to this initial minimal package shape so the submission artifact stays focused on provenance data.
+- `timelineHash` is the SHA-256 hash of the packaged `timeline.jsonl`
+- `versionGraphHash` is the SHA-256 hash of the packaged `version_graph.json`
+- `sessionStateHash` is empty when `session.json` is absent
+- `artifactHashes` maps archive paths such as `artifacts/src/Program.cs` to SHA-256 content hashes
+
+### `timeline.jsonl`
+
+- canonical local event stream
+- each line is one serialized `OwsEvent`
+- event chaining rules are defined in `docs/EVENT_SCHEMA.md`
+
+### `version_graph.json`
+
+- current MVP placeholder graph document
+- current emitted content is an empty graph: `{"nodes":[],"edges":[]}`
+- this is still part of the package contract and is hash-checked
+
+### `session.json`
+
+- optional packaged session metadata
+- used to resolve a remote verifier session during verification when present
+
+### `receipts.json`
+
+- optional packaged receipt-chain snapshot
+- used for packaged receipt verification and optional live verifier cross-checking
+
+### `artifacts/...`
+
+- packaged project files outside `.ows/`
+- the output `.owspkg` itself is excluded
+- archive paths are rooted under `artifacts/`
+
+## Exclusions
+
+The current package builder excludes:
+
+- files under `.ows/`
+- the output package file itself
+
+## Reserved But Not Implemented
+
+These are not part of the implemented MVP package format today:
+
+- `deltas/`
+- `metadata/`
+- `signature.json`
+
+Do not treat those as present or required until the code actually emits and verifies them.
+
+## Verification Rules
+
+Current package verification checks:
+
+- required package entries exist
+- `manifest.json` is valid JSON
+- `timeline.jsonl` is valid and its event chain recomputes correctly
+- `version_graph.json` is valid JSON
+- manifest hashes match packaged timeline, version graph, session state, and artifact contents
+- packaged receipt chains verify when present
+- live verifier cross-checking can be performed when a verifier URL is supplied
+
+## Compatibility Rule
+
+If the implemented package shape changes:
+
+- update this document in the same commit
+- update `docs/ROADMAP_CHECKLIST.md` if capability status changes
+- keep `ows verify` aligned with the documented required and optional entries
