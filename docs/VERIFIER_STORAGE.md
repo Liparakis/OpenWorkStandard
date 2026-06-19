@@ -56,6 +56,7 @@ It is not a real institutional trust boundary because:
 - append uses a database transaction and session-row locking
 - issued receipts can include an HMAC server signature when `VerifierStorage:ReceiptSigningKey` is configured
 - `POST /packages` registers package metadata for packages already stored in object storage
+- package metadata registration supports `Idempotency-Key` retries
 - package metadata captures the current verifier session head when `sessionId` is supplied
 - `GET /packages/{id}` returns registered package metadata by durable submission ID
 

@@ -128,9 +128,10 @@ app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest re
     }
 });
 
-app.MapPost("/packages", async (VerifierPackageSubmissionRequest request, PostgresPackageSubmissionStore packageStore,
-    CancellationToken cancellationToken) =>
+app.MapPost("/packages", async (VerifierPackageSubmissionRequest request, HttpRequest httpRequest,
+    PostgresPackageSubmissionStore packageStore, CancellationToken cancellationToken) =>
 {
+    request = request with { IdempotencyKey = httpRequest.Headers["Idempotency-Key"].FirstOrDefault() };
     var validationError = request.GetValidationError();
     if (validationError is not null)
     {

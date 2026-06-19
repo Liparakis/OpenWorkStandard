@@ -57,6 +57,17 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
         var session = string.IsNullOrWhiteSpace(request.SessionId)
             ? null
             : await GetSessionAnchorAsync(connection, request.SessionId, cancellationToken);
+        var existingByIdempotencyKey = await TryGetExistingByIdempotencyKeyAsync(connection, request, cancellationToken);
+        if (existingByIdempotencyKey is not null)
+        {
+            if (!MatchesRequest(existingByIdempotencyKey, request))
+            {
+                throw new InvalidOperationException("Package idempotency key already exists with different metadata.");
+            }
+
+            return existingByIdempotencyKey;
+        }
+
         var existing = await TryGetExistingAsync(connection, request, cancellationToken);
         if (existing is not null)
         {
@@ -79,6 +90,7 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
                                   object_key,
                                   package_sha256,
                                   package_size_bytes,
+                                  idempotency_key,
                                   session_head_receipt_hash,
                                   session_head_event_hash,
                                   session_checkpoint_count
@@ -91,11 +103,12 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
                                   @object_key,
                                   @package_sha256,
                                   @package_size_bytes,
+                                  @idempotency_key,
                                   @session_head_receipt_hash,
                                   @session_head_event_hash,
                                   @session_checkpoint_count
                               )
-                              returning id, session_id, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at;
+                              returning id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at;
                               """;
         command.Parameters.AddWithValue("id", Guid.NewGuid().ToString("N"));
         command.Parameters.AddWithValue("session_id", (object?)request.SessionId ?? DBNull.Value);
@@ -104,6 +117,7 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
         command.Parameters.AddWithValue("object_key", request.ObjectKey);
         command.Parameters.AddWithValue("package_sha256", request.PackageSha256.ToLowerInvariant());
         command.Parameters.AddWithValue("package_size_bytes", request.PackageSizeBytes);
+        command.Parameters.AddWithValue("idempotency_key", (object?)request.IdempotencyKey ?? DBNull.Value);
         command.Parameters.AddWithValue("session_head_receipt_hash", (object?)session?.HeadReceiptHash ?? DBNull.Value);
         command.Parameters.AddWithValue("session_head_event_hash", (object?)session?.HeadEventHash ?? DBNull.Value);
         command.Parameters.AddWithValue("session_checkpoint_count", (object?)session?.CheckpointCount ?? DBNull.Value);
@@ -133,7 +147,7 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, session_id, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at
                               from verifier_package_submissions
                               where id = @id;
                               """;
@@ -160,7 +174,7 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, session_id, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at
                               from verifier_package_submissions
                               where object_storage_provider = @object_storage_provider
                                 and object_bucket = @object_bucket
@@ -173,6 +187,49 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken) ? ReadSubmission(reader) : null;
     }
+
+    /// <summary>
+    /// Loads an existing package submission by idempotency key.
+    /// </summary>
+    /// <param name="connection">The open database connection.</param>
+    /// <param name="request">The package submission request.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The existing submission when found; otherwise <see langword="null"/>.</returns>
+    private static async Task<VerifierPackageSubmissionResponse?> TryGetExistingByIdempotencyKeyAsync(
+        NpgsqlConnection connection,
+        VerifierPackageSubmissionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        {
+            return null;
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at
+                              from verifier_package_submissions
+                              where idempotency_key = @idempotency_key;
+                              """;
+        command.Parameters.AddWithValue("idempotency_key", request.IdempotencyKey);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? ReadSubmission(reader) : null;
+    }
+
+    /// <summary>
+    /// Checks whether an existing package submission represents the same request payload.
+    /// </summary>
+    /// <param name="existing">The existing package submission.</param>
+    /// <param name="request">The new package submission request.</param>
+    /// <returns><see langword="true"/> when the request payload matches; otherwise, <see langword="false"/>.</returns>
+    private static bool MatchesRequest(VerifierPackageSubmissionResponse existing, VerifierPackageSubmissionRequest request) =>
+        string.Equals(existing.SessionId, request.SessionId, StringComparison.Ordinal) &&
+        string.Equals(existing.ObjectStorageProvider, request.ObjectStorageProvider, StringComparison.Ordinal) &&
+        string.Equals(existing.ObjectBucket, request.ObjectBucket, StringComparison.Ordinal) &&
+        string.Equals(existing.ObjectKey, request.ObjectKey, StringComparison.Ordinal) &&
+        string.Equals(existing.PackageSha256, request.PackageSha256, StringComparison.OrdinalIgnoreCase) &&
+        existing.PackageSizeBytes == request.PackageSizeBytes;
 
     /// <summary>
     /// Loads the current session head used to anchor a package registration.
@@ -219,15 +276,16 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
         {
             SubmissionId = reader.GetString(0),
             SessionId = reader.IsDBNull(1) ? null : reader.GetString(1),
-            ObjectStorageProvider = reader.GetString(2),
-            ObjectBucket = reader.GetString(3),
-            ObjectKey = reader.GetString(4),
-            PackageSha256 = reader.GetString(5),
-            PackageSizeBytes = reader.GetInt64(6),
-            SessionHeadReceiptHash = reader.IsDBNull(7) ? null : reader.GetString(7),
-            SessionHeadEventHash = reader.IsDBNull(8) ? null : reader.GetString(8),
-            SessionCheckpointCount = reader.IsDBNull(9) ? null : reader.GetInt32(9),
-            VerificationStatus = reader.GetString(10),
-            CreatedAtUtc = reader.GetFieldValue<DateTimeOffset>(11)
+            IdempotencyKey = reader.IsDBNull(2) ? null : reader.GetString(2),
+            ObjectStorageProvider = reader.GetString(3),
+            ObjectBucket = reader.GetString(4),
+            ObjectKey = reader.GetString(5),
+            PackageSha256 = reader.GetString(6),
+            PackageSizeBytes = reader.GetInt64(7),
+            SessionHeadReceiptHash = reader.IsDBNull(8) ? null : reader.GetString(8),
+            SessionHeadEventHash = reader.IsDBNull(9) ? null : reader.GetString(9),
+            SessionCheckpointCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+            VerificationStatus = reader.GetString(11),
+            CreatedAtUtc = reader.GetFieldValue<DateTimeOffset>(12)
         };
 }

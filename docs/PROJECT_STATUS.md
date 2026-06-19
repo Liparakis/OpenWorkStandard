@@ -195,6 +195,7 @@ PostgreSQL setup model today:
 - requests require `X-OWS-Verifier-Key` when `VerifierSecurity:ApiKey` is configured
 - request logs include method, path, status code, and elapsed time, but not bodies or headers
 - package submissions register object storage provider, bucket, key, package SHA-256, and package size
+- package submission retries can use `Idempotency-Key`
 - registered package submission metadata can be fetched by submission ID
 - package registration captures the current verifier session head when `sessionId` is supplied
 - package bytes are not stored in PostgreSQL or local verifier disk

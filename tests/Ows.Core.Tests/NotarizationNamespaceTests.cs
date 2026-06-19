@@ -492,6 +492,7 @@ public sealed class NotarizationNamespaceTests
         var request = new VerifierPackageSubmissionRequest
         {
             SessionId = "session-1",
+            IdempotencyKey = "package-1",
             ObjectStorageProvider = "s3",
             ObjectBucket = "ows-packages",
             ObjectKey = "sessions/session-1/package.owspkg",
@@ -500,6 +501,25 @@ public sealed class NotarizationNamespaceTests
         };
 
         request.GetValidationError().Should().BeNull();
+    }
+
+    /// <summary>
+    /// Verifies that package submission metadata rejects blank idempotency keys when supplied.
+    /// </summary>
+    [Fact]
+    public void VerifierPackageSubmissionRequest_ShouldRejectBlankIdempotencyKey()
+    {
+        var request = new VerifierPackageSubmissionRequest
+        {
+            IdempotencyKey = " ",
+            ObjectStorageProvider = "s3",
+            ObjectBucket = "ows-packages",
+            ObjectKey = "package.owspkg",
+            PackageSha256 = new string('a', 64),
+            PackageSizeBytes = 1024
+        };
+
+        request.GetValidationError().Should().Be("Idempotency-Key header must not be empty when provided.");
     }
 
     /// <summary>

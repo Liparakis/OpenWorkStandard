@@ -50,6 +50,7 @@ create table if not exists verifier_package_submissions (
     object_key text not null,
     package_sha256 text not null,
     package_size_bytes bigint not null,
+    idempotency_key text null,
     session_head_receipt_hash text null,
     session_head_event_hash text null,
     session_checkpoint_count integer null,
@@ -60,3 +61,7 @@ create table if not exists verifier_package_submissions (
     constraint ck_verifier_package_submissions_size check (package_size_bytes > 0),
     constraint ck_verifier_package_submissions_sha256 check (package_sha256 ~ '^[0-9a-fA-F]{64}$')
 );
+
+create unique index if not exists ix_verifier_package_submissions_idempotency
+    on verifier_package_submissions (idempotency_key)
+    where idempotency_key is not null;

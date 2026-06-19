@@ -77,6 +77,7 @@ Harden verifier operational security in small steps, then add server-side packag
 - [x] Remote package object metadata registration
 - [x] Remote package metadata retrieval
 - [x] Package metadata session-head anchoring
+- [x] Package metadata idempotent retries
 - [ ] Remote package anchor workflow - Status: Partial
 
 ## 8. Reports and Professor Review

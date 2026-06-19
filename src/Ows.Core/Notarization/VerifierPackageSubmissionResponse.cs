@@ -16,6 +16,11 @@ public sealed record VerifierPackageSubmissionResponse
     public string? SessionId { get; init; }
 
     /// <summary>
+    /// Gets the optional idempotency key used to register the package.
+    /// </summary>
+    public string? IdempotencyKey { get; init; }
+
+    /// <summary>
     /// Gets the object storage provider name.
     /// </summary>
     public string ObjectStorageProvider { get; init; } = string.Empty;

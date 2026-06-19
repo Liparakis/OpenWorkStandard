@@ -11,6 +11,11 @@ public sealed record VerifierPackageSubmissionRequest
     public string? SessionId { get; init; }
 
     /// <summary>
+    /// Gets the optional idempotency key supplied by the caller.
+    /// </summary>
+    public string? IdempotencyKey { get; init; }
+
+    /// <summary>
     /// Gets the object storage provider name.
     /// </summary>
     public string ObjectStorageProvider { get; init; } = string.Empty;
@@ -41,6 +46,11 @@ public sealed record VerifierPackageSubmissionRequest
     /// <returns>The validation error, or <see langword="null"/> when valid.</returns>
     public string? GetValidationError()
     {
+        if (IdempotencyKey is not null && string.IsNullOrWhiteSpace(IdempotencyKey))
+        {
+            return "Idempotency-Key header must not be empty when provided.";
+        }
+
         if (!string.IsNullOrWhiteSpace(SessionId) && SessionId.Length > 200)
         {
             return "Session id is too long.";
