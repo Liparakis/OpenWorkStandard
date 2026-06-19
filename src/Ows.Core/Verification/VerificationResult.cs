@@ -8,37 +8,37 @@ public sealed record VerificationResult
     /// <summary>
     /// Gets a value indicating whether the verification passed.
     /// </summary>
-    public bool IsSuccess { get; private init; }
+    public bool IsSuccess { get; init; }
 
     /// <summary>
     /// Gets the trust grade assigned to the verification outcome.
     /// </summary>
-    public TrustStatus TrustStatus { get; private init; }
+    public TrustStatus TrustStatus { get; init; }
 
     /// <summary>
     /// Gets a summary suitable for CLI and report output.
     /// </summary>
-    public string Summary { get; private init; } = string.Empty;
+    public string Summary { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets any verification errors that prevented a clean result.
     /// </summary>
-    public IReadOnlyList<string> Errors { get; private init; } = [];
+    public IReadOnlyList<string> Errors { get; init; } = [];
 
     /// <summary>
     /// Gets the review signals raised during verification.
     /// </summary>
-    public IReadOnlyList<ReviewSignal> ReviewSignals { get; private init; } = [];
+    public IReadOnlyList<ReviewSignal> ReviewSignals { get; init; } = [];
 
     /// <summary>
     /// Gets concrete verification findings that explain the assigned trust grade.
     /// </summary>
-    public IReadOnlyList<VerificationFinding> Findings { get; private init; } = [];
+    public IReadOnlyList<VerificationFinding> Findings { get; init; } = [];
 
     /// <summary>
     /// Gets the list of verifier key fingerprints that signed the receipts in the package.
     /// </summary>
-    public IReadOnlyList<string> VerifiedKeyFingerprints { get; private init; } = [];
+    public IReadOnlyList<string> VerifiedKeyFingerprints { get; init; } = [];
 
     /// <summary>
     /// Creates a successful verification result.

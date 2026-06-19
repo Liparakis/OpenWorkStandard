@@ -66,6 +66,16 @@ public sealed record VerifierPackageSubmissionResponse
     public string VerificationStatus { get; init; } = "Registered";
 
     /// <summary>
+    /// Gets the trust status of the verification (e.g. Verified, Degraded, Unverified, Invalid).
+    /// </summary>
+    public string? TrustStatus { get; init; }
+
+    /// <summary>
+    /// Gets the full verification result JSON.
+    /// </summary>
+    public string? VerificationResultJson { get; init; }
+
+    /// <summary>
     /// Gets the UTC creation time for the package submission record.
     /// </summary>
     public DateTimeOffset CreatedAtUtc { get; init; }

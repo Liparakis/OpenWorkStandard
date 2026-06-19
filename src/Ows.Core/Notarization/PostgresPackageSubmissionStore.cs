@@ -5,7 +5,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Persists package object metadata in PostgreSQL while package bytes remain in object storage.
 /// </summary>
-public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
+public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IAsyncDisposable
 {
     private readonly NpgsqlDataSource? _dataSource;
     private readonly Task _initializationTask;
@@ -107,7 +107,7 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
                                   @session_head_event_hash,
                                   @session_checkpoint_count
                               )
-                              returning id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at;
+                              returning id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json;
                               """;
         command.Parameters.AddWithValue("id", Guid.NewGuid().ToString("N"));
         command.Parameters.AddWithValue("session_id", (object?)request.SessionId ?? DBNull.Value);
@@ -146,7 +146,7 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json
                               from verifier_package_submissions
                               where id = @id;
                               """;
@@ -154,6 +154,38 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken) ? ReadSubmission(reader) : null;
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateVerificationResultAsync(
+        string submissionId,
+        string verificationStatus,
+        string trustStatus,
+        string verificationResultJson,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(submissionId);
+        if (_dataSource is null)
+        {
+            throw new NotSupportedException("Package verification requires PostgreSQL verifier storage.");
+        }
+
+        await _initializationTask.WaitAsync(cancellationToken);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+                              update verifier_package_submissions
+                              set verification_status = @verification_status,
+                                  trust_status = @trust_status,
+                                  verification_result_json = @verification_result_json
+                              where id = @id;
+                              """;
+        command.Parameters.AddWithValue("id", submissionId);
+        command.Parameters.AddWithValue("verification_status", verificationStatus);
+        command.Parameters.AddWithValue("trust_status", trustStatus);
+        command.Parameters.AddWithValue("verification_result_json", verificationResultJson);
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <inheritdoc />
@@ -173,7 +205,7 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json
                               from verifier_package_submissions
                               where object_storage_provider = @object_storage_provider
                                 and object_bucket = @object_bucket
@@ -206,7 +238,7 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
 
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json
                               from verifier_package_submissions
                               where idempotency_key = @idempotency_key;
                               """;
@@ -285,6 +317,8 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
             SessionHeadEventHash = reader.IsDBNull(9) ? null : reader.GetString(9),
             SessionCheckpointCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
             VerificationStatus = reader.GetString(11),
+            TrustStatus = reader.IsDBNull(13) ? null : reader.GetString(13),
+            VerificationResultJson = reader.IsDBNull(14) ? null : reader.GetString(14),
             CreatedAtUtc = reader.GetFieldValue<DateTimeOffset>(12)
         };
 }

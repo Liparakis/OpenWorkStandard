@@ -92,6 +92,11 @@ public static class PostgresVerifierMigrator
                                                                 where idempotency_key is not null;
                                                             """;
 
+    private const string Migration005PackageVerificationResultSql = """
+                                                                    alter table verifier_package_submissions
+                                                                        add column if not exists verification_result_json text null;
+                                                                    """;
+
     /// <summary>
     /// Applies any missing ordered verifier schema migrations using a fresh data source.
     /// </summary>
@@ -144,7 +149,8 @@ public static class PostgresVerifierMigrator
         new(1, "foundation", Migration001FoundationSql),
         new(2, "package-submissions", Migration002PackageSubmissionsSql),
         new(3, "package-session-anchors", Migration003PackageSessionAnchorsSql),
-        new(4, "package-idempotency", Migration004PackageIdempotencySql)
+        new(4, "package-idempotency", Migration004PackageIdempotencySql),
+        new(5, "package-verification-results", Migration005PackageVerificationResultSql)
     ];
 
     /// <summary>

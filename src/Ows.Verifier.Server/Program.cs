@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Ows.Core.Notarization;
+using Ows.Core.Verification;
 using Ows.Verifier.Server;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,12 +13,15 @@ var storageOptions = builder.Configuration.GetSection("VerifierStorage").Get<Ver
                      ?? new VerifierStorageOptions();
 var securityOptions = builder.Configuration.GetSection("VerifierSecurity").Get<VerifierSecurityOptions>()
                       ?? new VerifierSecurityOptions();
-var normalizedStorageOptions = string.IsNullOrWhiteSpace(storageOptions.JsonStorePath)
-    ? storageOptions with
-    {
-        JsonStorePath = Path.Combine(builder.Environment.ContentRootPath, ".ows-verifier", "receipts.json")
-    }
-    : storageOptions;
+var normalizedStorageOptions = storageOptions with
+{
+    JsonStorePath = string.IsNullOrWhiteSpace(storageOptions.JsonStorePath)
+        ? Path.Combine(builder.Environment.ContentRootPath, ".ows-verifier", "receipts.json")
+        : storageOptions.JsonStorePath,
+    LocalStoragePath = string.IsNullOrWhiteSpace(storageOptions.LocalStoragePath)
+        ? Path.Combine(builder.Environment.ContentRootPath, ".ows-verifier", "packages")
+        : storageOptions.LocalStoragePath
+};
 
 var envString = builder.Configuration["VerifierEnvironment"] 
                 ?? builder.Environment.EnvironmentName 
@@ -124,9 +129,10 @@ if (args.Any(static arg => string.Equals(arg, "migrate", StringComparison.Ordina
 
 builder.Services.AddSingleton(normalizedStorageOptions);
 builder.Services.AddSingleton(securityOptions);
-builder.Services.AddSingleton(_ => string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
+builder.Services.AddSingleton<IPackageVerifier, OwsPackageVerifier>();
+builder.Services.AddSingleton<IPackageSubmissionStore>(_ => string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
     ? new PostgresPackageSubmissionStore(normalizedStorageOptions.PostgresConnectionString)
-    : new PostgresPackageSubmissionStore());
+    : new JsonFilePackageSubmissionStore(Path.Combine(Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath, "package_submissions.json")));
 builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
 {
     "json" => new JsonFileVerifierStorage(
@@ -276,31 +282,313 @@ app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest re
     }
 });
 
-app.MapPost("/packages", async (VerifierPackageSubmissionRequest request, HttpRequest httpRequest,
-    PostgresPackageSubmissionStore packageStore, CancellationToken cancellationToken) =>
+app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore packageStore,
+    IVerifierStorage storage, IPackageVerifier verifier, VerifierStorageOptions options,
+    CancellationToken cancellationToken) =>
 {
-    request = request with { IdempotencyKey = httpRequest.Headers["Idempotency-Key"].FirstOrDefault() };
-    var validationError = request.GetValidationError();
-    if (validationError is not null)
-    {
-        return Results.BadRequest(validationError);
-    }
+    var idempotencyKey = request.Headers["Idempotency-Key"].FirstOrDefault();
 
-    try
+    if (request.HasFormContentType)
     {
-        return Results.Ok(await packageStore.SubmitAsync(request, cancellationToken));
+        if (request.Form.Files.GetFile("file") is not { } file)
+        {
+            return Results.BadRequest("A file upload is required.");
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        if (!string.Equals(extension, ".owspkg", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest("Only .owspkg files are accepted.");
+        }
+
+        if (file.Length > (options.MaxPackageSizeBytes > 0 ? options.MaxPackageSizeBytes : 50 * 1024 * 1024))
+        {
+            return Results.BadRequest("Uploaded package exceeds maximum size limit.");
+        }
+
+        var sessionId = request.Form["sessionId"].FirstOrDefault();
+        var tempFilePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.tmp");
+        try
+        {
+            using (var tempStream = File.Create(tempFilePath))
+            {
+                await file.CopyToAsync(tempStream, cancellationToken);
+            }
+
+            var hash = await ComputeSha256HashAsync(tempFilePath, cancellationToken);
+            var packageFilePath = Path.Combine(options.LocalStoragePath, $"{hash}.owspkg");
+
+            var submissionRequest = new VerifierPackageSubmissionRequest
+            {
+                SessionId = sessionId,
+                IdempotencyKey = idempotencyKey,
+                ObjectStorageProvider = "local",
+                ObjectBucket = "packages",
+                ObjectKey = $"{hash}.owspkg",
+                PackageSha256 = hash,
+                PackageSizeBytes = file.Length
+            };
+
+            VerifierPackageSubmissionResponse submissionResponse;
+            try
+            {
+                submissionResponse = await packageStore.SubmitAsync(submissionRequest, cancellationToken);
+            }
+            catch (InvalidOperationException exception)
+            {
+                if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
+                    exception.Message.Contains("already registered with different metadata", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.Conflict(exception.Message);
+                }
+                return Results.BadRequest(exception.Message);
+            }
+
+            Directory.CreateDirectory(options.LocalStoragePath);
+            File.Move(tempFilePath, packageFilePath, overwrite: true);
+
+            ReceiptChain? trustedReceiptChain = null;
+            SessionHeadResponse? trustedSessionHead = null;
+
+            if (!string.IsNullOrWhiteSpace(submissionResponse.SessionId))
+            {
+                var assessmentSessionId = new AssessmentSessionId(submissionResponse.SessionId);
+                try
+                {
+                    trustedReceiptChain = await storage.GetReceiptsAsync(assessmentSessionId, cancellationToken);
+                    trustedSessionHead = await storage.GetHeadAsync(assessmentSessionId, cancellationToken);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Session not found
+                }
+            }
+
+            var verifyRequest = new PackageVerificationRequest
+            {
+                PackagePath = packageFilePath,
+                TrustedReceiptChain = trustedReceiptChain,
+                TrustedSessionHead = trustedSessionHead
+            };
+
+            var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
+            var resultJson = JsonSerializer.Serialize(verificationResult);
+
+            await packageStore.UpdateVerificationResultAsync(
+                submissionResponse.SubmissionId,
+                "Completed",
+                verificationResult.TrustStatus.ToString(),
+                resultJson,
+                cancellationToken);
+
+            return Results.Ok(new
+            {
+                submissionId = submissionResponse.SubmissionId,
+                sessionId = submissionResponse.SessionId,
+                packageSha256 = submissionResponse.PackageSha256,
+                verificationStatus = "Completed",
+                trustStatus = verificationResult.TrustStatus.ToString(),
+                verificationResult = verificationResult
+            });
+        }
+        finally
+        {
+            if (File.Exists(tempFilePath))
+            {
+                File.Delete(tempFilePath);
+            }
+        }
     }
-    catch (NotSupportedException exception)
+    else
     {
-        return Results.BadRequest(exception.Message);
-    }
-    catch (InvalidOperationException exception)
-    {
-        return Results.BadRequest(exception.Message);
+        VerifierPackageSubmissionRequest jsonRequest;
+        try
+        {
+            jsonRequest = await request.ReadFromJsonAsync<VerifierPackageSubmissionRequest>(cancellationToken)
+                          ?? throw new JsonException("Request body deserialized to null.");
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest($"Invalid JSON payload: {ex.Message}");
+        }
+
+        jsonRequest = jsonRequest with { IdempotencyKey = idempotencyKey };
+        var validationError = jsonRequest.GetValidationError();
+        if (validationError is not null)
+        {
+            return Results.BadRequest(validationError);
+        }
+
+        try
+        {
+            var response = await packageStore.SubmitAsync(jsonRequest, cancellationToken);
+            return Results.Ok(response);
+        }
+        catch (NotSupportedException exception)
+        {
+            return Results.BadRequest(exception.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
+                exception.Message.Contains("already registered with different metadata", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Conflict(exception.Message);
+            }
+            return Results.BadRequest(exception.Message);
+        }
     }
 });
 
-app.MapGet("/packages/{id}", async (string id, PostgresPackageSubmissionStore packageStore,
+app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubmissionStore packageStore,
+    IVerifierStorage storage, IPackageVerifier verifier, VerifierStorageOptions options,
+    CancellationToken cancellationToken) =>
+{
+    var submission = await packageStore.GetAsync(id, cancellationToken);
+    if (submission is null)
+    {
+        return Results.NotFound("Unknown package submission.");
+    }
+
+    if (!request.HasFormContentType || request.Form.Files.GetFile("file") is not { } file)
+    {
+        return Results.BadRequest("A file upload is required.");
+    }
+
+    var extension = Path.GetExtension(file.FileName);
+    if (!string.Equals(extension, ".owspkg", StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.BadRequest("Only .owspkg files are accepted.");
+    }
+
+    if (file.Length > (options.MaxPackageSizeBytes > 0 ? options.MaxPackageSizeBytes : 50 * 1024 * 1024))
+    {
+        return Results.BadRequest("Uploaded package exceeds maximum size limit.");
+    }
+
+    var tempFilePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.tmp");
+    try
+    {
+        using (var tempStream = File.Create(tempFilePath))
+        {
+            await file.CopyToAsync(tempStream, cancellationToken);
+        }
+
+        var hash = await ComputeSha256HashAsync(tempFilePath, cancellationToken);
+        if (!string.Equals(hash, submission.PackageSha256, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest("Uploaded package hash does not match the registered package SHA-256 metadata.");
+        }
+
+        var packageFilePath = Path.Combine(options.LocalStoragePath, $"{hash}.owspkg");
+        Directory.CreateDirectory(options.LocalStoragePath);
+        File.Move(tempFilePath, packageFilePath, overwrite: true);
+
+        ReceiptChain? trustedReceiptChain = null;
+        SessionHeadResponse? trustedSessionHead = null;
+
+        if (!string.IsNullOrWhiteSpace(submission.SessionId))
+        {
+            var assessmentSessionId = new AssessmentSessionId(submission.SessionId);
+            try
+            {
+                trustedReceiptChain = await storage.GetReceiptsAsync(assessmentSessionId, cancellationToken);
+                trustedSessionHead = await storage.GetHeadAsync(assessmentSessionId, cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                // Session not found
+            }
+        }
+
+        var verifyRequest = new PackageVerificationRequest
+        {
+            PackagePath = packageFilePath,
+            TrustedReceiptChain = trustedReceiptChain,
+            TrustedSessionHead = trustedSessionHead
+        };
+
+        var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
+        var resultJson = JsonSerializer.Serialize(verificationResult);
+
+        await packageStore.UpdateVerificationResultAsync(
+            id,
+            "Completed",
+            verificationResult.TrustStatus.ToString(),
+            resultJson,
+            cancellationToken);
+
+        return Results.Ok(new
+        {
+            submissionId = id,
+            verificationStatus = "Completed",
+            trustStatus = verificationResult.TrustStatus.ToString(),
+            verificationResult = verificationResult
+        });
+    }
+    finally
+    {
+        if (File.Exists(tempFilePath))
+        {
+            File.Delete(tempFilePath);
+        }
+    }
+});
+
+app.MapPost("/packages/{id}/verify", async (string id, IPackageSubmissionStore packageStore,
+    IVerifierStorage storage, IPackageVerifier verifier, VerifierStorageOptions options,
+    CancellationToken cancellationToken) =>
+{
+    var submission = await packageStore.GetAsync(id, cancellationToken);
+    if (submission is null)
+    {
+        return Results.NotFound("Unknown package submission.");
+    }
+
+    var packageFilePath = Path.Combine(options.LocalStoragePath, $"{submission.PackageSha256}.owspkg");
+    if (!File.Exists(packageFilePath))
+    {
+        return Results.BadRequest("Package bytes are not available for verification. Please upload the package file.");
+    }
+
+    ReceiptChain? trustedReceiptChain = null;
+    SessionHeadResponse? trustedSessionHead = null;
+
+    if (!string.IsNullOrWhiteSpace(submission.SessionId))
+    {
+        var assessmentSessionId = new AssessmentSessionId(submission.SessionId);
+        try
+        {
+            trustedReceiptChain = await storage.GetReceiptsAsync(assessmentSessionId, cancellationToken);
+            trustedSessionHead = await storage.GetHeadAsync(assessmentSessionId, cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            // Session not found
+        }
+    }
+
+    var verifyRequest = new PackageVerificationRequest
+    {
+        PackagePath = packageFilePath,
+        TrustedReceiptChain = trustedReceiptChain,
+        TrustedSessionHead = trustedSessionHead
+    };
+
+    var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
+    var resultJson = JsonSerializer.Serialize(verificationResult);
+
+    await packageStore.UpdateVerificationResultAsync(
+        id,
+        "Completed",
+        verificationResult.TrustStatus.ToString(),
+        resultJson,
+        cancellationToken);
+
+    return Results.Ok(verificationResult);
+});
+
+app.MapGet("/packages/{id}", async (string id, IPackageSubmissionStore packageStore,
     CancellationToken cancellationToken) =>
 {
     try
@@ -312,6 +600,23 @@ app.MapGet("/packages/{id}", async (string id, PostgresPackageSubmissionStore pa
     {
         return Results.BadRequest(exception.Message);
     }
+});
+
+app.MapGet("/packages/{id}/verification", async (string id, IPackageSubmissionStore packageStore,
+    CancellationToken cancellationToken) =>
+{
+    var submission = await packageStore.GetAsync(id, cancellationToken);
+    if (submission is null)
+    {
+        return Results.NotFound("Unknown package submission.");
+    }
+
+    if (string.IsNullOrWhiteSpace(submission.VerificationResultJson))
+    {
+        return Results.NotFound("Verification result not found or package has not been verified yet.");
+    }
+
+    return Results.Content(submission.VerificationResultJson, "application/json");
 });
 
 app.MapGet("/sessions/{id}/receipts",
@@ -340,6 +645,14 @@ app.MapGet("/sessions/{id}/head", async (string id, IVerifierStorage storage, Ca
 });
 
 app.Run();
+
+static async Task<string> ComputeSha256HashAsync(string filePath, CancellationToken cancellationToken)
+{
+    using var stream = File.OpenRead(filePath);
+    using var sha256 = SHA256.Create();
+    var bytes = await sha256.ComputeHashAsync(stream, cancellationToken);
+    return Convert.ToHexString(bytes).ToLowerInvariant();
+}
 
 // Checks the optional shared verifier API key without leaking timing differences for equal-length values.
 static bool HasValidApiKey(HttpRequest request, VerifierSecurityOptions options)

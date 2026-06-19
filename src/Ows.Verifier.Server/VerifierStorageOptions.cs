@@ -24,4 +24,14 @@ public sealed record VerifierStorageOptions
     /// Gets the optional verifier receipt signing key.
     /// </summary>
     public string ReceiptSigningKey { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the local filesystem directory where uploaded package blobs are saved.
+    /// </summary>
+    public string LocalStoragePath { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the maximum allowed uploaded package size in bytes.
+    /// </summary>
+    public long MaxPackageSizeBytes { get; init; } = 52428800; // 50 MB
 }
