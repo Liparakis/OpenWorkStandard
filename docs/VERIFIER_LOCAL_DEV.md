@@ -44,6 +44,7 @@ After `dotnet build`, platform-specific launcher artifacts are also emitted to:
 For background lifecycle on Windows:
 
 ```powershell
+.\scripts\doctor-local-verifier.ps1
 .\scripts\start-local-verifier.ps1
 .\scripts\status-local-verifier.ps1
 .\scripts\logs-local-verifier.ps1
@@ -54,6 +55,7 @@ For background lifecycle on Windows:
 For Unix-like environments:
 
 ```bash
+./scripts/doctor-local-verifier.sh
 ./scripts/start-local-verifier.sh
 ./scripts/status-local-verifier.sh
 ./scripts/logs-local-verifier.sh
@@ -133,6 +135,8 @@ That script checks:
 - idempotent retry behavior
 - receipt-chain fetch
 - head fetch
+
+Use `doctor-local-verifier` when you want a read-only preflight check before starting anything. It reports missing `dotnet`, missing Docker CLI, missing build output, PostgreSQL reachability, and current verifier state.
 
 ## Troubleshooting
 

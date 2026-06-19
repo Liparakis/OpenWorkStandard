@@ -190,6 +190,7 @@ PostgreSQL setup model today:
 Local verifier dev flow today:
 
 - `docker-compose.local.yml` starts PostgreSQL using `D:\Containers\OWS\postgres\data`
+- `scripts/doctor-local-verifier.ps1` performs a read-only local verifier preflight check
 - `scripts/run-local-verifier.ps1` runs PostgreSQL, migrations, and the verifier in the foreground
 - `scripts/start-local-verifier.ps1`, `status-local-verifier.ps1`, `logs-local-verifier.ps1`, and `stop-local-verifier.ps1` provide background lifecycle helpers on Windows
 - `scripts/test-local-verifier.ps1` performs a direct API smoke check
