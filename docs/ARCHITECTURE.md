@@ -39,7 +39,6 @@ The current repository implements a thin but real local/reference slice:
 What does not exist yet:
 
 - persistent host-owned watcher implementations
-- ASP.NET Core verifier server
 - production storage adapters
 - background worker pipeline
 - deployed infrastructure manifests
@@ -53,7 +52,7 @@ What does not exist yet:
 - `Ows.Core.Verification`: package validation, trust grading, and integrity findings
 - `Ows.Cli`: reference client entry point
 - `Ows.Desktop`: future host surface, still placeholder-only today
-- future `Ows.Verifier.Server`: ASP.NET Core verifier API
+- `Ows.Verifier.Server`: minimal ASP.NET Core verifier API scaffold backed by in-memory receipt storage
 - future `Ows.Verifier.Worker`: background processing boundary
 
 ## Responsibility Split
@@ -87,10 +86,12 @@ Current implemented flow:
 
 1. `ows init` creates local state.
 2. `ows watch` appends chained local events.
-3. `ows package` writes a real `.owspkg` archive.
-4. optional `receipts.json` is included when present locally.
-5. `ows verify` validates event-chain integrity, artifact integrity, and optional receipt-chain integrity.
-6. `ows report` renders a basic text integrity report.
+3. `ows session start` can create a local or remote-backed receipt session, depending on transport wiring.
+4. `ows session checkpoint` can append a receipt to the current session, depending on transport wiring.
+5. `ows package` writes a real `.owspkg` archive.
+6. optional `receipts.json` is included when present locally.
+7. `ows verify` validates event-chain integrity, artifact integrity, and optional receipt-chain integrity.
+8. `ows report` renders a basic text integrity report.
 
 Target flow:
 

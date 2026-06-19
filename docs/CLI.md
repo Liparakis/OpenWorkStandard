@@ -11,7 +11,7 @@ Near-term architecture:
 - the final package proves
 - the professor decides
 
-Today, the CLI is still mostly local-only. Remote verifier integration has started at the domain-model level, not at the network/API level yet.
+Today, the CLI is still mostly local-only. Remote verifier integration has started at the domain-model and minimal API scaffold level, but the CLI does not call a live verifier over the network yet.
 
 ## `ows init`
 

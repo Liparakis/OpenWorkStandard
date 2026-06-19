@@ -26,6 +26,7 @@ dotnet run --project src/Ows.Cli -- --help
 - `src/Ows.Core`: shared domain models plus agent, packaging, notarization, verification, and reporting namespaces.
 - `src/Ows.Cli`: command-line entry point for the reference client.
 - `src/Ows.Desktop`: placeholder project for a future Avalonia UI.
+- `src/Ows.Verifier.Server`: minimal ASP.NET Core verifier API scaffold backed by in-memory receipt storage.
 - `tests/Ows.Core.Tests`: xUnit coverage for core behavior and collapsed MVP service skeletons.
 - `tests/Ows.Cli.Tests`: xUnit coverage for command construction.
 - `docs`: specification, architecture, privacy, security, package format, CLI, and glossary.
@@ -47,8 +48,9 @@ This repository now has a thin but real local MVP:
 
 - `ows init` creates local `.ows` state
 - `ows watch` performs a one-shot project scan
+- `ows session start` and `ows session checkpoint` exercise the receipt flow foundation
 - `ows package` creates real `.owspkg` archives
 - `ows verify` validates package integrity and assigns a trust grade
 - `ows report` writes a basic text integrity report
 
-The main architectural gap is the trust boundary. Local capture alone is not enough, so the next milestone is remote trust boundary foundation: trust grading, receipt/session models, and later a self-hostable verifier service.
+The main architectural gap is the durable trust boundary. Local capture alone is not enough, so the next milestone is turning the current in-memory verifier scaffold into a self-hostable service with durable storage and hardened transport.
