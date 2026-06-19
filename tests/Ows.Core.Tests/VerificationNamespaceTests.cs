@@ -262,6 +262,64 @@ public sealed class VerificationNamespaceTests
     }
 
     /// <summary>
+    /// Verifies that verifier-backed verification can fall back to a trusted remote session head when packaged receipts are absent.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldReturnUnverifiedWhenTrustedRemoteHeadMatchesButReceiptsAreNotPackaged()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-remote-head-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            var hashService = new Sha256HashService();
+            var timelineEvents = CreateChainedEvents(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" });
+            var timelineText = string.Join(Environment.NewLine, timelineEvents.Select(owsEvent => JsonSerializer.Serialize(owsEvent)));
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
+            }
+
+            var verifier = new OwsPackageVerifier();
+            var result = await verifier.VerifyAsync(
+                new PackageVerificationRequest
+                {
+                    PackagePath = packagePath,
+                    TrustedSessionHead = new SessionHeadResponse
+                    {
+                        SessionId = "session-1",
+                        LastSequenceNumber = 1,
+                        LastTimelineHeadHash = timelineEvents[^1].EventHash,
+                        LastReceiptHash = "receipt-1"
+                    }
+                },
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeTrue();
+            result.TrustStatus.Should().Be(TrustStatus.Unverified);
+            result.Findings.Should().Contain(finding => finding.Code == "remote-receipts-not-packaged");
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that a package missing required entries fails verification.
     /// </summary>
     [Fact]

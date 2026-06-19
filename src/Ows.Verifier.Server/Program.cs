@@ -47,4 +47,25 @@ app.MapGet("/sessions/{id}/receipts", (string id, JsonFileReceiptService receipt
     }
 });
 
+app.MapGet("/sessions/{id}/head", (string id, JsonFileReceiptService receiptService) =>
+{
+    try
+    {
+        var receiptChain = receiptService.GetReceiptChain(new AssessmentSessionId(id));
+        var lastReceipt = receiptChain.Receipts.LastOrDefault();
+
+        return Results.Ok(new SessionHeadResponse
+        {
+            SessionId = receiptChain.SessionId.Value,
+            LastSequenceNumber = lastReceipt?.SequenceNumber ?? 0,
+            LastTimelineHeadHash = lastReceipt?.TimelineHeadHash ?? Ows.Core.Events.OwsEventChain.GenesisPreviousEventHash,
+            LastReceiptHash = lastReceipt?.ReceiptHash ?? ReceiptChainVerifier.GenesisPreviousReceiptHash
+        });
+    }
+    catch (InvalidOperationException exception)
+    {
+        return Results.NotFound(exception.Message);
+    }
+});
+
 app.Run();

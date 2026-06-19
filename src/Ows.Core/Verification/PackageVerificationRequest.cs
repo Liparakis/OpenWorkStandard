@@ -14,4 +14,9 @@ public sealed record PackageVerificationRequest
     /// Gets the optional trusted receipt chain fetched from a live verifier.
     /// </summary>
     public Notarization.ReceiptChain? TrustedReceiptChain { get; init; }
+
+    /// <summary>
+    /// Gets the optional trusted session head fetched from a live verifier.
+    /// </summary>
+    public Notarization.SessionHeadResponse? TrustedSessionHead { get; init; }
 }

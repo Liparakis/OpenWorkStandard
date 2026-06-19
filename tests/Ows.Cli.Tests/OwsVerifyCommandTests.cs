@@ -69,6 +69,13 @@ public sealed class OwsVerifyCommandTests
             "sessions" when method == "POST" => new StartSessionResponse { SessionId = sessionId.Value },
             var value when value == $"sessions/{sessionId}/checkpoints" && method == "POST" => CreateReceipt(sessionId, "stub-head"),
             var value when value == $"sessions/{sessionId}/receipts" && method == "GET" => remoteReceiptChain,
+            var value when value == $"sessions/{sessionId}/head" && method == "GET" => new SessionHeadResponse
+            {
+                SessionId = sessionId.Value,
+                LastSequenceNumber = remoteReceiptChain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
+                LastTimelineHeadHash = remoteReceiptChain.Receipts.LastOrDefault()?.TimelineHeadHash ?? OwsEventChain.GenesisPreviousEventHash,
+                LastReceiptHash = remoteReceiptChain.Receipts.LastOrDefault()?.ReceiptHash ?? ReceiptChainVerifier.GenesisPreviousReceiptHash
+            },
             _ => null
         });
 
@@ -101,7 +108,7 @@ public sealed class OwsVerifyCommandTests
                 .InvokeAsync();
 
             verifyResult.Should().Be(0);
-            verifierServer.RequestedPaths.Should().Contain($"sessions/{sessionId}/receipts");
+            verifierServer.RequestedPaths.Should().Contain($"sessions/{sessionId}/head");
         }
         finally
         {
@@ -115,7 +122,7 @@ public sealed class OwsVerifyCommandTests
     }
 
     /// <summary>
-    /// Verifies that live verifier cross-check fails when packaged session metadata resolves a different remote chain.
+    /// Verifies that live verifier cross-check fails when packaged session metadata resolves a different remote head.
     /// </summary>
     [Fact]
     public async Task VerifyCommand_WithServer_ShouldFailWhenPackagedSessionResolvesMismatchedRemoteChain()
@@ -135,6 +142,13 @@ public sealed class OwsVerifyCommandTests
             "sessions" when method == "POST" => new StartSessionResponse { SessionId = sessionId.Value },
             var value when value == $"sessions/{sessionId}/checkpoints" && method == "POST" => CreateReceipt(sessionId, "stub-head"),
             var value when value == $"sessions/{sessionId}/receipts" && method == "GET" => remoteReceiptChain,
+            var value when value == $"sessions/{sessionId}/head" && method == "GET" => new SessionHeadResponse
+            {
+                SessionId = sessionId.Value,
+                LastSequenceNumber = remoteReceiptChain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
+                LastTimelineHeadHash = remoteReceiptChain.Receipts.LastOrDefault()?.TimelineHeadHash ?? OwsEventChain.GenesisPreviousEventHash,
+                LastReceiptHash = remoteReceiptChain.Receipts.LastOrDefault()?.ReceiptHash ?? ReceiptChainVerifier.GenesisPreviousReceiptHash
+            },
             _ => null
         });
 

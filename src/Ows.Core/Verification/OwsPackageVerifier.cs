@@ -71,7 +71,13 @@ public sealed class OwsPackageVerifier : IPackageVerifier
 
                 if (errors.Count == 0)
                 {
-                    var trustStatus = ValidateReceipts(archive, timelineHeadHash, request.TrustedReceiptChain, errors, findings);
+                    var trustStatus = ValidateReceipts(
+                        archive,
+                        timelineHeadHash,
+                        request.TrustedReceiptChain,
+                        request.TrustedSessionHead,
+                        errors,
+                        findings);
                     return Task.FromResult(
                         errors.Count == 0
                             ? VerificationResult.Success("OWS verify succeeded.", trustStatus, findings)
@@ -269,6 +275,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
     /// <param name="archive">The package archive being verified.</param>
     /// <param name="timelineHeadHash">The verified local timeline head hash.</param>
     /// <param name="trustedReceiptChain">The optional authoritative receipt chain fetched from a live verifier.</param>
+    /// <param name="trustedSessionHead">The optional authoritative session head fetched from a live verifier.</param>
     /// <param name="errors">The mutable verification error collection.</param>
     /// <param name="findings">The mutable verification findings collection.</param>
     /// <returns>The resulting trust grade.</returns>
@@ -276,6 +283,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         ZipArchive archive,
         string timelineHeadHash,
         ReceiptChain? trustedReceiptChain,
+        SessionHeadResponse? trustedSessionHead,
         List<string> errors,
         List<VerificationFinding> findings)
     {
@@ -315,6 +323,41 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             if (!AreEquivalentReceiptChains(packagedReceiptChain, trustedReceiptChain))
             {
                 errors.Add("Packaged receipt chain does not match the trusted remote receipt chain.");
+                return TrustStatus.Invalid;
+            }
+        }
+        else if (trustedSessionHead is not null)
+        {
+            if (string.IsNullOrWhiteSpace(trustedSessionHead.SessionId))
+            {
+                errors.Add("Trusted remote session head is invalid.");
+                return TrustStatus.Invalid;
+            }
+
+            if (packagedReceiptChain is null)
+            {
+                if (!string.Equals(trustedSessionHead.LastTimelineHeadHash, timelineHeadHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add("Trusted remote session head does not match the local timeline head.");
+                    return TrustStatus.Invalid;
+                }
+
+                findings.Add(RemoteReceiptsNotPackagedFinding);
+                return TrustStatus.Unverified;
+            }
+
+            var packagedLastReceipt = packagedReceiptChain.Receipts.LastOrDefault();
+            if (packagedLastReceipt is null)
+            {
+                findings.Add(MissingRemoteReceiptsFinding);
+                return TrustStatus.Unverified;
+            }
+
+            if (packagedLastReceipt.SequenceNumber != trustedSessionHead.LastSequenceNumber ||
+                !string.Equals(packagedLastReceipt.TimelineHeadHash, trustedSessionHead.LastTimelineHeadHash, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(packagedLastReceipt.ReceiptHash, trustedSessionHead.LastReceiptHash, StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("Packaged receipt head does not match the trusted remote session head.");
                 return TrustStatus.Invalid;
             }
         }

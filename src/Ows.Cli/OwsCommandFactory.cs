@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.IO.Compression;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core;
@@ -182,14 +183,19 @@ public static class OwsCommandFactory
             var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             var verifier = new OwsPackageVerifier();
             var verifierUrl = parseResult.GetValue(serverOption);
+            var packagedReceiptChain = ReadPackagedReceiptChain(packagePath);
             var trustedReceiptChain = string.IsNullOrWhiteSpace(verifierUrl)
                 ? null
-                : await FetchTrustedReceiptChainAsync(packagePath, verifierUrl, CancellationToken.None);
+                : await FetchTrustedReceiptChainAsync(packagePath, verifierUrl, packagedReceiptChain is not null, CancellationToken.None);
+            var trustedSessionHead = string.IsNullOrWhiteSpace(verifierUrl)
+                ? null
+                : await FetchTrustedSessionHeadAsync(packagePath, verifierUrl, packagedReceiptChain is null, CancellationToken.None);
             var result = await verifier.VerifyAsync(
                 new PackageVerificationRequest
                 {
                     PackagePath = packagePath,
-                    TrustedReceiptChain = trustedReceiptChain
+                    TrustedReceiptChain = trustedReceiptChain,
+                    TrustedSessionHead = trustedSessionHead
                 },
                 CancellationToken.None);
             Console.WriteLine(result.Summary);
@@ -204,13 +210,20 @@ public static class OwsCommandFactory
     /// </summary>
     /// <param name="packagePath">The package being verified.</param>
     /// <param name="verifierUrl">The verifier base URL.</param>
+    /// <param name="shouldFetchChain">Whether the caller needs the full receipt chain.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The trusted remote receipt chain.</returns>
-    private static async Task<ReceiptChain> FetchTrustedReceiptChainAsync(
+    /// <returns>The trusted remote receipt chain when requested; otherwise <see langword="null"/>.</returns>
+    private static async Task<ReceiptChain?> FetchTrustedReceiptChainAsync(
         string packagePath,
         string verifierUrl,
+        bool shouldFetchChain,
         CancellationToken cancellationToken)
     {
+        if (!shouldFetchChain)
+        {
+            return null;
+        }
+
         var sessionId = ReadPackagedSessionId(packagePath);
         var packagedReceiptChain = ReadPackagedReceiptChain(packagePath);
         if (sessionId is null && packagedReceiptChain is null)
@@ -223,8 +236,35 @@ public static class OwsCommandFactory
         var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint());
         transport.RestoreSession(
             sessionId ?? packagedReceiptChain!.SessionId,
-            packagedReceiptChain?.Receipts.Count + 1 ?? 1);
+            packagedReceiptChain!.Receipts.Count + 1);
         return await transport.GetReceiptsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Fetches the authoritative session head for the packaged session from a live verifier.
+    /// </summary>
+    /// <param name="packagePath">The package being verified.</param>
+    /// <param name="verifierUrl">The verifier base URL.</param>
+    /// <param name="shouldFetchHead">Whether the caller needs the head endpoint instead of the full chain.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The trusted remote session head when requested; otherwise <see langword="null"/>.</returns>
+    private static async Task<SessionHeadResponse?> FetchTrustedSessionHeadAsync(
+        string packagePath,
+        string verifierUrl,
+        bool shouldFetchHead,
+        CancellationToken cancellationToken)
+    {
+        if (!shouldFetchHead)
+        {
+            return null;
+        }
+
+        var sessionId = ReadPackagedSessionId(packagePath)
+            ?? throw new InvalidOperationException(
+                $"The package does not contain {OwsConstants.SessionFileName}, so verifier-backed verification cannot resolve a remote session head.");
+        using var httpClient = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
+        return await httpClient.GetFromJsonAsync<SessionHeadResponse>($"sessions/{sessionId.Value}/head", cancellationToken)
+            ?? throw new InvalidOperationException("The verifier returned an invalid session head response.");
     }
 
     /// <summary>
