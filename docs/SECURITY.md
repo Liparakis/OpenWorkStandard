@@ -165,3 +165,41 @@ Directional hardening requirements:
 - auditability of release provenance
 
 These are production hardening concerns, not reasons to invent custom cryptographic plumbing in the MVP.
+
+## Verifier Operational Hardening Guidance
+
+For any self-hosted verifier that wants stronger security claims, the minimum hardening baseline should include:
+
+- PostgreSQL-backed durable receipt storage, not JSON development storage
+- TLS at the verifier edge
+- secrets kept outside the repository
+- controlled access to database credentials and signing material
+- backup and restore procedures for verifier data
+- migration discipline for schema changes
+- auditability for security-sensitive operational changes
+- log retention and access controls appropriate to institutional policy
+
+Do not overcomplicate this early:
+
+- do not add Redis, NATS, or Kubernetes just to sound production-like
+- do not invent custom cryptographic transport
+- do not claim production trust just because the API starts successfully
+
+## Institutional Trust Boundary Guidance
+
+An institution can only treat OWS as a stronger trust boundary when all of these are true:
+
+- receipt issuance is durable
+- verifier state survives process restart and normal operational failure
+- verifier operators control the server environment
+- transport security is enforced
+- verifier data retention and access policy are defined
+- local packages are checked against durable remote receipt history
+
+An institution should not claim that OWS is a strong trust boundary when any of these remain true:
+
+- the verifier uses JSON development persistence
+- the deployment has no credential or secret-management discipline
+- durable backups have not been considered
+- local-only evidence is being treated as equivalent to remote durable receipts
+- watcher gaps or missing receipts are being hidden instead of surfaced as uncertainty

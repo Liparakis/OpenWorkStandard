@@ -83,8 +83,8 @@ Harden the local verifier dev loop and cold-start behavior, then add server-side
 
 - [x] Formal threat model
 - [x] Privacy and data retention documentation
-- [ ] Security hardening guidance for verifier operations
-- [ ] Clear institutional trust-boundary guidance
+- [x] Security hardening guidance for verifier operations
+- [x] Clear institutional trust-boundary guidance
 
 ## 10. Deployment and Self-Hosting
 
