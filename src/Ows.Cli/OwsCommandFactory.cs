@@ -113,25 +113,59 @@ public static class OwsCommandFactory
     }
 
     /// <summary>
-    /// Builds the placeholder command for starting local tracking.
+    /// Builds the command for starting the persistent local tracking agent.
     /// </summary>
     /// <returns>The configured <c>watch</c> command.</returns>
     private static Command BuildWatchCommand()
     {
-        var command = new Command("watch", "Start the local tracking agent skeleton.");
+        var command = new Command("watch", "Start the persistent local file-system tracking agent.");
+
+        var pollOption = new Option<bool>("--poll")
+        {
+            Description = "Use the polling fallback instead of native OS file-system signals. " +
+                          "Useful on network drives or environments where FileSystemWatcher is unreliable."
+        };
+        var debounceOption = new Option<int>("--debounce")
+        {
+            Description = "Minimum quiet time in milliseconds before a detected change is recorded. Defaults to 500.",
+            DefaultValueFactory = _ => 500
+        };
+
+        command.Options.Add(pollOption);
+        command.Options.Add(debounceOption);
+
         command.SetAction(async parseResult =>
         {
-            _ = parseResult;
             var projectRoot = Directory.GetCurrentDirectory();
+            var usePolling = parseResult.GetValue(pollOption);
+            var debounceMs = parseResult.GetValue(debounceOption);
+
+            // Wire Ctrl+C to a CancellationTokenSource so StartAsync stops cleanly.
+            using var cts = new CancellationTokenSource();
+            Console.CancelKeyPress += (_, e) =>
+            {
+                e.Cancel = true;
+                cts.Cancel();
+            };
+
             var agent = new LocalTrackingAgent(new NullLogger<LocalTrackingAgent>());
             await agent.PrepareAsync(
                 new TrackingAgentOptions
                 {
                     ProjectRootPath = projectRoot,
-                    DatabasePath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, "ows.db")
+                    DatabasePath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, "ows.db"),
+                    WatcherOptions = new FileWatcherOptions
+                    {
+                        UsePollingFallback = usePolling,
+                        DebounceIntervalMs = debounceMs
+                    }
                 },
-                CancellationToken.None);
-            var result = await agent.StartAsync(CancellationToken.None);
+                cts.Token);
+
+            Console.WriteLine($"OWS watching {projectRoot}");
+            Console.WriteLine("Press Ctrl+C to stop.");
+
+            var result = await agent.StartAsync(cts.Token);
             Console.WriteLine(result.Message);
             return 0;
         });

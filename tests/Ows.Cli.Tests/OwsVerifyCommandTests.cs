@@ -30,7 +30,7 @@ public sealed class OwsVerifyCommandTests
             Directory.SetCurrentDirectory(projectRoot);
 
             (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["watch"]).InvokeAsync()).Should().Be(0);
+            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
             (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
 
             var verifyResult = await OwsCommandFactory.BuildRootCommand().Parse(["verify"]).InvokeAsync();
@@ -84,7 +84,7 @@ public sealed class OwsVerifyCommandTests
             Directory.SetCurrentDirectory(projectRoot);
 
             (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["watch"]).InvokeAsync()).Should().Be(0);
+            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
             (await OwsCommandFactory.BuildRootCommand().Parse(["session", "start", "--server", verifierServer.BaseUrl]).InvokeAsync()).Should().Be(0);
             (await OwsCommandFactory.BuildRootCommand().Parse(["session", "checkpoint"]).InvokeAsync()).Should().Be(0);
             var actualTimelineHeadHash = OwsEventChain.ReadLastEventHash(Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName));
@@ -157,7 +157,7 @@ public sealed class OwsVerifyCommandTests
             Directory.SetCurrentDirectory(projectRoot);
 
             (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["watch"]).InvokeAsync()).Should().Be(0);
+            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
             (await OwsCommandFactory.BuildRootCommand().Parse(["session", "start", "--server", verifierServer.BaseUrl]).InvokeAsync()).Should().Be(0);
             (await OwsCommandFactory.BuildRootCommand().Parse(["session", "checkpoint"]).InvokeAsync()).Should().Be(0);
             var actualTimelineHeadHash = OwsEventChain.ReadLastEventHash(Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName));

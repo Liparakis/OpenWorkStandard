@@ -1,22 +1,29 @@
 namespace Ows.Core.Agent;
 
 /// <summary>
-/// Describes the current lifecycle state of the local tracking agent skeleton.
+/// Describes the current lifecycle state of the local tracking agent.
 /// </summary>
 public enum TrackingAgentStatus
 {
     /// <summary>
-    /// The agent has not been started.
+    /// The agent has not been prepared yet.
     /// </summary>
     Idle,
 
     /// <summary>
-    /// The agent has been configured but full tracking is not implemented yet.
+    /// The agent has been configured and the initial project scan is complete,
+    /// but the continuous watch loop has not started yet.
     /// </summary>
     Ready,
 
     /// <summary>
-    /// A start request was made, but active tracking remains unimplemented.
+    /// The agent is actively watching for file-system changes and appending
+    /// events to the provenance timeline.
     /// </summary>
-    NotImplemented
+    Watching,
+
+    /// <summary>
+    /// The agent was running and has since been stopped gracefully.
+    /// </summary>
+    Stopped
 }

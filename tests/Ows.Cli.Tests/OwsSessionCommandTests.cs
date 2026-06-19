@@ -62,7 +62,7 @@ public sealed class OwsSessionCommandTests
         {
             Directory.SetCurrentDirectory(projectRoot);
             await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync();
-            await OwsCommandFactory.BuildRootCommand().Parse(["watch"]).InvokeAsync();
+            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
             await OwsCommandFactory.BuildRootCommand().Parse(["session", "start"]).InvokeAsync();
 
             var exitCode = await OwsCommandFactory.BuildRootCommand().Parse(["session", "checkpoint"]).InvokeAsync();
@@ -197,11 +197,11 @@ public sealed class OwsSessionCommandTests
         try
         {
             Directory.SetCurrentDirectory(projectRoot);
-            await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync();
-            await OwsCommandFactory.BuildRootCommand().Parse(["watch"]).InvokeAsync();
-            await OwsCommandFactory.BuildRootCommand()
+            (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
+            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
+            (await OwsCommandFactory.BuildRootCommand()
                 .Parse(["session", "start", "--server", verifierServer.BaseUrl])
-                .InvokeAsync();
+                .InvokeAsync()).Should().Be(0);
 
             var exitCode = await OwsCommandFactory.BuildRootCommand().Parse(["session", "checkpoint"]).InvokeAsync();
             var receiptChain = JsonSerializer.Deserialize<ReceiptChain>(

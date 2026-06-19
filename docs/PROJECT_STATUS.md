@@ -13,7 +13,7 @@ Open Work Standard now has a real end-to-end reference flow, not just placeholde
 What works today:
 
 - local project initialization
-- one-shot timeline capture
+- persistent file-system watcher with native OS signals and polling fallback
 - local or remote-backed session start and checkpoint issuance
 - real `.owspkg` package creation
 - package verification with trust grading
@@ -67,21 +67,28 @@ Status:
 What works:
 
 - prepares the local tracking agent
-- scans the project tree once
+- performs an initial one-shot scan of the project tree
 - skips files under `.ows/`
 - appends chained file events to `.ows/timeline.jsonl`
+- continues watching for file-system changes via `FileSystemWatcher` (native OS signals)
+- falls back to a periodic polling loop when `--poll` is passed or when the native watcher fails
+- debounces burst saves (default 500 ms quiet window) so rapid auto-save + formatter activity
+  produces a single `FileModified` event per file rather than dozens
+- appends `FileCreated`, `FileModified`, and `FileDeleted` chained events during the watch loop
+- runs until Ctrl+C or cancellation; prints a clean stop message
+- `--poll` flag forces the polling fallback (useful on network drives and restricted CI environments)
+- `--debounce <ms>` controls the quiet-time window
 
 What does not work yet:
 
-- no long-running watcher
-- no background lifecycle
+- no heartbeat or lease model
 - no IDE host integration
-- no lease or heartbeat model
+- no background service lifecycle (the process must stay open)
 
 Status:
 
-- useful proof of capture
-- not an always-on watcher
+- working persistent watcher
+- polling fallback available for cross-platform environments
 
 ### `ows session start`
 
@@ -308,7 +315,7 @@ Net result:
 
 The main missing pieces are:
 
-- persistent always-on watcher lifecycle
+- heartbeat and lease model for the watcher
 - platform-specific hosts for VS Code, Rider, and desktop
 - cold-start and operator validation of the local verifier helper scripts across more environments
 - multi-instance verifier deployment model

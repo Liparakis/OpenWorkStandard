@@ -26,7 +26,7 @@ public sealed class OwsPackageCommandTests
             Directory.SetCurrentDirectory(projectRoot);
 
             (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["watch"]).InvokeAsync()).Should().Be(0);
+            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
 
             var packageResult = await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync();
             var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}.owspkg");

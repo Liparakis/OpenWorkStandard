@@ -26,7 +26,7 @@ public sealed class OwsReportCommandTests
             Directory.SetCurrentDirectory(projectRoot);
 
             (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["watch"]).InvokeAsync()).Should().Be(0);
+            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
             (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
 
             var reportResult = await OwsCommandFactory.BuildRootCommand().Parse(["report"]).InvokeAsync();
@@ -64,7 +64,7 @@ public sealed class OwsReportCommandTests
             Directory.SetCurrentDirectory(projectRoot);
 
             (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["watch"]).InvokeAsync()).Should().Be(0);
+            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
             (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
 
             var reportResult = await OwsCommandFactory.BuildRootCommand().Parse(["report", "--format", "json"]).InvokeAsync();

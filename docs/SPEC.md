@@ -40,6 +40,18 @@ OWS normalizes observed activity into a common event schema. Initial event categ
 
 These events describe project-scoped provenance. They do not imply misconduct and they do not include invasive telemetry.
 
+## Watcher lifecycle
+
+`ows watch` runs in two sequential phases:
+
+1. **Initial scan** — all files currently present in the tracked project are recorded as `FileCreated` events, chained together in the provenance timeline. This establishes the baseline state.
+
+2. **Continuous monitoring** — after the initial scan the watcher subscribes to native OS file-system signals (`FileSystemWatcher` on Windows and macOS) and, in parallel, runs a periodic polling loop as a fallback. When a file change is detected, the event is held until a configurable quiet window (default 500 ms) has elapsed with no further changes to the same path. This debounce step collapses burst activity (e.g. auto-save followed immediately by a formatter rewrite) into a single provenance event.
+
+3. **Graceful stop** — when the process receives SIGINT (Ctrl+C) the watcher flushes any pending debounced events to the timeline and stops cleanly. The final result status is `Stopped`.
+
+The polling fallback is always available via `ows watch --poll` and is the recommended mode for network-mounted file systems or restricted CI environments where native OS signals are unreliable.
+
 ## Work Version Graph concept
 
 The Work Version Graph models work evolution as a directed acyclic graph. Nodes represent versions or states of work. Edges represent transformations between them. A simple project may look linear, but a DAG leaves room for branching, merges, imports, and future multi-tool workflows.

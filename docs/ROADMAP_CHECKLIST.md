@@ -9,7 +9,7 @@ Harden verifier operational security in small steps, then add server-side packag
 ## 1. Current MVP Status
 
 - [x] Local project initialization
-- [ ] `ows watch` one-shot capture only - Status: Partial
+- [x] `ows watch` persistent file-system watcher with polling fallback
 - [x] `.owspkg` creation
 - [x] Local and remote session start
 - [x] Local and remote checkpoint issuance
@@ -54,9 +54,9 @@ Harden verifier operational security in small steps, then add server-side packag
 
 ## 5. Local Watcher and Capture Fidelity
 
-- [ ] Persistent always-on watcher
+- [x] Persistent always-on watcher
 - [ ] Heartbeat and lease model
-- [ ] Higher-fidelity capture beyond one-shot scans
+- [x] Higher-fidelity capture beyond one-shot scans
 - [ ] IDE or host-managed long-running watcher lifecycle
 
 ## 6. Remote Verifier and Storage
