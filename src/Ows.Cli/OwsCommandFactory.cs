@@ -314,9 +314,13 @@ public static class OwsCommandFactory
     private static Command BuildReportCommand()
     {
         var command = new Command("report", "Generate an OWS verification report.");
+        var formatOption = new Option<string?>("--format")
+        {
+            Description = "Report output format. Supported values: text, json."
+        };
+        command.Options.Add(formatOption);
         command.SetAction(async parseResult =>
         {
-            _ = parseResult;
             var projectRoot = Directory.GetCurrentDirectory();
             var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             var verifier = new OwsPackageVerifier();
@@ -331,15 +335,27 @@ public static class OwsCommandFactory
             }
 
             var generator = new OwsReportGenerator();
+            var format = (parseResult.GetValue(formatOption) ?? "text").Trim().ToLowerInvariant() switch
+            {
+                "text" => ReportFormat.Text,
+                "json" => ReportFormat.Json,
+                var unsupported => throw new ArgumentException($"Unsupported report format '{unsupported}'. Supported values: text, json.")
+            };
             var reportResult = await generator.GenerateAsync(
                 new ReportRequest
                 {
-                    Format = ReportFormat.Text,
+                    Format = format,
                     VerificationResult = verificationResult
                 },
                 CancellationToken.None);
 
-            var reportPath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}.report.txt");
+            var extension = format switch
+            {
+                ReportFormat.Text => "txt",
+                ReportFormat.Json => "json",
+                _ => throw new NotSupportedException($"Report format '{format}' is not supported by the CLI yet.")
+            };
+            var reportPath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}.report.{extension}");
             await File.WriteAllTextAsync(reportPath, reportResult.Content);
             Console.WriteLine($"OWS report created at {reportPath}");
             return 0;

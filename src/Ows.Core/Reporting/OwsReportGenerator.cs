@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Ows.Core.Reporting;
 
 /// <summary>
@@ -14,13 +16,22 @@ public sealed class OwsReportGenerator : IReportGenerator
         var status = request.VerificationResult.IsSuccess ? "Success" : "Failure";
         var trust = request.VerificationResult.TrustStatus.ToString();
         var errors = request.VerificationResult.Errors.Count == 0
-            ? "None"
-            : string.Join(", ", request.VerificationResult.Errors);
+            ? ["None"]
+            : request.VerificationResult.Errors.ToArray();
 
         var content = request.Format switch
         {
-            ReportFormat.Text => $"Status: {status}{Environment.NewLine}Trust: {trust}{Environment.NewLine}Summary: {request.VerificationResult.Summary}{Environment.NewLine}Errors: {errors}",
-            _ => $"Status: {status}{Environment.NewLine}Trust: {trust}{Environment.NewLine}Summary: {request.VerificationResult.Summary}{Environment.NewLine}Errors: {errors}"
+            ReportFormat.Text => $"Status: {status}{Environment.NewLine}Trust: {trust}{Environment.NewLine}Summary: {request.VerificationResult.Summary}{Environment.NewLine}Errors: {string.Join(", ", errors)}",
+            ReportFormat.Json => JsonSerializer.Serialize(
+                new
+                {
+                    status,
+                    trust,
+                    summary = request.VerificationResult.Summary,
+                    errors
+                },
+                new JsonSerializerOptions { WriteIndented = true }),
+            _ => throw new NotSupportedException($"Report format '{request.Format}' is not supported yet.")
         };
 
         return Task.FromResult(new ReportGenerationResult

@@ -156,6 +156,7 @@ What works:
 
 - runs verification first
 - writes `<project>.report.txt`
+- can write `<project>.report.json` with `ows report --format json`
 - includes status, trust grade, summary, and errors
 
 Status:

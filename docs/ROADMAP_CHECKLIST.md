@@ -75,7 +75,7 @@ Harden the local verifier dev loop and cold-start behavior, then add server-side
 ## 8. Reports and Professor Review
 
 - [x] Basic text report output
-- [ ] JSON report output
+- [x] JSON report output
 - [ ] Rich professor review report
 - [ ] Better degraded-state review guidance
 

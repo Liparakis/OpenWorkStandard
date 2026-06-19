@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Ows.Cli;
+using System.Text.Json;
 
 namespace Ows.Cli.Tests;
 
@@ -34,6 +35,44 @@ public sealed class OwsReportCommandTests
             reportResult.Should().Be(0);
             File.Exists(reportPath).Should().BeTrue();
             File.ReadAllText(reportPath).Should().Contain("Status: Success");
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDirectory);
+
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that the report command can write a JSON report for a created package.
+    /// </summary>
+    [Fact]
+    public async Task ReportCommand_ShouldWriteJsonReportInCurrentDirectory()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-report-json-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(projectRoot);
+        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "draft");
+        var originalDirectory = Directory.GetCurrentDirectory();
+
+        try
+        {
+            Directory.SetCurrentDirectory(projectRoot);
+
+            (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
+            (await OwsCommandFactory.BuildRootCommand().Parse(["watch"]).InvokeAsync()).Should().Be(0);
+            (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
+
+            var reportResult = await OwsCommandFactory.BuildRootCommand().Parse(["report", "--format", "json"]).InvokeAsync();
+            var reportPath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}.report.json");
+
+            reportResult.Should().Be(0);
+            File.Exists(reportPath).Should().BeTrue();
+            using var document = JsonDocument.Parse(File.ReadAllText(reportPath));
+            document.RootElement.GetProperty("status").GetString().Should().Be("Success");
         }
         finally
         {
