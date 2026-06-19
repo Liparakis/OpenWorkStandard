@@ -33,7 +33,8 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 
 ## Local Dev Runner
 
-- Do not force `dotnet build` inside the local verifier runner yet.
-- The current runner expects existing verifier build output and starts PostgreSQL, migrations, and the server only.
-- Revisit auto-build only when the local environment no longer trips over machine-level NuGet policy.
+- Do not add broader environment bootstrapping beyond verifier auto-build yet.
+- The current local verifier helpers may auto-build the verifier server, but they do not install SDKs, Docker, or PostgreSQL for the operator.
 - Build-owned script generation is intentionally just platform-specific emitted wrappers, not a custom script generator subsystem.
+- Docker access warning suppression in restricted environments is deferred for now.
+- Revisit that only if the warning noise starts hiding real startup failures.

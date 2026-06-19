@@ -78,6 +78,27 @@ PY
   esac
 }
 
+ensure_ows_verifier_build() {
+  local repo_root="$1"
+  local verifier_dll_path
+  verifier_dll_path="$(get_verifier_runtime_value "$repo_root" verifier_dll_path)"
+
+  if [[ -f "$verifier_dll_path" ]]; then
+    return 0
+  fi
+
+  echo "Verifier build output is missing. Running 'dotnet build OWS.sln -nologo'..."
+  (
+    cd "$repo_root"
+    dotnet build OWS.sln -nologo
+  )
+
+  if [[ ! -f "$verifier_dll_path" ]]; then
+    echo "Verifier server build output is still missing after build." >&2
+    return 1
+  fi
+}
+
 get_verifier_state() {
   local repo_root="$1"
   local base_url host port pid_file_path stdout_log_path stderr_log_path

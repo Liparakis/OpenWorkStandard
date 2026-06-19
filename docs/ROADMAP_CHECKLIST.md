@@ -28,6 +28,7 @@ Harden the local verifier dev loop and cold-start behavior, then add server-side
 
 ## 3. Local Verifier Dev Loop
 
+- [x] Verifier helpers auto-build missing local server output
 - [x] Foreground verifier run helper
 - [x] Background verifier start helper
 - [x] Verifier status helper

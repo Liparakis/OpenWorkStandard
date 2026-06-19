@@ -194,6 +194,7 @@ Local verifier dev flow today:
 - `scripts/test-local-verifier.ps1` performs a direct API smoke check
 - helper scripts now resolve the repo root correctly from both `scripts/` and `artifacts/generated-scripts/`
 - helper status distinguishes `not_started`, `running`, `stale_pid`, `crashed`, `unreachable`, and `port_in_use`
+- foreground and background verifier helpers auto-build the verifier server when the local build output is missing
 - `dotnet build` emits platform-specific launcher copies to `artifacts/generated-scripts/`
 
 This is enough for architectural validation and the first durable-backend pass. It is still not enough for institutional trust claims until the PostgreSQL path is exercised in a real deployed environment.

@@ -58,6 +58,28 @@ function Get-OwsVerifierRuntimeInfo {
     }
 }
 
+function Ensure-OwsVerifierBuild {
+    param(
+        [pscustomobject]$RuntimeInfo
+    )
+
+    if (Test-Path $RuntimeInfo.VerifierDllPath) {
+        return
+    }
+
+    Write-Host "Verifier build output is missing. Running 'dotnet build OWS.sln -nologo'..."
+    Push-Location $RuntimeInfo.RepoRoot
+    try {
+        dotnet build OWS.sln -nologo
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $RuntimeInfo.VerifierDllPath)) {
+            throw "Verifier server build output is still missing after build."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Test-TcpPortOpen {
     param(
         [string]$HostName,

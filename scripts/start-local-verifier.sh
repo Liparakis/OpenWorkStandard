@@ -15,11 +15,7 @@ stderr_log_path="$(get_verifier_runtime_value "$repo_root" stderr_log_path)"
 base_url="$(get_verifier_runtime_value "$repo_root" base_url)"
 host="$(get_verifier_runtime_value "$repo_root" host)"
 port="$(get_verifier_runtime_value "$repo_root" port)"
-
-if [[ ! -f "$verifier_dll_path" ]]; then
-  echo "Verifier server build output is missing. Run 'dotnet build OWS.sln -nologo' first." >&2
-  exit 1
-fi
+ensure_ows_verifier_build "$repo_root"
 
 eval "$(get_verifier_state "$repo_root")"
 case "$STATE" in
@@ -46,7 +42,7 @@ mkdir -p "$runtime_directory"
 echo "Starting local PostgreSQL..."
 docker compose -f docker-compose.local.yml up -d || true
 if ! test_tcp_port_open "127.0.0.1" 5432 >/dev/null 2>&1; then
-  echo "PostgreSQL is not reachable on localhost:5432." >&2
+  echo "PostgreSQL is not reachable on localhost:5432. Start docker-compose.local.yml or point OWS_VERIFIER_CONNECTION_STRING at a reachable PostgreSQL instance." >&2
   exit 1
 fi
 
@@ -54,7 +50,7 @@ echo "Running verifier migrations..."
 export VerifierStorage__Provider=postgres
 export VerifierStorage__PostgresConnectionString="$connection_string"
 if ! dotnet "$verifier_dll_path" migrate; then
-  echo "Verifier migration failed. Check PostgreSQL availability and connection settings." >&2
+  echo "Verifier migration failed. Check PostgreSQL availability, OWS_VERIFIER_CONNECTION_STRING, and the verifier logs helper." >&2
   exit 1
 fi
 

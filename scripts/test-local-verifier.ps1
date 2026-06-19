@@ -9,7 +9,7 @@ try {
     $session = Invoke-RestMethod -Method Post -Uri "$BaseUrl/sessions"
 }
 catch {
-    throw "Smoke test could not create a session at $BaseUrl. Start the verifier first, then check status/logs."
+    throw "Smoke test could not create a session at $BaseUrl. Run start-local-verifier first, then check status-local-verifier and logs-local-verifier."
 }
 
 try {
@@ -26,7 +26,7 @@ try {
     $head = Invoke-RestMethod -Method Get -Uri "$BaseUrl/sessions/$($session.sessionId)/head"
 }
 catch {
-    throw "Smoke test failed while exercising verifier endpoints at $BaseUrl. Check verifier status/logs and confirm migrations succeeded."
+    throw "Smoke test failed while exercising verifier endpoints at $BaseUrl. Check status-local-verifier, logs-local-verifier, and confirm migrations succeeded."
 }
 
 if ($receipt.receiptHash -ne $retriedReceipt.receiptHash) {

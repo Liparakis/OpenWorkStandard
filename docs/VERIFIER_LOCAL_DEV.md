@@ -67,6 +67,8 @@ If the verifier DLL has not been built yet, run:
 dotnet build OWS.sln -nologo
 ```
 
+The `run-local-verifier` and `start-local-verifier` helpers now do this automatically when the verifier build output is missing.
+
 Host storage path on this machine:
 
 - `D:\Containers\OWS\postgres\data`
@@ -201,7 +203,8 @@ The log paths are also shown by `status-local-verifier.ps1`.
 
 If the helper scripts fail because the verifier DLL is missing:
 
-- run `dotnet build OWS.sln -nologo`
+- rerun `start-local-verifier` or `run-local-verifier` once and let it auto-build
+- or run `dotnet build OWS.sln -nologo`
 - rerun the helper command
 
 ## Scope
