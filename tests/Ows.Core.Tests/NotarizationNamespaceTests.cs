@@ -29,6 +29,7 @@ public sealed class NotarizationNamespaceTests
             SessionId = sessionId,
             SequenceNumber = 1,
             TimelineHeadHash = "abc123",
+            PreviousReceiptHash = ReceiptChainVerifier.GenesisPreviousReceiptHash,
             ReceiptHash = "def456"
         };
 
@@ -41,6 +42,49 @@ public sealed class NotarizationNamespaceTests
         chain.SessionId.Should().Be(sessionId);
         chain.Receipts.Should().ContainSingle();
         checkpoint.SequenceNumber.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Verifies that issued receipts form a valid chain.
+    /// </summary>
+    [Fact]
+    public void IssueReceipt_ShouldProduceValidReceiptChain()
+    {
+        var sessionId = AssessmentSessionId.Create();
+        var firstCheckpoint = new Checkpoint { SessionId = sessionId, SequenceNumber = 1, TimelineHeadHash = "head-1" };
+        var firstReceipt = ReceiptChainVerifier.IssueReceipt(firstCheckpoint, ReceiptChainVerifier.GenesisPreviousReceiptHash);
+        var secondCheckpoint = new Checkpoint { SessionId = sessionId, SequenceNumber = 2, TimelineHeadHash = "head-2" };
+        var secondReceipt = ReceiptChainVerifier.IssueReceipt(secondCheckpoint, firstReceipt.ReceiptHash);
+        var chain = new ReceiptChain
+        {
+            SessionId = sessionId,
+            Receipts = [firstReceipt, secondReceipt]
+        };
+
+        ReceiptChainVerifier.IsValid(chain).Should().BeTrue();
+        secondReceipt.PreviousReceiptHash.Should().Be(firstReceipt.ReceiptHash);
+    }
+
+    /// <summary>
+    /// Verifies that tampered receipts fail chain validation.
+    /// </summary>
+    [Fact]
+    public void IsValid_ShouldFailWhenReceiptChainIsTampered()
+    {
+        var sessionId = AssessmentSessionId.Create();
+        var firstReceipt = ReceiptChainVerifier.IssueReceipt(
+            new Checkpoint { SessionId = sessionId, SequenceNumber = 1, TimelineHeadHash = "head-1" },
+            ReceiptChainVerifier.GenesisPreviousReceiptHash);
+        var secondReceipt = ReceiptChainVerifier.IssueReceipt(
+            new Checkpoint { SessionId = sessionId, SequenceNumber = 2, TimelineHeadHash = "head-2" },
+            firstReceipt.ReceiptHash) with { TimelineHeadHash = "tampered-head" };
+        var chain = new ReceiptChain
+        {
+            SessionId = sessionId,
+            Receipts = [firstReceipt, secondReceipt]
+        };
+
+        ReceiptChainVerifier.IsValid(chain).Should().BeFalse();
     }
 
     /// <summary>

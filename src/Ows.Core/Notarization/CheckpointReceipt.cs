@@ -21,6 +21,11 @@ public sealed record CheckpointReceipt
     public string TimelineHeadHash { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the previous receipt hash in the receipt chain.
+    /// </summary>
+    public string PreviousReceiptHash { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets the receipt hash returned by the verifier.
     /// </summary>
     public string ReceiptHash { get; init; } = string.Empty;
