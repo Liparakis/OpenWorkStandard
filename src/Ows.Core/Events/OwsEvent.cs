@@ -54,6 +54,16 @@ public sealed record OwsEvent
     public long? BytesChanged { get; init; }
 
     /// <summary>
+    /// Gets the previous event hash in the timeline chain.
+    /// </summary>
+    public string PreviousEventHash { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the hash of the canonical event content excluding this property.
+    /// </summary>
+    public string EventHash { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets event-specific structured metadata.
     /// </summary>
     public IReadOnlyDictionary<string, string> Metadata { get; init; } = new Dictionary<string, string>();

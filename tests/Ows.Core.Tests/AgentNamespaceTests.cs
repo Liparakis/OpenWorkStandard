@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core.Agent;
 using Ows.Core.Events;
+using System.Text.Json;
 
 namespace Ows.Core.Tests;
 
@@ -54,6 +55,10 @@ public sealed class AgentNamespaceTests
             lines.Should().ContainSingle();
             lines[0].Should().Contain(nameof(OwsEventType.FileCreated));
             lines[0].Should().Contain("notes.txt");
+            var trackedEvent = JsonSerializer.Deserialize<OwsEvent>(lines[0]);
+            trackedEvent.Should().NotBeNull();
+            trackedEvent!.PreviousEventHash.Should().Be(OwsEventChain.GenesisPreviousEventHash);
+            trackedEvent.EventHash.Should().NotBeNullOrWhiteSpace();
         }
         finally
         {

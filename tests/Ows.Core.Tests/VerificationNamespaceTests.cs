@@ -25,7 +25,7 @@ public sealed class VerificationNamespaceTests
         try
         {
             var hashService = new Sha256HashService();
-            var timelineText = JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" });
+            var timelineText = SerializeTimeline(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" });
             var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
             using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
             {
@@ -110,7 +110,7 @@ public sealed class VerificationNamespaceTests
             using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
             {
                 WriteEntry(archive, "manifest.json", "{bad json");
-                WriteEntry(archive, "timeline.jsonl", JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+                WriteEntry(archive, "timeline.jsonl", SerializeTimeline(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
                 WriteEntry(archive, "version_graph.json", JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty()));
             }
 
@@ -182,7 +182,7 @@ public sealed class VerificationNamespaceTests
             using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
             {
                 WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest { ProjectName = "sample", Platform = "Win32NT", TrackedPath = "sample" }));
-                WriteEntry(archive, "timeline.jsonl", JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+                WriteEntry(archive, "timeline.jsonl", SerializeTimeline(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
                 WriteEntry(archive, "version_graph.json", "{bad json");
             }
 
@@ -215,7 +215,7 @@ public sealed class VerificationNamespaceTests
         Directory.CreateDirectory(projectRoot);
         var localFolder = Path.Combine(projectRoot, ".ows");
         Directory.CreateDirectory(localFolder);
-        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), SerializeTimeline(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
         var packagePath = Path.Combine(projectRoot, "submission.owspkg");
 
         try
@@ -265,7 +265,7 @@ public sealed class VerificationNamespaceTests
         File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "original");
         var localFolder = Path.Combine(projectRoot, ".ows");
         Directory.CreateDirectory(localFolder);
-        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), SerializeTimeline(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
         var packagePath = Path.Combine(projectRoot, "submission.owspkg");
 
         try
@@ -315,7 +315,7 @@ public sealed class VerificationNamespaceTests
         File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "original");
         var localFolder = Path.Combine(projectRoot, ".ows");
         Directory.CreateDirectory(localFolder);
-        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), JsonSerializer.Serialize(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
+        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), SerializeTimeline(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }));
         var packagePath = Path.Combine(projectRoot, "submission.owspkg");
 
         try
@@ -354,6 +354,196 @@ public sealed class VerificationNamespaceTests
     }
 
     /// <summary>
+    /// Verifies that a modified event fails chain verification.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenEventHashDoesNotMatchContent()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-chain-modified-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            var events = CreateChainedEvents(
+                new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample", RelativePath = "a.txt" },
+                new OwsEvent { EventType = OwsEventType.FileModified, ProjectId = "sample", RelativePath = "a.txt" });
+            var tamperedEvent = events[1] with { RelativePath = "b.txt" };
+            var timelineText = string.Join(Environment.NewLine, JsonSerializer.Serialize(events[0]), JsonSerializer.Serialize(tamperedEvent));
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
+            var hashService = new Sha256HashService();
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
+            }
+
+            var verifier = new OwsPackageVerifier();
+            var result = await verifier.VerifyAsync(new PackageVerificationRequest { PackagePath = packagePath }, CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.Errors.Should().Contain(error => error.Contains("invalid event hash", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a missing event fails chain verification.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenEventIsMissingFromChain()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-chain-missing-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            var events = CreateChainedEvents(
+                new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample", RelativePath = "a.txt" },
+                new OwsEvent { EventType = OwsEventType.FileModified, ProjectId = "sample", RelativePath = "a.txt" },
+                new OwsEvent { EventType = OwsEventType.FileModified, ProjectId = "sample", RelativePath = "b.txt" });
+            var timelineText = string.Join(Environment.NewLine, JsonSerializer.Serialize(events[0]), JsonSerializer.Serialize(events[2]));
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
+            var hashService = new Sha256HashService();
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
+            }
+
+            var verifier = new OwsPackageVerifier();
+            var result = await verifier.VerifyAsync(new PackageVerificationRequest { PackagePath = packagePath }, CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.Errors.Should().Contain(error => error.Contains("broken event chain", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a duplicated event fails chain verification.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenEventIsDuplicatedInChain()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-chain-duplicated-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            var events = CreateChainedEvents(
+                new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample", RelativePath = "a.txt" },
+                new OwsEvent { EventType = OwsEventType.FileModified, ProjectId = "sample", RelativePath = "a.txt" });
+            var timelineText = string.Join(Environment.NewLine, JsonSerializer.Serialize(events[0]), JsonSerializer.Serialize(events[1]), JsonSerializer.Serialize(events[1]));
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
+            var hashService = new Sha256HashService();
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
+            }
+
+            var verifier = new OwsPackageVerifier();
+            var result = await verifier.VerifyAsync(new PackageVerificationRequest { PackagePath = packagePath }, CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.Errors.Should().Contain(error => error.Contains("broken event chain", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that reordered events fail chain verification.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenEventsAreReordered()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-chain-reordered-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            var events = CreateChainedEvents(
+                new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample", RelativePath = "a.txt" },
+                new OwsEvent { EventType = OwsEventType.FileModified, ProjectId = "sample", RelativePath = "a.txt" });
+            var timelineText = string.Join(Environment.NewLine, JsonSerializer.Serialize(events[1]), JsonSerializer.Serialize(events[0]));
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
+            var hashService = new Sha256HashService();
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
+            }
+
+            var verifier = new OwsPackageVerifier();
+            var result = await verifier.VerifyAsync(new PackageVerificationRequest { PackagePath = packagePath }, CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.Errors.Should().Contain(error => error.Contains("broken event chain", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
     /// Writes a text entry into the target archive for test setup.
     /// </summary>
     /// <param name="archive">The archive to update.</param>
@@ -364,5 +554,33 @@ public sealed class VerificationNamespaceTests
         var entry = archive.CreateEntry(entryName);
         using var writer = new StreamWriter(entry.Open());
         writer.Write(content);
+    }
+
+    /// <summary>
+    /// Creates a newline-delimited timeline from chained events.
+    /// </summary>
+    /// <param name="events">The source events to chain.</param>
+    /// <returns>The JSONL timeline text.</returns>
+    private static string SerializeTimeline(params OwsEvent[] events) =>
+        string.Join(Environment.NewLine, CreateChainedEvents(events).Select(owsEvent => JsonSerializer.Serialize(owsEvent)));
+
+    /// <summary>
+    /// Creates chained events using the canonical event hash format.
+    /// </summary>
+    /// <param name="events">The source events to chain.</param>
+    /// <returns>The chained event sequence.</returns>
+    private static IReadOnlyList<OwsEvent> CreateChainedEvents(params OwsEvent[] events)
+    {
+        var chainedEvents = new List<OwsEvent>(events.Length);
+        var previousEventHash = OwsEventChain.GenesisPreviousEventHash;
+
+        foreach (var owsEvent in events)
+        {
+            var chainedEvent = OwsEventChain.CreateChainedEvent(owsEvent, previousEventHash);
+            chainedEvents.Add(chainedEvent);
+            previousEventHash = chainedEvent.EventHash;
+        }
+
+        return chainedEvents;
     }
 }

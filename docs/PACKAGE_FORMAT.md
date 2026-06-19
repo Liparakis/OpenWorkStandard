@@ -30,5 +30,5 @@ The package captures enough provenance to verify work evolution later without de
 ## Notes
 
 - `.owspkg` names the OWS package format and replaces any older `.oapkg` terminology.
-- The current repository defines the format contract but does not yet implement real package assembly.
+- The current repository implements real package assembly for `manifest.json`, `timeline.jsonl`, `version_graph.json`, and `artifacts/`.
 - Report output is intentionally external to this initial minimal package shape so the submission artifact stays focused on provenance data.

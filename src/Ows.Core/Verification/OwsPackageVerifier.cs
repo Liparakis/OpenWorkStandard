@@ -96,7 +96,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
     }
 
     /// <summary>
-    /// Validates that each non-empty timeline line is valid event JSON.
+    /// Validates that each non-empty timeline line is valid event JSON and preserves the event hash chain.
     /// </summary>
     /// <param name="archive">The package archive being verified.</param>
     /// <param name="errors">The mutable verification error collection.</param>
@@ -104,6 +104,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
     {
         using var reader = new StreamReader(archive.GetEntry(OwsConstants.TimelineFileName)!.Open());
         var lineNumber = 0;
+        var expectedPreviousHash = OwsEventChain.GenesisPreviousEventHash;
 
         while (reader.ReadLine() is { } line)
         {
@@ -116,8 +117,23 @@ public sealed class OwsPackageVerifier : IPackageVerifier
 
             try
             {
-                _ = JsonSerializer.Deserialize<OwsEvent>(line)
+                var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line)
                     ?? throw new JsonException("Timeline event deserialized to null.");
+
+                if (!string.Equals(owsEvent.PreviousEventHash, expectedPreviousHash, StringComparison.Ordinal))
+                {
+                    errors.Add($"Broken event chain in {OwsConstants.TimelineFileName} at line {lineNumber}");
+                    return;
+                }
+
+                var actualEventHash = OwsEventChain.ComputeEventHash(owsEvent);
+                if (!string.Equals(owsEvent.EventHash, actualEventHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add($"Invalid event hash in {OwsConstants.TimelineFileName} at line {lineNumber}");
+                    return;
+                }
+
+                expectedPreviousHash = owsEvent.EventHash;
             }
             catch (JsonException)
             {

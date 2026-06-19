@@ -13,6 +13,8 @@ Each `OwsEvent` should be serializable with these core fields:
 - `hashBefore`: prior content hash when applicable
 - `hashAfter`: resulting content hash when applicable
 - `bytesChanged`: approximate size delta when available
+- `previousEventHash`: previous event hash in the timeline chain
+- `eventHash`: canonical hash of the event content excluding `eventHash` itself
 - `metadata`: event-specific key/value metadata
 
 ## Event types
@@ -36,6 +38,17 @@ Each `OwsEvent` should be serializable with these core fields:
 - `timestampUtc`
 - `eventType`
 - `projectId`
+- `previousEventHash`
+- `eventHash`
+
+## Chain rules
+
+`timeline.jsonl` is the canonical event stream. Each line is a self-verifying event in sequence.
+
+- the first event uses an empty string for `previousEventHash`
+- every later event sets `previousEventHash` to the previous line's `eventHash`
+- `eventHash` is computed from the canonical serialized event content excluding `eventHash` itself
+- verification must fail if an event is modified, removed, duplicated, or reordered in a way that breaks the chain
 
 ## Optional metadata
 
@@ -61,6 +74,8 @@ Optional metadata must remain project-scoped and must not introduce surveillance
   "relativePath": "src/Program.cs",
   "toolName": "rider",
   "hashAfter": "abc123",
+  "previousEventHash": "",
+  "eventHash": "def456",
   "metadata": {
     "reason": "save"
   }

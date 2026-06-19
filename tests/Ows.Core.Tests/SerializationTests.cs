@@ -29,6 +29,8 @@ public sealed class SerializationTests
             RelativePath = "src/Program.cs",
             ToolName = "cli",
             HashAfter = "abc123",
+            PreviousEventHash = "prev",
+            EventHash = "current",
             Metadata = new Dictionary<string, string> { ["reason"] = "save" }
         };
 
@@ -38,6 +40,8 @@ public sealed class SerializationTests
         restored.Should().NotBeNull();
         restored!.EventType.Should().Be(OwsEventType.FileModified);
         restored.ProjectId.Should().Be("sample-project");
+        restored.PreviousEventHash.Should().Be("prev");
+        restored.EventHash.Should().Be("current");
         restored.Metadata.Should().ContainKey("reason");
     }
 
