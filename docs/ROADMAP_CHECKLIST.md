@@ -72,9 +72,10 @@ Harden verifier operational security in small steps, then add server-side packag
 
 ## 7. Package Submission and Server-Side Verification
 
-- [ ] Server-side package submission
+- [ ] Server-side package submission - Status: Partial
 - [ ] Server-side package verification
-- [ ] Remote package anchor workflow
+- [x] Remote package object metadata registration
+- [ ] Remote package anchor workflow - Status: Partial
 
 ## 8. Reports and Professor Review
 

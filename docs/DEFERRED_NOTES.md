@@ -31,6 +31,12 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 - The current `VerifierSecurity:ApiKey` guard is only a shared-secret MVP barrier.
 - Add real identity and RBAC before exposing a verifier to broad institutional users.
 
+## Package Submission
+
+- Do not store `.owspkg` blobs in PostgreSQL.
+- Do not add local filesystem package storage as the production path.
+- The current `POST /packages` endpoint registers object storage metadata only; package upload and server-side package verification workers are still separate follow-up work.
+
 ## Watcher / Hosts
 
 - Do not build full IDE plugins yet.

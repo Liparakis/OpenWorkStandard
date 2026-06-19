@@ -1,5 +1,5 @@
 -- Durable verifier storage foundation
--- Intended for PostgreSQL. Not wired into the ASP.NET Core server yet.
+-- Intended for PostgreSQL-backed verifier deployments.
 
 create table if not exists verifier_sessions (
     id text primary key,
@@ -40,4 +40,20 @@ create table if not exists verifier_audit_events (
     event_type text not null,
     payload_json jsonb not null default '{}'::jsonb,
     created_at timestamptz not null default now()
+);
+
+create table if not exists verifier_package_submissions (
+    id text primary key,
+    session_id text null references verifier_sessions(id) on delete set null,
+    object_storage_provider text not null,
+    object_bucket text not null,
+    object_key text not null,
+    package_sha256 text not null,
+    package_size_bytes bigint not null,
+    verification_status text not null default 'Registered',
+    trust_status text null,
+    created_at timestamptz not null default now(),
+    constraint uq_verifier_package_submissions_object unique (object_storage_provider, object_bucket, object_key),
+    constraint ck_verifier_package_submissions_size check (package_size_bytes > 0),
+    constraint ck_verifier_package_submissions_sha256 check (package_sha256 ~ '^[0-9a-fA-F]{64}$')
 );

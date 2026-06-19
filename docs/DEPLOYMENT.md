@@ -107,7 +107,8 @@ Assumptions:
 - any API instance may receive the next checkpoint for any session
 - durable history lives in PostgreSQL
 - live coordination may use Redis/Valkey
-- blobs live in object storage
+- `.owspkg` blobs live in object storage
+- PostgreSQL stores package object metadata, hashes, and verification state
 - instances may be restarted or replaced without losing verified history
 
 ## Worker Model

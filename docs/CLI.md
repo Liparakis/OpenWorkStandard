@@ -118,5 +118,6 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
 These are directionally planned, not implemented yet:
 
 - `ows package --include-receipts`
+- `ows package submit --server <url>` after object-storage upload flow exists
 
 The current rule is simple: do not break the existing local workflow while adding the remote trust boundary foundation.

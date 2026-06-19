@@ -10,10 +10,10 @@ namespace Ows.Core.Tests;
 public sealed class PostgresVerifierMigratorTests
 {
     /// <summary>
-    /// Verifies that the verifier migration list is ordered and contains the required foundation tables.
+    /// Verifies that the verifier migration list is ordered and contains the required durable tables.
     /// </summary>
     [Fact]
-    public void GetMigrations_ShouldReturnOrderedFoundationMigration()
+    public void GetMigrations_ShouldReturnOrderedDurableMigrations()
     {
         var getMigrationsMethod = typeof(PostgresVerifierMigrator).GetMethod(
             "GetMigrations",
@@ -22,12 +22,15 @@ public sealed class PostgresVerifierMigratorTests
         getMigrationsMethod.Should().NotBeNull();
         var migrations = ((IEnumerable<object>)getMigrationsMethod!.Invoke(null, null)!).ToArray();
 
-        migrations.Should().ContainSingle();
+        migrations.Should().HaveCount(2);
         GetVersion(migrations[0]).Should().Be(1);
         GetName(migrations[0]).Should().Be("foundation");
         GetSql(migrations[0]).Should().Contain("create table if not exists verifier_sessions");
         GetSql(migrations[0]).Should().Contain("create table if not exists verifier_checkpoints");
         GetSql(migrations[0]).Should().Contain("create table if not exists verifier_audit_events");
+        GetVersion(migrations[1]).Should().Be(2);
+        GetName(migrations[1]).Should().Be("package-submissions");
+        GetSql(migrations[1]).Should().Contain("create table if not exists verifier_package_submissions");
     }
 
     /// <summary>

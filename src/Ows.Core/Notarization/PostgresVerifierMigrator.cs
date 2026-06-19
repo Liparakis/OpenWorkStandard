@@ -58,6 +58,24 @@ public static class PostgresVerifierMigrator
                                                      );
                                                      """;
 
+    private const string Migration002PackageSubmissionsSql = """
+                                                             create table if not exists verifier_package_submissions (
+                                                                 id text primary key,
+                                                                 session_id text null references verifier_sessions(id) on delete set null,
+                                                                 object_storage_provider text not null,
+                                                                 object_bucket text not null,
+                                                                 object_key text not null,
+                                                                 package_sha256 text not null,
+                                                                 package_size_bytes bigint not null,
+                                                                 verification_status text not null default 'Registered',
+                                                                 trust_status text null,
+                                                                 created_at timestamptz not null default now(),
+                                                                 constraint uq_verifier_package_submissions_object unique (object_storage_provider, object_bucket, object_key),
+                                                                 constraint ck_verifier_package_submissions_size check (package_size_bytes > 0),
+                                                                 constraint ck_verifier_package_submissions_sha256 check (package_sha256 ~ '^[0-9a-fA-F]{64}$')
+                                                             );
+                                                             """;
+
     /// <summary>
     /// Applies any missing ordered verifier schema migrations using a fresh data source.
     /// </summary>
@@ -107,7 +125,8 @@ public static class PostgresVerifierMigrator
     /// <returns>The ordered migration list.</returns>
     private static IReadOnlyList<PostgresVerifierMigration> GetMigrations() =>
     [
-        new(1, "foundation", Migration001FoundationSql)
+        new(1, "foundation", Migration001FoundationSql),
+        new(2, "package-submissions", Migration002PackageSubmissionsSql)
     ];
 
     /// <summary>

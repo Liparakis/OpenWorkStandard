@@ -173,6 +173,7 @@ Status:
 
 - `POST /sessions`
 - `POST /sessions/{id}/checkpoints`
+- `POST /packages`
 - `GET /sessions/{id}/receipts`
 - `GET /sessions/{id}/head`
 
@@ -192,6 +193,8 @@ PostgreSQL setup model today:
 - receipts include an HMAC server signature when `VerifierStorage:ReceiptSigningKey` is configured
 - requests require `X-OWS-Verifier-Key` when `VerifierSecurity:ApiKey` is configured
 - request logs include method, path, status code, and elapsed time, but not bodies or headers
+- package submissions register object storage provider, bucket, key, package SHA-256, and package size
+- package bytes are not stored in PostgreSQL or local verifier disk
 
 Local verifier dev flow today:
 
@@ -239,6 +242,7 @@ Important implemented pieces:
 - idempotency-key enforcement
 - package assembly
 - package verification and trust grading
+- package object metadata registration
 
 ## Testing Status
 

@@ -68,6 +68,7 @@ Current verifier note:
 
 - the reference verifier server still defaults to local JSON storage for development
 - the production-intended verifier backend is PostgreSQL behind the same storage boundary
+- package submission metadata is stored in PostgreSQL, but `.owspkg` bytes are expected to be in S3-compatible object storage first
 
 ## Optional NATS JetStream
 

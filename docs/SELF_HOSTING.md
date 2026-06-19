@@ -29,6 +29,7 @@ Current HTTP surface:
 
 - `POST /sessions`
 - `POST /sessions/{id}/checkpoints`
+- `POST /packages`
 - `GET /sessions/{id}/receipts`
 - `GET /sessions/{id}/head`
 
@@ -37,6 +38,7 @@ Current HTTP surface:
 Use this baseline if you want stronger trust claims than local development:
 
 - PostgreSQL as verifier storage
+- S3-compatible object storage for `.owspkg` blobs before package registration
 - TLS at the edge
 - secrets outside the repository
 - durable backup policy
@@ -44,6 +46,8 @@ Use this baseline if you want stronger trust claims than local development:
 - retained logs appropriate to institutional policy
 
 Do not use JSON storage for anything beyond local development.
+
+Do not store `.owspkg` package blobs in PostgreSQL. `POST /packages` registers object storage metadata only.
 
 ## Configuration
 

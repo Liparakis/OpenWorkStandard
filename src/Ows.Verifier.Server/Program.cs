@@ -41,6 +41,9 @@ if (args.Any(static arg => string.Equals(arg, "migrate", StringComparison.Ordina
 
 builder.Services.AddSingleton(normalizedStorageOptions);
 builder.Services.AddSingleton(securityOptions);
+builder.Services.AddSingleton(_ => string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
+    ? new PostgresPackageSubmissionStore(normalizedStorageOptions.PostgresConnectionString)
+    : new PostgresPackageSubmissionStore());
 builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
 {
     "json" => new JsonFileVerifierStorage(
@@ -118,6 +121,29 @@ app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest re
             IdempotencyKey = idempotencyKey
         }, cancellationToken);
         return Results.Ok(receipt);
+    }
+    catch (InvalidOperationException exception)
+    {
+        return Results.BadRequest(exception.Message);
+    }
+});
+
+app.MapPost("/packages", async (VerifierPackageSubmissionRequest request, PostgresPackageSubmissionStore packageStore,
+    CancellationToken cancellationToken) =>
+{
+    var validationError = request.GetValidationError();
+    if (validationError is not null)
+    {
+        return Results.BadRequest(validationError);
+    }
+
+    try
+    {
+        return Results.Ok(await packageStore.SubmitAsync(request, cancellationToken));
+    }
+    catch (NotSupportedException exception)
+    {
+        return Results.BadRequest(exception.Message);
     }
     catch (InvalidOperationException exception)
     {

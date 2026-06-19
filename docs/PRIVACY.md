@@ -46,6 +46,7 @@ Current remote retained data may include:
 - verifier sessions
 - durable checkpoints
 - durable receipts
+- package object metadata, package hashes, package sizes, and verification status
 - verifier metadata needed to reconstruct session head state
 - verifier request logs containing method, path, status code, duration, and possible session IDs in paths
 

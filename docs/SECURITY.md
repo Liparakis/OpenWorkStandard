@@ -56,6 +56,7 @@ The current repository already implements:
 - optional packaged receipt-chain verification
 - optional HMAC verifier receipt signatures when a server signing key is configured
 - optional shared-key verifier API guard for MVP self-hosting
+- PostgreSQL package metadata registration for object-storage-backed `.owspkg` blobs
 - structured verifier request logging without request bodies or headers
 - trust grading with `Verified`, `Unverified`, and `Invalid`
 
@@ -176,6 +177,7 @@ These are production hardening concerns, not reasons to invent custom cryptograp
 For any self-hosted verifier that wants stronger security claims, the minimum hardening baseline should include:
 
 - PostgreSQL-backed durable receipt storage, not JSON development storage
+- object storage for `.owspkg` blobs, with PostgreSQL metadata only
 - TLS at the verifier edge
 - secrets kept outside the repository
 - shared API key configured only through deployment secrets while full auth is absent

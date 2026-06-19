@@ -484,6 +484,60 @@ public sealed class NotarizationNamespaceTests
     }
 
     /// <summary>
+    /// Verifies that package submission metadata accepts object-storage-backed packages.
+    /// </summary>
+    [Fact]
+    public void VerifierPackageSubmissionRequest_ShouldAcceptValidObjectStorageMetadata()
+    {
+        var request = new VerifierPackageSubmissionRequest
+        {
+            SessionId = "session-1",
+            ObjectStorageProvider = "s3",
+            ObjectBucket = "ows-packages",
+            ObjectKey = "sessions/session-1/package.owspkg",
+            PackageSha256 = new string('a', 64),
+            PackageSizeBytes = 1024
+        };
+
+        request.GetValidationError().Should().BeNull();
+    }
+
+    /// <summary>
+    /// Verifies that package submission metadata rejects missing object storage location data.
+    /// </summary>
+    [Fact]
+    public void VerifierPackageSubmissionRequest_ShouldRejectMissingObjectStorageLocation()
+    {
+        var request = new VerifierPackageSubmissionRequest
+        {
+            ObjectStorageProvider = "s3",
+            ObjectBucket = "ows-packages",
+            PackageSha256 = new string('a', 64),
+            PackageSizeBytes = 1024
+        };
+
+        request.GetValidationError().Should().Be("Object key is required.");
+    }
+
+    /// <summary>
+    /// Verifies that package submission metadata rejects malformed package hashes.
+    /// </summary>
+    [Fact]
+    public void VerifierPackageSubmissionRequest_ShouldRejectMalformedPackageHash()
+    {
+        var request = new VerifierPackageSubmissionRequest
+        {
+            ObjectStorageProvider = "s3",
+            ObjectBucket = "ows-packages",
+            ObjectKey = "package.owspkg",
+            PackageSha256 = "not-a-sha",
+            PackageSizeBytes = 1024
+        };
+
+        request.GetValidationError().Should().Be("Package SHA-256 must be a 64-character hex string.");
+    }
+
+    /// <summary>
     /// Builds a JSON HTTP response for transport contract tests.
     /// </summary>
     /// <param name="value">The response payload.</param>

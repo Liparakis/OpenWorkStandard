@@ -10,6 +10,7 @@ Any future API instance should be able to:
 - append a checkpoint
 - return the full receipt chain
 - return the current receipt head
+- register package object metadata
 
 without relying on local process memory.
 
@@ -54,6 +55,7 @@ It is not a real institutional trust boundary because:
 - checkpoint retries can use the `Idempotency-Key` header end-to-end
 - append uses a database transaction and session-row locking
 - issued receipts can include an HMAC server signature when `VerifierStorage:ReceiptSigningKey` is configured
+- `POST /packages` registers package metadata for packages already stored in object storage
 
 ## Intended Durable Backend
 
@@ -65,7 +67,10 @@ PostgreSQL should become the durable source of truth for:
 - verifier checkpoints
 - receipt sequence order
 - receipt head state
+- package submission metadata
 - optional verifier audit events
+
+Large `.owspkg` blobs must live in S3-compatible object storage or an equivalent blob store, not in PostgreSQL.
 
 Redis must not be the source of truth.
 
@@ -103,6 +108,7 @@ The first durable PostgreSQL design should start with:
 
 - `verifier_sessions`
 - `verifier_checkpoints`
+- `verifier_package_submissions`
 - optional `verifier_audit_events`
 
 See [verifier-postgres-foundation.sql](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/sql/verifier-postgres-foundation.sql) for the current schema draft.
