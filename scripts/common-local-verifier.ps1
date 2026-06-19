@@ -109,17 +109,27 @@ function Test-VerifierHttpReady {
         [string]$BaseUrl
     )
 
+    $headers = Get-VerifierApiKeyHeaders
     try {
-        Invoke-WebRequest -UseBasicParsing "$BaseUrl/sessions/not-a-real-session/head" | Out-Null
+        Invoke-WebRequest -UseBasicParsing "$BaseUrl/sessions/not-a-real-session/head" -Headers $headers | Out-Null
         return $true
     }
     catch {
         if ($_.Exception.Response) {
-            return [int]$_.Exception.Response.StatusCode -eq 404
+            $statusCode = [int]$_.Exception.Response.StatusCode
+            return $statusCode -eq 404 -or $statusCode -eq 401
         }
 
         return $false
     }
+}
+
+function Get-VerifierApiKeyHeaders {
+    if ([string]::IsNullOrWhiteSpace($env:OWS_VERIFIER_API_KEY)) {
+        return @{}
+    }
+
+    return @{ "X-OWS-Verifier-Key" = $env:OWS_VERIFIER_API_KEY }
 }
 
 function Get-VerifierState {

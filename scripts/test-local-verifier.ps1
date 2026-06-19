@@ -4,16 +4,21 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$authHeaders = @{}
+if (-not [string]::IsNullOrWhiteSpace($env:OWS_VERIFIER_API_KEY)) {
+    $authHeaders["X-OWS-Verifier-Key"] = $env:OWS_VERIFIER_API_KEY
+}
 
 try {
-    $session = Invoke-RestMethod -Method Post -Uri "$BaseUrl/sessions"
+    $session = Invoke-RestMethod -Method Post -Uri "$BaseUrl/sessions" -Headers $authHeaders
 }
 catch {
     throw "Smoke test could not create a session at $BaseUrl. Run start-local-verifier first, then check status-local-verifier and logs-local-verifier."
 }
 
 try {
-    $headers = @{ "Idempotency-Key" = "checkpoint-1" }
+    $headers = $authHeaders.Clone()
+    $headers["Idempotency-Key"] = "checkpoint-1"
     $checkpointBody = @{
         sessionId = $session.sessionId
         sequenceNumber = 1
@@ -22,8 +27,8 @@ try {
 
     $receipt = Invoke-RestMethod -Method Post -Uri "$BaseUrl/sessions/$($session.sessionId)/checkpoints" -Headers $headers -ContentType "application/json" -Body $checkpointBody
     $retriedReceipt = Invoke-RestMethod -Method Post -Uri "$BaseUrl/sessions/$($session.sessionId)/checkpoints" -Headers $headers -ContentType "application/json" -Body $checkpointBody
-    $receipts = Invoke-RestMethod -Method Get -Uri "$BaseUrl/sessions/$($session.sessionId)/receipts"
-    $head = Invoke-RestMethod -Method Get -Uri "$BaseUrl/sessions/$($session.sessionId)/head"
+    $receipts = Invoke-RestMethod -Method Get -Uri "$BaseUrl/sessions/$($session.sessionId)/receipts" -Headers $authHeaders
+    $head = Invoke-RestMethod -Method Get -Uri "$BaseUrl/sessions/$($session.sessionId)/head" -Headers $authHeaders
 }
 catch {
     throw "Smoke test failed while exercising verifier endpoints at $BaseUrl. Check status-local-verifier, logs-local-verifier, and confirm migrations succeeded."

@@ -40,9 +40,13 @@ PY
 
 test_verifier_http_ready() {
   local base_url="$1"
-  local status
-  status="$(curl -s -o /dev/null -w "%{http_code}" "$base_url/sessions/not-a-real-session/head" || true)"
-  [[ "$status" == "404" ]]
+  local status auth_headers=()
+  if [[ -n "${OWS_VERIFIER_API_KEY:-}" ]]; then
+    auth_headers=(-H "X-OWS-Verifier-Key: $OWS_VERIFIER_API_KEY")
+  fi
+
+  status="$(curl -s -o /dev/null -w "%{http_code}" "${auth_headers[@]}" "$base_url/sessions/not-a-real-session/head" || true)"
+  [[ "$status" == "404" || "$status" == "401" ]]
 }
 
 get_verifier_runtime_value() {
