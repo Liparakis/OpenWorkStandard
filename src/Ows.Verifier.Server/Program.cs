@@ -1,17 +1,18 @@
 using Ows.Core.Notarization;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSingleton<InMemoryReceiptService>();
+var receiptStorePath = Path.Combine(builder.Environment.ContentRootPath, ".ows-verifier", "receipts.json");
+builder.Services.AddSingleton(new JsonFileReceiptService(receiptStorePath));
 
 var app = builder.Build();
 
-app.MapPost("/sessions", (InMemoryReceiptService receiptService) =>
+app.MapPost("/sessions", (JsonFileReceiptService receiptService) =>
 {
     var sessionId = receiptService.StartSession();
     return Results.Ok(new StartSessionResponse { SessionId = sessionId.Value });
 });
 
-app.MapPost("/sessions/{id}/checkpoints", (string id, CheckpointRequest request, InMemoryReceiptService receiptService) =>
+app.MapPost("/sessions/{id}/checkpoints", (string id, CheckpointRequest request, JsonFileReceiptService receiptService) =>
 {
     if (!string.Equals(id, request.SessionId, StringComparison.Ordinal))
     {
@@ -34,7 +35,7 @@ app.MapPost("/sessions/{id}/checkpoints", (string id, CheckpointRequest request,
     }
 });
 
-app.MapGet("/sessions/{id}/receipts", (string id, InMemoryReceiptService receiptService) =>
+app.MapGet("/sessions/{id}/receipts", (string id, JsonFileReceiptService receiptService) =>
 {
     try
     {

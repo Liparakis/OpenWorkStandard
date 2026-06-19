@@ -52,7 +52,7 @@ What does not exist yet:
 - `Ows.Core.Verification`: package validation, trust grading, and integrity findings
 - `Ows.Cli`: reference client entry point
 - `Ows.Desktop`: future host surface, still placeholder-only today
-- `Ows.Verifier.Server`: minimal ASP.NET Core verifier API scaffold backed by in-memory receipt storage
+- `Ows.Verifier.Server`: minimal ASP.NET Core verifier API scaffold backed by a local JSON receipt snapshot
 - future `Ows.Verifier.Worker`: background processing boundary
 
 ## Responsibility Split

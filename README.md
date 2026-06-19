@@ -26,7 +26,7 @@ dotnet run --project src/Ows.Cli -- --help
 - `src/Ows.Core`: shared domain models plus agent, packaging, notarization, verification, and reporting namespaces.
 - `src/Ows.Cli`: command-line entry point for the reference client.
 - `src/Ows.Desktop`: placeholder project for a future Avalonia UI.
-- `src/Ows.Verifier.Server`: minimal ASP.NET Core verifier API scaffold backed by in-memory receipt storage.
+- `src/Ows.Verifier.Server`: minimal ASP.NET Core verifier API scaffold backed by a local JSON receipt snapshot.
 - `tests/Ows.Core.Tests`: xUnit coverage for core behavior and collapsed MVP service skeletons.
 - `tests/Ows.Cli.Tests`: xUnit coverage for command construction.
 - `docs`: specification, architecture, privacy, security, package format, CLI, and glossary.
