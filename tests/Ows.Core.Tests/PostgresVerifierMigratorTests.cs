@@ -22,7 +22,7 @@ public sealed class PostgresVerifierMigratorTests
         getMigrationsMethod.Should().NotBeNull();
         var migrations = ((IEnumerable<object>)getMigrationsMethod!.Invoke(null, null)!).ToArray();
 
-        migrations.Should().HaveCount(2);
+        migrations.Should().HaveCount(3);
         GetVersion(migrations[0]).Should().Be(1);
         GetName(migrations[0]).Should().Be("foundation");
         GetSql(migrations[0]).Should().Contain("create table if not exists verifier_sessions");
@@ -31,6 +31,9 @@ public sealed class PostgresVerifierMigratorTests
         GetVersion(migrations[1]).Should().Be(2);
         GetName(migrations[1]).Should().Be("package-submissions");
         GetSql(migrations[1]).Should().Contain("create table if not exists verifier_package_submissions");
+        GetVersion(migrations[2]).Should().Be(3);
+        GetName(migrations[2]).Should().Be("package-session-anchors");
+        GetSql(migrations[2]).Should().Contain("session_head_receipt_hash");
     }
 
     /// <summary>

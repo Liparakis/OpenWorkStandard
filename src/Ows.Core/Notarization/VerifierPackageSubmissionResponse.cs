@@ -41,6 +41,21 @@ public sealed record VerifierPackageSubmissionResponse
     public long PackageSizeBytes { get; init; }
 
     /// <summary>
+    /// Gets the session receipt head captured when the package was registered.
+    /// </summary>
+    public string? SessionHeadReceiptHash { get; init; }
+
+    /// <summary>
+    /// Gets the session event head captured when the package was registered.
+    /// </summary>
+    public string? SessionHeadEventHash { get; init; }
+
+    /// <summary>
+    /// Gets the session checkpoint count captured when the package was registered.
+    /// </summary>
+    public int? SessionCheckpointCount { get; init; }
+
+    /// <summary>
     /// Gets the current server-side package verification status.
     /// </summary>
     public string VerificationStatus { get; init; } = "Registered";

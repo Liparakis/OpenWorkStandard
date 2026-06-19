@@ -76,6 +76,13 @@ public static class PostgresVerifierMigrator
                                                              );
                                                              """;
 
+    private const string Migration003PackageSessionAnchorsSql = """
+                                                               alter table verifier_package_submissions
+                                                                   add column if not exists session_head_receipt_hash text null,
+                                                                   add column if not exists session_head_event_hash text null,
+                                                                   add column if not exists session_checkpoint_count integer null;
+                                                               """;
+
     /// <summary>
     /// Applies any missing ordered verifier schema migrations using a fresh data source.
     /// </summary>
@@ -126,7 +133,8 @@ public static class PostgresVerifierMigrator
     private static IReadOnlyList<PostgresVerifierMigration> GetMigrations() =>
     [
         new(1, "foundation", Migration001FoundationSql),
-        new(2, "package-submissions", Migration002PackageSubmissionsSql)
+        new(2, "package-submissions", Migration002PackageSubmissionsSql),
+        new(3, "package-session-anchors", Migration003PackageSessionAnchorsSql)
     ];
 
     /// <summary>
