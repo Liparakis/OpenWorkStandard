@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core;
 using Ows.Core.Agent;
@@ -72,12 +71,13 @@ public static class OwsCommandFactory
     private static Command BuildSessionStartCommand()
     {
         var command = new Command("start", "Start a local OWS assessment session.");
-        command.SetAction(parseResult =>
+        command.SetAction(async parseResult =>
         {
             _ = parseResult;
-            var sessionId = OwsSessionStore.StartSession(Directory.GetCurrentDirectory());
+            var transport = new LocalReceiptTransport(Directory.GetCurrentDirectory());
+            var sessionId = await transport.StartSessionAsync(CancellationToken.None);
             Console.WriteLine($"OWS session started: {sessionId}");
-            return Task.FromResult(0);
+            return 0;
         });
 
         return command;
@@ -90,12 +90,13 @@ public static class OwsCommandFactory
     private static Command BuildCheckpointCommand()
     {
         var command = new Command("checkpoint", "Issue a local receipt for the current timeline head.");
-        command.SetAction(parseResult =>
+        command.SetAction(async parseResult =>
         {
             _ = parseResult;
-            var receipt = OwsSessionStore.AddCheckpoint(Directory.GetCurrentDirectory());
+            var transport = new LocalReceiptTransport(Directory.GetCurrentDirectory());
+            var receipt = await transport.SendCheckpointAsync(CancellationToken.None);
             Console.WriteLine($"OWS checkpoint recorded: {receipt.ReceiptHash}");
-            return Task.FromResult(0);
+            return 0;
         });
 
         return command;

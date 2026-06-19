@@ -76,6 +76,41 @@ public static class OwsSessionStore
         return receipt;
     }
 
+    /// <summary>
+    /// Reads the persisted receipt chain for the current project.
+    /// </summary>
+    /// <param name="projectRoot">The current project root.</param>
+    /// <returns>The current persisted receipt chain.</returns>
+    public static ReceiptChain GetReceipts(string projectRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
+
+        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+        var sessionPath = Path.Combine(localFolder, SessionFileName);
+        var receiptsPath = Path.Combine(localFolder, OwsConstants.ReceiptsFileName);
+
+        if (!File.Exists(sessionPath))
+        {
+            throw new InvalidOperationException("No active OWS session. Run 'ows session start' first.");
+        }
+
+        var sessionState = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath))
+            ?? throw new JsonException("Session state deserialized to null.");
+        var sessionId = new AssessmentSessionId(sessionState.SessionId);
+
+        if (!File.Exists(receiptsPath))
+        {
+            return new ReceiptChain
+            {
+                SessionId = sessionId,
+                Receipts = []
+            };
+        }
+
+        return JsonSerializer.Deserialize<ReceiptChain>(File.ReadAllText(receiptsPath))
+            ?? throw new JsonException("Receipt chain deserialized to null.");
+    }
+
     private sealed record SessionState
     {
         public string SessionId { get; init; } = string.Empty;
