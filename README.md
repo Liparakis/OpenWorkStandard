@@ -95,6 +95,8 @@ Then smoke-test the verifier directly with:
 
 `dotnet build` also emits platform-specific verifier helper scripts under `artifacts/generated-scripts/`.
 
+The repo also includes a verifier server Dockerfile at `src/Ows.Verifier.Server/Dockerfile`.
+
 For background local lifecycle on Windows:
 
 ```powershell

@@ -90,7 +90,7 @@ Harden the local verifier dev loop and cold-start behavior, then add server-side
 
 - [x] Local Docker and PostgreSQL dev path
 - [ ] Deployment exists only for local Docker/PostgreSQL today - Status: Partial
-- [ ] Docker images
+- [ ] Docker images - Status: Partial
 - [ ] Production Compose or Helm packaging
 - [x] Self-hosting operator guide
 

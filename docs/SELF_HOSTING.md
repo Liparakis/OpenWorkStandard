@@ -21,6 +21,10 @@ It does not describe:
 
 Today, the useful self-hosted component is `src/Ows.Verifier.Server`.
 
+The repository now includes a verifier server Dockerfile at:
+
+- `src/Ows.Verifier.Server/Dockerfile`
+
 Current HTTP surface:
 
 - `POST /sessions`
@@ -71,6 +75,14 @@ dotnet run --project src/Ows.Verifier.Server -- migrate
 dotnet run --project src/Ows.Verifier.Server
 ```
 
+Or build the verifier image:
+
+```bash
+docker build -f src/Ows.Verifier.Server/Dockerfile -t ows-verifier:local .
+```
+
+Then run it with PostgreSQL configuration injected at runtime.
+
 ## Ongoing Startup
 
 The verifier also applies missing PostgreSQL migrations during normal startup.
@@ -106,6 +118,8 @@ Do not claim that the current self-hosted verifier already provides:
 - full operational hardening
 - package submission workflow
 - production-grade multi-node rollout discipline
+
+The current Docker support is image-level only. Full production Compose or Helm packaging is still deferred.
 
 ## Recommended Next Operational Steps
 

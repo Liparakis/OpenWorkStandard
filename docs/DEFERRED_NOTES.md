@@ -30,6 +30,8 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 - Do not add Redis as a source of truth.
 - Do not add Kubernetes, NATS, or object-storage plumbing to the MVP verifier path yet.
 - Add those only when the current PostgreSQL-backed verifier boundary is no longer enough.
+- Docker image runtime validation may be blocked in restricted local environments when Docker config or buildx state is not accessible.
+- Revisit image build/run validation on a machine with normal Docker permissions rather than patching around local access-denied noise.
 
 ## Local Dev Runner
 
