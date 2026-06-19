@@ -214,6 +214,7 @@ Local verifier dev flow today:
 - verifier status and smoke-test helpers send `X-OWS-Verifier-Key` from `OWS_VERIFIER_API_KEY` when present
 - `dotnet build` emits platform-specific launcher copies to `artifacts/generated-scripts/`
 - verifier logs now include per-request method, path, status, and duration
+- local verifier smoke tests cover package metadata registration, idempotent retry, lookup, and session-head anchoring
 
 This is enough for architectural validation and the first durable-backend pass. It is still not enough for institutional trust claims until the PostgreSQL path is exercised in a real deployed environment.
 

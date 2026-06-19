@@ -24,6 +24,19 @@ retry_receipt_hash="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions
 receipt_count="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/receipts" | python -c "import json,sys; print(len(json.load(sys.stdin)['receipts']))")"
 head_sequence="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/head" | python -c "import json,sys; print(json.load(sys.stdin)['lastSequenceNumber'])")"
 head_hash="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/head" | python -c "import json,sys; print(json.load(sys.stdin)['lastTimelineHeadHash'])")"
+package_key="smoke/$session_id.owspkg"
+package_hash="$(python - <<'PY'
+print("a" * 64)
+PY
+)"
+package_body="$(printf '{"sessionId":"%s","objectStorageProvider":"s3","objectBucket":"ows-packages","objectKey":"%s","packageSha256":"%s","packageSizeBytes":1024}' "$session_id" "$package_key" "$package_hash")"
+package_idempotency_key="package-$session_id"
+package_response="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/packages" -H "Content-Type: application/json" -H "Idempotency-Key: $package_idempotency_key" -d "$package_body")"
+package_id="$(printf '%s' "$package_response" | python -c "import json,sys; print(json.load(sys.stdin)['submissionId'])")"
+retry_package_id="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/packages" -H "Content-Type: application/json" -H "Idempotency-Key: $package_idempotency_key" -d "$package_body" | python -c "import json,sys; print(json.load(sys.stdin)['submissionId'])")"
+fetched_package="$(curl -fsS "${auth_headers[@]}" "$base_url/packages/$package_id")"
+fetched_package_key="$(printf '%s' "$fetched_package" | python -c "import json,sys; print(json.load(sys.stdin)['objectKey'])")"
+fetched_package_receipt_head="$(printf '%s' "$fetched_package" | python -c "import json,sys; print(json.load(sys.stdin)['sessionHeadReceiptHash'])")"
 
 if [[ "$receipt_hash" != "$retry_receipt_hash" ]]; then
   echo "Idempotent retry did not return the same receipt hash." >&2
@@ -45,5 +58,21 @@ if [[ "$head_hash" != "head-1" ]]; then
   exit 1
 fi
 
+if [[ "$package_id" != "$retry_package_id" ]]; then
+  echo "Package idempotent retry did not return the same submission id." >&2
+  exit 1
+fi
+
+if [[ "$fetched_package_key" != "$package_key" ]]; then
+  echo "Fetched package metadata did not preserve the object key." >&2
+  exit 1
+fi
+
+if [[ "$fetched_package_receipt_head" != "$receipt_hash" ]]; then
+  echo "Package metadata did not anchor the current session receipt head." >&2
+  exit 1
+fi
+
 printf 'SessionId: %s\nReceiptHash: %s\nReceiptCount: %s\nHeadSequence: %s\nHeadTimelineHeadHash: %s\nIdempotentRetryMatched: true\n' \
   "$session_id" "$receipt_hash" "$receipt_count" "$head_sequence" "$head_hash"
+printf 'PackageSubmissionId: %s\nPackageMetadataFetched: true\n' "$package_id"

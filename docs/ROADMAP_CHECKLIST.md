@@ -37,6 +37,7 @@ Harden verifier operational security in small steps, then add server-side packag
 - [x] Verifier smoke test helper
 - [x] Verifier stop helper
 - [x] Local verifier helpers respect optional API key guard
+- [x] Local verifier smoke test covers package metadata path
 - [ ] Local dev loop exists but still needs cold-start and restricted-environment hardening - Status: Partial
 
 ## 4. Core Protocol and Package Format
