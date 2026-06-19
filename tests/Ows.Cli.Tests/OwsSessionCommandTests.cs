@@ -132,6 +132,47 @@ public sealed class OwsSessionCommandTests
     }
 
     /// <summary>
+    /// Verifies that remote session start sends the configured verifier API key header.
+    /// </summary>
+    [Fact]
+    public async Task SessionStart_WithServer_ShouldSendVerifierApiKeyHeader()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-remote-session-key-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(projectRoot);
+        var originalDirectory = Directory.GetCurrentDirectory();
+        var originalApiKey = Environment.GetEnvironmentVariable("OWS_VERIFIER_API_KEY");
+        using var verifierServer = new StubVerifierServer((method, path) => path switch
+        {
+            "sessions" when method == "POST" => new StartSessionResponse { SessionId = RemoteSessionId.Value },
+            _ => null
+        });
+
+        try
+        {
+            Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", "test-api-key");
+            Directory.SetCurrentDirectory(projectRoot);
+            await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync();
+
+            var exitCode = await OwsCommandFactory.BuildRootCommand()
+                .Parse(["session", "start", "--server", verifierServer.BaseUrl])
+                .InvokeAsync();
+
+            exitCode.Should().Be(0);
+            verifierServer.RequestedHeaders[0]["X-OWS-Verifier-Key"].Should().Be("test-api-key");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", originalApiKey);
+            Directory.SetCurrentDirectory(originalDirectory);
+
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that remote checkpointing appends the receipt chain returned by the verifier.
     /// </summary>
     [Fact]

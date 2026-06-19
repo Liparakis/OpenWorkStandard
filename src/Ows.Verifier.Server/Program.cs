@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Ows.Core.Notarization;
 using Ows.Verifier.Server;
 
@@ -6,6 +8,8 @@ builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole();
 var storageOptions = builder.Configuration.GetSection("VerifierStorage").Get<VerifierStorageOptions>()
                      ?? new VerifierStorageOptions();
+var securityOptions = builder.Configuration.GetSection("VerifierSecurity").Get<VerifierSecurityOptions>()
+                      ?? new VerifierSecurityOptions();
 var normalizedStorageOptions = string.IsNullOrWhiteSpace(storageOptions.JsonStorePath)
     ? storageOptions with
     {
@@ -35,6 +39,7 @@ if (args.Any(static arg => string.Equals(arg, "migrate", StringComparison.Ordina
 }
 
 builder.Services.AddSingleton(normalizedStorageOptions);
+builder.Services.AddSingleton(securityOptions);
 builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
 {
     "json" => new JsonFileVerifierStorage(
@@ -50,6 +55,21 @@ builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Pr
 });
 
 var app = builder.Build();
+
+if (!string.IsNullOrWhiteSpace(securityOptions.ApiKey))
+{
+    app.Use(async (context, next) =>
+    {
+        if (!HasValidApiKey(context.Request, securityOptions))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsync("Verifier API key is required.");
+            return;
+        }
+
+        await next(context);
+    });
+}
 
 app.MapPost("/sessions", async (IVerifierStorage storage, CancellationToken cancellationToken) =>
 {
@@ -110,3 +130,24 @@ app.MapGet("/sessions/{id}/head", async (string id, IVerifierStorage storage, Ca
 });
 
 app.Run();
+
+// Checks the optional shared verifier API key without leaking timing differences for equal-length values.
+static bool HasValidApiKey(HttpRequest request, VerifierSecurityOptions options)
+{
+    if (string.IsNullOrWhiteSpace(options.HeaderName) ||
+        !request.Headers.TryGetValue(options.HeaderName, out var suppliedValues))
+    {
+        return false;
+    }
+
+    var suppliedKey = suppliedValues.FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(suppliedKey))
+    {
+        return false;
+    }
+
+    var expectedBytes = Encoding.UTF8.GetBytes(options.ApiKey);
+    var suppliedBytes = Encoding.UTF8.GetBytes(suppliedKey);
+    return suppliedBytes.Length == expectedBytes.Length &&
+           CryptographicOperations.FixedTimeEquals(suppliedBytes, expectedBytes);
+}

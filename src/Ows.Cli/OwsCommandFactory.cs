@@ -237,8 +237,7 @@ public static class OwsCommandFactory
                 $"The package does not contain {OwsConstants.SessionFileName} or {OwsConstants.ReceiptsFileName}, so verifier-backed verification cannot resolve a remote session.");
         }
 
-        using var httpClient = new HttpClient();
-        httpClient.BaseAddress = new Uri(verifierUrl, UriKind.Absolute);
+        using var httpClient = CreateVerifierHttpClient(verifierUrl);
         var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint());
         transport.RestoreSession(
             sessionId ?? packagedReceiptChain!.SessionId,
@@ -268,11 +267,28 @@ public static class OwsCommandFactory
         var sessionId = ReadPackagedSessionId(packagePath)
                         ?? throw new InvalidOperationException(
                             $"The package does not contain {OwsConstants.SessionFileName}, so verifier-backed verification cannot resolve a remote session head.");
-        using var httpClient = new HttpClient();
-        httpClient.BaseAddress = new Uri(verifierUrl, UriKind.Absolute);
+        using var httpClient = CreateVerifierHttpClient(verifierUrl);
         return await httpClient.GetFromJsonAsync<SessionHeadResponse>($"sessions/{sessionId.Value}/head",
                    cancellationToken)
                ?? throw new InvalidOperationException("The verifier returned an invalid session head response.");
+    }
+
+    /// <summary>
+    /// Creates the HTTP client used for verifier cross-checks.
+    /// </summary>
+    /// <param name="verifierUrl">The verifier base URL.</param>
+    /// <returns>The configured HTTP client.</returns>
+    private static HttpClient CreateVerifierHttpClient(string verifierUrl)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(verifierUrl);
+        var httpClient = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
+        var apiKey = Environment.GetEnvironmentVariable("OWS_VERIFIER_API_KEY");
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            httpClient.DefaultRequestHeaders.Add("X-OWS-Verifier-Key", apiKey);
+        }
+
+        return httpClient;
     }
 
     /// <summary>

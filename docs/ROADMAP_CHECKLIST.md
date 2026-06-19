@@ -63,9 +63,10 @@ Harden verifier operational security in small steps, then add server-side packag
 - [x] App-owned verifier migrations
 - [x] `Idempotency-Key` support
 - [x] MVP verifier receipt signing key support
+- [x] Optional shared-key verifier API guard
 - [ ] Production-grade verifier hosting
 - [ ] Server signing key management hardening - Status: Partial
-- [ ] Auth and RBAC
+- [ ] Auth and RBAC - Status: Partial
 - [ ] Observability
 
 ## 7. Package Submission and Server-Side Verification

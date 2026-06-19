@@ -2,7 +2,7 @@
 
 ## Direction
 
-The current CLI is a local reference client for OWS assessment provenance.
+The current CLI is a local reference client for Open Work Standard academic work provenance.
 
 Near-term architecture:
 
@@ -19,6 +19,8 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
 - Usage: `ows session start [--server <url>]`
 - Options:
   - `--server <url>`: route receipt issuance through a verifier API instead of the local-only prototype flow
+- Environment:
+  - `OWS_VERIFIER_API_KEY`: optional shared key sent as `X-OWS-Verifier-Key` for guarded verifier APIs
 - Current behavior:
   - without `--server`, creates local `.ows/session.json` and `.ows/receipts.json`
   - with `--server`, starts a remote session and persists the verifier URL locally
@@ -30,6 +32,8 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
 - Purpose: issue the next receipt for the current timeline head.
 - Usage: `ows session checkpoint`
 - Options: none yet
+- Environment:
+  - `OWS_VERIFIER_API_KEY`: optional shared key sent as `X-OWS-Verifier-Key` for guarded verifier APIs
 - Current behavior:
   - derives the checkpoint from `.ows/timeline.jsonl`
   - issues the next receipt locally or remotely based on `.ows/session.json`
@@ -76,6 +80,8 @@ Today, the CLI is still mostly local-only. It can now start sessions and submit 
 - Usage: `ows verify [--server <url>]`
 - Options:
   - `--server <url>`: cross-check packaged session and receipts against a live verifier API
+- Environment:
+  - `OWS_VERIFIER_API_KEY`: optional shared key sent as `X-OWS-Verifier-Key` for guarded verifier APIs
 - Current behavior:
   - validates package structure
   - validates manifest, timeline, and version graph JSON

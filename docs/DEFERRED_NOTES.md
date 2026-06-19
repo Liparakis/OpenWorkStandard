@@ -25,6 +25,12 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 - Do not add signing key rotation, key IDs, or KMS/Vault integration yet.
 - The current `ReceiptSigningKey` HMAC path is enough until receipts must be independently verified outside the server boundary.
 
+## Verifier Auth
+
+- Do not add users, roles, JWT/OIDC, or institution RBAC yet.
+- The current `VerifierSecurity:ApiKey` guard is only a shared-secret MVP barrier.
+- Add real identity and RBAC before exposing a verifier to broad institutional users.
+
 ## Watcher / Hosts
 
 - Do not build full IDE plugins yet.

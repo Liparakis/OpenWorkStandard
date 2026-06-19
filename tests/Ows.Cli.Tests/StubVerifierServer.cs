@@ -40,6 +40,11 @@ internal sealed class StubVerifierServer : IDisposable
     /// </summary>
     public List<string> RequestedPaths { get; } = [];
 
+    /// <summary>
+    /// Gets the requested verifier headers in arrival order.
+    /// </summary>
+    public List<IReadOnlyDictionary<string, string>> RequestedHeaders { get; } = [];
+
     /// <inheritdoc />
     public void Dispose()
     {
@@ -83,9 +88,20 @@ internal sealed class StubVerifierServer : IDisposable
 
             var path = context.Request.Url!.AbsolutePath.TrimStart('/');
             RequestedPaths.Add(path);
+            RequestedHeaders.Add(ReadHeaders(context.Request));
             WriteResponse(context, path);
         }
     }
+
+    /// <summary>
+    /// Reads request headers into a stable dictionary for assertions.
+    /// </summary>
+    /// <param name="request">The active HTTP request.</param>
+    /// <returns>The captured request headers.</returns>
+    private static IReadOnlyDictionary<string, string> ReadHeaders(HttpListenerRequest request) =>
+        request.Headers.AllKeys
+            .Where(key => key is not null)
+            .ToDictionary(key => key!, key => request.Headers[key!] ?? string.Empty, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Writes the configured stub response.

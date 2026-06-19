@@ -22,6 +22,7 @@ What works today:
 - a minimal ASP.NET Core verifier server with selectable JSON or PostgreSQL storage
 - local PostgreSQL-backed verifier startup, smoke testing, and helper-script generation
 - optional verifier receipt signing with a configured server key
+- optional shared-key verifier API guard
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -188,6 +189,7 @@ PostgreSQL setup model today:
 - checkpoint requests are validated before storage append
 - idempotent checkpoint retries are enforced in both JSON and PostgreSQL storage
 - receipts include an HMAC server signature when `VerifierStorage:ReceiptSigningKey` is configured
+- requests require `X-OWS-Verifier-Key` when `VerifierSecurity:ApiKey` is configured
 
 Local verifier dev flow today:
 
@@ -228,6 +230,7 @@ Important implemented pieces:
 - PostgreSQL-backed verifier storage foundation
 - PostgreSQL migration runner
 - MVP verifier receipt signing
+- optional shared-key verifier API guard
 - verifier request validation
 - idempotency-key enforcement
 - package assembly
@@ -315,7 +318,7 @@ What is still weak:
 - capture fidelity
 - long-running tracking
 - operational trust guarantees
-- production verifier hosting and key management
+- production verifier hosting, identity, RBAC, and key management
 - background verifier lifecycle robustness across restricted local environments
 
 The weakest assumption to avoid: thinking the current verifier server is already a real institutional trust boundary. It is not. It is a good foundation, not the finished boundary.

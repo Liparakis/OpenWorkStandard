@@ -55,6 +55,7 @@ The current repository already implements:
 - in-memory receipt chain issuance/validation helpers
 - optional packaged receipt-chain verification
 - optional HMAC verifier receipt signatures when a server signing key is configured
+- optional shared-key verifier API guard for MVP self-hosting
 - trust grading with `Verified`, `Unverified`, and `Invalid`
 
 Current trust behavior:
@@ -85,6 +86,7 @@ Why:
 
 Directional security requirements:
 
+- shared-key verifier API guard for the MVP
 - TLS everywhere
 - JWT/OIDC for authentication
 - institution SSO later via OIDC or SAML
@@ -175,6 +177,7 @@ For any self-hosted verifier that wants stronger security claims, the minimum ha
 - PostgreSQL-backed durable receipt storage, not JSON development storage
 - TLS at the verifier edge
 - secrets kept outside the repository
+- shared API key configured only through deployment secrets while full auth is absent
 - controlled access to database credentials and signing material
 - backup and restore procedures for verifier data
 - migration discipline for schema changes

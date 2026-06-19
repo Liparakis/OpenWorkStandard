@@ -99,6 +99,15 @@ $env:VerifierStorage__Provider = "postgres"
 $env:VerifierStorage__PostgresConnectionString = "Host=localhost;Port=5432;Database=ows_verifier;Username=ows;Password=ows-dev"
 ```
 
+Optional local API key guard:
+
+```powershell
+$env:VerifierSecurity__ApiKey = "dev-api-key"
+$env:OWS_VERIFIER_API_KEY = "dev-api-key"
+```
+
+When configured, the verifier requires `X-OWS-Verifier-Key`; the CLI sends that header from `OWS_VERIFIER_API_KEY`.
+
 ## Run Verifier Server
 
 With the same environment variables:
@@ -174,6 +183,14 @@ If migrations fail:
 - verify `OWS_VERIFIER_CONNECTION_STRING` if you overrode the default
 - run `.\scripts\logs-local-verifier.ps1 -All` to see the startup failure without losing console output
 - rerun the startup helper after fixing the database issue
+
+### Missing verifier API key
+
+If verifier requests return `401`:
+
+- confirm `VerifierSecurity__ApiKey` is set on the verifier only when you intend to guard it
+- set matching `OWS_VERIFIER_API_KEY` before running CLI commands
+- do not put the API key in `.ows/session.json` or packages
 
 ### Stale PID files
 

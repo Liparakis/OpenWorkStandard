@@ -160,7 +160,14 @@ public static class OwsSessionStore
     private static HttpClient CreateHttpClient(string verifierUrl)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(verifierUrl);
-        return new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
+        var httpClient = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
+        var apiKey = Environment.GetEnvironmentVariable("OWS_VERIFIER_API_KEY");
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            httpClient.DefaultRequestHeaders.Add("X-OWS-Verifier-Key", apiKey);
+        }
+
+        return httpClient;
     }
 
     /// <summary>
