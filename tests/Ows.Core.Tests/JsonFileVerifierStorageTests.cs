@@ -167,6 +167,93 @@ public sealed class JsonFileVerifierStorageTests
     }
 
     /// <summary>
+    /// Verifies that retrying the same checkpoint sequence with the same payload returns the committed receipt.
+    /// </summary>
+    [Fact]
+    public async Task AppendCheckpointAsync_ShouldReturnCommittedReceiptForSameSequenceAndPayload()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-idempotent-{Guid.NewGuid():N}");
+        var storePath = Path.Combine(directoryPath, "receipts.json");
+
+        try
+        {
+            var storage = new JsonFileVerifierStorage(storePath);
+            var session = await storage.CreateSessionAsync(CancellationToken.None);
+
+            var firstReceipt = await storage.AppendCheckpointAsync(
+                new Checkpoint
+                {
+                    SessionId = session.Id,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = "head-1"
+                },
+                CancellationToken.None);
+            var retriedReceipt = await storage.AppendCheckpointAsync(
+                new Checkpoint
+                {
+                    SessionId = session.Id,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = "head-1"
+                },
+                CancellationToken.None);
+
+            retriedReceipt.Should().BeEquivalentTo(firstReceipt);
+            (await storage.GetReceiptsAsync(session.Id, CancellationToken.None)).Receipts.Should().ContainSingle();
+        }
+        finally
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that retrying the same checkpoint sequence with a different payload is rejected.
+    /// </summary>
+    [Fact]
+    public async Task AppendCheckpointAsync_ShouldRejectSameSequenceWithDifferentPayload()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-idempotent-reject-{Guid.NewGuid():N}");
+        var storePath = Path.Combine(directoryPath, "receipts.json");
+
+        try
+        {
+            var storage = new JsonFileVerifierStorage(storePath);
+            var session = await storage.CreateSessionAsync(CancellationToken.None);
+
+            _ = await storage.AppendCheckpointAsync(
+                new Checkpoint
+                {
+                    SessionId = session.Id,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = "head-1"
+                },
+                CancellationToken.None);
+
+            var act = async () => await storage.AppendCheckpointAsync(
+                new Checkpoint
+                {
+                    SessionId = session.Id,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = "head-2"
+                },
+                CancellationToken.None);
+
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("Checkpoint sequence 1 already exists*different payload.");
+        }
+        finally
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that invalid persisted receipt chains are rejected during startup.
     /// </summary>
     [Fact]

@@ -6,7 +6,7 @@ namespace Ows.Verifier.Server;
 public sealed record VerifierStorageOptions
 {
     /// <summary>
-    /// Gets the storage provider name. Supported today: <c>json</c>.
+    /// Gets the storage provider name. Supported today: <c>json</c> and <c>postgres</c>.
     /// </summary>
     public string Provider { get; init; } = "json";
 

@@ -15,7 +15,7 @@ What works today:
 - package verification with trust grading
 - optional live verifier cross-checking during verification
 - text report generation
-- a minimal ASP.NET Core verifier server with local JSON persistence
+- a minimal ASP.NET Core verifier server with selectable JSON or PostgreSQL storage
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -168,10 +168,10 @@ Status:
 
 Storage model today:
 
-- local JSON snapshot file under the server working directory
-- in-memory issuance logic backed by snapshot persistence
+- `json`: local JSON snapshot file for development
+- `postgres`: transactional PostgreSQL-backed storage through the verifier storage abstraction
 
-This is enough for local dev and architectural validation. It is not enough for multi-instance deployment, durability guarantees, or institutional trust claims.
+This is enough for architectural validation and the first durable-backend pass. It is still not enough for institutional trust claims until the PostgreSQL path is exercised in a real deployed environment.
 
 ## Core Domains Present
 
@@ -192,7 +192,9 @@ Important implemented pieces:
 - chained local event model
 - receipt/session/checkpoint models
 - receipt-chain verification
-- JSON-backed verifier receipt persistence
+- provider-based verifier storage abstraction
+- JSON-backed verifier storage
+- PostgreSQL-backed verifier storage foundation
 - package assembly
 - package verification and trust grading
 
@@ -229,6 +231,7 @@ Recent milestones:
 - `d1e895a` `feat: cross-check packaged receipts with verifier api`
 - `434ad35` `feat: package session metadata for verifier lookup`
 - `1f35295` `feat: add verifier session head endpoint`
+- `ea4e8b6` `feat: add durable verifier storage foundation`
 
 Net result:
 
@@ -242,7 +245,7 @@ The main missing pieces are:
 
 - persistent always-on watcher lifecycle
 - platform-specific hosts for VS Code, Rider, and desktop
-- durable server storage beyond local JSON snapshots
+- deployed validation of the PostgreSQL verifier backend
 - multi-instance verifier deployment model
 - server-side package submission and verification
 - richer degraded-policy handling
@@ -271,7 +274,7 @@ The weakest assumption to avoid: thinking the current verifier server is already
 
 Best next steps, in order:
 
-1. replace local JSON verifier persistence with durable storage
+1. validate the PostgreSQL verifier path in an actual local deployment flow
 2. keep the verifier API narrow and boring while hardening storage semantics
 3. add a minimal package-submission or package-anchor path only after storage is durable
 4. defer IDE plugins and background hosts until the watcher lifecycle is clearer

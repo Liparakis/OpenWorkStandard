@@ -22,10 +22,12 @@ Today, `Ows.Verifier.Server` depends on a storage abstraction:
 Current implementation:
 
 - `JsonFileVerifierStorage`
+- `PostgresVerifierStorage`
 
 Current provider selection:
 
 - `VerifierStorage:Provider=json`
+- `VerifierStorage:Provider=postgres`
 
 This JSON-backed store is for local development only.
 
@@ -37,10 +39,16 @@ It is useful because:
 
 It is not a real institutional trust boundary because:
 
-- it is single-node local storage
-- it does not provide durable multi-instance semantics
-- it does not yet provide database transaction guarantees
-- it does not yet implement idempotency-key enforcement
+- the default development mode is still single-node local JSON storage
+- the PostgreSQL path still needs deployment-level validation and operational hardening
+- idempotency-key columns exist in the PostgreSQL shape but request-key enforcement is not yet wired through the API contract
+
+## Current Code Status
+
+- the PostgreSQL storage adapter now exists
+- the server can select it through configuration
+- schema bootstrap is handled by the storage class on startup
+- append uses a database transaction and session-row locking
 
 ## Intended Durable Backend
 
@@ -81,6 +89,8 @@ Required semantics:
 - checkpoint order is monotonic per session
 - session head is derived from durable state
 - committed receipt state is never silently overwritten
+- same sequence and same payload can return the committed receipt
+- same sequence and different payload is rejected
 
 ## PostgreSQL Shape
 

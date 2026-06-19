@@ -64,7 +64,27 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
 
         lock (gate)
         {
-            _ = GetRequiredSession(checkpoint.SessionId);
+            var session = GetRequiredSession(checkpoint.SessionId);
+            if (checkpoint.SequenceNumber <= session.CheckpointCount)
+            {
+                var existingReceipt = receiptService.GetReceiptChain(checkpoint.SessionId)
+                    .Receipts
+                    .SingleOrDefault(receipt => receipt.SequenceNumber == checkpoint.SequenceNumber);
+                if (existingReceipt is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {session.CheckpointCount + 1}.");
+                }
+
+                if (!string.Equals(existingReceipt.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"Checkpoint sequence {checkpoint.SequenceNumber} already exists for session {checkpoint.SessionId} with a different payload.");
+                }
+
+                return Task.FromResult(existingReceipt);
+            }
+
             var receipt = receiptService.SubmitCheckpoint(checkpoint);
             sessions[checkpoint.SessionId] = sessions[checkpoint.SessionId] with
             {

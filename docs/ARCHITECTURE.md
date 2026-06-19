@@ -39,7 +39,7 @@ The current repository implements a thin but real local/reference slice:
 What does not exist yet:
 
 - persistent host-owned watcher implementations
-- PostgreSQL verifier storage adapter
+- deployed validation of the PostgreSQL verifier storage adapter
 - background worker pipeline
 - deployed infrastructure manifests
 
@@ -53,7 +53,7 @@ What does not exist yet:
 - `Ows.Cli`: reference client entry point
 - `Ows.Desktop`: future host surface, still placeholder-only today
 - `Ows.Verifier.Server`: minimal ASP.NET Core verifier API scaffold backed by a selectable storage boundary
-- current storage seam: `IVerifierStorage` with JSON dev backend and PostgreSQL intended next
+- current storage seam: `IVerifierStorage` with JSON dev backend and PostgreSQL backend available
 - future `Ows.Verifier.Worker`: background processing boundary
 
 ## Responsibility Split

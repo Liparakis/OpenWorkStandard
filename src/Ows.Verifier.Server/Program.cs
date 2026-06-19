@@ -14,7 +14,11 @@ builder.Services.AddSingleton(normalizedStorageOptions);
 builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
 {
     "json" => new JsonFileVerifierStorage(normalizedStorageOptions.JsonStorePath),
-    "postgres" => throw new NotSupportedException("PostgreSQL verifier storage is not wired yet. Use VerifierStorage:Provider=json for local development."),
+    "postgres" => new PostgresVerifierStorage(
+        !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
+            ? normalizedStorageOptions.PostgresConnectionString
+            : throw new InvalidOperationException(
+                "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres.")),
     _ => throw new NotSupportedException($"Unsupported verifier storage provider: {normalizedStorageOptions.Provider}")
 });
 
