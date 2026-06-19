@@ -2,6 +2,10 @@
 
 Last updated: 2026-06-19
 
+Checklist source of truth:
+
+- `docs/ROADMAP_CHECKLIST.md` tracks current capability status, partial work, and explicitly deferred scope.
+
 ## Summary
 
 Open Work Standard now has a real end-to-end reference flow, not just placeholders.
@@ -268,6 +272,7 @@ Recent uncommitted/working-tree progress:
 - checkpoint request validation was tightened before storage append
 - local verifier helper scripts now cover run, start, status, logs, smoke-test, and stop
 - build now emits platform-specific verifier helper scripts under `artifacts/generated-scripts/`
+- a living roadmap checklist now tracks done, partial, and missing work in one place
 
 Net result:
 

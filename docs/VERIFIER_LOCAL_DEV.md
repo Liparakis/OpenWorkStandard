@@ -6,6 +6,23 @@ Exercise the Work Verifier against real PostgreSQL in local development.
 
 This is the smallest useful deployment-validation path for the current MVP.
 
+## Maintenance Rule
+
+If the verifier workflow changes, update `docs/ROADMAP_CHECKLIST.md` and this document in the same commit.
+
+## Clean Clone Quick Start
+
+From a clean clone:
+
+1. run `dotnet build OWS.sln -nologo`
+2. start PostgreSQL with `docker compose -f docker-compose.local.yml up -d`
+3. run `.\scripts\start-local-verifier.ps1`
+4. confirm `.\scripts\status-local-verifier.ps1`
+5. run `.\scripts\test-local-verifier.ps1`
+6. inspect `.\scripts\logs-local-verifier.ps1 -All` if anything fails
+
+On Unix-like environments, use the matching `.sh` scripts from `scripts/` or `artifacts/generated-scripts/`.
+
 ## Local PostgreSQL
 
 Use the local compose file:
@@ -32,6 +49,16 @@ For background lifecycle on Windows:
 .\scripts\logs-local-verifier.ps1
 .\scripts\test-local-verifier.ps1
 .\scripts\stop-local-verifier.ps1
+```
+
+For Unix-like environments:
+
+```bash
+./scripts/start-local-verifier.sh
+./scripts/status-local-verifier.sh
+./scripts/logs-local-verifier.sh
+./scripts/test-local-verifier.sh
+./scripts/stop-local-verifier.sh
 ```
 
 If the verifier DLL has not been built yet, run:
@@ -139,6 +166,7 @@ If migrations fail:
 
 - verify PostgreSQL is reachable
 - verify `OWS_VERIFIER_CONNECTION_STRING` if you overrode the default
+- run `.\scripts\logs-local-verifier.ps1 -All` to see the startup failure without losing console output
 - rerun the startup helper after fixing the database issue
 
 ### Stale PID files
@@ -147,6 +175,12 @@ If status reports `stale_pid` or `crashed`:
 
 - run `.\scripts\stop-local-verifier.ps1`
 - rerun `.\scripts\start-local-verifier.ps1`
+
+If status reports `unreachable`:
+
+- run `.\scripts\logs-local-verifier.ps1 -All`
+- verify the configured base URL and port
+- verify another local process is not intercepting the port
 
 ### Paths with spaces
 
@@ -162,6 +196,13 @@ Use:
 ```
 
 The log paths are also shown by `status-local-verifier.ps1`.
+
+### Clean clone build failures
+
+If the helper scripts fail because the verifier DLL is missing:
+
+- run `dotnet build OWS.sln -nologo`
+- rerun the helper command
 
 ## Scope
 
