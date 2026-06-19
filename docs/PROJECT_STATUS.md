@@ -16,6 +16,7 @@ What works today:
 - optional live verifier cross-checking during verification
 - text report generation
 - a minimal ASP.NET Core verifier server with selectable JSON or PostgreSQL storage
+- local PostgreSQL-backed verifier startup, smoke testing, and helper-script generation
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -95,6 +96,7 @@ What works:
 - derives the checkpoint from the current local `timeline.jsonl` head
 - issues the next local receipt or remote verifier receipt
 - refreshes `.ows/receipts.json`
+- remote checkpoint retries can use `Idempotency-Key`
 
 Status:
 
@@ -177,6 +179,18 @@ PostgreSQL setup model today:
 - migration tracking in `ows_verifier_schema_version`
 - explicit `migrate` bootstrap mode for self-hosting
 - normal PostgreSQL server startup also applies missing migrations
+- checkpoint requests are validated before storage append
+- idempotent checkpoint retries are enforced in both JSON and PostgreSQL storage
+
+Local verifier dev flow today:
+
+- `docker-compose.local.yml` starts PostgreSQL using `D:\Containers\OWS\postgres\data`
+- `scripts/run-local-verifier.ps1` runs PostgreSQL, migrations, and the verifier in the foreground
+- `scripts/start-local-verifier.ps1`, `status-local-verifier.ps1`, `logs-local-verifier.ps1`, and `stop-local-verifier.ps1` provide background lifecycle helpers on Windows
+- `scripts/test-local-verifier.ps1` performs a direct API smoke check
+- helper scripts now resolve the repo root correctly from both `scripts/` and `artifacts/generated-scripts/`
+- helper status distinguishes `not_started`, `running`, `stale_pid`, `crashed`, `unreachable`, and `port_in_use`
+- `dotnet build` emits platform-specific launcher copies to `artifacts/generated-scripts/`
 
 This is enough for architectural validation and the first durable-backend pass. It is still not enough for institutional trust claims until the PostgreSQL path is exercised in a real deployed environment.
 
@@ -202,6 +216,9 @@ Important implemented pieces:
 - provider-based verifier storage abstraction
 - JSON-backed verifier storage
 - PostgreSQL-backed verifier storage foundation
+- PostgreSQL migration runner
+- verifier request validation
+- idempotency-key enforcement
 - package assembly
 - package verification and trust grading
 
@@ -213,6 +230,8 @@ Current automated coverage includes:
 - one-shot watch behavior
 - session start and checkpoint flows
 - local and remote receipt transport paths
+- checkpoint request validation
+- idempotent retry behavior
 - package creation
 - package verification success and failure cases
 - receipt-chain verification
@@ -239,6 +258,16 @@ Recent milestones:
 - `434ad35` `feat: package session metadata for verifier lookup`
 - `1f35295` `feat: add verifier session head endpoint`
 - `ea4e8b6` `feat: add durable verifier storage foundation`
+- `a789f1b` `feat: add verifier schema migration bootstrap`
+
+Recent uncommitted/working-tree progress:
+
+- PostgreSQL-backed verifier was validated in a live local Docker run
+- session creation bug for `jsonb` metadata insert was fixed
+- verifier host logging was simplified to console-only to avoid Windows Event Log permission failures
+- checkpoint request validation was tightened before storage append
+- local verifier helper scripts now cover run, start, status, logs, smoke-test, and stop
+- build now emits platform-specific verifier helper scripts under `artifacts/generated-scripts/`
 
 Net result:
 
@@ -252,7 +281,7 @@ The main missing pieces are:
 
 - persistent always-on watcher lifecycle
 - platform-specific hosts for VS Code, Rider, and desktop
-- deployed validation of the PostgreSQL verifier backend
+- cold-start and operator validation of the local verifier helper scripts across more environments
 - multi-instance verifier deployment model
 - server-side package submission and verification
 - richer degraded-policy handling
@@ -267,6 +296,7 @@ What is solid:
 - trust-model direction
 - command/test discipline
 - small, coherent project structure
+- local verifier storage seam and local dev ergonomics
 
 What is still weak:
 
@@ -274,6 +304,7 @@ What is still weak:
 - long-running tracking
 - operational trust guarantees
 - production verifier storage and hosting
+- background verifier lifecycle robustness across restricted local environments
 
 The weakest assumption to avoid: thinking the current verifier server is already a real institutional trust boundary. It is not. It is a good foundation, not the finished boundary.
 
@@ -281,7 +312,7 @@ The weakest assumption to avoid: thinking the current verifier server is already
 
 Best next steps, in order:
 
-1. validate the PostgreSQL verifier path in an actual local deployment flow
+1. harden the local verifier helper lifecycle across restricted environments and confirm cold-start behavior end to end
 2. keep the verifier API narrow and boring while hardening storage semantics
 3. add a minimal package-submission or package-anchor path only after storage is durable
 4. defer IDE plugins and background hosts until the watcher lifecycle is clearer
@@ -296,5 +327,6 @@ OWS currently has a credible MVP for:
 - packaging evidence into `.owspkg`
 - verifying package integrity and receipt alignment
 - consulting a live verifier during verification
+- running a local PostgreSQL-backed verifier with generated platform-specific helper scripts
 
 It does not yet have a credible always-on capture model or a production-grade remote trust boundary, but it now has the right minimal seams to grow into both.

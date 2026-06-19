@@ -8,6 +8,20 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GeneratedScriptDirectory>$(MSBuildProjectDirectory)\..\..\artifacts\generated-scripts</GeneratedScriptDirectory>
   </PropertyGroup>
+
+  <Target Name="GenerateVerifierScripts" AfterTargets="Build">
+    <MakeDir Directories="$(GeneratedScriptDirectory)" />
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+      <GeneratedVerifierScripts Include="$(MSBuildProjectDirectory)\..\..\scripts\*-local-verifier.ps1" />
+    </ItemGroup>
+    <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+      <GeneratedVerifierScripts Include="$(MSBuildProjectDirectory)\..\..\scripts\*-local-verifier.sh" />
+    </ItemGroup>
+    <Copy SourceFiles="@(GeneratedVerifierScripts)"
+          DestinationFiles="@(GeneratedVerifierScripts->'$(GeneratedScriptDirectory)\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

@@ -54,14 +54,22 @@ public sealed class HttpsReceiptTransport(HttpClient httpClient, Func<Assessment
         }
 
         var checkpoint = checkpointFactory(activeSessionId.Value, nextSequenceNumber);
-        var request = new CheckpointRequest
+        var requestBody = new CheckpointRequest
         {
             SessionId = checkpoint.SessionId.Value,
             SequenceNumber = checkpoint.SequenceNumber,
             TimelineHeadHash = checkpoint.TimelineHeadHash
         };
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"sessions/{activeSessionId.Value}/checkpoints")
+        {
+            Content = JsonContent.Create(requestBody)
+        };
+        if (!string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
+        {
+            request.Headers.Add("Idempotency-Key", checkpoint.IdempotencyKey);
+        }
 
-        var response = await httpClient.PostAsJsonAsync($"sessions/{activeSessionId.Value}/checkpoints", request, cancellationToken);
+        var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var receipt = await response.Content.ReadFromJsonAsync<CheckpointReceipt>(cancellationToken)

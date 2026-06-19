@@ -44,7 +44,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
             values (
                 @id,
                 @created_at,
-                @metadata_json,
+                cast(@metadata_json as jsonb),
                 @head_receipt_hash,
                 @head_event_hash,
                 @checkpoint_count
@@ -87,6 +87,15 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var session = await GetRequiredSessionAsync(connection, checkpoint.SessionId, lockForUpdate: true, cancellationToken);
         var expectedSequenceNumber = session.CheckpointCount + 1;
+        if (!string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
+        {
+            var existingReceipt = await TryGetReceiptByIdempotencyKeyAsync(connection, checkpoint, cancellationToken);
+            if (existingReceipt is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return existingReceipt;
+            }
+        }
 
         if (checkpoint.SequenceNumber <= session.CheckpointCount)
         {
@@ -302,7 +311,8 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                 project_state_hash,
                 previous_receipt_hash,
                 receipt_hash,
-                server_signature
+                server_signature,
+                idempotency_key
             )
             values (
                 @session_id,
@@ -314,7 +324,8 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                 @project_state_hash,
                 @previous_receipt_hash,
                 @receipt_hash,
-                @server_signature
+                @server_signature,
+                @idempotency_key
             );
             """;
         command.Parameters.AddWithValue("session_id", checkpoint.SessionId.Value);
@@ -327,7 +338,53 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("previous_receipt_hash", receipt.PreviousReceiptHash);
         command.Parameters.AddWithValue("receipt_hash", receipt.ReceiptHash);
         command.Parameters.AddWithValue("server_signature", string.Empty);
+        command.Parameters.AddWithValue("idempotency_key", (object?)checkpoint.IdempotencyKey ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads an existing receipt by session and idempotency key for retry handling.
+    /// </summary>
+    /// <param name="connection">The open database connection.</param>
+    /// <param name="checkpoint">The requested checkpoint.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The existing committed receipt when found; otherwise <see langword="null"/>.</returns>
+    private static async Task<CheckpointReceipt?> TryGetReceiptByIdempotencyKeyAsync(
+        NpgsqlConnection connection,
+        Checkpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            select
+                session_id,
+                sequence_number,
+                current_event_hash,
+                previous_receipt_hash,
+                receipt_hash,
+                server_time
+            from verifier_checkpoints
+            where session_id = @session_id and idempotency_key = @idempotency_key;
+            """;
+        command.Parameters.AddWithValue("session_id", checkpoint.SessionId.Value);
+        command.Parameters.AddWithValue("idempotency_key", checkpoint.IdempotencyKey!);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        var receipt = ReadReceipt(reader);
+        await reader.CloseAsync();
+        if (receipt.SequenceNumber != checkpoint.SequenceNumber ||
+            !string.Equals(receipt.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Idempotency key {checkpoint.IdempotencyKey} already exists for session {checkpoint.SessionId} with a different payload.");
+        }
+
+        return receipt;
     }
 
     /// <summary>

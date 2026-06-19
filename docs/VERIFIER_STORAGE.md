@@ -41,7 +41,7 @@ It is not a real institutional trust boundary because:
 
 - the default development mode is still single-node local JSON storage
 - the PostgreSQL path still needs deployment-level validation and operational hardening
-- idempotency-key columns exist in the PostgreSQL shape but request-key enforcement is not yet wired through the API contract
+- production rollout still needs an explicit migration-only path before multi-replica deployment
 
 ## Current Code Status
 
@@ -50,6 +50,7 @@ It is not a real institutional trust boundary because:
 - schema migrations are owned by the app, not left as ad-hoc DBA steps
 - PostgreSQL startup auto-applies missing verifier migrations
 - the verifier server can also run an explicit `migrate` bootstrap path
+- checkpoint retries can use the `Idempotency-Key` header end-to-end
 - append uses a database transaction and session-row locking
 
 ## Intended Durable Backend
@@ -124,6 +125,20 @@ dotnet run --project src/Ows.Verifier.Server -- migrate
 ```
 
 This command only works when `VerifierStorage:Provider=postgres` and a PostgreSQL connection string is configured.
+
+TODO later:
+
+- decide whether external clients need a wider idempotency API contract or a dedicated idempotency service
+- split migration execution from normal startup before multi-replica production rollout
+
+Do not add yet:
+
+- a separate validator layer for verifier requests
+- a richer verifier error envelope
+
+Add those only if external clients actually need structured per-field API errors.
+
+See [DEFERRED_NOTES.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/DEFERRED_NOTES.md) for the running deferred decision list.
 
 ## Important Constraint
 

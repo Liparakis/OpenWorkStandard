@@ -30,6 +30,7 @@ dotnet run --project src/Ows.Cli -- --help
 - `tests/Ows.Core.Tests`: xUnit coverage for core behavior and collapsed MVP service skeletons.
 - `tests/Ows.Cli.Tests`: xUnit coverage for command construction.
 - `docs`: specification, architecture, privacy, security, package format, CLI, and glossary.
+- `docs/DEFERRED_NOTES.md`: explicit "not yet" decisions and deferred follow-up items.
 - `samples/sample-project`: tiny sample tree used for demos and future integration tests.
 
 ## Development setup
@@ -66,3 +67,37 @@ dotnet run --project src/Ows.Verifier.Server -- migrate
 ```
 
 Normal PostgreSQL-backed verifier startup also applies missing ordered migrations automatically. DevOps still owns the database instance, credentials, backups, and deployment policy; OWS owns the verifier schema shape.
+
+## Local durable verifier
+
+For the smallest real PostgreSQL-backed local flow:
+
+```bash
+docker compose -f docker-compose.local.yml up -d
+```
+
+Then follow [VERIFIER_LOCAL_DEV.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/VERIFIER_LOCAL_DEV.md).
+
+Fastest local path on Windows:
+
+```powershell
+.\scripts\run-local-verifier.ps1
+```
+
+Then smoke-test the verifier directly with:
+
+```powershell
+.\scripts\test-local-verifier.ps1
+```
+
+`dotnet build` also emits platform-specific verifier helper scripts under `artifacts/generated-scripts/`.
+
+For background local lifecycle on Windows:
+
+```powershell
+.\scripts\start-local-verifier.ps1
+.\scripts\status-local-verifier.ps1
+.\scripts\logs-local-verifier.ps1
+.\scripts\test-local-verifier.ps1
+.\scripts\stop-local-verifier.ps1
+```

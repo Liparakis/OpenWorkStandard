@@ -9,6 +9,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
     private readonly object gate = new();
+    private readonly Dictionary<AssessmentSessionId, Dictionary<string, PersistedCheckpointRequest>> idempotencyKeys = [];
     private readonly InMemoryReceiptService receiptService = new();
     private readonly Dictionary<AssessmentSessionId, VerifierSessionRecord> sessions = [];
     private readonly string storePath;
@@ -65,6 +66,15 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
         lock (gate)
         {
             var session = GetRequiredSession(checkpoint.SessionId);
+            if (!string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
+            {
+                var existingReceipt = TryGetReceiptByIdempotencyKey(session.Id, checkpoint);
+                if (existingReceipt is not null)
+                {
+                    return Task.FromResult(existingReceipt);
+                }
+            }
+
             if (checkpoint.SequenceNumber <= session.CheckpointCount)
             {
                 var existingReceipt = receiptService.GetReceiptChain(checkpoint.SessionId)
@@ -92,6 +102,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
                 HeadEventHash = receipt.TimelineHeadHash,
                 CheckpointCount = receipt.SequenceNumber
             };
+            RememberIdempotencyKey(checkpoint);
             SaveToDisk();
             return Task.FromResult(receipt);
         }
@@ -155,6 +166,17 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
         {
             receiptService.RestoreSession(receiptChain.SessionId, receiptChain.Receipts);
         }
+
+        foreach (var request in snapshot.IdempotencyKeys)
+        {
+            if (!idempotencyKeys.TryGetValue(request.SessionId, out var sessionKeys))
+            {
+                sessionKeys = [];
+                idempotencyKeys.Add(request.SessionId, sessionKeys);
+            }
+
+            sessionKeys[request.IdempotencyKey] = request;
+        }
     }
 
     /// <summary>
@@ -169,7 +191,13 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
             new VerifierStorageSnapshot
             {
                 Sessions = [.. sessions.Values.OrderBy(session => session.Id.Value, StringComparer.Ordinal)],
-                ReceiptChains = [.. sessions.Keys.OrderBy(sessionId => sessionId.Value, StringComparer.Ordinal).Select(receiptService.GetReceiptChain)]
+                ReceiptChains = [.. sessions.Keys.OrderBy(sessionId => sessionId.Value, StringComparer.Ordinal).Select(receiptService.GetReceiptChain)],
+                IdempotencyKeys =
+                [
+                    .. idempotencyKeys
+                        .OrderBy(entry => entry.Key.Value, StringComparer.Ordinal)
+                        .SelectMany(entry => entry.Value.Values.OrderBy(request => request.IdempotencyKey, StringComparer.Ordinal))
+                ]
             },
             SerializerOptions);
         var temporaryPath = $"{storePath}.{Guid.NewGuid():N}.tmp";
@@ -192,10 +220,75 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
         return session;
     }
 
+    /// <summary>
+    /// Returns a committed receipt for a repeated idempotent request or rejects payload drift.
+    /// </summary>
+    /// <param name="sessionId">The verifier session identifier.</param>
+    /// <param name="checkpoint">The requested checkpoint.</param>
+    /// <returns>The committed receipt when the idempotency key already exists; otherwise <see langword="null"/>.</returns>
+    private CheckpointReceipt? TryGetReceiptByIdempotencyKey(AssessmentSessionId sessionId, Checkpoint checkpoint)
+    {
+        if (!idempotencyKeys.TryGetValue(sessionId, out var sessionKeys) ||
+            !sessionKeys.TryGetValue(checkpoint.IdempotencyKey!, out var persistedRequest))
+        {
+            return null;
+        }
+
+        if (persistedRequest.SequenceNumber != checkpoint.SequenceNumber ||
+            !string.Equals(persistedRequest.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Idempotency key {checkpoint.IdempotencyKey} already exists for session {sessionId} with a different payload.");
+        }
+
+        return receiptService.GetReceiptChain(sessionId)
+            .Receipts
+            .Single(receipt => receipt.SequenceNumber == persistedRequest.SequenceNumber);
+    }
+
+    /// <summary>
+    /// Persists the idempotency key for a committed checkpoint request.
+    /// </summary>
+    /// <param name="checkpoint">The committed checkpoint.</param>
+    private void RememberIdempotencyKey(Checkpoint checkpoint)
+    {
+        if (string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
+        {
+            return;
+        }
+
+        if (!idempotencyKeys.TryGetValue(checkpoint.SessionId, out var sessionKeys))
+        {
+            sessionKeys = [];
+            idempotencyKeys.Add(checkpoint.SessionId, sessionKeys);
+        }
+
+        sessionKeys[checkpoint.IdempotencyKey] = new PersistedCheckpointRequest
+        {
+            SessionId = checkpoint.SessionId,
+            IdempotencyKey = checkpoint.IdempotencyKey,
+            SequenceNumber = checkpoint.SequenceNumber,
+            TimelineHeadHash = checkpoint.TimelineHeadHash
+        };
+    }
+
     private sealed record VerifierStorageSnapshot
     {
         public IReadOnlyList<VerifierSessionRecord> Sessions { get; init; } = Array.Empty<VerifierSessionRecord>();
 
         public IReadOnlyList<ReceiptChain> ReceiptChains { get; init; } = Array.Empty<ReceiptChain>();
+
+        public IReadOnlyList<PersistedCheckpointRequest> IdempotencyKeys { get; init; } = Array.Empty<PersistedCheckpointRequest>();
+    }
+
+    private sealed record PersistedCheckpointRequest
+    {
+        public AssessmentSessionId SessionId { get; init; } = AssessmentSessionId.Create();
+
+        public string IdempotencyKey { get; init; } = string.Empty;
+
+        public int SequenceNumber { get; init; }
+
+        public string TimelineHeadHash { get; init; } = string.Empty;
     }
 }

@@ -23,6 +23,11 @@ public sealed record Checkpoint
     public string TimelineHeadHash { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the optional request idempotency key used for safe client retries.
+    /// </summary>
+    public string? IdempotencyKey { get; init; }
+
+    /// <summary>
     /// Gets the UTC time when the client created the checkpoint.
     /// </summary>
     public DateTimeOffset CreatedAtUtc { get; init; } = DateTimeOffset.UtcNow;

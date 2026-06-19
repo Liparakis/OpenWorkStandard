@@ -312,6 +312,7 @@ public sealed class NotarizationNamespaceTests
     public async Task HttpsReceiptTransport_ShouldUsePlannedApiContract()
     {
         var sessionId = AssessmentSessionId.Create();
+        HttpRequestMessage? checkpointRequest = null;
         var issuedReceipt = new CheckpointReceipt
         {
             SessionId = sessionId,
@@ -331,6 +332,7 @@ public sealed class NotarizationNamespaceTests
 
             if (request.Method == HttpMethod.Post && path == $"sessions/{sessionId}/checkpoints")
             {
+                checkpointRequest = request;
                 return JsonResponse(issuedReceipt);
             }
 
@@ -352,7 +354,8 @@ public sealed class NotarizationNamespaceTests
             {
                 SessionId = activeSessionId,
                 SequenceNumber = sequenceNumber,
-                TimelineHeadHash = "head-1"
+                TimelineHeadHash = "head-1",
+                IdempotencyKey = "checkpoint-1"
             });
 
         var startedSessionId = await transport.StartSessionAsync(CancellationToken.None);
@@ -362,6 +365,7 @@ public sealed class NotarizationNamespaceTests
         startedSessionId.Should().Be(sessionId);
         receipt.SequenceNumber.Should().Be(1);
         receiptChain.Receipts.Should().ContainSingle();
+        checkpointRequest!.Headers.Should().Contain(header => header.Key == "Idempotency-Key" && header.Value.Single() == "checkpoint-1");
         handler.RequestedPaths.Should().ContainInOrder(
             "sessions",
             $"sessions/{sessionId}/checkpoints",
@@ -391,6 +395,70 @@ public sealed class NotarizationNamespaceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("No active assessment session*");
+    }
+
+    /// <summary>
+    /// Verifies that checkpoint requests reject missing payload session identifiers.
+    /// </summary>
+    [Fact]
+    public void CheckpointRequest_ShouldRejectMissingPayloadSessionId()
+    {
+        var request = new CheckpointRequest
+        {
+            SessionId = string.Empty,
+            SequenceNumber = 1,
+            TimelineHeadHash = "head-1"
+        };
+
+        request.GetValidationError("session-1", null).Should().Be("Payload session id is required.");
+    }
+
+    /// <summary>
+    /// Verifies that checkpoint requests reject invalid sequence numbers.
+    /// </summary>
+    [Fact]
+    public void CheckpointRequest_ShouldRejectSequenceNumbersBelowOne()
+    {
+        var request = new CheckpointRequest
+        {
+            SessionId = "session-1",
+            SequenceNumber = 0,
+            TimelineHeadHash = "head-1"
+        };
+
+        request.GetValidationError("session-1", null).Should().Be("Checkpoint sequence number must be at least 1.");
+    }
+
+    /// <summary>
+    /// Verifies that checkpoint requests reject missing timeline head hashes.
+    /// </summary>
+    [Fact]
+    public void CheckpointRequest_ShouldRejectMissingTimelineHeadHash()
+    {
+        var request = new CheckpointRequest
+        {
+            SessionId = "session-1",
+            SequenceNumber = 1,
+            TimelineHeadHash = string.Empty
+        };
+
+        request.GetValidationError("session-1", null).Should().Be("Timeline head hash is required.");
+    }
+
+    /// <summary>
+    /// Verifies that checkpoint requests reject blank idempotency keys when a header is present.
+    /// </summary>
+    [Fact]
+    public void CheckpointRequest_ShouldRejectBlankIdempotencyKey()
+    {
+        var request = new CheckpointRequest
+        {
+            SessionId = "session-1",
+            SequenceNumber = 1,
+            TimelineHeadHash = "head-1"
+        };
+
+        request.GetValidationError("session-1", " ").Should().Be("Idempotency-Key header must not be empty when provided.");
     }
 
     /// <summary>

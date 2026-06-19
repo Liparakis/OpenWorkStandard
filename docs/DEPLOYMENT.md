@@ -18,6 +18,13 @@ The deployment model should preserve the core trust split:
 
 Use Docker Compose for the local stack.
 
+Current minimal local durable-verifier path:
+
+- `docker-compose.local.yml`
+- PostgreSQL only
+- verifier server started directly from `dotnet run`
+- local container root `D:\Containers\OWS`
+
 Recommended local services:
 
 - `ows-api`
@@ -49,6 +56,8 @@ Local development priorities:
 - inspectable logs
 - no managed-cloud dependency
 - easy reset/rebuild loop
+
+See [VERIFIER_LOCAL_DEV.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/VERIFIER_LOCAL_DEV.md) for the current local PostgreSQL-backed verifier flow.
 
 ## Self-Hosted Production
 
