@@ -1,0 +1,118 @@
+# OWS Threat Model
+
+## Scope
+
+This document describes the current Open Work Standard threat model for the MVP repository.
+
+It is intentionally narrow:
+
+- local project capture
+- `.owspkg` package creation
+- local and remote checkpoint issuance
+- package verification
+- local verifier development flow
+
+It does not pretend to cover institutional production deployment in full.
+
+## Security Goal
+
+OWS aims to make academic work provenance tamper-evident.
+
+OWS does not aim to make a student-owned machine tamper-proof.
+
+## Primary Assets
+
+- local timeline history in `.ows/timeline.jsonl`
+- local session metadata in `.ows/session.json`
+- local receipt material in `.ows/receipts.json`
+- packaged artifacts inside `.owspkg`
+- package manifest, timeline, and version graph hashes
+- verifier-issued receipt chains
+- durable verifier checkpoint history in PostgreSQL
+
+## Trust Boundaries
+
+### Untrusted or weakly trusted
+
+- student-owned workstation
+- local filesystem outside cryptographic validation
+- local long-running watcher process, if one exists later
+- local verifier development environment
+
+### Stronger trust boundary
+
+- durable remote verifier storage
+- verifier-issued receipt history after durable commit
+
+## Threat Actors
+
+- a student modifying local evidence after the fact
+- a student stopping local capture and continuing off-record
+- a local operator misconfiguring or disabling verifier infrastructure
+- an external client replaying or duplicating checkpoint requests
+- an institution overclaiming what the current MVP can prove
+
+## In-Scope Threats
+
+- modifying timeline events after capture
+- deleting, duplicating, or reordering local events
+- modifying packaged artifacts after packaging
+- forging or replaying checkpoint requests
+- retry storms and accidental duplicate submissions
+- stale or missing local verifier state during development
+- verifier storage outages or migration failures
+- trust overstatement when receipts are missing or incomplete
+
+## Out-of-Scope Threats
+
+- full endpoint compromise on the student machine
+- keylogger or spyware already present on the workstation
+- side-channel resistance
+- anti-cheat or device lockdown
+- human collusion outside the protocol
+- final institutional policy decisions
+
+## Current Mitigations
+
+- chained local timeline events in `timeline.jsonl`
+- package manifest hashing
+- artifact hash verification
+- packaged receipt-chain verification
+- live verifier cross-checking
+- trust grading with `Verified`, `Unverified`, and `Invalid`
+- durable PostgreSQL-backed verifier storage
+- idempotent checkpoint retry handling
+- app-owned verifier migrations
+
+## Known Gaps
+
+- `ows watch` is still one-shot only
+- there is no persistent always-on watcher yet
+- `Degraded` exists in the model but not as a meaningful policy state
+- the verifier is not yet production-grade
+- auth and RBAC are not implemented
+- signing-key hardening is not implemented
+- retention enforcement is not implemented
+
+## What OWS Can Honestly Claim Today
+
+- package and event integrity can be checked
+- receipt chains can be validated
+- local evidence can be tamper-evident
+- remote durable receipts improve trust
+
+## What OWS Must Not Claim Today
+
+- that it prevents all cheating
+- that local capture cannot be disabled
+- that local-only evidence is as strong as durable remote receipts
+- that the current verifier is already an institutional-grade trust boundary
+
+## Roadmap Consequence
+
+The next security-relevant implementation priorities remain:
+
+1. stronger watcher lifecycle and capture fidelity
+2. durable and operationally reliable verifier flow
+3. server-side package submission and verification
+4. auth, RBAC, and operational hardening only after the current flow is stable

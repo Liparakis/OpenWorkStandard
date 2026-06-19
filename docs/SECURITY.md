@@ -1,5 +1,10 @@
 # Security Model
 
+See also:
+
+- `docs/THREAT_MODEL.md` for the explicit MVP threat model
+- `docs/PRIVACY.md` for privacy boundaries and current retention behavior
+
 ## Security Posture
 
 OWS is designed to be tamper-evident, not magically tamper-proof on a student-owned machine.
@@ -18,7 +23,7 @@ What OWS should not claim:
 - that local keys are impossible to inspect
 - that absence of evidence is proof of misconduct
 
-## Threat Model
+## Threat Summary
 
 The relevant threat model includes:
 

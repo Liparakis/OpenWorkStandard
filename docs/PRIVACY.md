@@ -27,3 +27,50 @@ OWS must never collect:
 ## Design stance
 
 Privacy is a product boundary. If a proposed feature requires broader device surveillance, it does not belong in OWS without a fundamental change to the project mission and documentation.
+
+## Current Storage and Retention Reality
+
+OWS is local-first today, but it still creates retained data.
+
+Current local retained data may include:
+
+- `.ows/timeline.jsonl`
+- `.ows/config.json`
+- `.ows/session.json`
+- `.ows/receipts.json`
+- `.owspkg` output files
+- local verifier logs under `artifacts/local-verifier/`
+
+Current remote retained data may include:
+
+- verifier sessions
+- durable checkpoints
+- durable receipts
+- verifier metadata needed to reconstruct session head state
+
+## Current Retention Behavior
+
+Today, retention is mostly manual and operator-controlled.
+
+- local project evidence stays on disk until the user deletes it
+- local verifier logs stay on disk until the operator deletes them
+- PostgreSQL-backed verifier data stays in the configured database until the operator applies retention policy outside the app
+
+OWS does not yet enforce automatic retention expiry, institutional retention windows, or legal hold behavior.
+
+## Current Privacy Limits
+
+What this means in practice:
+
+- OWS minimizes scope better than surveillance tools, but it is not zero-retention
+- self-hosters and institutions must decide how long verifier data should remain
+- the current MVP should not promise policy-grade retention controls that do not exist yet
+
+## Future Requirements
+
+Before institutional rollout, OWS should add or document:
+
+- explicit retention windows for sessions, receipts, and reports
+- operator guidance for log retention and deletion
+- data export and deletion expectations
+- separation between project evidence retention and infrastructure log retention
