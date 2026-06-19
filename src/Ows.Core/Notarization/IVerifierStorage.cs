@@ -6,11 +6,18 @@ namespace Ows.Core.Notarization;
 public interface IVerifierStorage
 {
     /// <summary>
-    /// Creates and persists a new verifier session.
+    /// Creates and persists a new verifier session with optional educational metadata.
     /// </summary>
+    /// <param name="clientId">Optional client / user ID associated with the session.</param>
+    /// <param name="assessmentId">Optional assessment ID associated with the session.</param>
+    /// <param name="metadataJson">Optional arbitrary JSON metadata associated with the session.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The persisted verifier session record.</returns>
-    Task<VerifierSessionRecord> CreateSessionAsync(CancellationToken cancellationToken);
+    Task<VerifierSessionRecord> CreateSessionAsync(
+        string? clientId,
+        string? assessmentId,
+        string? metadataJson,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets the persisted verifier session record.

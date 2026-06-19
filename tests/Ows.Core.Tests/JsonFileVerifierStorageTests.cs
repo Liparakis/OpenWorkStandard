@@ -21,7 +21,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var firstStorage = new JsonFileVerifierStorage(storePath);
-            var createdSession = await firstStorage.CreateSessionAsync(CancellationToken.None);
+            var createdSession = await firstStorage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             var secondStorage = new JsonFileVerifierStorage(storePath);
             var restoredSession = await secondStorage.GetSessionAsync(createdSession.Id, CancellationToken.None);
@@ -52,7 +52,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var firstStorage = new JsonFileVerifierStorage(storePath);
-            var session = await firstStorage.CreateSessionAsync(CancellationToken.None);
+            var session = await firstStorage.CreateSessionAsync(null, null, null, CancellationToken.None);
             var firstReceipt = await firstStorage.AppendCheckpointAsync(
                 new Checkpoint
                 {
@@ -99,7 +99,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var firstStorage = new JsonFileVerifierStorage(storePath, "test-signing-key");
-            var session = await firstStorage.CreateSessionAsync(CancellationToken.None);
+            var session = await firstStorage.CreateSessionAsync(null, null, null, CancellationToken.None);
             var receipt = await firstStorage.AppendCheckpointAsync(
                 new Checkpoint
                 {
@@ -137,7 +137,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var storage = new JsonFileVerifierStorage(storePath, "test-signing-key");
-            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
             _ = await storage.AppendCheckpointAsync(
                 new Checkpoint
                 {
@@ -173,7 +173,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var storage = new JsonFileVerifierStorage(storePath);
-            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             await storage.AppendCheckpointAsync(new Checkpoint { SessionId = session.Id, SequenceNumber = 1, TimelineHeadHash = "head-1" }, CancellationToken.None);
             await storage.AppendCheckpointAsync(new Checkpoint { SessionId = session.Id, SequenceNumber = 2, TimelineHeadHash = "head-2" }, CancellationToken.None);
@@ -205,7 +205,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var storage = new JsonFileVerifierStorage(storePath);
-            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
             var firstReceipt = await storage.AppendCheckpointAsync(
                 new Checkpoint
                 {
@@ -252,7 +252,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var storage = new JsonFileVerifierStorage(storePath);
-            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             var firstReceipt = await storage.AppendCheckpointAsync(
                 new Checkpoint
@@ -295,7 +295,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var storage = new JsonFileVerifierStorage(storePath);
-            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             _ = await storage.AppendCheckpointAsync(
                 new Checkpoint
@@ -339,7 +339,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var storage = new JsonFileVerifierStorage(storePath);
-            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
             var firstReceipt = await storage.AppendCheckpointAsync(
                 new Checkpoint
                 {
@@ -383,7 +383,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var storage = new JsonFileVerifierStorage(storePath);
-            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             _ = await storage.AppendCheckpointAsync(
                 new Checkpoint
@@ -494,7 +494,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var storage = new JsonFileVerifierStorage(storePath);
-            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             // Initial state: heartbeat and lease initialized on session creation
             session.LastHeartbeatAt.Should().NotBeNull();
@@ -548,7 +548,7 @@ public sealed class JsonFileVerifierStorageTests
         try
         {
             var storage = new JsonFileVerifierStorage(storePath);
-            var session = await storage.CreateSessionAsync(CancellationToken.None);
+            var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             // Set lease in the past via negative duration heartbeat
             var updated1 = await storage.RecordHeartbeatAsync(session.Id, "hash1", TimeSpan.FromSeconds(-5), CancellationToken.None);
@@ -578,3 +578,4 @@ public sealed class JsonFileVerifierStorageTests
         }
     }
 }
+

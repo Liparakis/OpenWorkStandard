@@ -11,6 +11,21 @@ public sealed record VerifierPackageSubmissionRequest
     public string? SessionId { get; init; }
 
     /// <summary>
+    /// Gets the optional institution identifier.
+    /// </summary>
+    public string? InstitutionId { get; init; }
+
+    /// <summary>
+    /// Gets the optional assessment identifier.
+    /// </summary>
+    public string? AssessmentId { get; init; }
+
+    /// <summary>
+    /// Gets the optional student user identifier.
+    /// </summary>
+    public string? StudentUserId { get; init; }
+
+    /// <summary>
     /// Gets the optional idempotency key supplied by the caller.
     /// </summary>
     public string? IdempotencyKey { get; init; }

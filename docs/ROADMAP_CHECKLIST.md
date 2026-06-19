@@ -4,7 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Establish database persistence and verifier API endpoints for educational domain models.
+Connect the education domain (Institutions, Courses, Classes, Assessments, Users) to verifier review reports.
+
+**Next milestone:** Auth and RBAC v0.1 — add operator-level API key management, institution-scoped access, and a read-only reviewer role for professors to query verification results.
 
 ## 1. Current MVP Status
 
@@ -111,14 +113,31 @@ Establish database persistence and verifier API endpoints for educational domain
 - [x] Students
 - [x] Multi-tenant policy model
 
-## 12. Desktop and IDE Integrations
+## 12. Education Workflow Wiring v0.1
+
+- [x] `IEducationStore` interface (Json + Postgres backends)
+- [x] `POST /education/institutions`, `GET /education/institutions/{id}`
+- [x] `POST /education/courses`, `GET /education/courses/{id}`
+- [x] `POST /education/class-groups`, `GET /education/class-groups/{id}`
+- [x] `POST /education/course-offerings`, `GET /education/course-offerings/{id}`
+- [x] `POST /education/enrollments`, enrollment queries by user and offering
+- [x] `POST /education/assessments`, `GET /education/assessments/{id}`
+- [x] `POST /education/users`, `GET /education/users/{id}`
+- [x] `POST /sessions` accepts optional education context (`institutionId`, `assessmentId`, `studentUserId`, `courseOfferingId`)
+- [x] Institution, assessment-to-institution, and student validation on session start
+- [x] Education context propagated into `PackageVerificationRequest` on all three verification paths
+- [x] `ReportEducationContext` assembled from store lookups and embedded in verification reports
+- [x] `Assessment Context` section in JSON and text reports
+- [x] `EducationWiringTests` covering store round-trips and session validation logic
+
+## 13. Desktop and IDE Integrations
 
 - [ ] Desktop UI
 - [ ] VS Code integration
 - [ ] Rider integration
 - [ ] Host-specific watcher implementations
 
-## 13. Deferred and Future Technologies
+## 14. Deferred and Future Technologies
 
 - [ ] Kubernetes
 - [ ] Redis

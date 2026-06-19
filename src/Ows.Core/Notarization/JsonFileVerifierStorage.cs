@@ -32,7 +32,11 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
     }
 
     /// <inheritdoc />
-    public Task<VerifierSessionRecord> CreateSessionAsync(CancellationToken cancellationToken)
+    public Task<VerifierSessionRecord> CreateSessionAsync(
+        string? clientId,
+        string? assessmentId,
+        string? metadataJson,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -48,7 +52,10 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
                 LastHeartbeatAt = now,
                 LeaseExpiresAt = now.Add(TimeSpan.FromSeconds(120)),
                 HasLeaseGap = false,
-                MaxLeaseGapSeconds = 0
+                MaxLeaseGapSeconds = 0,
+                ClientId = clientId,
+                AssessmentId = assessmentId,
+                MetadataJson = metadataJson ?? "{}"
             };
             _sessions.Add(sessionId, sessionRecord);
             SaveToDisk();

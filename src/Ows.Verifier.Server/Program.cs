@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Ows.Core.Education;
 using Ows.Core.Notarization;
 using Ows.Core.Verification;
 using Ows.Verifier.Server;
@@ -146,6 +147,16 @@ builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Pr
         normalizedStorageOptions.ReceiptSigningKey),
     _ => throw new NotSupportedException($"Unsupported verifier storage provider: {normalizedStorageOptions.Provider}")
 });
+builder.Services.AddSingleton<IEducationStore>(_ =>
+{
+    var storePath = Path.Combine(
+        Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath,
+        "education.json");
+    return string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
+        ? new PostgresEducationStore(normalizedStorageOptions.PostgresConnectionString)
+        : new JsonFileEducationStore(storePath);
+});
 
 var app = builder.Build();
 var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Requests");
@@ -179,6 +190,24 @@ if (app.Services.GetService<IVerifierStorage>() is { } storage)
     catch (Exception ex)
     {
         startupLogger.LogError(ex, "Failed to initialize verifier storage.");
+        if (isProduction)
+        {
+            throw; // Fail startup in production
+        }
+    }
+}
+
+if (app.Services.GetService<IEducationStore>() is { } educationStore)
+{
+    try
+    {
+        startupLogger.LogInformation("Initializing education store...");
+        await educationStore.InitializeAsync(CancellationToken.None);
+        startupLogger.LogInformation("Education store initialized successfully.");
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogError(ex, "Failed to initialize education store.");
         if (isProduction)
         {
             throw; // Fail startup in production
@@ -249,9 +278,69 @@ app.MapGet("/ready", async (IVerifierStorage storage, VerifierStorageOptions opt
     }
 });
 
-app.MapPost("/sessions", async (IVerifierStorage storage, CancellationToken cancellationToken) =>
+app.MapPost("/sessions", async (StartSessionRequest? body, IVerifierStorage storage,
+    IEducationStore educationStore, CancellationToken cancellationToken) =>
 {
-    var session = await storage.CreateSessionAsync(cancellationToken);
+    string? clientId = body?.StudentUserId;
+    string? assessmentId = body?.AssessmentId;
+    string? metadataJson = null;
+
+    // Validate education context when any field is supplied
+    if (!string.IsNullOrWhiteSpace(body?.InstitutionId)
+        || !string.IsNullOrWhiteSpace(body?.AssessmentId)
+        || !string.IsNullOrWhiteSpace(body?.StudentUserId))
+    {
+        // Validate institution exists
+        if (string.IsNullOrWhiteSpace(body?.InstitutionId))
+        {
+            return Results.BadRequest("InstitutionId is required when education context is supplied.");
+        }
+
+        var institution = await educationStore.GetInstitutionAsync(
+            new InstitutionId(body.InstitutionId), cancellationToken);
+        if (institution is null)
+        {
+            return Results.BadRequest($"Institution '{body.InstitutionId}' not found.");
+        }
+
+        // Validate assessment belongs to the institution when supplied
+        if (!string.IsNullOrWhiteSpace(body.AssessmentId))
+        {
+            var assessment = await educationStore.GetAssessmentAsync(
+                new AssessmentId(body.AssessmentId), cancellationToken);
+            if (assessment is null)
+            {
+                return Results.BadRequest($"Assessment '{body.AssessmentId}' not found.");
+            }
+            if (!string.Equals(assessment.InstitutionId.Value, body.InstitutionId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest(
+                    $"Assessment '{body.AssessmentId}' does not belong to institution '{body.InstitutionId}'.");
+            }
+        }
+
+        // Validate student exists when supplied
+        if (!string.IsNullOrWhiteSpace(body.StudentUserId))
+        {
+            var student = await educationStore.GetUserAsync(
+                new UserId(body.StudentUserId), cancellationToken);
+            if (student is null)
+            {
+                return Results.BadRequest($"Student user '{body.StudentUserId}' not found.");
+            }
+        }
+
+        metadataJson = JsonSerializer.Serialize(new
+        {
+            institutionId = body.InstitutionId,
+            assessmentId = body.AssessmentId,
+            studentUserId = body.StudentUserId,
+            courseOfferingId = body.CourseOfferingId
+        });
+    }
+
+    var session = await storage.CreateSessionAsync(clientId, assessmentId, metadataJson, cancellationToken);
     return Results.Ok(new StartSessionResponse { SessionId = session.Id.Value });
 });
 
@@ -320,8 +409,8 @@ app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest re
 });
 
 app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore packageStore,
-    IVerifierStorage storage, IPackageVerifier verifier, VerifierStorageOptions options,
-    CancellationToken cancellationToken) =>
+    IVerifierStorage storage, IPackageVerifier verifier, IEducationStore educationStore,
+    VerifierStorageOptions options, CancellationToken cancellationToken) =>
 {
     var idempotencyKey = request.Headers["Idempotency-Key"].FirstOrDefault();
 
@@ -403,6 +492,13 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
                 }
             }
 
+            var educationContext = await ResolveEducationContextAsync(
+                submissionRequest.InstitutionId,
+                submissionRequest.AssessmentId,
+                submissionRequest.StudentUserId,
+                educationStore,
+                cancellationToken);
+
             var verifyRequest = new PackageVerificationRequest
             {
                 PackagePath = packageFilePath,
@@ -412,7 +508,8 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
                 SessionLeaseExpiresAt = verifierSession?.LeaseExpiresAt,
                 SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
                 SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
-                SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt
+                SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt,
+                EducationContext = educationContext
             };
 
             var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
@@ -485,8 +582,8 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
 });
 
 app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubmissionStore packageStore,
-    IVerifierStorage storage, IPackageVerifier verifier, VerifierStorageOptions options,
-    CancellationToken cancellationToken) =>
+    IVerifierStorage storage, IPackageVerifier verifier, IEducationStore educationStore,
+    VerifierStorageOptions options, CancellationToken cancellationToken) =>
 {
     var submission = await packageStore.GetAsync(id, cancellationToken);
     if (submission is null)
@@ -547,6 +644,13 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubm
             }
         }
 
+        var educationContext = await ResolveEducationContextAsync(
+            submission.InstitutionId,
+            submission.AssessmentId,
+            submission.StudentUserId,
+            educationStore,
+            cancellationToken);
+
         var verifyRequest = new PackageVerificationRequest
         {
             PackagePath = packageFilePath,
@@ -556,7 +660,8 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubm
             SessionLeaseExpiresAt = verifierSession?.LeaseExpiresAt,
             SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
             SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
-            SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt
+            SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt,
+            EducationContext = educationContext
         };
 
         var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
@@ -587,8 +692,8 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubm
 });
 
 app.MapPost("/packages/{id}/verify", async (string id, IPackageSubmissionStore packageStore,
-    IVerifierStorage storage, IPackageVerifier verifier, VerifierStorageOptions options,
-    CancellationToken cancellationToken) =>
+    IVerifierStorage storage, IPackageVerifier verifier, IEducationStore educationStore,
+    VerifierStorageOptions options, CancellationToken cancellationToken) =>
 {
     var submission = await packageStore.GetAsync(id, cancellationToken);
     if (submission is null)
@@ -621,6 +726,13 @@ app.MapPost("/packages/{id}/verify", async (string id, IPackageSubmissionStore p
         }
     }
 
+    var educationContext = await ResolveEducationContextAsync(
+        submission.InstitutionId,
+        submission.AssessmentId,
+        submission.StudentUserId,
+        educationStore,
+        cancellationToken);
+
     var verifyRequest = new PackageVerificationRequest
     {
         PackagePath = packageFilePath,
@@ -630,7 +742,8 @@ app.MapPost("/packages/{id}/verify", async (string id, IPackageSubmissionStore p
         SessionLeaseExpiresAt = verifierSession?.LeaseExpiresAt,
         SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
         SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
-        SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt
+        SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt,
+        EducationContext = educationContext
     };
 
     var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
@@ -702,7 +815,185 @@ app.MapGet("/sessions/{id}/head", async (string id, IVerifierStorage storage, Ca
     }
 });
 
+// ── Education endpoints ───────────────────────────────────────────────────
+
+// Institutions
+app.MapPost("/education/institutions", async (Institution institution, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    await educationStore.CreateInstitutionAsync(institution, cancellationToken);
+    return Results.Ok(institution);
+});
+
+app.MapGet("/education/institutions/{id}", async (string id, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    var institution = await educationStore.GetInstitutionAsync(new InstitutionId(id), cancellationToken);
+    return institution is null ? Results.NotFound($"Institution '{id}' not found.") : Results.Ok(institution);
+});
+
+// Courses
+app.MapPost("/education/courses", async (Course course, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    await educationStore.CreateCourseAsync(course, cancellationToken);
+    return Results.Ok(course);
+});
+
+app.MapGet("/education/courses/{id}", async (string id, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    var course = await educationStore.GetCourseAsync(new CourseId(id), cancellationToken);
+    return course is null ? Results.NotFound($"Course '{id}' not found.") : Results.Ok(course);
+});
+
+// Class groups
+app.MapPost("/education/class-groups", async (ClassGroup classGroup, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    await educationStore.CreateClassGroupAsync(classGroup, cancellationToken);
+    return Results.Ok(classGroup);
+});
+
+app.MapGet("/education/class-groups/{id}", async (string id, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    var classGroup = await educationStore.GetClassGroupAsync(new ClassGroupId(id), cancellationToken);
+    return classGroup is null ? Results.NotFound($"Class group '{id}' not found.") : Results.Ok(classGroup);
+});
+
+// Course offerings
+app.MapPost("/education/course-offerings", async (CourseOffering offering, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    await educationStore.CreateCourseOfferingAsync(offering, cancellationToken);
+    return Results.Ok(offering);
+});
+
+app.MapGet("/education/course-offerings/{id}", async (string id, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    var offering = await educationStore.GetCourseOfferingAsync(new CourseOfferingId(id), cancellationToken);
+    return offering is null ? Results.NotFound($"Course offering '{id}' not found.") : Results.Ok(offering);
+});
+
+// Enrollments
+app.MapPost("/education/enrollments", async (Enrollment enrollment, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    await educationStore.CreateEnrollmentAsync(enrollment, cancellationToken);
+    return Results.Ok(enrollment);
+});
+
+app.MapGet("/education/enrollments/user/{userId}", async (string userId, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    var enrollments = await educationStore.GetEnrollmentsForUserAsync(new UserId(userId), cancellationToken);
+    return Results.Ok(enrollments);
+});
+
+app.MapGet("/education/enrollments/offering/{offeringId}", async (string offeringId,
+    IEducationStore educationStore, CancellationToken cancellationToken) =>
+{
+    var enrollments = await educationStore.GetEnrollmentsForOfferingAsync(
+        new CourseOfferingId(offeringId), cancellationToken);
+    return Results.Ok(enrollments);
+});
+
+// Assessments
+app.MapPost("/education/assessments", async (Assessment assessment, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    await educationStore.CreateAssessmentAsync(assessment, cancellationToken);
+    return Results.Ok(assessment);
+});
+
+app.MapGet("/education/assessments/{id}", async (string id, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    var assessment = await educationStore.GetAssessmentAsync(new AssessmentId(id), cancellationToken);
+    return assessment is null ? Results.NotFound($"Assessment '{id}' not found.") : Results.Ok(assessment);
+});
+
+// Users / students
+app.MapPost("/education/users", async (User user, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    await educationStore.CreateUserAsync(user, cancellationToken);
+    return Results.Ok(user);
+});
+
+app.MapGet("/education/users/{id}", async (string id, IEducationStore educationStore,
+    CancellationToken cancellationToken) =>
+{
+    var user = await educationStore.GetUserAsync(new UserId(id), cancellationToken);
+    return user is null ? Results.NotFound($"User '{id}' not found.") : Results.Ok(user);
+});
+
+// ── End education endpoints ───────────────────────────────────────────────
+
 app.Run();
+
+/// <summary>
+/// Resolves a <see cref="ReportEducationContext"/> from the education store using the supplied identifiers.
+/// Returns <see langword="null"/> when no education identifiers are provided.
+/// </summary>
+static async Task<ReportEducationContext?> ResolveEducationContextAsync(
+    string? institutionId,
+    string? assessmentId,
+    string? studentUserId,
+    IEducationStore educationStore,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(institutionId)
+        && string.IsNullOrWhiteSpace(assessmentId)
+        && string.IsNullOrWhiteSpace(studentUserId))
+    {
+        return null;
+    }
+
+    Institution? institution = null;
+    if (!string.IsNullOrWhiteSpace(institutionId))
+    {
+        institution = await educationStore.GetInstitutionAsync(new InstitutionId(institutionId), cancellationToken);
+    }
+
+    Assessment? assessment = null;
+    Course? course = null;
+    CourseOffering? offering = null;
+    if (!string.IsNullOrWhiteSpace(assessmentId))
+    {
+        assessment = await educationStore.GetAssessmentAsync(new AssessmentId(assessmentId), cancellationToken);
+        if (assessment is not null)
+        {
+            offering = await educationStore.GetCourseOfferingAsync(assessment.CourseOfferingId, cancellationToken);
+            if (offering is not null)
+            {
+                course = await educationStore.GetCourseAsync(offering.CourseId, cancellationToken);
+            }
+        }
+    }
+
+    User? student = null;
+    if (!string.IsNullOrWhiteSpace(studentUserId))
+    {
+        student = await educationStore.GetUserAsync(new UserId(studentUserId), cancellationToken);
+    }
+
+    return new ReportEducationContext
+    {
+        InstitutionId = institution?.Id.Value,
+        InstitutionName = institution?.Name,
+        CourseId = course?.Id.Value,
+        CourseCode = course?.Code,
+        CourseTitle = course?.Title,
+        AssessmentId = assessment?.Id.Value,
+        AssessmentTitle = assessment?.Title,
+        StudentUserId = student?.Id.Value,
+        StudentDisplayName = student?.DisplayName,
+        StudentExternalId = student?.ExternalId
+    };
+}
 
 static async Task<string> ComputeSha256HashAsync(string filePath, CancellationToken cancellationToken)
 {
@@ -748,6 +1039,24 @@ public enum VerifierEnvironmentMode
     Development,
     Local,
     Production
+}
+
+/// <summary>
+/// Represents the optional education context that may be supplied when starting a new verifier session.
+/// </summary>
+public sealed record StartSessionRequest
+{
+    /// <summary>Gets the optional institution identifier.</summary>
+    public string? InstitutionId { get; init; }
+
+    /// <summary>Gets the optional course offering identifier.</summary>
+    public string? CourseOfferingId { get; init; }
+
+    /// <summary>Gets the optional assessment identifier.</summary>
+    public string? AssessmentId { get; init; }
+
+    /// <summary>Gets the optional student user identifier.</summary>
+    public string? StudentUserId { get; init; }
 }
 
 public partial class Program { }

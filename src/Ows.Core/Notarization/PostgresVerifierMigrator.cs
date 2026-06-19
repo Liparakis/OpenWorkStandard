@@ -107,6 +107,73 @@ public static class PostgresVerifierMigrator
                                                             add column if not exists first_lease_gap_at timestamptz null;
                                                         """;
 
+    private const string Migration007EducationSql = """
+                                                     create table if not exists edu_institutions (
+                                                         id text primary key,
+                                                         name text not null,
+                                                         slug text not null,
+                                                         created_at timestamptz not null
+                                                     );
+
+                                                     create table if not exists edu_courses (
+                                                         id text primary key,
+                                                         institution_id text not null references edu_institutions(id) on delete cascade,
+                                                         code text not null,
+                                                         title text not null,
+                                                         created_at timestamptz not null
+                                                     );
+
+                                                     create table if not exists edu_classes (
+                                                         id text primary key,
+                                                         institution_id text not null references edu_institutions(id) on delete cascade,
+                                                         name text not null,
+                                                         created_at timestamptz not null
+                                                     );
+
+                                                     create table if not exists edu_course_offerings (
+                                                         id text primary key,
+                                                         institution_id text not null references edu_institutions(id) on delete cascade,
+                                                         course_id text not null references edu_courses(id) on delete cascade,
+                                                         class_group_id text not null references edu_classes(id) on delete cascade,
+                                                         term text not null,
+                                                         year integer not null,
+                                                         created_at timestamptz not null
+                                                     );
+
+                                                     create table if not exists edu_users (
+                                                         id text primary key,
+                                                         institution_id text not null references edu_institutions(id) on delete cascade,
+                                                         display_name text not null,
+                                                         external_id text null,
+                                                         email text null,
+                                                         created_at timestamptz not null
+                                                     );
+
+                                                     create table if not exists edu_enrollments (
+                                                         id text primary key,
+                                                         course_offering_id text not null references edu_course_offerings(id) on delete cascade,
+                                                         user_id text not null references edu_users(id) on delete cascade,
+                                                         role text not null,
+                                                         created_at timestamptz not null
+                                                     );
+
+                                                     create table if not exists edu_assessments (
+                                                         id text primary key,
+                                                         institution_id text not null references edu_institutions(id) on delete cascade,
+                                                         course_offering_id text not null references edu_course_offerings(id) on delete cascade,
+                                                         title text not null,
+                                                         starts_at timestamptz null,
+                                                         ends_at timestamptz null,
+                                                         policy_id text null,
+                                                         created_at timestamptz not null
+                                                     );
+
+                                                     alter table verifier_package_submissions
+                                                         add column if not exists institution_id text null,
+                                                         add column if not exists assessment_id text null,
+                                                         add column if not exists student_user_id text null;
+                                                     """;
+
     /// <summary>
     /// Applies any missing ordered verifier schema migrations using a fresh data source.
     /// </summary>
@@ -161,7 +228,8 @@ public static class PostgresVerifierMigrator
         new(3, "package-session-anchors", Migration003PackageSessionAnchorsSql),
         new(4, "package-idempotency", Migration004PackageIdempotencySql),
         new(5, "package-verification-results", Migration005PackageVerificationResultSql),
-        new(6, "session-leases", Migration006SessionLeasesSql)
+        new(6, "session-leases", Migration006SessionLeasesSql),
+        new(7, "education-wiring", Migration007EducationSql)
     ];
 
     /// <summary>

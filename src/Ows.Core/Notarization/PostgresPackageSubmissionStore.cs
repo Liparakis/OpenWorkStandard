@@ -92,7 +92,10 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
                                   idempotency_key,
                                   session_head_receipt_hash,
                                   session_head_event_hash,
-                                  session_checkpoint_count
+                                  session_checkpoint_count,
+                                  institution_id,
+                                  assessment_id,
+                                  student_user_id
                               )
                               values (
                                   @id,
@@ -105,9 +108,12 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
                                   @idempotency_key,
                                   @session_head_receipt_hash,
                                   @session_head_event_hash,
-                                  @session_checkpoint_count
+                                  @session_checkpoint_count,
+                                  @institution_id,
+                                  @assessment_id,
+                                  @student_user_id
                               )
-                              returning id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json;
+                              returning id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json, institution_id, assessment_id, student_user_id;
                               """;
         command.Parameters.AddWithValue("id", Guid.NewGuid().ToString("N"));
         command.Parameters.AddWithValue("session_id", (object?)request.SessionId ?? DBNull.Value);
@@ -120,6 +126,9 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
         command.Parameters.AddWithValue("session_head_receipt_hash", (object?)session?.HeadReceiptHash ?? DBNull.Value);
         command.Parameters.AddWithValue("session_head_event_hash", (object?)session?.HeadEventHash ?? DBNull.Value);
         command.Parameters.AddWithValue("session_checkpoint_count", (object?)session?.CheckpointCount ?? DBNull.Value);
+        command.Parameters.AddWithValue("institution_id", (object?)request.InstitutionId ?? DBNull.Value);
+        command.Parameters.AddWithValue("assessment_id", (object?)request.AssessmentId ?? DBNull.Value);
+        command.Parameters.AddWithValue("student_user_id", (object?)request.StudentUserId ?? DBNull.Value);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         await reader.ReadAsync(cancellationToken);
@@ -146,7 +155,7 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json, institution_id, assessment_id, student_user_id
                               from verifier_package_submissions
                               where id = @id;
                               """;
@@ -205,7 +214,7 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json, institution_id, assessment_id, student_user_id
                               from verifier_package_submissions
                               where object_storage_provider = @object_storage_provider
                                 and object_bucket = @object_bucket
@@ -238,7 +247,7 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
 
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json, institution_id, assessment_id, student_user_id
                               from verifier_package_submissions
                               where idempotency_key = @idempotency_key;
                               """;
@@ -319,6 +328,9 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
             VerificationStatus = reader.GetString(11),
             TrustStatus = reader.IsDBNull(13) ? null : reader.GetString(13),
             VerificationResultJson = reader.IsDBNull(14) ? null : reader.GetString(14),
-            CreatedAtUtc = reader.GetFieldValue<DateTimeOffset>(12)
+            CreatedAtUtc = reader.GetFieldValue<DateTimeOffset>(12),
+            InstitutionId = reader.IsDBNull(15) ? null : reader.GetString(15),
+            AssessmentId = reader.IsDBNull(16) ? null : reader.GetString(16),
+            StudentUserId = reader.IsDBNull(17) ? null : reader.GetString(17)
         };
 }

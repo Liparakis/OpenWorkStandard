@@ -84,7 +84,10 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
                 PackageSha256 = request.PackageSha256.ToLowerInvariant(),
                 PackageSizeBytes = request.PackageSizeBytes,
                 VerificationStatus = "Registered",
-                CreatedAtUtc = DateTimeOffset.UtcNow
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                InstitutionId = request.InstitutionId,
+                AssessmentId = request.AssessmentId,
+                StudentUserId = request.StudentUserId
             };
 
             _submissions.Add(submissionId, response);

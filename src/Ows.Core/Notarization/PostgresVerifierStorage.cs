@@ -50,7 +50,11 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public async Task<VerifierSessionRecord> CreateSessionAsync(CancellationToken cancellationToken)
+    public async Task<VerifierSessionRecord> CreateSessionAsync(
+        string? clientId,
+        string? assessmentId,
+        string? metadataJson,
+        CancellationToken cancellationToken)
     {
         await AwaitInitializationAsync(cancellationToken);
 
@@ -64,6 +68,8 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                               insert into verifier_sessions (
                                   id,
                                   created_at,
+                                  client_id,
+                                  assessment_id,
                                   metadata_json,
                                   head_receipt_hash,
                                   head_event_hash,
@@ -76,6 +82,8 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                               values (
                                   @id,
                                   @created_at,
+                                  @client_id,
+                                  @assessment_id,
                                   cast(@metadata_json as jsonb),
                                   @head_receipt_hash,
                                   @head_event_hash,
@@ -88,7 +96,9 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                               """;
         command.Parameters.AddWithValue("id", sessionId.Value);
         command.Parameters.AddWithValue("created_at", createdAtUtc);
-        command.Parameters.AddWithValue("metadata_json", "{}");
+        command.Parameters.AddWithValue("client_id", (object?)clientId ?? DBNull.Value);
+        command.Parameters.AddWithValue("assessment_id", (object?)assessmentId ?? DBNull.Value);
+        command.Parameters.AddWithValue("metadata_json", metadataJson ?? "{}");
         command.Parameters.AddWithValue("head_receipt_hash", ReceiptChainVerifier.GenesisPreviousReceiptHash);
         command.Parameters.AddWithValue("head_event_hash", Ows.Core.Events.OwsEventChain.GenesisPreviousEventHash);
         command.Parameters.AddWithValue("checkpoint_count", 0);
@@ -102,6 +112,9 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         {
             Id = sessionId,
             CreatedAtUtc = createdAtUtc,
+            ClientId = clientId,
+            AssessmentId = assessmentId,
+            MetadataJson = metadataJson ?? "{}",
             HeadReceiptHash = ReceiptChainVerifier.GenesisPreviousReceiptHash,
             HeadEventHash = Ows.Core.Events.OwsEventChain.GenesisPreviousEventHash,
             CheckpointCount = 0,

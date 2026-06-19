@@ -144,7 +144,8 @@ public sealed class OwsPackageVerifier : IPackageVerifier
                 Errors = errors,
                 GeneratedAt = generatedAt,
                 Recommendation = "Reject as invalid package / request resubmission",
-                TrustExplanation = "The package, timeline, receipt chain, or hashes are broken or inconsistent."
+                TrustExplanation = "The package, timeline, receipt chain, or hashes are broken or inconsistent.",
+                Education = request.EducationContext
             });
         }
 
@@ -430,7 +431,8 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             Timeline = timelineInfo,
             Receipts = receiptsInfo,
             Lease = leaseInfo,
-            Anchor = anchorInfo
+            Anchor = anchorInfo,
+            Education = request.EducationContext
         });
     }
 

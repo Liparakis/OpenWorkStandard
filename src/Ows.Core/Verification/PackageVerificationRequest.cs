@@ -49,4 +49,9 @@ public sealed record PackageVerificationRequest
     /// Gets the significant gap threshold in seconds. Gaps larger than this mark a package Unverified instead of Degraded.
     /// </summary>
     public int SignificantGapSeconds { get; init; } = 300;
+
+    /// <summary>
+    /// Gets the optional educational context for reporting and display.
+    /// </summary>
+    public ReportEducationContext? EducationContext { get; init; }
 }

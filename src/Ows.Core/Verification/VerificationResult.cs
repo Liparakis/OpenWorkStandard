@@ -130,6 +130,11 @@ public sealed record VerificationResult
     /// Gets the package anchor status metadata.
     /// </summary>
     public ReportAnchorInfo Anchor { get; init; } = new();
+
+    /// <summary>
+    /// Gets the optional educational context metadata.
+    /// </summary>
+    public ReportEducationContext? Education { get; init; }
 }
 
 /// <summary>
@@ -256,4 +261,70 @@ public sealed record ReportAnchorInfo
     /// Gets the anchored session head timeline hash.
     /// </summary>
     public string AnchoredSessionHead { get; init; } = "None";
+}
+
+/// <summary>
+/// Structured educational context for verification reports.
+/// </summary>
+public sealed record ReportEducationContext
+{
+    /// <summary>
+    /// Gets the unique institution identifier.
+    /// </summary>
+    public string? InstitutionId { get; init; }
+
+    /// <summary>
+    /// Gets the name of the institution.
+    /// </summary>
+    public string? InstitutionName { get; init; }
+
+    /// <summary>
+    /// Gets the unique course identifier.
+    /// </summary>
+    public string? CourseId { get; init; }
+
+    /// <summary>
+    /// Gets the academic course code.
+    /// </summary>
+    public string? CourseCode { get; init; }
+
+    /// <summary>
+    /// Gets the course title.
+    /// </summary>
+    public string? CourseTitle { get; init; }
+
+    /// <summary>
+    /// Gets the unique class group identifier.
+    /// </summary>
+    public string? ClassGroupId { get; init; }
+
+    /// <summary>
+    /// Gets the class group cohort name.
+    /// </summary>
+    public string? ClassGroupName { get; init; }
+
+    /// <summary>
+    /// Gets the unique assessment identifier.
+    /// </summary>
+    public string? AssessmentId { get; init; }
+
+    /// <summary>
+    /// Gets the assessment title.
+    /// </summary>
+    public string? AssessmentTitle { get; init; }
+
+    /// <summary>
+    /// Gets the unique student user identifier.
+    /// </summary>
+    public string? StudentUserId { get; init; }
+
+    /// <summary>
+    /// Gets the student's display name.
+    /// </summary>
+    public string? StudentDisplayName { get; init; }
+
+    /// <summary>
+    /// Gets the student's external identifier.
+    /// </summary>
+    public string? StudentExternalId { get; init; }
 }

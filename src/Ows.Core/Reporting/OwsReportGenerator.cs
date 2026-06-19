@@ -83,7 +83,22 @@ public sealed class OwsReportGenerator : IReportGenerator
                     detail = finding.Detail,
                     technicalDetail = finding.TechnicalDetail,
                     reviewerAction = finding.ReviewerAction
-                })
+                }),
+                education = res.Education != null ? new
+                {
+                    institutionId = res.Education.InstitutionId,
+                    institutionName = res.Education.InstitutionName,
+                    courseId = res.Education.CourseId,
+                    courseCode = res.Education.CourseCode,
+                    courseTitle = res.Education.CourseTitle,
+                    classGroupId = res.Education.ClassGroupId,
+                    classGroupName = res.Education.ClassGroupName,
+                    assessmentId = res.Education.AssessmentId,
+                    assessmentTitle = res.Education.AssessmentTitle,
+                    studentUserId = res.Education.StudentUserId,
+                    studentDisplayName = res.Education.StudentDisplayName,
+                    studentExternalId = res.Education.StudentExternalId
+                } : (object?)null
             },
             new JsonSerializerOptions { WriteIndented = true });
     }
@@ -99,6 +114,28 @@ public sealed class OwsReportGenerator : IReportGenerator
         builder.AppendLine("Summary:");
         builder.AppendLine(res.Summary);
         builder.AppendLine($"Trust Grade Explanation: {res.TrustExplanation}");
+        builder.AppendLine();
+
+        builder.AppendLine("Assessment Context:");
+        if (res.Education == null ||
+            (string.IsNullOrEmpty(res.Education.InstitutionId) &&
+             string.IsNullOrEmpty(res.Education.CourseId) &&
+             string.IsNullOrEmpty(res.Education.ClassGroupId) &&
+             string.IsNullOrEmpty(res.Education.AssessmentId) &&
+             string.IsNullOrEmpty(res.Education.StudentUserId)))
+        {
+            builder.AppendLine("Assessment context was not provided.");
+        }
+        else
+        {
+            builder.AppendLine($"- Institution: {res.Education.InstitutionName ?? "Unknown"} (ID: {res.Education.InstitutionId ?? "Unknown"})");
+            builder.AppendLine($"- Course: {res.Education.CourseCode ?? "Unknown"} - {res.Education.CourseTitle ?? "Unknown"} (ID: {res.Education.CourseId ?? "Unknown"})");
+            builder.AppendLine($"- Class/Group: {res.Education.ClassGroupName ?? "Unknown"} (ID: {res.Education.ClassGroupId ?? "Unknown"})");
+            builder.AppendLine($"- Assessment: {res.Education.AssessmentTitle ?? "Unknown"} (ID: {res.Education.AssessmentId ?? "Unknown"})");
+            builder.AppendLine($"- Student: {res.Education.StudentDisplayName ?? "Unknown"} (External ID: {res.Education.StudentExternalId ?? "Unknown"}) (ID: {res.Education.StudentUserId ?? "Unknown"})");
+            builder.AppendLine($"- Session ID: {res.Package.SessionId}");
+            builder.AppendLine($"- Package ID: {res.Package.PackageId}");
+        }
         builder.AppendLine();
 
         builder.AppendLine("Verification Scope:");
