@@ -77,7 +77,7 @@ Harden the local verifier dev loop and cold-start behavior, then add server-side
 - [x] Basic text report output
 - [x] JSON report output
 - [ ] Rich professor review report - Status: Partial
-- [ ] Better degraded-state review guidance
+- [x] Better degraded-state review guidance
 
 ## 9. Security, Threat Model, and Privacy
 

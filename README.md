@@ -31,6 +31,7 @@ dotnet run --project src/Ows.Cli -- --help
 - `tests/Ows.Cli.Tests`: xUnit coverage for command construction.
 - `docs`: specification, architecture, privacy, security, package format, CLI, and glossary.
 - `docs/THREAT_MODEL.md`: explicit MVP threat model and trust-boundary limits.
+- `docs/REVIEW_GUIDANCE.md`: how reviewers should interpret trust states, findings, and signals.
 - `docs/DEFERRED_NOTES.md`: explicit "not yet" decisions and deferred follow-up items.
 - `samples/sample-project`: tiny sample tree used for demos and future integration tests.
 
