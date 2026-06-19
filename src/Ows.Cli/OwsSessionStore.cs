@@ -64,15 +64,8 @@ public static class OwsSessionStore
                 ?? throw new JsonException("Receipt chain deserialized to null.")
             : new ReceiptChain { SessionId = sessionId, Receipts = [] };
         var checkpoint = Checkpoint.FromTimeline(timelinePath, sessionId, receiptChain.Receipts.Count + 1);
-        var receiptService = new InMemoryReceiptService();
-
-        foreach (var existingReceipt in receiptChain.Receipts)
-        {
-            _ = receiptService.StartSession();
-            break;
-        }
-
-        var service = RehydrateService(sessionId, receiptChain);
+        var service = new InMemoryReceiptService();
+        service.RestoreSession(sessionId, receiptChain.Receipts);
         var receipt = service.SubmitCheckpoint(checkpoint);
         var updatedReceiptChain = service.GetReceiptChain(sessionId);
 
@@ -81,32 +74,6 @@ public static class OwsSessionStore
             JsonSerializer.Serialize(updatedReceiptChain, new JsonSerializerOptions { WriteIndented = true }));
 
         return receipt;
-    }
-
-    /// <summary>
-    /// Rehydrates an in-memory receipt service from persisted session state.
-    /// </summary>
-    /// <param name="sessionId">The session identifier to restore.</param>
-    /// <param name="receiptChain">The current persisted receipt chain.</param>
-    /// <returns>A service ready to issue the next receipt.</returns>
-    private static InMemoryReceiptService RehydrateService(AssessmentSessionId sessionId, ReceiptChain receiptChain)
-    {
-        var service = new InMemoryReceiptService();
-        var startedSessionId = service.StartSession();
-
-        if (startedSessionId != sessionId)
-        {
-            // ponytail: simple local CLI persistence uses a fresh service instance; replace generated session id with persisted session state.
-            typeof(InMemoryReceiptService)
-                .GetField("receiptChains", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
-                .SetValue(service, new System.Collections.Concurrent.ConcurrentDictionary<AssessmentSessionId, List<CheckpointReceipt>>(
-                    new[]
-                    {
-                        new KeyValuePair<AssessmentSessionId, List<CheckpointReceipt>>(sessionId, [.. receiptChain.Receipts])
-                    }));
-        }
-
-        return service;
     }
 
     private sealed record SessionState

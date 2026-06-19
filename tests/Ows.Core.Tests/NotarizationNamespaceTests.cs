@@ -211,4 +211,58 @@ public sealed class NotarizationNamespaceTests
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("Checkpoint sequence 2 is invalid*Expected 1.");
     }
+
+    /// <summary>
+    /// Verifies that sessions can be restored from persisted receipts and continued.
+    /// </summary>
+    [Fact]
+    public void RestoreSession_ShouldAllowContinuingReceiptChain()
+    {
+        var sessionId = AssessmentSessionId.Create();
+        var firstReceipt = ReceiptChainVerifier.IssueReceipt(
+            new Checkpoint
+            {
+                SessionId = sessionId,
+                SequenceNumber = 1,
+                TimelineHeadHash = "head-1"
+            },
+            ReceiptChainVerifier.GenesisPreviousReceiptHash);
+        var service = new InMemoryReceiptService();
+
+        service.RestoreSession(sessionId, [firstReceipt]);
+        var secondReceipt = service.SubmitCheckpoint(new Checkpoint
+        {
+            SessionId = sessionId,
+            SequenceNumber = 2,
+            TimelineHeadHash = "head-2"
+        });
+        var chain = service.GetReceiptChain(sessionId);
+
+        secondReceipt.PreviousReceiptHash.Should().Be(firstReceipt.ReceiptHash);
+        chain.Receipts.Should().HaveCount(2);
+        ReceiptChainVerifier.IsValid(chain).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Verifies that invalid persisted receipt chains are rejected on restore.
+    /// </summary>
+    [Fact]
+    public void RestoreSession_ShouldRejectInvalidReceiptChain()
+    {
+        var sessionId = AssessmentSessionId.Create();
+        var invalidReceipt = new CheckpointReceipt
+        {
+            SessionId = sessionId,
+            SequenceNumber = 1,
+            TimelineHeadHash = "head-1",
+            PreviousReceiptHash = ReceiptChainVerifier.GenesisPreviousReceiptHash,
+            ReceiptHash = "not-a-real-hash"
+        };
+        var service = new InMemoryReceiptService();
+
+        var act = () => service.RestoreSession(sessionId, [invalidReceipt]);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("Cannot restore invalid receipt chain*");
+    }
 }

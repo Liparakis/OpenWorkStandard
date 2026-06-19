@@ -25,6 +25,34 @@ public sealed class InMemoryReceiptService
     }
 
     /// <summary>
+    /// Restores a session with an existing receipt chain snapshot.
+    /// </summary>
+    /// <param name="sessionId">The session identifier to restore.</param>
+    /// <param name="receipts">The existing ordered receipts for the session.</param>
+    public void RestoreSession(AssessmentSessionId sessionId, IReadOnlyList<CheckpointReceipt> receipts)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId.Value);
+        ArgumentNullException.ThrowIfNull(receipts);
+
+        var restoredReceipts = receipts.ToList();
+        var receiptChain = new ReceiptChain
+        {
+            SessionId = sessionId,
+            Receipts = restoredReceipts
+        };
+
+        if (!ReceiptChainVerifier.IsValid(receiptChain))
+        {
+            throw new InvalidOperationException($"Cannot restore invalid receipt chain for session {sessionId}.");
+        }
+
+        if (!receiptChains.TryAdd(sessionId, restoredReceipts))
+        {
+            throw new InvalidOperationException($"Assessment session {sessionId} is already loaded.");
+        }
+    }
+
+    /// <summary>
     /// Submits a checkpoint and issues the next receipt in the session chain.
     /// </summary>
     /// <param name="checkpoint">The checkpoint to receipt.</param>
