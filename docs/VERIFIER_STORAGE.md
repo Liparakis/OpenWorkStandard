@@ -47,7 +47,9 @@ It is not a real institutional trust boundary because:
 
 - the PostgreSQL storage adapter now exists
 - the server can select it through configuration
-- schema bootstrap is handled by the storage class on startup
+- schema migrations are owned by the app, not left as ad-hoc DBA steps
+- PostgreSQL startup auto-applies missing verifier migrations
+- the verifier server can also run an explicit `migrate` bootstrap path
 - append uses a database transaction and session-row locking
 
 ## Intended Durable Backend
@@ -101,6 +103,27 @@ The first durable PostgreSQL design should start with:
 - optional `verifier_audit_events`
 
 See [verifier-postgres-foundation.sql](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/sql/verifier-postgres-foundation.sql) for the current schema draft.
+
+Applied migrations are tracked in `ows_verifier_schema_version`.
+
+## Migration Ownership
+
+OWS should own verifier schema lifecycle.
+
+That means:
+
+- self-hosted operators should be able to run verifier migrations from the app itself
+- normal PostgreSQL-backed server startup should also apply any missing verifier migrations
+- DevOps still owns provisioning PostgreSQL, secrets, backups, and rollout policy
+- DevOps should not have to reverse-engineer the schema from source code or hand-maintain drift-prone SQL steps
+
+Current bootstrap command:
+
+```bash
+dotnet run --project src/Ows.Verifier.Server -- migrate
+```
+
+This command only works when `VerifierStorage:Provider=postgres` and a PostgreSQL connection string is configured.
 
 ## Important Constraint
 

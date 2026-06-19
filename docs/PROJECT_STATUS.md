@@ -171,6 +171,13 @@ Storage model today:
 - `json`: local JSON snapshot file for development
 - `postgres`: transactional PostgreSQL-backed storage through the verifier storage abstraction
 
+PostgreSQL setup model today:
+
+- app-owned ordered migrations
+- migration tracking in `ows_verifier_schema_version`
+- explicit `migrate` bootstrap mode for self-hosting
+- normal PostgreSQL server startup also applies missing migrations
+
 This is enough for architectural validation and the first durable-backend pass. It is still not enough for institutional trust claims until the PostgreSQL path is exercised in a real deployed environment.
 
 ## Core Domains Present

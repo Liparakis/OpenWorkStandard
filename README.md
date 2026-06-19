@@ -54,3 +54,15 @@ This repository now has a thin but real local MVP:
 - `ows report` writes a basic text integrity report
 
 The main architectural gap is the durable trust boundary. Local capture alone is not enough, so the next milestone is turning the current in-memory verifier scaffold into a self-hostable service with durable storage and hardened transport.
+
+## Verifier schema setup
+
+The Work Verifier owns its PostgreSQL schema lifecycle.
+
+For local development or self-hosted bootstrap, run:
+
+```bash
+dotnet run --project src/Ows.Verifier.Server -- migrate
+```
+
+Normal PostgreSQL-backed verifier startup also applies missing ordered migrations automatically. DevOps still owns the database instance, credentials, backups, and deployment policy; OWS owns the verifier schema shape.

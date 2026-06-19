@@ -10,6 +10,27 @@ var normalizedStorageOptions = string.IsNullOrWhiteSpace(storageOptions.JsonStor
         JsonStorePath = Path.Combine(builder.Environment.ContentRootPath, ".ows-verifier", "receipts.json")
     }
     : storageOptions;
+
+if (args.Any(static arg => string.Equals(arg, "migrate", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(arg, "--migrate", StringComparison.OrdinalIgnoreCase)))
+{
+    if (!string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine("Verifier migration is only supported when VerifierStorage:Provider=postgres.");
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString))
+    {
+        throw new InvalidOperationException(
+            "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres.");
+    }
+
+    await PostgresVerifierMigrator.MigrateAsync(normalizedStorageOptions.PostgresConnectionString);
+    Console.WriteLine("Verifier schema migration complete.");
+    return;
+}
+
 builder.Services.AddSingleton(normalizedStorageOptions);
 builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
 {

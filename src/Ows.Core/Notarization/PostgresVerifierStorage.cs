@@ -7,52 +7,6 @@ namespace Ows.Core.Notarization;
 /// </summary>
 public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
 {
-    private const string CreateSessionsTableSql = """
-        create table if not exists verifier_sessions (
-            id text primary key,
-            created_at timestamptz not null default now(),
-            client_id text null,
-            assessment_id text null,
-            metadata_json jsonb not null default '{}'::jsonb,
-            head_receipt_hash text not null default '',
-            head_event_hash text not null default '',
-            checkpoint_count integer not null default 0
-        );
-        """;
-    private const string CreateCheckpointsTableSql = """
-        create table if not exists verifier_checkpoints (
-            id bigserial primary key,
-            session_id text not null references verifier_sessions(id) on delete cascade,
-            sequence_number integer not null,
-            client_time timestamptz null,
-            server_time timestamptz not null,
-            previous_event_hash text not null,
-            current_event_hash text not null,
-            project_state_hash text not null,
-            previous_receipt_hash text not null,
-            receipt_hash text not null,
-            server_signature text not null default '',
-            idempotency_key text null,
-            created_at timestamptz not null default now(),
-            constraint uq_verifier_checkpoints_session_sequence unique (session_id, sequence_number),
-            constraint uq_verifier_checkpoints_session_receipt unique (session_id, receipt_hash)
-        );
-        """;
-    private const string CreateCheckpointIdempotencyIndexSql = """
-        create unique index if not exists ix_verifier_checkpoints_session_idempotency
-            on verifier_checkpoints (session_id, idempotency_key)
-            where idempotency_key is not null;
-        """;
-    private const string CreateAuditEventsTableSql = """
-        create table if not exists verifier_audit_events (
-            id bigserial primary key,
-            session_id text null references verifier_sessions(id) on delete cascade,
-            event_type text not null,
-            payload_json jsonb not null default '{}'::jsonb,
-            created_at timestamptz not null default now()
-        );
-        """;
-
     private readonly NpgsqlDataSource dataSource;
     private readonly Task initializationTask;
 
@@ -65,7 +19,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         dataSource = NpgsqlDataSource.Create(connectionString);
-        initializationTask = EnsureSchemaAsync();
+        initializationTask = PostgresVerifierMigrator.MigrateAsync(dataSource);
     }
 
     /// <inheritdoc />
@@ -222,39 +176,12 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     public ValueTask DisposeAsync() => dataSource.DisposeAsync();
 
     /// <summary>
-    /// Ensures the PostgreSQL schema needed by the verifier exists.
-    /// </summary>
-    /// <returns>A task that completes when schema initialization finishes.</returns>
-    private async Task EnsureSchemaAsync()
-    {
-        await using var connection = await dataSource.OpenConnectionAsync();
-        foreach (var commandText in GetSchemaStatements())
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = commandText;
-            await command.ExecuteNonQueryAsync();
-        }
-    }
-
-    /// <summary>
     /// Waits for schema initialization before serving storage operations.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when initialization is ready.</returns>
     private Task AwaitInitializationAsync(CancellationToken cancellationToken) =>
         initializationTask.WaitAsync(cancellationToken);
-
-    /// <summary>
-    /// Returns the DDL statements required by the PostgreSQL verifier store.
-    /// </summary>
-    /// <returns>The ordered schema statements.</returns>
-    private static IReadOnlyList<string> GetSchemaStatements() =>
-        [
-            CreateSessionsTableSql,
-            CreateCheckpointsTableSql,
-            CreateCheckpointIdempotencyIndexSql,
-            CreateAuditEventsTableSql
-        ];
 
     /// <summary>
     /// Loads a required persisted verifier session row.
