@@ -56,6 +56,10 @@ Open Work Standard (OWS) is a local-first academic work provenance system. Use t
 - Normalize paths and avoid Windows-only APIs in `Ows.Core`.
 - Future file watching must support a polling fallback in addition to native watcher signals.
 
+## Container location
+
+- If Docker or Kubernetes infrastructure is introduced, use `D:\Containers\OWS` as the default local container storage/work directory unless the user explicitly says otherwise.
+
 ## Initial non-goals
 
 - AI detection

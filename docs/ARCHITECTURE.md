@@ -2,9 +2,9 @@
 
 ## Positioning
 
-OWS is moving from a purely local evidence packaging tool toward an open, self-hostable assessment notarization protocol with an optional managed verifier service.
+OWS is evolving from a purely local evidence packaging tool into an open, self-hostable assessment notarization protocol with an optional managed verifier service.
 
-The intended model is:
+Core principle:
 
 - the client observes
 - the server notarizes
@@ -15,24 +15,46 @@ OWS is not an AI detector, surveillance product, or automated misconduct judge. 
 
 ## Trust Boundary
 
-The local client is not the final security authority because the student controls the machine.
+The student machine is not trusted.
 
-That leads to one hard rule:
+That leads to the core security split:
 
-- local capture is evidence collection
-- remote verification is the trust boundary
+- the local client is an evidence collector
+- the remote verifier is the trust boundary
+- the final package is the portable proof artifact
 
-In the current codebase, OWS has only started moving toward that boundary. The package verifier can now distinguish integrity status from trust status, but remote receipts are still foundation-only domain models.
+OWS should not claim to prevent all cheating. It should claim that a clean verified package requires the local timeline to match the remote verifier's receipt chain.
+
+## Current Repository State
+
+The current repository implements a thin but real local/reference slice:
+
+- `ows init` creates local `.ows` state
+- `ows watch` performs a one-shot scan
+- `ows package` creates real `.owspkg` archives
+- `ows verify` validates package integrity, event chains, and optional receipt chains
+- `ows report` writes a basic text report
+- receipt/session/checkpoint/receipt-chain domain models exist in `Ows.Core`
+
+What does not exist yet:
+
+- persistent host-owned watcher implementations
+- ASP.NET Core verifier server
+- production storage adapters
+- background worker pipeline
+- deployed infrastructure manifests
 
 ## System Layers
 
-- `Ows.Core`: domain types, hashing, manifests, events, notarization models, verification primitives, and constants
+- `Ows.Core`: domain types, hashing, event chains, notarization models, packaging, verification, and reporting primitives
 - `Ows.Core.Agent`: local tracking shell and future watcher boundary
+- `Ows.Core.Notarization`: session, checkpoint, receipt, and receipt-chain foundation
 - `Ows.Core.Packaging`: package assembly for `.owspkg`
 - `Ows.Core.Verification`: package validation, trust grading, and integrity findings
-- `Ows.Core.Reporting`: report rendering for verification output
 - `Ows.Cli`: reference client entry point
 - `Ows.Desktop`: future host surface, still placeholder-only today
+- future `Ows.Verifier.Server`: ASP.NET Core verifier API
+- future `Ows.Verifier.Worker`: background processing boundary
 
 ## Responsibility Split
 
@@ -40,112 +62,155 @@ In the current codebase, OWS has only started moving toward that boundary. The p
 
 - initialize local `.ows/` state
 - observe project file activity
-- produce local timeline events
-- hash local evidence
+- produce a tamper-evident local timeline
+- derive checkpoint inputs from the local timeline head
 - build final `.owspkg` packages
 - include remote receipts when available
 
 ### Remote verifier
 
 - receive checkpoints
-- assign server timestamps
-- issue signed or otherwise authoritative receipts
-- maintain receipt chains per assessment session
-- compare final packages against known receipts
+- assign authoritative server timestamps
+- issue chained receipts
+- persist durable verified history
+- verify final packages against known receipt history
 
-The remote verifier is not implemented yet in this repository. Only the core receipt/session model foundation exists today.
+### Human reviewer
 
-## Current Data Flow
+- interpret verification output
+- decide whether degraded/unverified intervals are acceptable
+- make assessment decisions outside the protocol
+
+## Data Flow
 
 Current implemented flow:
 
 1. `ows init` creates local state.
-2. `ows watch` performs a one-shot scan and appends `FileCreated` events.
+2. `ows watch` appends chained local events.
 3. `ows package` writes a real `.owspkg` archive.
-4. `ows verify` validates local package integrity and assigns a trust grade.
-5. `ows report` renders a basic text integrity report.
+4. optional `receipts.json` is included when present locally.
+5. `ows verify` validates event-chain integrity, artifact integrity, and optional receipt-chain integrity.
+6. `ows report` renders a basic text integrity report.
 
 Target flow:
 
 1. local client collects append-only tamper-evident events
-2. client submits checkpoint hashes to a remote verifier
-3. remote verifier returns timestamped receipts
-4. package includes local evidence plus receipts
-5. verification compares local package state against receipt chains
+2. client derives checkpoint inputs from the local timeline head
+3. client sends checkpoints to the remote verifier
+4. remote verifier returns timestamped chained receipts
+5. package includes local evidence plus receipts
+6. verification compares local package state against receipt chains
 
 ## Verification States
 
-OWS should explicitly model trust states instead of only success/failure:
+OWS models trust states instead of only success/failure:
 
-- `Verified`: local timeline and remote receipts align cleanly
+- `Verified`: local timeline and remote receipts align with no meaningful gaps
 - `Degraded`: evidence is mostly usable but includes explainable concerns
 - `Unverified`: local package is consistent, but trust anchors are missing or incomplete
-- `Invalid`: package structure, hash integrity, or receipt integrity is broken
+- `Invalid`: package structure, hash integrity, event-chain integrity, or receipt integrity is broken
 
 Current implementation status:
 
 - local-only successful packages are graded `Unverified`
-- structural or hash failures are graded `Invalid`
-- `Verified` and `Degraded` are reserved for later receipt-aware verification
+- successful packages with a valid matching packaged receipt chain are graded `Verified`
+- structural, hash, event-chain, or receipt-chain failures are graded `Invalid`
+- `Degraded` is reserved for later lease/gap policy work
 
-## Local Storage
+## Storage Roles
 
-The `.ows/` folder remains local implementation state inside the project. It is useful for capture, but it is not sufficient by itself to provide strong trust guarantees against the machine owner.
+OWS should separate durable truth from caches and blobs.
 
-That is why local-only history should be treated as:
+Durable source of truth:
 
-- useful
-- testable
-- sometimes trustworthy
-- never the sole authority for high-assurance verification
+- PostgreSQL for institutions, users, roles, course structure, assessments, sessions, checkpoints, receipts, verification reports, package metadata, and audit events
 
-## Packaging
+Ephemeral shared state:
 
-`.owspkg` remains the portable submission artifact.
+- Redis/Valkey for session leases, heartbeats, rate limits, idempotency keys, distributed locks, live dashboard pub/sub, and temporary coordination
 
-Current package contents:
+Blob/object storage:
 
-- `manifest.json`
-- `timeline.jsonl`
-- `version_graph.json`
-- `artifacts/...`
+- S3-compatible storage for `.owspkg` package blobs, uploaded archives, large reports, export bundles, and optional encrypted starter files
 
-Near-term package direction:
+Optional durable internal event transport:
 
-- keep local evidence inspectable
-- add receipt material when remote notarization is configured
-- keep privacy bias toward hashes, metadata, timestamps, and manifests rather than raw remote file storage
+- NATS JetStream later, only when a clean worker/event boundary exists
+
+Redis must not be the source of truth. Large package blobs should not live in PostgreSQL.
+
+## Horizontal Scaling
+
+The verifier API must be stateless with respect to in-memory session ownership.
+
+Scaling assumptions:
+
+- any API instance should be able to receive the next checkpoint for any active session
+- durable checkpoint and receipt history must live in PostgreSQL
+- Redis may cache live session/lease state but cannot be authoritative
+- API instances must be replaceable without losing verified history
+- worker processes must be restartable without invalidating durable state
+
+## Transport Direction
+
+Do not start with custom TCP or DTLS.
+
+Roadmap:
+
+1. MVP: HTTPS REST over TLS
+2. Streaming: gRPC over HTTP/2 TLS
+3. Opportunistic upgrade: HTTP/3 over QUIC where supported
+4. Future/experimental: direct QUIC transport only if justified later
+
+Reasoning:
+
+- REST/TLS is easiest to deploy and debug
+- gRPC is a natural next step for streaming checkpoint flows
+- HTTP/3/QUIC is a good optimization direction
+- campus networks and proxies may block or degrade UDP/HTTP/3
+- custom transports create security and operational surface area too early
+
+Fallback support matters more than protocol novelty.
+
+## Future Seams
+
+When networked transport is added, keep the client protocol behind a narrow abstraction such as:
+
+- `StartSessionAsync()`
+- `SendCheckpointAsync()`
+- `RefreshLeaseAsync()`
+- `UploadPackageAsync()`
+- `GetReceiptsAsync()`
+
+That seam should allow:
+
+- HTTPS transport first
+- gRPC transport later
+- HTTP/3-backed transport later
+
+Do not add raw QUIC or custom networking until the default HTTPS path is mature.
 
 ## Privacy Model
 
 OWS should prefer:
 
 - project-scoped provenance
-- minimal metadata
+- hashes and metadata over raw file upload by default
 - self-hostable verification
-- receipt/checkpoint exchange over raw file upload
+- minimal retained data
+- manual review rather than automated accusations
 
 The default design target is privacy-preserving assessment provenance, not invasive monitoring.
-
-## Security Model
-
-OWS should not claim impossible local security.
-
-What it should claim instead:
-
-- local evidence can be made tamper-evident
-- remote notarization can strengthen trust
-- a clean locally valid package is not the same as a fully verified package
-- integrity gaps should be reported as unverified intervals, not as definitive cheating claims
 
 ## Current Gaps
 
 The main missing architecture pieces are:
 
 - persistent host-owned watcher implementations
-- append-only local event chain verification
-- remote verifier server endpoints
-- receipt-aware package verification
-- richer trust policies and reporting
+- verifier API and worker processes
+- PostgreSQL/Redis/object-storage adapters
+- lease/session lifecycle policy
+- richer degraded/unverified trust policies
+- deployment automation
 
-That is the next milestone: remote trust boundary foundation, not “perfect local security.”
+That is the right order: architecture and transport discipline first, infrastructure rollout second.
