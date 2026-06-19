@@ -1,6 +1,7 @@
 using FluentAssertions;
 using System.IO.Compression;
 using System.Text.Json;
+using Ows.Core.Notarization;
 using Ows.Core.Packaging;
 
 namespace Ows.Core.Tests;
@@ -49,6 +50,52 @@ public sealed class PackagingNamespaceTests
         manifestDocument.RootElement.GetProperty("TimelineHash").GetString().Should().NotBeNullOrWhiteSpace();
         manifestDocument.RootElement.GetProperty("VersionGraphHash").GetString().Should().NotBeNullOrWhiteSpace();
         manifestDocument.RootElement.GetProperty("ArtifactHashes").GetProperty("artifacts/src/draft.txt").GetString().Should().NotBeNullOrWhiteSpace();
+        }
+        finally
+        {
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that package creation includes receipts when they exist locally.
+    /// </summary>
+    [Fact]
+    public async Task CreatePackageAsync_ShouldIncludeReceiptsWhenAvailable()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-package-receipts-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(projectRoot);
+        var localFolder = Path.Combine(projectRoot, ".ows");
+        Directory.CreateDirectory(localFolder);
+        File.WriteAllText(Path.Combine(localFolder, "timeline.jsonl"), "{\"eventType\":\"FileCreated\"}");
+        File.WriteAllText(
+            Path.Combine(localFolder, OwsConstants.ReceiptsFileName),
+            JsonSerializer.Serialize(new ReceiptChain
+            {
+                SessionId = AssessmentSessionId.Create(),
+                Receipts = []
+            }));
+        var outputPath = Path.Combine(projectRoot, "submission.owspkg");
+
+        try
+        {
+            var builder = new OwsPackageBuilder();
+
+            var result = await builder.CreatePackageAsync(
+                new PackageCreationRequest
+                {
+                    ProjectRootPath = projectRoot,
+                    OutputPackagePath = outputPath
+                },
+                CancellationToken.None);
+
+            result.Created.Should().BeTrue();
+
+            using var archive = ZipFile.OpenRead(outputPath);
+            archive.GetEntry(OwsConstants.ReceiptsFileName).Should().NotBeNull();
         }
         finally
         {

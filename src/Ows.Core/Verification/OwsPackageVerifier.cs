@@ -4,6 +4,7 @@ using System.Text.Json;
 using Ows.Core.Events;
 using Ows.Core.Graph;
 using Ows.Core.Hashing;
+using Ows.Core.Notarization;
 using Ows.Core.Packaging;
 using Ows.Core.Verification;
 
@@ -28,6 +29,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         cancellationToken.ThrowIfCancellationRequested();
 
         var errors = new List<string>();
+        var findings = new List<VerificationFinding>();
 
         if (!File.Exists(request.PackagePath))
         {
@@ -54,22 +56,26 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         if (errors.Count == 0)
         {
             var manifest = ValidateManifest(archive, errors);
-            ValidateTimeline(archive, errors);
+            var timelineHeadHash = ValidateTimeline(archive, errors);
             ValidateVersionGraph(archive, errors);
 
             if (manifest is not null)
             {
                 ValidateHashes(archive, manifest, errors);
+
+                if (errors.Count == 0)
+                {
+                    var trustStatus = ValidateReceipts(archive, timelineHeadHash, errors, findings);
+                    return Task.FromResult(
+                        errors.Count == 0
+                            ? VerificationResult.Success("OWS verify succeeded.", trustStatus, findings)
+                            : VerificationResult.Failure("OWS verify failed.", errors));
+                }
             }
         }
 
         return Task.FromResult(
-            errors.Count == 0
-                ? VerificationResult.Success(
-                    "OWS verify succeeded.",
-                    TrustStatus.Unverified,
-                    [MissingRemoteReceiptsFinding])
-                : VerificationResult.Failure("OWS verify failed.", errors));
+            VerificationResult.Failure("OWS verify failed.", errors));
     }
 
     /// <summary>
@@ -100,11 +106,12 @@ public sealed class OwsPackageVerifier : IPackageVerifier
     /// </summary>
     /// <param name="archive">The package archive being verified.</param>
     /// <param name="errors">The mutable verification error collection.</param>
-    private static void ValidateTimeline(ZipArchive archive, List<string> errors)
+    private static string ValidateTimeline(ZipArchive archive, List<string> errors)
     {
         using var reader = new StreamReader(archive.GetEntry(OwsConstants.TimelineFileName)!.Open());
         var lineNumber = 0;
         var expectedPreviousHash = OwsEventChain.GenesisPreviousEventHash;
+        var lastEventHash = OwsEventChain.GenesisPreviousEventHash;
 
         while (reader.ReadLine() is { } line)
         {
@@ -123,24 +130,27 @@ public sealed class OwsPackageVerifier : IPackageVerifier
                 if (!string.Equals(owsEvent.PreviousEventHash, expectedPreviousHash, StringComparison.Ordinal))
                 {
                     errors.Add($"Broken event chain in {OwsConstants.TimelineFileName} at line {lineNumber}");
-                    return;
+                    return OwsEventChain.GenesisPreviousEventHash;
                 }
 
                 var actualEventHash = OwsEventChain.ComputeEventHash(owsEvent);
                 if (!string.Equals(owsEvent.EventHash, actualEventHash, StringComparison.OrdinalIgnoreCase))
                 {
                     errors.Add($"Invalid event hash in {OwsConstants.TimelineFileName} at line {lineNumber}");
-                    return;
+                    return OwsEventChain.GenesisPreviousEventHash;
                 }
 
                 expectedPreviousHash = owsEvent.EventHash;
+                lastEventHash = owsEvent.EventHash;
             }
             catch (JsonException)
             {
                 errors.Add($"Invalid JSON in {OwsConstants.TimelineFileName} at line {lineNumber}");
-                return;
+                return OwsEventChain.GenesisPreviousEventHash;
             }
         }
+
+        return lastEventHash;
     }
 
     /// <summary>
@@ -225,5 +235,59 @@ public sealed class OwsPackageVerifier : IPackageVerifier
                 errors.Add($"Artifact hash does not match manifest: {artifact.Key}");
             }
         }
+    }
+
+    /// <summary>
+    /// Validates optional packaged receipts and derives the resulting trust grade.
+    /// </summary>
+    /// <param name="archive">The package archive being verified.</param>
+    /// <param name="timelineHeadHash">The verified local timeline head hash.</param>
+    /// <param name="errors">The mutable verification error collection.</param>
+    /// <param name="findings">The mutable verification findings collection.</param>
+    /// <returns>The resulting trust grade.</returns>
+    private static TrustStatus ValidateReceipts(ZipArchive archive, string timelineHeadHash, List<string> errors, List<VerificationFinding> findings)
+    {
+        var receiptsEntry = archive.GetEntry(OwsConstants.ReceiptsFileName);
+        if (receiptsEntry is null)
+        {
+            findings.Add(MissingRemoteReceiptsFinding);
+            return TrustStatus.Unverified;
+        }
+
+        using var reader = new StreamReader(receiptsEntry.Open());
+        var receiptsText = reader.ReadToEnd();
+
+        ReceiptChain receiptChain;
+        try
+        {
+            receiptChain = JsonSerializer.Deserialize<ReceiptChain>(receiptsText)
+                ?? throw new JsonException("Receipt chain deserialized to null.");
+        }
+        catch (JsonException)
+        {
+            errors.Add($"Invalid JSON in {OwsConstants.ReceiptsFileName}");
+            return TrustStatus.Invalid;
+        }
+
+        if (!ReceiptChainVerifier.IsValid(receiptChain))
+        {
+            errors.Add("Receipt chain is invalid.");
+            return TrustStatus.Invalid;
+        }
+
+        var lastReceipt = receiptChain.Receipts.LastOrDefault();
+        if (lastReceipt is null)
+        {
+            findings.Add(MissingRemoteReceiptsFinding);
+            return TrustStatus.Unverified;
+        }
+
+        if (!string.Equals(lastReceipt.TimelineHeadHash, timelineHeadHash, StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add("Receipt chain head does not match the local timeline head.");
+            return TrustStatus.Invalid;
+        }
+
+        return TrustStatus.Verified;
     }
 }

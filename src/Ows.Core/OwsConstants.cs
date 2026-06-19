@@ -29,4 +29,9 @@ public static class OwsConstants
     /// Gets the version graph file name stored inside a package.
     /// </summary>
     public const string VersionGraphFileName = "version_graph.json";
+
+    /// <summary>
+    /// Gets the receipt chain file name stored inside a package when receipts are available.
+    /// </summary>
+    public const string ReceiptsFileName = "receipts.json";
 }

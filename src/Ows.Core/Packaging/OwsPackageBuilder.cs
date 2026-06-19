@@ -18,6 +18,7 @@ public sealed class OwsPackageBuilder : IPackageBuilder
 
         var localFolder = Path.Combine(request.ProjectRootPath, OwsConstants.LocalFolderName);
         var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
+        var receiptsPath = Path.Combine(localFolder, OwsConstants.ReceiptsFileName);
         var outputDirectory = Path.GetDirectoryName(request.OutputPackagePath);
         var hashService = new Sha256HashService();
 
@@ -76,6 +77,11 @@ public sealed class OwsPackageBuilder : IPackageBuilder
             using (var graphWriter = new StreamWriter(graphEntry.Open()))
             {
                 graphWriter.Write(versionGraphText);
+            }
+
+            if (File.Exists(receiptsPath))
+            {
+                archive.CreateEntryFromFile(receiptsPath, OwsConstants.ReceiptsFileName);
             }
 
             foreach (var artifactPath in artifactHashes.Keys)

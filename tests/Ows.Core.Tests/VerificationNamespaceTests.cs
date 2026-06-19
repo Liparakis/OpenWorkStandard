@@ -4,6 +4,7 @@ using System.Text.Json;
 using Ows.Core.Events;
 using Ows.Core.Graph;
 using Ows.Core.Hashing;
+using Ows.Core.Notarization;
 using Ows.Core.Packaging;
 using Ows.Core.Verification;
 
@@ -52,6 +53,132 @@ public sealed class VerificationNamespaceTests
         result.TrustStatus.Should().Be(TrustStatus.Unverified);
         result.Errors.Should().BeEmpty();
         result.Findings.Should().ContainSingle(finding => finding.Code == "remote-receipts-missing");
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that valid packaged receipts upgrade trust to verified.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldReturnVerifiedWhenReceiptChainMatchesTimelineHead()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-receipts-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            var hashService = new Sha256HashService();
+            var timelineEvents = CreateChainedEvents(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" });
+            var timelineText = string.Join(Environment.NewLine, timelineEvents.Select(owsEvent => JsonSerializer.Serialize(owsEvent)));
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
+            var sessionId = AssessmentSessionId.Create();
+            var receipt = ReceiptChainVerifier.IssueReceipt(
+                new Checkpoint
+                {
+                    SessionId = sessionId,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = timelineEvents[^1].EventHash
+                },
+                ReceiptChainVerifier.GenesisPreviousReceiptHash);
+            var receiptChain = new ReceiptChain
+            {
+                SessionId = sessionId,
+                Receipts = [receipt]
+            };
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
+                WriteEntry(archive, OwsConstants.ReceiptsFileName, JsonSerializer.Serialize(receiptChain));
+            }
+
+            var verifier = new OwsPackageVerifier();
+            var result = await verifier.VerifyAsync(
+                new PackageVerificationRequest { PackagePath = packagePath },
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeTrue();
+            result.TrustStatus.Should().Be(TrustStatus.Verified);
+            result.Findings.Should().BeEmpty();
+        }
+        finally
+        {
+            if (File.Exists(packagePath))
+            {
+                File.Delete(packagePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that mismatched receipt heads fail verification.
+    /// </summary>
+    [Fact]
+    public async Task VerifyAsync_ShouldFailWhenReceiptChainHeadDoesNotMatchTimelineHead()
+    {
+        var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-receipts-mismatch-{Guid.NewGuid():N}.owspkg");
+
+        try
+        {
+            var hashService = new Sha256HashService();
+            var timelineEvents = CreateChainedEvents(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" });
+            var timelineText = string.Join(Environment.NewLine, timelineEvents.Select(owsEvent => JsonSerializer.Serialize(owsEvent)));
+            var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
+            var sessionId = AssessmentSessionId.Create();
+            var receipt = ReceiptChainVerifier.IssueReceipt(
+                new Checkpoint
+                {
+                    SessionId = sessionId,
+                    SequenceNumber = 1,
+                    TimelineHeadHash = "wrong-head"
+                },
+                ReceiptChainVerifier.GenesisPreviousReceiptHash);
+            var receiptChain = new ReceiptChain
+            {
+                SessionId = sessionId,
+                Receipts = [receipt]
+            };
+
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+            {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
+                {
+                    ProjectName = "sample",
+                    Platform = "Win32NT",
+                    TrackedPath = "sample",
+                    TimelineHash = hashService.ComputeHash(timelineText),
+                    VersionGraphHash = hashService.ComputeHash(graphText),
+                    ArtifactHashes = new Dictionary<string, string>()
+                }));
+                WriteEntry(archive, "timeline.jsonl", timelineText);
+                WriteEntry(archive, "version_graph.json", graphText);
+                WriteEntry(archive, OwsConstants.ReceiptsFileName, JsonSerializer.Serialize(receiptChain));
+            }
+
+            var verifier = new OwsPackageVerifier();
+            var result = await verifier.VerifyAsync(
+                new PackageVerificationRequest { PackagePath = packagePath },
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeFalse();
+            result.TrustStatus.Should().Be(TrustStatus.Invalid);
+            result.Errors.Should().Contain(error => error.Contains("receipt chain head", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {

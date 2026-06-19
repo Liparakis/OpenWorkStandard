@@ -66,9 +66,20 @@ public static class ReceiptChainVerifier
         ArgumentNullException.ThrowIfNull(receiptChain);
 
         var expectedPreviousReceiptHash = GenesisPreviousReceiptHash;
+        var expectedSequenceNumber = 1;
 
         foreach (var receipt in receiptChain.Receipts)
         {
+            if (receipt.SessionId != receiptChain.SessionId)
+            {
+                return false;
+            }
+
+            if (receipt.SequenceNumber != expectedSequenceNumber)
+            {
+                return false;
+            }
+
             if (!string.Equals(receipt.PreviousReceiptHash, expectedPreviousReceiptHash, StringComparison.Ordinal))
             {
                 return false;
@@ -80,6 +91,7 @@ public static class ReceiptChainVerifier
             }
 
             expectedPreviousReceiptHash = receipt.ReceiptHash;
+            expectedSequenceNumber++;
         }
 
         return true;
