@@ -30,6 +30,7 @@ Current HTTP surface:
 - `POST /sessions`
 - `POST /sessions/{id}/checkpoints`
 - `POST /packages`
+- `GET /packages/{id}`
 - `GET /sessions/{id}/receipts`
 - `GET /sessions/{id}/head`
 

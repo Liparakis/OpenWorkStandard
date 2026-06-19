@@ -174,6 +174,7 @@ Status:
 - `POST /sessions`
 - `POST /sessions/{id}/checkpoints`
 - `POST /packages`
+- `GET /packages/{id}`
 - `GET /sessions/{id}/receipts`
 - `GET /sessions/{id}/head`
 
@@ -194,6 +195,7 @@ PostgreSQL setup model today:
 - requests require `X-OWS-Verifier-Key` when `VerifierSecurity:ApiKey` is configured
 - request logs include method, path, status code, and elapsed time, but not bodies or headers
 - package submissions register object storage provider, bucket, key, package SHA-256, and package size
+- registered package submission metadata can be fetched by submission ID
 - package bytes are not stored in PostgreSQL or local verifier disk
 
 Local verifier dev flow today:

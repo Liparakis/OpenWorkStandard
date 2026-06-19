@@ -101,6 +101,36 @@ public sealed class PostgresPackageSubmissionStore : IAsyncDisposable
         return ReadSubmission(reader);
     }
 
+    /// <summary>
+    /// Gets a package submission by durable identifier.
+    /// </summary>
+    /// <param name="submissionId">The package submission identifier.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The package submission when found; otherwise <see langword="null"/>.</returns>
+    public async Task<VerifierPackageSubmissionResponse?> GetAsync(
+        string submissionId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(submissionId);
+        if (_dataSource is null)
+        {
+            throw new NotSupportedException("Package submission requires PostgreSQL verifier storage.");
+        }
+
+        await _initializationTask.WaitAsync(cancellationToken);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+                              select id, session_id, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, verification_status, created_at
+                              from verifier_package_submissions
+                              where id = @id;
+                              """;
+        command.Parameters.AddWithValue("id", submissionId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? ReadSubmission(reader) : null;
+    }
+
     /// <inheritdoc />
     public ValueTask DisposeAsync() => _dataSource?.DisposeAsync() ?? ValueTask.CompletedTask;
 

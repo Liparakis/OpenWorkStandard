@@ -151,6 +151,20 @@ app.MapPost("/packages", async (VerifierPackageSubmissionRequest request, Postgr
     }
 });
 
+app.MapGet("/packages/{id}", async (string id, PostgresPackageSubmissionStore packageStore,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var submission = await packageStore.GetAsync(id, cancellationToken);
+        return submission is null ? Results.NotFound("Unknown package submission.") : Results.Ok(submission);
+    }
+    catch (NotSupportedException exception)
+    {
+        return Results.BadRequest(exception.Message);
+    }
+});
+
 app.MapGet("/sessions/{id}/receipts",
     async (string id, IVerifierStorage storage, CancellationToken cancellationToken) =>
     {
