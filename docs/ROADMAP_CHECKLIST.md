@@ -2,6 +2,11 @@
 
 Whenever a feature is added, changed, deferred, or completed, update this checklist in the same commit.
 
+> [!IMPORTANT]
+> **Event presence is evidence of recorded activity. Event absence is not proof of misconduct.**
+>
+> PackageCreated records local packaging after the artifact is written and may appear in the next timeline/package state.
+
 ## Next Recommended Step
 
 Cut the v0.1 release-candidate evidence bundle from the latest green gate, then do manual sign-off before adding new UI surfaces or integrations.
@@ -45,10 +50,10 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] OWS event vocabulary defined
 - [x] File-system event capture implemented
 - [x] Event hash-chain timeline implemented
-- [ ] Build/test/program execution event emitters
-- [ ] Project open/close lifecycle event emitters
+- [x] Build/test/program execution event emitters
+- [x] Project open/close lifecycle event emitters
 - [ ] Large insertion detection
-- [ ] PackageCreated event emission
+- [x] PackageCreated event emission
 - [ ] Real work version graph nodes/edges/validation
 - [x] Manifest, timeline, and version graph packaging
 - [x] Packaged session metadata

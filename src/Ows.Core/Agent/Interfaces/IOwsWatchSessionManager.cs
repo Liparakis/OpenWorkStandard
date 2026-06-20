@@ -1,5 +1,3 @@
-using System;
-using System.Threading.Tasks;
 using Ows.Core.Init;
 
 namespace Ows.Core.Agent;
@@ -98,4 +96,25 @@ public interface IOwsWatchSessionManager
     /// Queries the package verification status from the verifier.
     /// </summary>
     Task<string> QueryPackageStatusAsync(string projectRoot, string packageId, string? verifierUrlOverride = null);
+
+    /// <summary>
+    /// Emits a ProjectOpened event to the local timeline.
+    /// </summary>
+    Task EmitProjectOpenedAsync(string projectRoot, string host, string? reason = null);
+
+    /// <summary>
+    /// Emits a ProjectClosed event to the local timeline.
+    /// </summary>
+    Task EmitProjectClosedAsync(string projectRoot, string host, string? reason = null);
+
+    /// <summary>
+    /// Emits a generic command/action event to the local timeline.
+    /// </summary>
+    Task EmitGenericEventAsync(
+        string projectRoot,
+        Events.OwsEventType eventType,
+        string host,
+        string? label = null,
+        int? exitCode = null,
+        long? durationMs = null);
 }

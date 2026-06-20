@@ -2,6 +2,11 @@
 
 This extension integrates the Open Work Standard (OWS) file watcher, remote verifier sessions, and package submission lifecycle directly into Visual Studio Code.
 
+> [!IMPORTANT]
+> **Event presence is evidence of recorded activity. Event absence is not proof of misconduct.**
+>
+> PackageCreated records local packaging after the artifact is written and may appear in the next timeline/package state.
+
 ---
 
 ## 1. Quick Start
@@ -34,7 +39,15 @@ For a full pilot smoke test, use the fixture from [PILOT_DEMO.md](PILOT_DEMO.md)
 
 ---
 
-## 2. Configuration Settings
+## 2. Host Integration
+
+When spawning the OWS watch process or executing CLI commands (like `init`, `status`, `package`, `upload`, etc.), the VS Code extension sets the `OWS_HOST` environment variable to `vscode`. 
+
+This guarantees that any event logged to the local `.ows/timeline.jsonl` (e.g., `ProjectOpened`, `ProjectClosed`, `PackageCreated`) correctly specifies `vscode` as the originating host rather than generic `cli`.
+
+---
+
+## 3. Configuration Settings
 
 Access settings via `Ctrl+,` (or `Cmd+,` on macOS) and search for `Open Work Standard`:
 
@@ -49,7 +62,7 @@ Access settings via `Ctrl+,` (or `Cmd+,` on macOS) and search for `Open Work Sta
 
 ---
 
-## 3. Contributed Commands
+## 4. Contributed Commands
 
 Open the command palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for `OWS:`:
 
@@ -64,7 +77,7 @@ Open the command palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for `OWS:`:
 
 ---
 
-## 4. Security & API Key Storage
+## 5. Security & API Key Storage
 
 - **Storage**: The API key is stored securely in the VS Code **SecretStorage** API, which maps to OS keychain storage (like macOS Keychain or Windows Credential Manager).
 - **No Workspace Leaks**: The API key is never written to workspace configuration files (`.vscode/settings.json` or `.ows/config.json`).

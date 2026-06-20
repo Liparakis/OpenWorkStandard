@@ -2,6 +2,11 @@
 
 This guide walks through the student workflow using the Open Work Standard (OWS) CLI and VS Code extension to record, package, and upload evidence of academic work.
 
+> [!IMPORTANT]
+> **Event presence is evidence of recorded activity. Event absence is not proof of misconduct.**
+>
+> PackageCreated records local packaging after the artifact is written and may appear in the next timeline/package state.
+
 ---
 
 ## 1. CLI-Only Workflow
@@ -84,6 +89,26 @@ ows package upload
 # Check Verification Status
 ows package status
 ```
+
+### Step 9: Record Build/Test/Run Events (v0.1 Emitters)
+You can manually or programmatically record compiler, runner, or test executions as explicit timeline events:
+```bash
+# Record build start
+ows event build-started --label "dotnet build"
+
+# Record build success
+ows event build-succeeded --label "dotnet build" --duration 1200
+
+# Record build failure
+ows event build-failed --label "dotnet build" --exit-code 1 --duration 950
+
+# Record unit test execution
+ows event test-executed --label "dotnet test" --exit-code 0 --duration 3200
+
+# Record program execution
+ows event program-executed --label "bin/app.exe" --exit-code 0 --duration 1500
+```
+Note: Labels containing sensitive data (like credentials or API keys) will be automatically scrubbed and redacted.
 
 ---
 

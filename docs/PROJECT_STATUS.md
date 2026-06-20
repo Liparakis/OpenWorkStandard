@@ -6,6 +6,11 @@ Checklist source of truth:
 
 - `docs/ROADMAP_CHECKLIST.md` tracks current capability status, partial work, and explicitly deferred scope.
 
+> [!IMPORTANT]
+> **Event presence is evidence of recorded activity. Event absence is not proof of misconduct.**
+>
+> PackageCreated records local packaging after the artifact is written and may appear in the next timeline/package state.
+
 ## Summary
 
 Open Work Standard now has a real end-to-end reference flow, not just placeholders.
@@ -14,6 +19,7 @@ What works today:
 
 - local project initialization
 - persistent file-system watcher with native OS signals and polling fallback
+- v0.1 event emitters for ProjectOpened, ProjectClosed, PackageCreated, and explicit build/test/program commands
 - local or remote-backed session start and checkpoint issuance
 - real `.owspkg` package creation
 - package verification with trust grading

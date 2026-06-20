@@ -1,18 +1,21 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.IO.Compression;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core.Init;
 using Ows.Core.Notarization;
 using Ows.Core.Packaging;
 using Ows.Core.Events;
+using Ows.Core.Hashing;
 
 namespace Ows.Core.Agent;
 
 /// <summary>
 /// Implements the shared watcher and session lifecycle manager.
 /// </summary>
-public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
+public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
     private static readonly string[] KnownWatcherProcessNames = ["ows", "dotnet", "testhost"];
@@ -69,6 +72,16 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             StartedAt = DateTimeOffset.UtcNow
         };
         await File.WriteAllTextAsync(watcherJsonPath, JsonSerializer.Serialize(state, SerializerOptions));
+
+        var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
+        try
+        {
+            await EmitProjectOpenedAsync(projectRoot, host, "user_start");
+        }
+        catch
+        {
+            // Do not crash watcher startup if event logging fails
+        }
 
         _activeCts = new CancellationTokenSource();
         var token = _activeCts.Token;
@@ -176,6 +189,20 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         var stopFilePath = Path.Combine(localFolder, "watcher.stop");
 
         if (!File.Exists(watcherJsonPath)) return;
+
+        var wasRunning = IsWatcherRunning(projectRoot);
+        if (wasRunning)
+        {
+            var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
+            try
+            {
+                await EmitProjectClosedAsync(projectRoot, host, "user_stop");
+            }
+            catch
+            {
+                // Do not fail watcher stop if event logging fails
+            }
+        }
 
         try
         {
@@ -680,6 +707,53 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             throw new InvalidOperationException("Packaging failed.");
         }
 
+        // Emit PackageCreated event locally
+        try
+        {
+            var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+            var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
+            string? sessionId = null;
+            if (File.Exists(sessionPath))
+            {
+                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
+                sessionId = state?.SessionId;
+            }
+
+            var packageHash = string.Empty;
+            long packageSize = 0;
+            var artifactCount = 0;
+
+            if (File.Exists(packagePath))
+            {
+                packageSize = new FileInfo(packagePath).Length;
+                packageHash = new Sha256HashService().ComputeHash(await File.ReadAllBytesAsync(packagePath));
+                using var archive = ZipFile.OpenRead(packagePath);
+                artifactCount = archive.Entries.Count(entry =>
+                    entry.FullName.StartsWith("artifacts/", StringComparison.OrdinalIgnoreCase));
+            }
+
+            var metadata = new Dictionary<string, string>
+            {
+                { "packagePath", Path.GetFileName(packagePath) },
+                { "packageHash", packageHash },
+                { "packageSize", packageSize.ToString() },
+                { "artifactCount", artifactCount.ToString() },
+                { "createdAt", DateTimeOffset.UtcNow.ToString("o") }
+            };
+            if (sessionId is not null)
+            {
+                metadata["sessionId"] = sessionId;
+            }
+
+            var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
+            await AppendEventToTimelineAsync(projectRoot, OwsEventType.PackageCreated, Path.GetFileName(packagePath),
+                host, 0, metadata);
+        }
+        catch
+        {
+            // Failures in writing the event should not fail the package command itself
+        }
+
         return packagePath;
     }
 
@@ -851,6 +925,214 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         {
         }
     }
+
+    /// <inheritdoc />
+    public async Task EmitProjectOpenedAsync(string projectRoot, string host, string? reason = null)
+    {
+        EnsureProjectDirectoryExists(projectRoot);
+        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+        var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
+        string? sessionId = null;
+        if (File.Exists(sessionPath))
+        {
+            try
+            {
+                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
+                sessionId = state?.SessionId;
+            }
+            catch
+            {
+                /*ignored*/
+            }
+        }
+
+        var hashService = new Sha256HashService();
+        var safeProjectIdentifier = hashService.ComputeHash(projectRoot);
+
+        var metadata = new Dictionary<string, string>
+        {
+            { "host", host },
+            { "projectIdentifier", safeProjectIdentifier }
+        };
+        if (reason is not null)
+        {
+            metadata["reason"] = reason;
+        }
+
+        if (sessionId is not null)
+        {
+            metadata["sessionId"] = sessionId;
+        }
+
+        await AppendEventToTimelineAsync(projectRoot, OwsEventType.ProjectOpened, null, host, null, metadata);
+    }
+
+    /// <inheritdoc />
+    public async Task EmitProjectClosedAsync(string projectRoot, string host, string? reason = null)
+    {
+        EnsureProjectDirectoryExists(projectRoot);
+        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+        var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
+        string? sessionId = null;
+        if (File.Exists(sessionPath))
+        {
+            try
+            {
+                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
+                sessionId = state?.SessionId;
+            }
+            catch
+            {
+                /*ignored*/
+            }
+        }
+
+        var hashService = new Sha256HashService();
+        var safeProjectIdentifier = hashService.ComputeHash(projectRoot);
+
+        var metadata = new Dictionary<string, string>
+        {
+            { "host", host },
+            { "projectIdentifier", safeProjectIdentifier }
+        };
+        if (reason is not null)
+        {
+            metadata["reason"] = reason;
+        }
+
+        if (sessionId is not null)
+        {
+            metadata["sessionId"] = sessionId;
+        }
+
+        await AppendEventToTimelineAsync(projectRoot, OwsEventType.ProjectClosed, null, host, null, metadata);
+    }
+
+    /// <inheritdoc />
+    public async Task EmitGenericEventAsync(
+        string projectRoot,
+        OwsEventType eventType,
+        string host,
+        string? label = null,
+        int? exitCode = null,
+        long? durationMs = null)
+    {
+        EnsureProjectDirectoryExists(projectRoot);
+
+        var allowedEventTypes = new[]
+        {
+            OwsEventType.BuildStarted,
+            OwsEventType.BuildSucceeded,
+            OwsEventType.BuildFailed,
+            OwsEventType.TestExecuted,
+            OwsEventType.ProgramExecuted
+        };
+
+        if (Array.IndexOf(allowedEventTypes, eventType) < 0)
+        {
+            throw new ArgumentException($"Event type '{eventType}' is not allowed for generic emission in v0.1.");
+        }
+
+        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+        var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
+        string? sessionId = null;
+        if (File.Exists(sessionPath))
+        {
+            try
+            {
+                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
+                sessionId = state?.SessionId;
+            }
+            catch
+            {
+                /*ignored*/
+            }
+        }
+
+        var metadata = new Dictionary<string, string>
+        {
+            { "host", host }
+        };
+        if (!string.IsNullOrWhiteSpace(label))
+        {
+            metadata["label"] = ScrubSecrets(label);
+        }
+
+        if (exitCode.HasValue)
+        {
+            metadata["exitCode"] = exitCode.Value.ToString();
+        }
+
+        if (durationMs.HasValue)
+        {
+            metadata["durationMs"] = durationMs.Value.ToString();
+        }
+
+        if (sessionId is not null)
+        {
+            metadata["sessionId"] = sessionId;
+        }
+
+        await AppendEventToTimelineAsync(projectRoot, eventType, null, host, null, metadata);
+    }
+
+    /// <summary>
+    /// Scrub keys, tokens, passwords, and credentials from inputs.
+    /// </summary>
+    public static string ScrubSecrets(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+
+        // Redact values matching common key/token/password assignments or headers
+        var result = MyRegex().Replace(input, "$1$2[REDACTED]");
+
+        // Redact Bearer tokens
+        result = MyRegex1().Replace(result, "$1[REDACTED]");
+
+        return result;
+    }
+
+    private async Task AppendEventToTimelineAsync(
+        string projectRoot,
+        OwsEventType eventType,
+        string? relativePath,
+        string? toolName,
+        long? bytesChanged,
+        IReadOnlyDictionary<string, string> metadata)
+    {
+        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+        var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
+
+        var previousEventHash = OwsEventChain.GenesisPreviousEventHash;
+        if (File.Exists(timelinePath))
+        {
+            previousEventHash = OwsEventChain.ReadLastEventHash(timelinePath);
+        }
+        else
+        {
+            Directory.CreateDirectory(localFolder);
+        }
+
+        var owsEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+        {
+            EventType = eventType,
+            ProjectId = Path.GetFileName(projectRoot),
+            RelativePath = relativePath,
+            ToolName = toolName,
+            BytesChanged = bytesChanged,
+            Metadata = metadata
+        }, previousEventHash);
+
+        await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(owsEvent)}{Environment.NewLine}");
+    }
+
+    [GeneratedRegex(
+        @"(?i)(password|token|key|secret|credential|pwd|bearer|auth|signature)(\s*[:=]\s*|\s+)([a-zA-Z0-9_\-\.\~]{6,})",
+        RegexOptions.None, "en-US")]
+    private static partial Regex MyRegex();
+
+    [GeneratedRegex(@"(?i)(bearer\s+)([a-zA-Z0-9_\-\.\~]{8,})", RegexOptions.None, "en-US")]
+    private static partial Regex MyRegex1();
 }
 
 /// <summary>

@@ -202,7 +202,8 @@ async function handleStartWatch(context: vscode.ExtensionContext) {
 
     const childEnv = {
         ...process.env,
-        OWS_VERIFIER_API_KEY: apiKey
+        OWS_VERIFIER_API_KEY: apiKey,
+        OWS_HOST: 'vscode'
     };
 
     try {
@@ -432,7 +433,8 @@ async function runCli(args: string[], cwd: string): Promise<any> {
     return new Promise((resolve, reject) => {
         const childEnv = {
             ...process.env,
-            OWS_VERIFIER_API_KEY: apiKey
+            OWS_VERIFIER_API_KEY: apiKey,
+            OWS_HOST: 'vscode'
         };
 
         cp.execFile(exec, [...initialArgs, ...args], { cwd, env: childEnv }, (err, stdout, stderr) => {

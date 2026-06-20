@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Ows.Core;
 using Ows.Core.Agent;
+using Ows.Core.Events;
 using Ows.Core.Notarization;
 using Ows.Core.Reporting;
 using Ows.Core.Verification;
@@ -35,7 +36,8 @@ public static class OwsCommandFactory
             BuildWatchCommand(),
             BuildPackageCommand(),
             BuildVerifyCommand(),
-            BuildReportCommand()
+            BuildReportCommand(),
+            BuildEventCommand()
         };
 
         rootCommand.Options.Add(JsonOption);
@@ -918,6 +920,108 @@ public static class OwsCommandFactory
         }
 
         return msg;
+    }
+
+    private static Command BuildEventCommand()
+    {
+        var command = new Command("event", "Record explicit OWS timeline events.");
+
+        var hostOption = new Option<string?>("--host")
+        {
+            Description = "Host application or environment identifier (e.g. cli, vscode, rider)."
+        };
+        var labelOption = new Option<string?>("--label")
+        {
+            Description = "Safe label or command name (secrets will be redacted)."
+        };
+
+        var buildStarted = new Command("build-started", "Record a build started event.");
+        buildStarted.Options.Add(hostOption);
+        buildStarted.Options.Add(labelOption);
+        buildStarted.SetAction(async parseResult => await HandleEventAction(parseResult, OwsEventType.BuildStarted, hostOption, labelOption));
+
+        var buildSucceeded = new Command("build-succeeded", "Record a build succeeded event.");
+        buildSucceeded.Options.Add(hostOption);
+        buildSucceeded.Options.Add(labelOption);
+        var succeededDuration = new Option<long?>("--duration") { Description = "Duration in milliseconds." };
+        buildSucceeded.Options.Add(succeededDuration);
+        buildSucceeded.SetAction(async parseResult => await HandleEventAction(parseResult, OwsEventType.BuildSucceeded, hostOption, labelOption, durationOption: succeededDuration));
+
+        var buildFailed = new Command("build-failed", "Record a build failed event.");
+        buildFailed.Options.Add(hostOption);
+        buildFailed.Options.Add(labelOption);
+        var failedExitCode = new Option<int?>("--exit-code") { Description = "Build exit code." };
+        var failedDuration = new Option<long?>("--duration") { Description = "Duration in milliseconds." };
+        buildFailed.Options.Add(failedExitCode);
+        buildFailed.Options.Add(failedDuration);
+        buildFailed.SetAction(async parseResult => await HandleEventAction(parseResult, OwsEventType.BuildFailed, hostOption, labelOption, failedExitCode, failedDuration));
+
+        var testExecuted = new Command("test-executed", "Record a test executed event.");
+        testExecuted.Options.Add(hostOption);
+        testExecuted.Options.Add(labelOption);
+        var testExitCode = new Option<int?>("--exit-code") { Description = "Test execution exit code." };
+        var testDuration = new Option<long?>("--duration") { Description = "Duration in milliseconds." };
+        testExecuted.Options.Add(testExitCode);
+        testExecuted.Options.Add(testDuration);
+        testExecuted.SetAction(async parseResult => await HandleEventAction(parseResult, OwsEventType.TestExecuted, hostOption, labelOption, testExitCode, testDuration));
+
+        var programExecuted = new Command("program-executed", "Record a program executed event.");
+        programExecuted.Options.Add(hostOption);
+        programExecuted.Options.Add(labelOption);
+        var programExitCode = new Option<int?>("--exit-code") { Description = "Program execution exit code." };
+        var programDuration = new Option<long?>("--duration") { Description = "Duration in milliseconds." };
+        programExecuted.Options.Add(programExitCode);
+        programExecuted.Options.Add(programDuration);
+        programExecuted.SetAction(async parseResult => await HandleEventAction(parseResult, OwsEventType.ProgramExecuted, hostOption, labelOption, programExitCode, programDuration));
+
+        command.Subcommands.Add(buildStarted);
+        command.Subcommands.Add(buildSucceeded);
+        command.Subcommands.Add(buildFailed);
+        command.Subcommands.Add(testExecuted);
+        command.Subcommands.Add(programExecuted);
+
+        return command;
+    }
+
+    private static async Task<int> HandleEventAction(
+        ParseResult parseResult,
+        OwsEventType eventType,
+        Option<string?> hostOption,
+        Option<string?> labelOption,
+        Option<int?>? exitCodeOption = null,
+        Option<long?>? durationOption = null)
+    {
+        var useJson = parseResult.GetValue(JsonOption);
+        var host = parseResult.GetValue(hostOption)
+                   ?? Environment.GetEnvironmentVariable("OWS_HOST")
+                   ?? "cli";
+        var label = parseResult.GetValue(labelOption);
+        var exitCode = exitCodeOption != null ? parseResult.GetValue(exitCodeOption) : null;
+        var duration = durationOption != null ? parseResult.GetValue(durationOption) : null;
+
+        var response = new OwsCliResponse();
+        try
+        {
+            var projectRoot = Directory.GetCurrentDirectory();
+            var manager = new OwsWatchSessionManager();
+            if (!manager.IsProjectInitialized(projectRoot))
+            {
+                throw new InvalidOperationException("OWS project is not initialized. Run 'ows init' first.");
+            }
+
+            await manager.EmitGenericEventAsync(projectRoot, eventType, host, label, exitCode, duration);
+            response.Success = true;
+            response.ProjectRoot = projectRoot;
+            response.Message = $"Successfully recorded {eventType} event in the local timeline.";
+        }
+        catch (Exception ex)
+        {
+            response.Success = false;
+            response.Errors.Add(GetFriendlyErrorMessage(ex));
+        }
+
+        PrintResult(response, useJson);
+        return response.Success ? 0 : 1;
     }
 
     private static void PrintResult(OwsCliResponse response, bool useJson)
