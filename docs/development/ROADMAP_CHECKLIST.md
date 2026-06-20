@@ -228,7 +228,7 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Signing key custody documented (`docs/operations/SECURITY_HARDENING.md`)
 - [x] Restore and verify known package drill documented (`docs/operations/BACKUP_RESTORE.md`)
 - [x] `docs/operations/OPERATIONS_RUNBOOK.md` created
-- [x] `scripts/verify-ops-readiness.ps1` created
+- [x] `scripts/windows/verify-ops-readiness.ps1` and `scripts/unix/verify-ops-readiness.sh` created
 - [x] Package storage diagnostics (`packageStorageConfigured`, `packageStorageReady`, `packageBlobCount`)
 - [x] Signing key fingerprint diagnostics (`signingKeyFingerprintPresent` in `/diagnostics/summary`)
 - [x] `package.blob.missing` audit event implemented in worker
@@ -269,7 +269,7 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 
 ## 18. Pilot End-to-End Validation v0.1
 
-- [x] Pilot fixture setup script (`scripts/setup-pilot-fixture.ps1`)
+- [x] Pilot fixture setup scripts (`scripts/windows/setup-pilot-fixture.ps1`, `scripts/unix/setup-pilot-fixture.sh`)
 - [x] Main professor/sysadmin walkthrough (`docs/workflows/PILOT_DEMO.md`)
 - [x] Student CLI workflow validation documented
 - [x] Student VS Code workflow validation documented
@@ -284,8 +284,8 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 
 - [x] `docs/development/RELEASE_CHECKLIST.md`
 - [x] `docs/development/REGRESSION_GATE.md`
-- [x] Automated release-gate script (`scripts/run-release-regression-gate.ps1`)
-- [x] Release-candidate evidence script (`scripts/collect-release-candidate-evidence.ps1`)
+- [x] Automated release-gate scripts (`scripts/windows/run-release-regression-gate.ps1`, `scripts/unix/run-release-regression-gate.sh`)
+- [x] Release-candidate evidence scripts (`scripts/windows/collect-release-candidate-evidence.ps1`, `scripts/unix/collect-release-candidate-evidence.sh`)
 - [x] Known-good local pilot path documented
 - [x] Automated vs manual checks documented
 - [x] Fixture repeatability/reset guidance documented

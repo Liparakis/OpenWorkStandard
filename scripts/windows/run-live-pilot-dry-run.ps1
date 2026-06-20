@@ -8,7 +8,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "common-local-verifier.ps1")
+$repoRoot = Resolve-OwsRepoRoot -StartDirectory $PSScriptRoot
 Set-Location $repoRoot
 
 $env:VerifierSecurity__ApiKey = $OperatorKey

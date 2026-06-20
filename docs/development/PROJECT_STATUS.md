@@ -260,10 +260,10 @@ PostgreSQL setup model today:
 Local verifier dev flow today:
 
 - `docker-compose.local.yml` starts PostgreSQL using `D:\Containers\OWS\postgres\data`
-- `scripts/doctor-local-verifier.ps1` and `scripts/validate-local-verifier.ps1` / `.sh` perform read-only local environment diagnostics and preflight checks
-- `scripts/run-local-verifier.ps1` runs PostgreSQL, migrations, and the verifier in the foreground
-- `scripts/start-local-verifier.ps1`, `status-local-verifier.ps1`, `logs-local-verifier.ps1`, and `stop-local-verifier.ps1` provide background lifecycle helpers on Windows
-- `scripts/test-local-verifier.ps1` performs a direct API smoke check
+- `scripts/windows/doctor-local-verifier.ps1` and `scripts/windows/validate-local-verifier.ps1`, plus the Unix counterparts under `scripts/unix/`, perform read-only local environment diagnostics and preflight checks
+- `scripts/windows/run-local-verifier.ps1` and `scripts/unix/run-local-verifier.sh` run PostgreSQL, migrations, and the verifier in the foreground
+- `scripts/windows/start-local-verifier.ps1`, `status-local-verifier.ps1`, `logs-local-verifier.ps1`, and `stop-local-verifier.ps1` provide background lifecycle helpers on Windows
+- `scripts/windows/test-local-verifier.ps1` and `scripts/unix/test-local-verifier.sh` perform a direct API smoke check
 - `src/Ows.Verifier.Server/Dockerfile` builds the `ows-verifier:local` verifier image
 - helper scripts now resolve the repo root correctly from both `scripts/` and `artifacts/generated-scripts/`
 - helper status distinguishes `not_started`, `running`, `stale_pid`, `crashed`, `unreachable`, and `port_in_use`
@@ -372,10 +372,10 @@ Recent uncommitted/working-tree progress:
 - Prometheus-compatible `/metrics` endpoint is exposed for scraping without key requirements
 - operational runbooks, backup/restore order, recovery failure modes, and restore drills are fully documented
 - `docs/workflows/PILOT_DEMO.md` now provides the main pilot walkthrough for professors and sysadmins
-- `scripts/setup-pilot-fixture.ps1` creates a minimal institution/course/student/assessment fixture and delegated student/reviewer keys
-- `scripts/run-live-pilot-dry-run.ps1` now executes the verified end-to-end pilot rehearsal and writes `artifacts/pilot-demo/live-dry-run-summary.json`
-- `scripts/run-release-regression-gate.ps1` now executes the automated release gate and writes `artifacts/release-gate/release-gate-summary.json`
-- `scripts/collect-release-candidate-evidence.ps1` now writes `artifacts/release-candidate/v0.1/` from the latest passing gate and dry run
+- `scripts/windows/setup-pilot-fixture.ps1` and `scripts/unix/setup-pilot-fixture.sh` create a minimal institution/course/student/assessment fixture and delegated student/reviewer keys
+- `scripts/windows/run-live-pilot-dry-run.ps1` and `scripts/unix/run-live-pilot-dry-run.sh` execute the end-to-end pilot rehearsal and write `artifacts/pilot-demo/live-dry-run-summary.json`
+- `scripts/windows/run-release-regression-gate.ps1` and `scripts/unix/run-release-regression-gate.sh` execute the automated release gate and write `artifacts/release-gate/release-gate-summary.json`
+- `scripts/windows/collect-release-candidate-evidence.ps1` and `scripts/unix/collect-release-candidate-evidence.sh` write `artifacts/release-candidate/v0.1/` from the latest passing gate and dry run
 - the current `artifacts/release-candidate/v0.1/` bundle was refreshed on 2026-06-20 from a passing gate and passing live dry run; manual sign-off is still pending
 - camelCase `.ows/config.json` fields are now honored by `ows session start` and related config-backed flows
 - PostgreSQL audit-event queries now bind nullable filters safely
@@ -430,7 +430,7 @@ The weakest assumption to avoid: thinking durable local blobs plus PostgreSQL ar
 Best next steps, in order:
 
 1. Keep the release regression gate green whenever verifier/session/package behavior changes.
-2. Use `scripts/collect-release-candidate-evidence.ps1` after a green gate, then do manual sign-off.
+2. Use `scripts/windows/collect-release-candidate-evidence.ps1` or `scripts/unix/collect-release-candidate-evidence.sh` after a green gate, then do manual sign-off.
 3. Defer Rider, desktop polish, and LMS integration until the pilot path is boring.
 
 ## Bottom Line

@@ -216,6 +216,6 @@ Use `deploy/compose/docker-compose.multi-instance.yml` as the reference pattern.
 Run the ops readiness check at any time:
 
 ```powershell
-.\scripts\verify-ops-readiness.ps1 -BaseUrl http://localhost:5078 -ApiKey "<operator-key>"
+.\scripts\windows\verify-ops-readiness.ps1 -BaseUrl http://localhost:5078 -ApiKey "<operator-key>"
 ```
 

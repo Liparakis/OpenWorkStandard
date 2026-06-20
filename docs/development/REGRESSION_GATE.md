@@ -7,7 +7,7 @@ The release regression gate is the boring path that must stay green before addin
 Primary command:
 
 ```powershell
-.\scripts\run-release-regression-gate.ps1
+.\scripts\windows\run-release-regression-gate.ps1
 ```
 
 What it automates:
@@ -47,7 +47,7 @@ If the gate fails:
 When the gate is green, collect one boring bundle:
 
 ```powershell
-.\scripts\collect-release-candidate-evidence.ps1
+.\scripts\windows\collect-release-candidate-evidence.ps1
 ```
 
 This copies the latest passing gate and dry-run summaries into `artifacts/release-candidate/v0.1/` and writes a small manifest for manual sign-off.

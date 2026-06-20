@@ -47,7 +47,7 @@ $policy = Get-ExecutionPolicy
 if ($policy -eq "Restricted") {
     Write-Host "[!] Warning: PowerShell Execution Policy is 'Restricted'." -ForegroundColor Yellow
     Write-Host "    To run OWS scripts, bypass execution policy:" -ForegroundColor Yellow
-    Write-Host "    powershell -ExecutionPolicy Bypass -File .\scripts\<script>.ps1" -ForegroundColor Yellow
+    Write-Host "    powershell -ExecutionPolicy Bypass -File .\scripts\windows\<script>.ps1" -ForegroundColor Yellow
 } else {
     Write-Host "[x] PowerShell Execution Policy: $policy" -ForegroundColor Green
 }
@@ -128,7 +128,7 @@ if ($portBound) {
     }
 } else {
     Write-Host "[ ] Verifier server is not running (Port $($runtimeInfo.Port) is free)." -ForegroundColor Gray
-    Write-Host "    Action: Start the verifier using: .\scripts\start-local-verifier.ps1" -ForegroundColor Yellow
+    Write-Host "    Action: Start the verifier using: .\scripts\windows\start-local-verifier.ps1" -ForegroundColor Yellow
 }
 
 # 9. Health and Readiness Endpoints

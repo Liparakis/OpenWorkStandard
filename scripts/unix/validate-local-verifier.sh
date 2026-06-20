@@ -115,7 +115,7 @@ if [[ "$verifier_port_reachable" == true ]]; then
   echo -e "\033[32m[x] Port 5078 is active.\033[0m"
 else
   echo -e "\033[30;1m[ ] Verifier server is not running (Port 5078 is free).\033[0m"
-  echo -e "\033[33m    Action: Start the verifier using: ./scripts/start-local-verifier.sh\033[0m"
+  echo -e "\033[33m    Action: Start the verifier using: ./scripts/unix/start-local-verifier.sh\033[0m"
 fi
 
 # 7. Health and Readiness Endpoints

@@ -18,10 +18,10 @@
   <Target Name="GenerateVerifierScripts" AfterTargets="Build">
     <MakeDir Directories="$(GeneratedScriptDirectory)" />
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-      <GeneratedVerifierScripts Include="$(MSBuildProjectDirectory)\..\..\scripts\*-local-verifier.ps1" />
+      <GeneratedVerifierScripts Include="$(MSBuildProjectDirectory)\..\..\scripts\windows\*-local-verifier.ps1" />
     </ItemGroup>
     <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
-      <GeneratedVerifierScripts Include="$(MSBuildProjectDirectory)\..\..\scripts\*-local-verifier.sh" />
+      <GeneratedVerifierScripts Include="$(MSBuildProjectDirectory)\..\..\scripts\unix\*-local-verifier.sh" />
     </ItemGroup>
     <Copy SourceFiles="@(GeneratedVerifierScripts)"
           DestinationFiles="@(GeneratedVerifierScripts->'$(GeneratedScriptDirectory)\%(Filename)%(Extension)')"

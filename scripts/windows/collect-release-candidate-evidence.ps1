@@ -5,18 +5,19 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "common-local-verifier.ps1")
+$repoRoot = Resolve-OwsRepoRoot -StartDirectory $PSScriptRoot
 Set-Location $repoRoot
 
 $gateSummaryPath = Join-Path $repoRoot "artifacts\release-gate\release-gate-summary.json"
 $dryRunSummaryPath = Join-Path $repoRoot "artifacts\pilot-demo\live-dry-run-summary.json"
 
 if (-not (Test-Path $gateSummaryPath)) {
-    throw "Missing gate summary at '$gateSummaryPath'. Run .\scripts\run-release-regression-gate.ps1 first."
+    throw "Missing gate summary at '$gateSummaryPath'. Run .\scripts\windows\run-release-regression-gate.ps1 first."
 }
 
 if (-not (Test-Path $dryRunSummaryPath)) {
-    throw "Missing dry run summary at '$dryRunSummaryPath'. Run .\scripts\run-live-pilot-dry-run.ps1 first."
+    throw "Missing dry run summary at '$dryRunSummaryPath'. Run .\scripts\windows\run-live-pilot-dry-run.ps1 first."
 }
 
 $gateSummary = Get-Content $gateSummaryPath -Raw | ConvertFrom-Json

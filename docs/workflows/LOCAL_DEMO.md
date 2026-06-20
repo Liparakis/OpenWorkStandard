@@ -33,12 +33,12 @@ Before launching the verifier server, run the read-only environment validation s
 
 ### Windows (PowerShell):
 ```powershell
-.\scripts\validate-local-verifier.ps1
+.\scripts\windows\validate-local-verifier.ps1
 ```
 
 ### Unix/macOS:
 ```bash
-./scripts/validate-local-verifier.sh
+./scripts/unix/validate-local-verifier.sh
 ```
 
 The script checks:
@@ -59,16 +59,16 @@ Launch the verifier server in the background:
 
 ### Windows:
 ```powershell
-.\scripts\start-local-verifier.ps1
+.\scripts\windows\start-local-verifier.ps1
 ```
 
 ### Unix/macOS:
 ```bash
-./scripts/start-local-verifier.sh
+./scripts/unix/start-local-verifier.sh
 ```
 
 Confirm that the verifier is active and listening by running:
-- **Status check**: `.\scripts\status-local-verifier.ps1` (or `./scripts/status-local-verifier.sh`)
+- **Status check**: `.\scripts\windows\status-local-verifier.ps1` (or `./scripts/unix/status-local-verifier.sh`)
 - **Ready endpoint**: Querying `http://127.0.0.1:5078/ready` (should return HTTP 200 `{ "status": "Healthy" }`)
 
 ---
@@ -177,10 +177,10 @@ Once your demo runs are complete, stop the verifier server and tear down Postgre
 ### Stop Verifier Server:
 ```bash
 # Windows
-.\scripts\stop-local-verifier.ps1
+.\scripts\windows\stop-local-verifier.ps1
 
 # Unix/macOS
-./scripts/stop-local-verifier.sh
+./scripts/unix/stop-local-verifier.sh
 ```
 
 ### Stop Postgres Container:

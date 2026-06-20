@@ -18,10 +18,30 @@ resolve_ows_repo_root() {
   return 1
 }
 
+run_python() {
+  if command -v py >/dev/null 2>&1 && py -3 -c "import sys" >/dev/null 2>&1; then
+    py -3 "$@"
+    return
+  fi
+
+  if command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
+    python3 "$@"
+    return
+  fi
+
+  if command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then
+    python "$@"
+    return
+  fi
+
+  echo "Python 3 is required for the shell verifier scripts." >&2
+  return 1
+}
+
 test_tcp_port_open() {
   local host_name="$1"
   local port="$2"
-  python3 - "$host_name" "$port" <<'PY'
+  run_python - "$host_name" "$port" <<'PY'
 import socket
 import sys
 
@@ -59,13 +79,13 @@ get_verifier_runtime_value() {
   case "$key" in
     repo_root) printf '%s\n' "$repo_root" ;;
     base_url) printf '%s\n' "${base_url%/}" ;;
-    host) python3 - "$base_url" <<'PY'
+    host) run_python - "$base_url" <<'PY'
 import sys
 from urllib.parse import urlparse
 print(urlparse(sys.argv[1]).hostname or "")
 PY
     ;;
-    port) python3 - "$base_url" <<'PY'
+    port) run_python - "$base_url" <<'PY'
 import sys
 from urllib.parse import urlparse
 parsed = urlparse(sys.argv[1])
@@ -150,7 +170,7 @@ get_verifier_state() {
     message="The verifier port is already in use by another process."
   fi
 
-  printf 'STATE=%s\nMESSAGE=%s\nPID=%s\nPROCESS_RUNNING=%s\nPORT_BOUND=%s\nHTTP_READY=%s\n' \
+  printf 'STATE=%q\nMESSAGE=%q\nPID=%q\nPROCESS_RUNNING=%q\nPORT_BOUND=%q\nHTTP_READY=%q\n' \
     "$state" "$message" "$pid_value" "$process_running" "$port_bound" "$http_ready"
 }
 

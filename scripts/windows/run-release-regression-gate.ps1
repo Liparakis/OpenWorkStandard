@@ -8,7 +8,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "common-local-verifier.ps1")
+$repoRoot = Resolve-OwsRepoRoot -StartDirectory $PSScriptRoot
 Set-Location $repoRoot
 
 $summaryRoot = Join-Path $repoRoot "artifacts\release-gate"
@@ -125,7 +126,7 @@ try {
         }
     }
 
-    Invoke-Step -Name "live pilot dry run" -Command ".\\scripts\\run-live-pilot-dry-run.ps1" -Action {
+    Invoke-Step -Name "live pilot dry run" -Command ".\\scripts\\windows\\run-live-pilot-dry-run.ps1" -Action {
         $env:VerifierSecurity__ApiKey = $OperatorKey
         $env:OWS_VERIFIER_API_KEY = $OperatorKey
         $env:VerifierStorage__ReceiptSigningKey = $ReceiptSigningKey

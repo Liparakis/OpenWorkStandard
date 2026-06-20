@@ -14,32 +14,32 @@ if ! test_verifier_http_ready "$base_url"; then
   exit 1
 fi
 
-session_id="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions" -H "Content-Type: application/json" -d "{}" | python -c "import json,sys; print(json.load(sys.stdin)['sessionId'])")"
+session_id="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions" -H "Content-Type: application/json" -d "{}" | run_python -c "import json,sys; print(json.load(sys.stdin)['sessionId'])")"
 checkpoint_body="$(printf '{"sessionId":"%s","sequenceNumber":1,"timelineHeadHash":"head-1"}' "$session_id")"
-if ! receipt_hash="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions/$session_id/checkpoints" -H "Content-Type: application/json" -H "Idempotency-Key: checkpoint-1" -d "$checkpoint_body" | python -c "import json,sys; print(json.load(sys.stdin)['receiptHash'])")"; then
+if ! receipt_hash="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions/$session_id/checkpoints" -H "Content-Type: application/json" -H "Idempotency-Key: checkpoint-1" -d "$checkpoint_body" | run_python -c "import json,sys; print(json.load(sys.stdin)['receiptHash'])")"; then
   echo "Smoke test failed during checkpoint append. Check status-local-verifier, logs-local-verifier, and confirm migrations succeeded." >&2
   exit 1
 fi
-retry_receipt_hash="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions/$session_id/checkpoints" -H "Content-Type: application/json" -H "Idempotency-Key: checkpoint-1" -d "$checkpoint_body" | python -c "import json,sys; print(json.load(sys.stdin)['receiptHash'])")"
-receipt_count="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/receipts" | python -c "import json,sys; print(len(json.load(sys.stdin)['receipts']))")"
-head_sequence="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/head" | python -c "import json,sys; print(json.load(sys.stdin)['lastSequenceNumber'])")"
-head_hash="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/head" | python -c "import json,sys; print(json.load(sys.stdin)['lastTimelineHeadHash'])")"
+retry_receipt_hash="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions/$session_id/checkpoints" -H "Content-Type: application/json" -H "Idempotency-Key: checkpoint-1" -d "$checkpoint_body" | run_python -c "import json,sys; print(json.load(sys.stdin)['receiptHash'])")"
+receipt_count="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/receipts" | run_python -c "import json,sys; print(len(json.load(sys.stdin)['receipts']))")"
+head_sequence="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/head" | run_python -c "import json,sys; print(json.load(sys.stdin)['lastSequenceNumber'])")"
+head_hash="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/head" | run_python -c "import json,sys; print(json.load(sys.stdin)['lastTimelineHeadHash'])")"
 package_key="smoke/$session_id.owspkg"
-package_hash="$(python - <<'PY'
+package_hash="$(run_python - <<'PY'
 print("a" * 64)
 PY
 )"
 package_body="$(printf '{"sessionId":"%s","objectStorageProvider":"s3","objectBucket":"ows-packages","objectKey":"%s","packageSha256":"%s","packageSizeBytes":1024}' "$session_id" "$package_key" "$package_hash")"
 package_idempotency_key="package-$session_id"
 package_response="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/packages" -H "Content-Type: application/json" -H "Idempotency-Key: $package_idempotency_key" -d "$package_body")"
-package_id="$(printf '%s' "$package_response" | python -c "import json,sys; print(json.load(sys.stdin)['submissionId'])")"
-retry_package_id="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/packages" -H "Content-Type: application/json" -H "Idempotency-Key: $package_idempotency_key" -d "$package_body" | python -c "import json,sys; print(json.load(sys.stdin)['submissionId'])")"
+package_id="$(printf '%s' "$package_response" | run_python -c "import json,sys; print(json.load(sys.stdin)['submissionId'])")"
+retry_package_id="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/packages" -H "Content-Type: application/json" -H "Idempotency-Key: $package_idempotency_key" -d "$package_body" | run_python -c "import json,sys; print(json.load(sys.stdin)['submissionId'])")"
 fetched_package="$(curl -fsS "${auth_headers[@]}" "$base_url/packages/$package_id")"
-fetched_package_key="$(printf '%s' "$fetched_package" | python -c "import json,sys; print(json.load(sys.stdin)['objectKey'])")"
-fetched_package_receipt_head="$(printf '%s' "$fetched_package" | python -c "import json,sys; print(json.load(sys.stdin)['sessionHeadReceiptHash'])")"
+fetched_package_key="$(printf '%s' "$fetched_package" | run_python -c "import json,sys; print(json.load(sys.stdin)['objectKey'])")"
+fetched_package_receipt_head="$(printf '%s' "$fetched_package" | run_python -c "import json,sys; print(json.load(sys.stdin)['sessionHeadReceiptHash'])")"
 session_packages="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/packages")"
-session_package_count="$(printf '%s' "$session_packages" | python -c "import json,sys; print(len(json.load(sys.stdin)))")"
-latest_session_package_id="$(printf '%s' "$session_packages" | python -c "import json,sys; packages=json.load(sys.stdin); print(packages[0]['submissionId'] if packages else '')")"
+session_package_count="$(printf '%s' "$session_packages" | run_python -c "import json,sys; print(len(json.load(sys.stdin)))")"
+latest_session_package_id="$(printf '%s' "$session_packages" | run_python -c "import json,sys; packages=json.load(sys.stdin); print(packages[0]['submissionId'] if packages else '')")"
 
 if [[ "$receipt_hash" != "$retry_receipt_hash" ]]; then
   echo "Idempotent retry did not return the same receipt hash." >&2

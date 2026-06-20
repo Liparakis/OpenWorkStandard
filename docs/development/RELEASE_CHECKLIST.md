@@ -10,7 +10,7 @@ Run:
 $env:VerifierSecurity__ApiKey = "pilot-operator-key-12345"
 $env:OWS_VERIFIER_API_KEY = "pilot-operator-key-12345"
 $env:VerifierStorage__ReceiptSigningKey = "pilot-signing-key-12345"
-.\scripts\run-release-regression-gate.ps1
+.\scripts\windows\run-release-regression-gate.ps1
 ```
 
 Expected automated checks:
@@ -38,7 +38,7 @@ Artifacts:
 
 - gate summary: `artifacts/release-gate/release-gate-summary.json`
 - latest dry run summary: `artifacts/pilot-demo/live-dry-run-summary.json`
-- release-candidate evidence bundle: `.\scripts\collect-release-candidate-evidence.ps1` writes `artifacts/release-candidate/v0.1/`
+- release-candidate evidence bundle: `.\scripts\windows\collect-release-candidate-evidence.ps1` writes `artifacts/release-candidate/v0.1/`
 
 ## Manual Checks
 

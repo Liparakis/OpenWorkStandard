@@ -16,12 +16,12 @@ From a clean clone:
 
 1. run `dotnet build OWS.sln -nologo`
 2. start PostgreSQL with `docker compose -f docker-compose.local.yml up -d`
-3. run `.\scripts\start-local-verifier.ps1`
-4. confirm `.\scripts\status-local-verifier.ps1`
-5. run `.\scripts\test-local-verifier.ps1`
-6. inspect `.\scripts\logs-local-verifier.ps1 -All` if anything fails
+3. run `.\scripts\windows\start-local-verifier.ps1`
+4. confirm `.\scripts\windows\status-local-verifier.ps1`
+5. run `.\scripts\windows\test-local-verifier.ps1`
+6. inspect `.\scripts\windows\logs-local-verifier.ps1 -All` if anything fails
 
-On Unix-like environments, use the matching `.sh` scripts from `scripts/` or `artifacts/generated-scripts/`.
+On Unix-like environments, use the matching `.sh` scripts from `scripts/unix/` or `artifacts/generated-scripts/`.
 
 ## Local PostgreSQL
 
@@ -34,7 +34,7 @@ docker compose -f docker-compose.local.yml up -d
 Or use the one-command local runner:
 
 ```powershell
-.\scripts\run-local-verifier.ps1
+.\scripts\windows\run-local-verifier.ps1
 ```
 
 After `dotnet build`, platform-specific launcher artifacts are also emitted to:
@@ -44,23 +44,23 @@ After `dotnet build`, platform-specific launcher artifacts are also emitted to:
 For background lifecycle on Windows:
 
 ```powershell
-.\scripts\doctor-local-verifier.ps1
-.\scripts\start-local-verifier.ps1
-.\scripts\status-local-verifier.ps1
-.\scripts\logs-local-verifier.ps1
-.\scripts\test-local-verifier.ps1
-.\scripts\stop-local-verifier.ps1
+.\scripts\windows\doctor-local-verifier.ps1
+.\scripts\windows\start-local-verifier.ps1
+.\scripts\windows\status-local-verifier.ps1
+.\scripts\windows\logs-local-verifier.ps1
+.\scripts\windows\test-local-verifier.ps1
+.\scripts\windows\stop-local-verifier.ps1
 ```
 
 For Unix-like environments:
 
 ```bash
-./scripts/doctor-local-verifier.sh
-./scripts/start-local-verifier.sh
-./scripts/status-local-verifier.sh
-./scripts/logs-local-verifier.sh
-./scripts/test-local-verifier.sh
-./scripts/stop-local-verifier.sh
+./scripts/unix/doctor-local-verifier.sh
+./scripts/unix/start-local-verifier.sh
+./scripts/unix/status-local-verifier.sh
+./scripts/unix/logs-local-verifier.sh
+./scripts/unix/test-local-verifier.sh
+./scripts/unix/stop-local-verifier.sh
 ```
 
 If the verifier DLL has not been built yet, run:
@@ -132,7 +132,7 @@ Basic local flow:
 Or run the direct verifier smoke script:
 
 ```powershell
-.\scripts\test-local-verifier.ps1
+.\scripts\windows\test-local-verifier.ps1
 ```
 
 On non-Windows builds, use the generated `.sh` variants from `artifacts/generated-scripts/`.
@@ -183,7 +183,7 @@ The verifier exposes the following observability endpoints:
 If PowerShell blocks script execution, run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run-local-verifier.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\run-local-verifier.ps1
 ```
 
 The background start helper already launches its child PowerShell process with `-ExecutionPolicy Bypass`.
@@ -192,8 +192,8 @@ The background start helper already launches its child PowerShell process with `
 
 If verifier startup says the port is already in use:
 
-- run `.\scripts\status-local-verifier.ps1`
-- stop the managed verifier with `.\scripts\stop-local-verifier.ps1` if it is yours
+- run `.\scripts\windows\status-local-verifier.ps1`
+- stop the managed verifier with `.\scripts\windows\stop-local-verifier.ps1` if it is yours
 - otherwise free `127.0.0.1:5078` or set `OWS_VERIFIER_BASE_URL` before running the helpers
 
 ### Missing Postgres
@@ -210,7 +210,7 @@ If migrations fail:
 
 - verify PostgreSQL is reachable
 - verify `OWS_VERIFIER_CONNECTION_STRING` if you overrode the default
-- run `.\scripts\logs-local-verifier.ps1 -All` to see the startup failure without losing console output
+- run `.\scripts\windows\logs-local-verifier.ps1 -All` to see the startup failure without losing console output
 - rerun the startup helper after fixing the database issue
 
 ### Package upload or verification failures
@@ -219,7 +219,7 @@ If package intake fails:
 
 - confirm `VerifierStorage__LocalStoragePath` points to a writable directory or mounted volume
 - confirm `VerifierStorage__MaxPackageSizeBytes` is large enough for the test package
-- inspect `.\scripts\logs-local-verifier.ps1 -All` for `package.upload.*` or `package.verification.*` events
+- inspect `.\scripts\windows\logs-local-verifier.ps1 -All` for `package.upload.*` or `package.verification.*` events
 - query `GET /diagnostics/summary` with an operator key to confirm whether jobs are stuck in `Pending`, `Running`, or `Failed`
 - if the verifier crashed mid-job, restart it and let stale `Running` jobs be reset to `Pending`
 
@@ -235,12 +235,12 @@ If verifier requests return `401`:
 
 If status reports `stale_pid` or `crashed`:
 
-- run `.\scripts\stop-local-verifier.ps1`
-- rerun `.\scripts\start-local-verifier.ps1`
+- run `.\scripts\windows\stop-local-verifier.ps1`
+- rerun `.\scripts\windows\start-local-verifier.ps1`
 
 If status reports `unreachable`:
 
-- run `.\scripts\logs-local-verifier.ps1 -All`
+- run `.\scripts\windows\logs-local-verifier.ps1 -All`
 - verify the configured base URL and port
 - verify another local process is not intercepting the port
 
@@ -253,8 +253,8 @@ The helpers quote repo and artifact paths. Run them as normal from repositories 
 Use:
 
 ```powershell
-.\scripts\logs-local-verifier.ps1
-.\scripts\logs-local-verifier.ps1 -All
+.\scripts\windows\logs-local-verifier.ps1
+.\scripts\windows\logs-local-verifier.ps1 -All
 ```
 
 The log paths are also shown by `status-local-verifier.ps1`.

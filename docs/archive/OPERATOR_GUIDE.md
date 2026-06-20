@@ -84,7 +84,7 @@ Use the repo-owned rehearsal script before demos or pilot support sessions:
 $env:VerifierSecurity__ApiKey = "pilot-operator-key-12345"
 $env:OWS_VERIFIER_API_KEY = "pilot-operator-key-12345"
 $env:VerifierStorage__ReceiptSigningKey = "pilot-signing-key-12345"
-.\scripts\run-live-pilot-dry-run.ps1
+.\scripts\windows\run-live-pilot-dry-run.ps1
 ```
 
 What it does:

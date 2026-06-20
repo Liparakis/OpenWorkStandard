@@ -16,8 +16,8 @@ Start the local verifier path:
 
 ```powershell
 docker compose -f docker-compose.local.yml up -d
-.\scripts\start-local-verifier.ps1
-.\scripts\status-local-verifier.ps1
+.\scripts\windows\start-local-verifier.ps1
+.\scripts\windows\status-local-verifier.ps1
 ```
 
 Fastest validated rehearsal:
@@ -26,7 +26,7 @@ Fastest validated rehearsal:
 $env:VerifierSecurity__ApiKey = "pilot-operator-key-12345"
 $env:OWS_VERIFIER_API_KEY = "pilot-operator-key-12345"
 $env:VerifierStorage__ReceiptSigningKey = "pilot-signing-key-12345"
-.\scripts\run-live-pilot-dry-run.ps1
+.\scripts\windows\run-live-pilot-dry-run.ps1
 ```
 
 This script starts the verifier, creates a unique fixture, runs the student CLI flow, waits for heartbeats, uploads a package, waits for worker verification, checks reviewer/operator flows, writes `artifacts/pilot-demo/live-dry-run-summary.json`, and then stops the verifier.
@@ -38,7 +38,7 @@ Use this when you want the shortest path that is already known to pass locally:
 1. Run `dotnet build OWS.sln -nologo`.
 2. Run `dotnet test OWS.sln -nologo`.
 3. Run `src/ows-vscode/node_modules/.bin/tsc.cmd -p ./` from `src/ows-vscode`.
-4. Run `.\scripts\run-release-regression-gate.ps1` or `.\scripts\run-live-pilot-dry-run.ps1`.
+4. Run `.\scripts\windows\run-release-regression-gate.ps1` or `.\scripts\windows\run-live-pilot-dry-run.ps1`.
 5. Check `artifacts/pilot-demo/live-dry-run-summary.json`.
 
 The current known-good summary must show:
@@ -56,7 +56,7 @@ The current known-good summary must show:
 Create the minimal pilot fixture:
 
 ```powershell
-.\scripts\setup-pilot-fixture.ps1 -BaseUrl http://127.0.0.1:5078
+.\scripts\windows\setup-pilot-fixture.ps1 -BaseUrl http://127.0.0.1:5078
 ```
 
 The script creates:
@@ -204,7 +204,7 @@ Use the Operator key:
 ```powershell
 curl -H "X-OWS-Verifier-Key: $env:OWS_VERIFIER_API_KEY" http://127.0.0.1:5078/diagnostics/summary
 curl -H "X-OWS-Verifier-Key: $env:OWS_VERIFIER_API_KEY" "http://127.0.0.1:5078/audit/events?limit=50"
-.\scripts\logs-local-verifier.ps1 -All
+.\scripts\windows\logs-local-verifier.ps1 -All
 ```
 
 Confirm:
@@ -245,7 +245,7 @@ Validate or document evidence for:
 
 Validated on 2026-06-20 against the local PostgreSQL-backed verifier flow with:
 
-- `scripts/run-live-pilot-dry-run.ps1`
+- `scripts/windows/run-live-pilot-dry-run.ps1`
 - `BaseUrl=http://127.0.0.1:5078`
 - verifier storage provider `postgres`
 
