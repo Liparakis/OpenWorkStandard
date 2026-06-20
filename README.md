@@ -60,6 +60,12 @@ This repository now has a thin but real local MVP:
 
 The main architectural gap is operational hardening. Local capture alone is not enough, so the verifier path now focuses on durable storage, signing-key custody, auth, and deployment discipline.
 
+## Capture Fidelity & Event Vocabulary Status
+
+OWS defines a broader event vocabulary for future IDE/desktop integrations. The current MVP emits file-system and session/package events only where explicitly documented. Reserved event types are not currently used as trust evidence. For a full breakdown of every event type and its emission status, see the [OWS Event Catalog](docs/EVENT_CATALOG.md).
+
+Furthermore, OWS packages a `version_graph.json` placeholder today. Real graph nodes, edges, validation, and graph-derived trust signals are deferred. The event timeline is real and verified today; the semantic version graph is not.
+
 ## Verifier schema setup
 
 The Work Verifier owns its PostgreSQL schema lifecycle.

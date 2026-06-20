@@ -326,6 +326,7 @@ public sealed class EducationWiringTests : IDisposable
         Education.Assessment? assessment = null;
         Education.Course? course = null;
         Education.CourseOffering? offering = null;
+        Education.ClassGroup? classGroup = null;
         if (!string.IsNullOrWhiteSpace(assessmentId))
         {
             assessment = await _store.GetAssessmentAsync(new AssessmentId(assessmentId), CancellationToken.None);
@@ -335,6 +336,7 @@ public sealed class EducationWiringTests : IDisposable
                 if (offering is not null)
                 {
                     course = await _store.GetCourseAsync(offering.CourseId, CancellationToken.None);
+                    classGroup = await _store.GetClassGroupAsync(offering.ClassGroupId, CancellationToken.None);
                 }
             }
         }
@@ -352,6 +354,8 @@ public sealed class EducationWiringTests : IDisposable
             CourseId = course?.Id.Value,
             CourseCode = course?.Code,
             CourseTitle = course?.Title,
+            ClassGroupId = offering?.ClassGroupId.Value,
+            ClassGroupName = classGroup?.Name,
             AssessmentId = assessment?.Id.Value,
             AssessmentTitle = assessment?.Title,
             StudentUserId = student?.Id.Value,

@@ -71,7 +71,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         var timelinePath = Path.Combine(_options.ProjectRootPath, OwsConstants.LocalFolderName,
             OwsConstants.TimelineFileName);
         var projectId = Path.GetFileName(_options.ProjectRootPath);
-        
+
         var scanned = await PerformInitialScanAsync(timelinePath, projectId, cancellationToken);
         logger.LogInformation("Initial scan complete — {FileCount} file(s) recorded.", scanned);
         Status = TrackingAgentStatus.Watching;

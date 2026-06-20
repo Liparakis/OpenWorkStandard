@@ -11,11 +11,6 @@ public sealed record VerifierSessionRecord
     public AssessmentSessionId Id { get; init; }
 
     /// <summary>
-    /// Gets the session creation time in UTC.
-    /// </summary>
-    public DateTimeOffset CreatedAtUtc { get; init; } = DateTimeOffset.UtcNow;
-
-    /// <summary>
     /// Gets the current session head receipt hash.
     /// </summary>
     public string HeadReceiptHash { get; init; } = string.Empty;
@@ -29,11 +24,6 @@ public sealed record VerifierSessionRecord
     /// Gets the committed checkpoint count for the session.
     /// </summary>
     public int CheckpointCount { get; init; }
-
-    /// <summary>
-    /// Gets the optional client identifier.
-    /// </summary>
-    public string? ClientId { get; init; }
 
     /// <summary>
     /// Gets the optional assessment identifier.

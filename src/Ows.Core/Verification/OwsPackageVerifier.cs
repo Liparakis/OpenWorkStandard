@@ -360,8 +360,8 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         // Resolve package info
         var packagedReceiptChain = ReadPackagedReceiptChain(archive, new List<string>());
         var sessionId = ReadSessionId(archive) 
-            ?? (packagedReceiptChain is not null ? packagedReceiptChain.SessionId.Value : null)
-            ?? (request.TrustedReceiptChain is not null ? request.TrustedReceiptChain.SessionId.Value : null)
+            ?? packagedReceiptChain?.SessionId.Value
+            ?? request.TrustedReceiptChain?.SessionId.Value
             ?? request.TrustedSessionHead?.SessionId 
             ?? "Unknown";
 
@@ -422,7 +422,6 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             Summary = isSuccess ? "OWS verify succeeded." : "OWS verify failed.",
             Errors = errors,
             Findings = findings,
-            ReviewSignals = Array.Empty<ReviewSignal>(),
             VerifiedKeyFingerprints = verifiedKeyFingerprints,
             TrustExplanation = trustExplanation,
             Recommendation = recommendation,
@@ -766,15 +765,13 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         }
         else
         {
-            using (var timelineReader = new StreamReader(timelineEntry.Open()))
-            {
-                var timelineText = timelineReader.ReadToEnd();
-                var actualTimelineHash = hashService.ComputeHash(timelineText);
+            using var timelineReader = new StreamReader(timelineEntry.Open());
+            var timelineText = timelineReader.ReadToEnd();
+            var actualTimelineHash = hashService.ComputeHash(timelineText);
 
-                if (!string.Equals(actualTimelineHash, manifest.TimelineHash, StringComparison.OrdinalIgnoreCase))
-                {
-                    errors.Add("Timeline hash does not match manifest.");
-                }
+            if (!string.Equals(actualTimelineHash, manifest.TimelineHash, StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("Timeline hash does not match manifest.");
             }
         }
 
@@ -785,15 +782,13 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         }
         else
         {
-            using (var graphReader = new StreamReader(graphEntry.Open()))
-            {
-                var graphText = graphReader.ReadToEnd();
-                var actualGraphHash = hashService.ComputeHash(graphText);
+            using var graphReader = new StreamReader(graphEntry.Open());
+            var graphText = graphReader.ReadToEnd();
+            var actualGraphHash = hashService.ComputeHash(graphText);
 
-                if (!string.Equals(actualGraphHash, manifest.VersionGraphHash, StringComparison.OrdinalIgnoreCase))
-                {
-                    errors.Add("Version graph hash does not match manifest.");
-                }
+            if (!string.Equals(actualGraphHash, manifest.VersionGraphHash, StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("Version graph hash does not match manifest.");
             }
         }
 

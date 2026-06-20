@@ -53,7 +53,6 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage
                 LeaseExpiresAt = now.Add(TimeSpan.FromSeconds(120)),
                 HasLeaseGap = false,
                 MaxLeaseGapSeconds = 0,
-                ClientId = clientId,
                 AssessmentId = assessmentId,
                 MetadataJson = metadataJson ?? "{}"
             };

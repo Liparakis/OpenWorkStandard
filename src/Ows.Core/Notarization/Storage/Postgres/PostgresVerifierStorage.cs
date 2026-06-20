@@ -103,7 +103,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("assessment_id", (object?)assessmentId ?? DBNull.Value);
         command.Parameters.AddWithValue("metadata_json", metadataJson ?? "{}");
         command.Parameters.AddWithValue("head_receipt_hash", ReceiptChainVerifier.GenesisPreviousReceiptHash);
-        command.Parameters.AddWithValue("head_event_hash", Ows.Core.Events.OwsEventChain.GenesisPreviousEventHash);
+        command.Parameters.AddWithValue("head_event_hash", Events.OwsEventChain.GenesisPreviousEventHash);
         command.Parameters.AddWithValue("checkpoint_count", 0);
         command.Parameters.AddWithValue("last_heartbeat_at", createdAtUtc);
         command.Parameters.AddWithValue("lease_expires_at", leaseExpiresAt);
@@ -114,12 +114,10 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         return new VerifierSessionRecord
         {
             Id = sessionId,
-            CreatedAtUtc = createdAtUtc,
-            ClientId = clientId,
             AssessmentId = assessmentId,
             MetadataJson = metadataJson ?? "{}",
             HeadReceiptHash = ReceiptChainVerifier.GenesisPreviousReceiptHash,
-            HeadEventHash = Ows.Core.Events.OwsEventChain.GenesisPreviousEventHash,
+            HeadEventHash = Events.OwsEventChain.GenesisPreviousEventHash,
             CheckpointCount = 0,
             LastHeartbeatAt = createdAtUtc,
             LeaseExpiresAt = leaseExpiresAt,
@@ -391,8 +389,6 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         var session = new VerifierSessionRecord
         {
             Id = new AssessmentSessionId(reader.GetString(0)),
-            CreatedAtUtc = reader.GetFieldValue<DateTimeOffset>(1),
-            ClientId = reader.IsDBNull(2) ? null : reader.GetString(2),
             AssessmentId = reader.IsDBNull(3) ? null : reader.GetString(3),
             MetadataJson = reader.GetString(4),
             HeadReceiptHash = reader.GetString(5),

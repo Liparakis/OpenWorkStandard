@@ -67,15 +67,15 @@ internal static class OidcPrincipalMapper
 
 internal sealed record OidcPrincipalMappingResult
 {
-    public bool Succeeded { get; init; }
+    public bool Succeeded { get; private init; }
 
-    public VerifierAccessContext? AccessContext { get; init; }
+    public VerifierAccessContext? AccessContext { get; private init; }
 
-    public string? FailureResult { get; init; }
+    public string? FailureResult { get; private init; }
 
-    public string? FailureMessage { get; init; }
+    public string? FailureMessage { get; private init; }
 
-    public int StatusCode { get; init; }
+    public int StatusCode { get; private init; }
 
     public static OidcPrincipalMappingResult Success(VerifierAccessContext accessContext) =>
         new()

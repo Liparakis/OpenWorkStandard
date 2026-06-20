@@ -9,14 +9,4 @@ public sealed record PackageCreationResult
     /// Gets a value indicating whether a package was created.
     /// </summary>
     public bool Created { get; init; }
-
-    /// <summary>
-    /// Gets the intended output package path.
-    /// </summary>
-    public string OutputPackagePath { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Gets the message describing the current outcome.
-    /// </summary>
-    public string Message { get; init; } = string.Empty;
 }

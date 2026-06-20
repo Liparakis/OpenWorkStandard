@@ -383,9 +383,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             using var httpClient = CreateHttpClient(verifierUrl);
             var payload = new
             {
-                LastKnownEventHash = lastEventHash,
-                ClientTimestamp = DateTimeOffset.UtcNow,
-                ClientStatusSummary = "Active"
+                LastKnownEventHash = lastEventHash
             };
 
             using var response = await httpClient.PostAsJsonAsync($"sessions/{state.SessionId}/heartbeat", payload);

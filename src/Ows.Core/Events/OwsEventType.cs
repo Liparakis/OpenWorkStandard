@@ -20,6 +20,8 @@ public enum OwsEventType
     /// </summary>
     FileDeleted,
 
+    // TODO: Wire these categories into real event emitters, persistence, and tests before relying on them.
+
     /// <summary>
     /// A tracked project was opened.
     /// </summary>

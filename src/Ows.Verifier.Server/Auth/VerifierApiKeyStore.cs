@@ -2,34 +2,23 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Npgsql;
+using Ows.Core.Notarization;
 
 namespace Ows.Verifier.Server;
 
 /// <summary>
 /// Describes the request used to create a persisted verifier API key.
 /// </summary>
-public sealed record VerifierApiKeyCreateRequest
+/// <param name="Role">The requested verifier role.</param>
+/// <param name="InstitutionId">The optional institution scope.</param>
+/// <param name="StudentUserId">The optional student user ID binding (only for StudentClient keys).</param>
+/// <param name="ExpiresAtUtc">The optional UTC expiry timestamp.</param>
+public sealed record VerifierApiKeyCreateRequest(
+    string Role = "Operator",
+    string? InstitutionId = null,
+    string? StudentUserId = null,
+    DateTimeOffset? ExpiresAtUtc = null)
 {
-    /// <summary>
-    /// Gets the requested verifier role.
-    /// </summary>
-    public string Role { get; init; } = "Operator";
-
-    /// <summary>
-    /// Gets the optional institution scope.
-    /// </summary>
-    public string? InstitutionId { get; init; }
-
-    /// <summary>
-    /// Gets the optional student user ID binding (only for StudentClient keys).
-    /// </summary>
-    public string? StudentUserId { get; init; }
-
-    /// <summary>
-    /// Gets the optional UTC expiry timestamp.
-    /// </summary>
-    public DateTimeOffset? ExpiresAtUtc { get; init; }
-
     /// <summary>
     /// Returns the validation error, if any.
     /// </summary>
@@ -52,69 +41,34 @@ public sealed record VerifierApiKeyCreateRequest
 /// <summary>
 /// Returns the raw key once together with its durable metadata.
 /// </summary>
-public sealed record VerifierApiKeyCreateResult
-{
-    /// <summary>
-    /// Gets the generated raw API key. This value is returned once and not stored.
-    /// </summary>
-    public string ApiKey { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Gets the persisted metadata for the new API key.
-    /// </summary>
-    public VerifierApiKeyMetadata Metadata { get; init; } = new();
-}
+/// <param name="ApiKey">The generated raw API key. Returned once and never stored.</param>
+/// <param name="Metadata">The persisted metadata for the new API key.</param>
+public sealed record VerifierApiKeyCreateResult(
+    string ApiKey,
+    VerifierApiKeyMetadata Metadata);
 
 /// <summary>
 /// Represents the stored metadata for a verifier API key.
 /// </summary>
-public sealed record VerifierApiKeyMetadata
-{
-    /// <summary>
-    /// Gets the durable API key identifier.
-    /// </summary>
-    public string KeyId { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Gets the non-secret display prefix.
-    /// </summary>
-    public string KeyPrefix { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Gets the verifier role.
-    /// </summary>
-    public string Role { get; init; } = "Operator";
-
-    /// <summary>
-    /// Gets the optional institution scope.
-    /// </summary>
-    public string? InstitutionId { get; init; }
-
-    /// <summary>
-    /// Gets the optional student user ID binding.
-    /// </summary>
-    public string? StudentUserId { get; init; }
-
-    /// <summary>
-    /// Gets the UTC creation timestamp.
-    /// </summary>
-    public DateTimeOffset CreatedAtUtc { get; init; }
-
-    /// <summary>
-    /// Gets the optional UTC expiry timestamp.
-    /// </summary>
-    public DateTimeOffset? ExpiresAtUtc { get; init; }
-
-    /// <summary>
-    /// Gets the optional UTC timestamp when the key was last used successfully.
-    /// </summary>
-    public DateTimeOffset? LastUsedAtUtc { get; init; }
-
-    /// <summary>
-    /// Gets the optional UTC revocation timestamp.
-    /// </summary>
-    public DateTimeOffset? RevokedAtUtc { get; init; }
-}
+/// <param name="KeyId">The durable API key identifier.</param>
+/// <param name="KeyPrefix">The non-secret display prefix.</param>
+/// <param name="Role">The verifier role.</param>
+/// <param name="InstitutionId">The optional institution scope.</param>
+/// <param name="StudentUserId">The optional student user ID binding.</param>
+/// <param name="CreatedAtUtc">The UTC creation timestamp.</param>
+/// <param name="ExpiresAtUtc">The optional UTC expiry timestamp.</param>
+/// <param name="LastUsedAtUtc">The optional UTC timestamp when the key was last used successfully.</param>
+/// <param name="RevokedAtUtc">The optional UTC revocation timestamp.</param>
+public sealed record VerifierApiKeyMetadata(
+    string KeyId,
+    string KeyPrefix,
+    string Role,
+    string? InstitutionId,
+    string? StudentUserId,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? ExpiresAtUtc,
+    DateTimeOffset? LastUsedAtUtc,
+    DateTimeOffset? RevokedAtUtc);
 
 internal sealed record PersistedVerifierApiKeyRecord
 {
@@ -139,18 +93,8 @@ internal sealed record PersistedVerifierApiKeyRecord
     public DateTimeOffset? RevokedAtUtc { get; init; }
 
     public VerifierApiKeyMetadata ToMetadata() =>
-        new()
-        {
-            KeyId = KeyId,
-            KeyPrefix = KeyPrefix,
-            Role = Role,
-            InstitutionId = InstitutionId,
-            StudentUserId = StudentUserId,
-            CreatedAtUtc = CreatedAtUtc,
-            ExpiresAtUtc = ExpiresAtUtc,
-            LastUsedAtUtc = LastUsedAtUtc,
-            RevokedAtUtc = RevokedAtUtc
-        };
+        new(KeyId, KeyPrefix, Role, InstitutionId, StudentUserId, CreatedAtUtc, ExpiresAtUtc, LastUsedAtUtc,
+            RevokedAtUtc);
 
     public bool IsActiveAt(DateTimeOffset now) =>
         RevokedAtUtc is null && (ExpiresAtUtc is null || ExpiresAtUtc > now);
@@ -228,11 +172,7 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
             SaveToDisk();
         }
 
-        return Task.FromResult(new VerifierApiKeyCreateResult
-        {
-            ApiKey = rawKey,
-            Metadata = record.ToMetadata()
-        });
+        return Task.FromResult(new VerifierApiKeyCreateResult(rawKey, record.ToMetadata()));
     }
 
     /// <inheritdoc />
@@ -369,7 +309,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
         _initializationTask = applyMigrationsOnStartup
-            ? Ows.Core.Notarization.PostgresVerifierMigrator.MigrateAsync(_dataSource)
+            ? PostgresVerifierMigrator.MigrateAsync(_dataSource)
             : Task.CompletedTask;
     }
 
@@ -462,11 +402,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         command.Parameters.AddWithValue("revoked_at", DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
 
-        return new VerifierApiKeyCreateResult
-        {
-            ApiKey = rawKey,
-            Metadata = record.ToMetadata()
-        };
+        return new VerifierApiKeyCreateResult(rawKey, record.ToMetadata());
     }
 
     /// <inheritdoc />
@@ -546,7 +482,8 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         updateCommand.Parameters.AddWithValue("id", record.KeyId);
         updateCommand.Parameters.AddWithValue("last_used_at", DateTimeOffset.UtcNow);
         await updateCommand.ExecuteNonQueryAsync(cancellationToken);
-        return new VerifierAccessContext(record.Role, record.InstitutionId, rawApiKey, record.KeyId, record.KeyPrefix, record.StudentUserId);
+        return new VerifierAccessContext(record.Role, record.InstitutionId, rawApiKey, record.KeyId, record.KeyPrefix,
+            record.StudentUserId);
     }
 
     /// <inheritdoc />

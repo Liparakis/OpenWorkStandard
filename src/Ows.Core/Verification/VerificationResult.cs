@@ -26,11 +26,6 @@ public sealed record VerificationResult
     public IReadOnlyList<string> Errors { get; init; } = [];
 
     /// <summary>
-    /// Gets the review signals raised during verification.
-    /// </summary>
-    public IReadOnlyList<ReviewSignal> ReviewSignals { get; init; } = [];
-
-    /// <summary>
     /// Gets concrete verification findings that explain the assigned trust grade.
     /// </summary>
     public IReadOnlyList<VerificationFinding> Findings { get; init; } = [];
@@ -46,14 +41,12 @@ public sealed record VerificationResult
     /// <param name="summary">The result summary.</param>
     /// <param name="trustStatus">The trust grade assigned to the result.</param>
     /// <param name="findings">Optional verification findings.</param>
-    /// <param name="reviewSignals">Optional review signals.</param>
     /// <param name="verifiedKeyFingerprints">Optional list of verified key fingerprints.</param>
     /// <returns>A successful verification result.</returns>
     public static VerificationResult Success(
         string summary,
         TrustStatus trustStatus = TrustStatus.Verified,
         IReadOnlyList<VerificationFinding>? findings = null,
-        IReadOnlyList<ReviewSignal>? reviewSignals = null,
         IReadOnlyList<string>? verifiedKeyFingerprints = null) =>
         new()
         {
@@ -61,7 +54,6 @@ public sealed record VerificationResult
             TrustStatus = trustStatus,
             Summary = summary,
             Findings = findings ?? [],
-            ReviewSignals = reviewSignals ?? [],
             VerifiedKeyFingerprints = verifiedKeyFingerprints ?? []
         };
 
@@ -71,14 +63,12 @@ public sealed record VerificationResult
     /// <param name="summary">The result summary.</param>
     /// <param name="errors">The validation or verification errors.</param>
     /// <param name="findings">Optional verification findings.</param>
-    /// <param name="reviewSignals">Optional review signals.</param>
     /// <param name="verifiedKeyFingerprints">Optional list of verified key fingerprints.</param>
     /// <returns>A failed verification result.</returns>
     public static VerificationResult Failure(
         string summary,
         IReadOnlyList<string>? errors = null,
         IReadOnlyList<VerificationFinding>? findings = null,
-        IReadOnlyList<ReviewSignal>? reviewSignals = null,
         IReadOnlyList<string>? verifiedKeyFingerprints = null) =>
         new()
         {
@@ -87,7 +77,6 @@ public sealed record VerificationResult
             Summary = summary,
             Errors = errors ?? [],
             Findings = findings ?? [],
-            ReviewSignals = reviewSignals ?? [],
             VerifiedKeyFingerprints = verifiedKeyFingerprints ?? []
         };
 

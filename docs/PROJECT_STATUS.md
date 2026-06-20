@@ -135,7 +135,7 @@ What works:
 - creates a real `.owspkg` archive
 - writes `manifest.json`
 - writes `timeline.jsonl`
-- writes `version_graph.json`
+- writes `version_graph.json` (as a placeholder containing `{"nodes":[],"edges":[]}`; semantic graph nodes, edges, validation, and graph-derived trust signals are deferred)
 - includes `session.json` when present
 - includes `receipts.json` when present
 - includes project files under `artifacts/`
@@ -402,7 +402,7 @@ What is solid:
 
 What is still weak:
 
-- capture fidelity
+- capture fidelity (OWS defines a broader event vocabulary for future IDE/desktop integrations. The current MVP emits file-system and session/package events only where explicitly documented. Reserved event types are not currently used as trust evidence.)
 - long-running tracking
 - operational trust guarantees beyond the current shared-path pilot multi-instance model
 - hardened observability beyond the current optional pilot overlay

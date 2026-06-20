@@ -166,15 +166,10 @@ public sealed class OwsReportGenerator : IReportGenerator
         
         var maxGapSeconds = res.Lease.Gaps.Count > 0 ? res.Lease.Gaps.Max(g => g.DurationSeconds) : 0;
         builder.AppendLine($"- Longest gap: {FormatDuration(maxGapSeconds)}");
-        
-        if (gapsCount > 0)
-        {
-            builder.AppendLine("- Impact: Work during this interval cannot be automatically verified. Evidence gaps exist.");
-        }
-        else
-        {
-            builder.AppendLine("- Impact: None. Session continuity has no verified gaps.");
-        }
+
+        builder.AppendLine(gapsCount > 0
+            ? "- Impact: Work during this interval cannot be automatically verified. Evidence gaps exist."
+            : "- Impact: None. Session continuity has no verified gaps.");
         builder.AppendLine();
 
         builder.AppendLine("Package Anchor Status:");

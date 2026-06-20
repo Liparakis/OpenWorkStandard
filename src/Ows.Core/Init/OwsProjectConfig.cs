@@ -1,4 +1,3 @@
-using System;
 using System.Text.Json.Serialization;
 using Ows.Core.Agent;
 
@@ -13,19 +12,19 @@ public sealed class OwsProjectConfig
     /// Gets or sets the OWS version.
     /// </summary>
     [JsonPropertyName("owsVersion")]
-    public string OwsVersion { get; set; } = "0.1";
+    public string OwsVersion { get; init; } = "0.1";
 
     /// <summary>
     /// Gets or sets the project root path.
     /// </summary>
     [JsonPropertyName("projectRoot")]
-    public string? ProjectRoot { get; set; }
+    public string? ProjectRoot { get; init; }
 
     /// <summary>
     /// Gets or sets when the project was initialized.
     /// </summary>
     [JsonPropertyName("initializedAtUtc")]
-    public DateTimeOffset InitializedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset InitializedAtUtc { get; init; } = DateTimeOffset.UtcNow;
 
     /// <summary>
     /// Gets or sets the remote verifier URL.
@@ -55,17 +54,17 @@ public sealed class OwsProjectConfig
     /// Gets or sets the course offering identifier.
     /// </summary>
     [JsonPropertyName("courseOfferingId")]
-    public string? CourseOfferingId { get; set; }
+    public string? CourseOfferingId { get; init; }
 
     /// <summary>
     /// Gets or sets whether package upload is enabled.
     /// </summary>
     [JsonPropertyName("uploadEnabled")]
-    public bool PackageUploadEnabled { get; set; } = true;
+    public bool PackageUploadEnabled { get; init; } = true;
 
     /// <summary>
     /// Gets or sets local file watcher settings.
     /// </summary>
     [JsonPropertyName("watcherSettings")]
-    public FileWatcherOptions? WatcherSettings { get; set; }
+    public FileWatcherOptions? WatcherSettings { get; init; }
 }

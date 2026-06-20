@@ -1,5 +1,3 @@
-using System;
-
 namespace Ows.Core.Notarization;
 
 /// <summary>
@@ -11,14 +9,4 @@ public sealed record SessionHeartbeatRequest
     /// Gets the current local event head hash from the client.
     /// </summary>
     public string? LastKnownEventHash { get; init; }
-
-    /// <summary>
-    /// Gets the optional client-side recording timestamp in UTC.
-    /// </summary>
-    public DateTimeOffset? ClientTimestamp { get; init; }
-
-    /// <summary>
-    /// Gets the optional client status summary (e.g. "Active", "Idle").
-    /// </summary>
-    public string? ClientStatusSummary { get; init; }
 }

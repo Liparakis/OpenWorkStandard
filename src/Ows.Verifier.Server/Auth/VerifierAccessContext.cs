@@ -1,6 +1,6 @@
 namespace Ows.Verifier.Server;
 
-sealed record VerifierAccessContext
+internal sealed record VerifierAccessContext
 {
     public VerifierAccessContext(
         string role,
@@ -14,7 +14,9 @@ sealed record VerifierAccessContext
         string? actorEmail = null,
         string? actorDisplayName = null)
     {
-        Role = string.IsNullOrWhiteSpace(role) ? VerifierRolePolicy.Operator : VerifierRolePolicy.NormalizeRoleName(role);
+        Role = string.IsNullOrWhiteSpace(role)
+            ? VerifierRolePolicy.Operator
+            : VerifierRolePolicy.NormalizeRoleName(role);
         InstitutionId = string.IsNullOrWhiteSpace(institutionId) ? null : institutionId.Trim();
         Key = key;
         KeyId = string.IsNullOrWhiteSpace(keyId) ? null : keyId.Trim();
@@ -28,23 +30,23 @@ sealed record VerifierAccessContext
         ActorDisplayName = string.IsNullOrWhiteSpace(actorDisplayName) ? null : actorDisplayName.Trim();
     }
 
-    public string Role { get; init; }
+    public string Role { get; }
 
-    public string? InstitutionId { get; init; }
+    public string? InstitutionId { get; }
 
-    public string Key { get; init; }
+    public string Key { get; }
 
-    public string? KeyId { get; init; }
+    public string? KeyId { get; }
 
-    public string? KeyPrefix { get; init; }
+    public string? KeyPrefix { get; }
 
-    public string? StudentUserId { get; init; }
+    public string? StudentUserId { get; }
 
-    public string AuthenticationType { get; init; }
+    public string AuthenticationType { get; }
 
-    public string? ActorUserId { get; init; }
+    public string? ActorUserId { get; }
 
-    public string? ActorEmail { get; init; }
+    public string? ActorEmail { get; }
 
-    public string? ActorDisplayName { get; init; }
+    public string? ActorDisplayName { get; }
 }

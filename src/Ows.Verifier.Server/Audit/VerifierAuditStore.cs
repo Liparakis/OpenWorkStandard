@@ -40,6 +40,21 @@ public sealed record VerifierAuditEvent
     public string? ActorRole { get; init; }
 
     /// <summary>
+    /// Gets the optional actor user identifier.
+    /// </summary>
+    public string? ActorUserId { get; init; }
+
+    /// <summary>
+    /// Gets the optional actor email.
+    /// </summary>
+    public string? ActorEmail { get; init; }
+
+    /// <summary>
+    /// Gets the optional actor display name.
+    /// </summary>
+    public string? ActorDisplayName { get; init; }
+
+    /// <summary>
     /// Gets the optional institution identifier.
     /// </summary>
     public string? InstitutionId { get; init; }
@@ -184,7 +199,8 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<VerifierAuditEvent>> QueryAsync(VerifierAuditQuery query, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<VerifierAuditEvent>> QueryAsync(VerifierAuditQuery query,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
         cancellationToken.ThrowIfCancellationRequested();
@@ -261,13 +277,17 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
         var limit = Math.Clamp(query.Limit <= 0 ? 100 : query.Limit, 1, 200);
         return events
             .Where(auditEvent => string.IsNullOrWhiteSpace(query.InstitutionId) ||
-                                 string.Equals(auditEvent.InstitutionId, query.InstitutionId, StringComparison.OrdinalIgnoreCase))
+                                 string.Equals(auditEvent.InstitutionId, query.InstitutionId,
+                                     StringComparison.OrdinalIgnoreCase))
             .Where(auditEvent => string.IsNullOrWhiteSpace(query.SessionId) ||
-                                 string.Equals(auditEvent.SessionId, query.SessionId, StringComparison.OrdinalIgnoreCase))
+                                 string.Equals(auditEvent.SessionId, query.SessionId,
+                                     StringComparison.OrdinalIgnoreCase))
             .Where(auditEvent => string.IsNullOrWhiteSpace(query.PackageId) ||
-                                 string.Equals(auditEvent.PackageId, query.PackageId, StringComparison.OrdinalIgnoreCase))
+                                 string.Equals(auditEvent.PackageId, query.PackageId,
+                                     StringComparison.OrdinalIgnoreCase))
             .Where(auditEvent => string.IsNullOrWhiteSpace(query.EventType) ||
-                                 string.Equals(auditEvent.EventType, query.EventType, StringComparison.OrdinalIgnoreCase))
+                                 string.Equals(auditEvent.EventType, query.EventType,
+                                     StringComparison.OrdinalIgnoreCase))
             .Where(auditEvent => !query.Since.HasValue || auditEvent.CreatedAtUtc >= query.Since.Value)
             .OrderByDescending(auditEvent => auditEvent.CreatedAtUtc)
             .ThenByDescending(auditEvent => auditEvent.Id)
@@ -314,7 +334,7 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
         _initializationTask = applyMigrationsOnStartup
-            ? Ows.Core.Notarization.PostgresVerifierMigrator.MigrateAsync(_dataSource)
+            ? Core.Notarization.PostgresVerifierMigrator.MigrateAsync(_dataSource)
             : Task.CompletedTask;
     }
 
@@ -343,7 +363,8 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<VerifierAuditEvent>> QueryAsync(VerifierAuditQuery query, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<VerifierAuditEvent>> QueryAsync(VerifierAuditQuery query,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
         await InitializeAsync(cancellationToken);

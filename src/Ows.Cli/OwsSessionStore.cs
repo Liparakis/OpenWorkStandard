@@ -236,9 +236,7 @@ public static class OwsSessionStore
         using var httpClient = CreateHttpClient(verifierUrl);
         var payload = new SessionHeartbeatRequest
         {
-            LastKnownEventHash = lastEventHash,
-            ClientTimestamp = DateTimeOffset.UtcNow,
-            ClientStatusSummary = "Active"
+            LastKnownEventHash = lastEventHash
         };
 
         using var response = await httpClient.PostAsJsonAsync($"sessions/{sessionId.Value}/heartbeat", payload, cancellationToken);

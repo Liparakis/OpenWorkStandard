@@ -433,7 +433,6 @@ public sealed class JsonFileVerifierStorageTests
                 new VerifierSessionRecord
                 {
                     Id = sessionId,
-                    CreatedAtUtc = DateTimeOffset.Parse("2026-06-19T00:00:00+00:00", null),
                     HeadReceiptHash = "fake",
                     HeadEventHash = "head-1",
                     CheckpointCount = 1

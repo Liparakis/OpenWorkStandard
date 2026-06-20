@@ -103,9 +103,7 @@ public sealed class OwsPackageBuilder : IPackageBuilder
 
         return Task.FromResult(new PackageCreationResult
         {
-            Created = true,
-            OutputPackagePath = request.OutputPackagePath,
-            Message = $"OWS package created at {request.OutputPackagePath}"
+            Created = true
         });
     }
 }

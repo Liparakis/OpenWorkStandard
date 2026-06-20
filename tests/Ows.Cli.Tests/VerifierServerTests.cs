@@ -1731,9 +1731,7 @@ public sealed class VerifierServerTests
                 // Send heartbeat
                 var request = new SessionHeartbeatRequest
                 {
-                    LastKnownEventHash = "last-hash",
-                    ClientTimestamp = DateTimeOffset.UtcNow,
-                    ClientStatusSummary = "Active"
+                    LastKnownEventHash = "last-hash"
                 };
 
                 var response = await client.PostAsJsonAsync($"/sessions/{sessionId}/heartbeat", request);

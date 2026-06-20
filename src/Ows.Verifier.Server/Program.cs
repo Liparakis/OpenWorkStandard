@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.IdentityModel.Tokens;
 using Ows.Core.Education;
 using Ows.Core.Notarization;
@@ -37,8 +36,7 @@ var normalizedStorageOptions = storageOptions with
 };
 
 var envString = builder.Configuration["VerifierEnvironment"]
-                ?? builder.Environment.EnvironmentName
-                ?? "Development";
+                ?? builder.Environment.EnvironmentName;
 
 if (!Enum.TryParse<VerifierEnvironmentMode>(envString, true, out var envMode))
 {
@@ -573,7 +571,7 @@ app.Use(async (context, next) =>
         else
         {
             var authenticateResult = await context.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
-            if (authenticateResult.Succeeded && authenticateResult.Principal is not null)
+            if (authenticateResult is { Succeeded: true, Principal: not null })
             {
                 var mappingResult = OidcPrincipalMapper.TryMap(authenticateResult.Principal, authOptions.Oidc);
                 if (mappingResult.Succeeded)
@@ -650,20 +648,21 @@ app.Use(async (context, next) =>
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 
 app.MapGet("/metrics",
-    async (HttpContext context, IVerifierAuditStore auditStore, IPackageVerificationJobStore jobStore,
+    async (HttpContext _, IVerifierAuditStore auditStore, IPackageVerificationJobStore jobStore,
         IVerifierStorage storage, IEducationStore educationStore, IPackageBlobStore blobStore,
         VerifierStorageOptions options, CancellationToken cancellationToken) =>
     {
         var summary = await auditStore.GetSummaryAsync(cancellationToken);
         var jobSummary = await jobStore.GetSummaryAsync(cancellationToken);
 
-        bool storageReady = false;
+        var storageReady = false;
         try
         {
             storageReady = await storage.CheckHealthAsync(cancellationToken);
         }
         catch
         {
+            /*ignored*/
         }
 
         bool educationReady = false;
@@ -673,6 +672,7 @@ app.MapGet("/metrics",
         }
         catch
         {
+            /*ignored*/
         }
 
         bool packageStorageReady = false;
@@ -682,6 +682,7 @@ app.MapGet("/metrics",
         }
         catch
         {
+            /*ignored*/
         }
 
         var signingConfigured = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey);
@@ -974,7 +975,22 @@ app.MapPost("/auth/api-keys", async (HttpContext context, VerifierApiKeyCreateRe
                 ("createdRole", result.Metadata.Role),
                 ("expiresAtUtc", result.Metadata.ExpiresAtUtc?.ToString("o"))),
             cancellationToken: cancellationToken);
-        return Results.Ok(result);
+        return Results.Ok(new
+        {
+            apiKey = result.ApiKey,
+            metadata = new
+            {
+                keyId = result.Metadata.KeyId,
+                keyPrefix = result.Metadata.KeyPrefix,
+                role = result.Metadata.Role,
+                institutionId = result.Metadata.InstitutionId,
+                studentUserId = result.Metadata.StudentUserId,
+                createdAtUtc = result.Metadata.CreatedAtUtc,
+                expiresAtUtc = result.Metadata.ExpiresAtUtc,
+                lastUsedAtUtc = result.Metadata.LastUsedAtUtc,
+                revokedAtUtc = result.Metadata.RevokedAtUtc
+            }
+        });
     }
     catch (InvalidOperationException exception)
     {
@@ -983,7 +999,21 @@ app.MapPost("/auth/api-keys", async (HttpContext context, VerifierApiKeyCreateRe
 });
 
 app.MapGet("/auth/api-keys", async (IVerifierApiKeyStore apiKeyStore, CancellationToken cancellationToken) =>
-    Results.Ok(await apiKeyStore.ListAsync(cancellationToken)));
+{
+    var keys = await apiKeyStore.ListAsync(cancellationToken);
+    return Results.Ok(keys.Select(m => new
+    {
+        keyId = m.KeyId,
+        keyPrefix = m.KeyPrefix,
+        role = m.Role,
+        institutionId = m.InstitutionId,
+        studentUserId = m.StudentUserId,
+        createdAtUtc = m.CreatedAtUtc,
+        expiresAtUtc = m.ExpiresAtUtc,
+        lastUsedAtUtc = m.LastUsedAtUtc,
+        revokedAtUtc = m.RevokedAtUtc
+    }));
+});
 
 app.MapPost("/auth/api-keys/{id}/revoke", async (HttpContext context, string id, IVerifierApiKeyStore apiKeyStore,
     IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
@@ -1864,13 +1894,15 @@ app.MapGet("/education/course-offerings/{id}", async (string id, IEducationStore
 });
 
 // Student enrollments
-app.MapPost("/education/enrollments", async (HttpContext context, StudentEnrollment studentEnrollment, IEducationStore educationStore,
+app.MapPost("/education/enrollments", async (HttpContext context, StudentEnrollment studentEnrollment,
+    IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
     var callerAccess = TryGetAccessContext(context);
     if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
     {
-        var offering = await educationStore.GetCourseOfferingAsync(studentEnrollment.CourseOfferingId, cancellationToken);
+        var offering =
+            await educationStore.GetCourseOfferingAsync(studentEnrollment.CourseOfferingId, cancellationToken);
         if (offering is null || !string.Equals(offering.InstitutionId.Value, callerAccess.InstitutionId,
                 StringComparison.OrdinalIgnoreCase))
         {
@@ -1882,7 +1914,8 @@ app.MapPost("/education/enrollments", async (HttpContext context, StudentEnrollm
     return Results.Ok(studentEnrollment);
 });
 
-app.MapGet("/education/enrollments/student/{studentUserId}", async (string studentUserId, IEducationStore educationStore,
+app.MapGet("/education/enrollments/student/{studentUserId}", async (string studentUserId,
+    IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
     var studentEnrollments = await educationStore.GetStudentEnrollmentsForStudentAsync(
@@ -2337,6 +2370,9 @@ static async Task WriteAuditEventAsync(
         ActorKeyId = access?.KeyId,
         ActorKeyPrefix = actorKeyPrefix ?? access?.KeyPrefix,
         ActorRole = access?.Role,
+        ActorUserId = access?.ActorUserId,
+        ActorEmail = access?.ActorEmail,
+        ActorDisplayName = access?.ActorDisplayName,
         InstitutionId = institutionId ?? access?.InstitutionId,
         SessionId = sessionId,
         PackageId = packageId,
@@ -2359,7 +2395,7 @@ static async Task WriteAuditEventAsync(
     }
 
     logger.LogInformation(
-        "Verifier audit {EventType} result={Result} requestId={RequestId} authType={AuthType} role={Role} institutionId={InstitutionId} sessionId={SessionId} packageId={PackageId} assessmentId={AssessmentId} keyPrefix={KeyPrefix}",
+        "Verifier audit {EventType} result={Result} requestId={RequestId} authType={AuthType} role={Role} institutionId={InstitutionId} sessionId={SessionId} packageId={PackageId} assessmentId={AssessmentId} keyPrefix={KeyPrefix} actorUserId={ActorUserId} actorEmail={ActorEmail} actorDisplayName={ActorDisplayName}",
         auditEvent.EventType,
         auditEvent.Result,
         GetRequestId(context),
@@ -2369,7 +2405,10 @@ static async Task WriteAuditEventAsync(
         auditEvent.SessionId,
         auditEvent.PackageId,
         auditEvent.AssessmentId,
-        auditEvent.ActorKeyPrefix);
+        auditEvent.ActorKeyPrefix,
+        auditEvent.ActorUserId,
+        auditEvent.ActorEmail,
+        auditEvent.ActorDisplayName);
 }
 
 // Returns a non-secret display prefix from raw API key material.
@@ -2822,10 +2861,6 @@ static async Task<bool> MatchesStudentSessionScopeAsync(
     try
     {
         var session = await storage.GetSessionAsync(new AssessmentSessionId(sessionId), cancellationToken);
-        if (session is null)
-        {
-            return false;
-        }
 
         var sessionInstId = NormalizeInstitutionIdValue(TryGetInstitutionIdFromMetadata(session.MetadataJson));
         if (string.IsNullOrWhiteSpace(sessionInstId) ||
@@ -2834,13 +2869,15 @@ static async Task<bool> MatchesStudentSessionScopeAsync(
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(access.StudentUserId))
+        if (string.IsNullOrWhiteSpace(access.StudentUserId))
         {
-            var sessionStudentId = TryGetMetadataValue(session.MetadataJson, "studentUserId");
-            if (!string.Equals(sessionStudentId, access.StudentUserId, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
+            return true;
+        }
+
+        var sessionStudentId = TryGetMetadataValue(session.MetadataJson, "studentUserId");
+        if (!string.Equals(sessionStudentId, access.StudentUserId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
         }
 
         return true;
@@ -2878,12 +2915,7 @@ static async Task<bool> MatchesStudentPackageScopeAsync(
             return false;
         }
 
-        if (!string.Equals(submission.StudentUserId, access.StudentUserId, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return true;
+        return string.Equals(submission.StudentUserId, access.StudentUserId, StringComparison.OrdinalIgnoreCase);
     }
     catch
     {

@@ -28,13 +28,13 @@ public sealed class HttpsReceiptTransport(
         }
 
         _activeSessionId = sessionId;
-        this._nextSequenceNumber = nextSequenceNumber;
+        _nextSequenceNumber = nextSequenceNumber;
     }
 
     /// <summary>
     /// Gets or sets the optional education context request payload.
     /// </summary>
-    public StartSessionRequest? StartSessionRequest { get; set; }
+    public StartSessionRequest? StartSessionRequest { get; init; }
 
     /// <inheritdoc />
     public async Task<AssessmentSessionId> StartSessionAsync(CancellationToken cancellationToken)

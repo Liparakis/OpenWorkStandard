@@ -546,5 +546,36 @@ public sealed class OidcAuthTests
         {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
+     }
+
+    [Fact]
+    public void VerifierOidcOptions_CanBeInstantiatedWithAllProperties()
+    {
+        var options = new VerifierOidcOptions
+        {
+            Enabled = true,
+            Authority = "https://authority",
+            Audience = "audience",
+            ClientId = "client",
+            ClientSecret = "secret",
+            RequireHttpsMetadata = false,
+            RoleClaim = "custom-role",
+            InstitutionClaim = "custom-inst",
+            UserIdClaim = "custom-sub",
+            EmailClaim = "custom-email",
+            DisplayNameClaim = "custom-name"
+        };
+
+        options.Enabled.Should().BeTrue();
+        options.Authority.Should().Be("https://authority");
+        options.Audience.Should().Be("audience");
+        options.ClientId.Should().Be("client");
+        options.ClientSecret.Should().Be("secret");
+        options.RequireHttpsMetadata.Should().BeFalse();
+        options.RoleClaim.Should().Be("custom-role");
+        options.InstitutionClaim.Should().Be("custom-inst");
+        options.UserIdClaim.Should().Be("custom-sub");
+        options.EmailClaim.Should().Be("custom-email");
+        options.DisplayNameClaim.Should().Be("custom-name");
     }
 }

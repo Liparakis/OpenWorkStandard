@@ -13,10 +13,5 @@ public enum ReportFormat
     /// <summary>
     /// Plain text output.
     /// </summary>
-    Text,
-
-    /// <summary>
-    /// HTML output.
-    /// </summary>
-    Html
+    Text
 }

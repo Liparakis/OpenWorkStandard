@@ -42,9 +42,14 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Local verifier smoke test covers package metadata path
 - [x] Local dev loop cold-start and restricted-environment validated
 
-## 4. Core Protocol and Package Format
-
-- [x] Chained timeline event model
+- [x] OWS event vocabulary defined
+- [x] File-system event capture implemented
+- [x] Event hash-chain timeline implemented
+- [ ] Build/test/program execution event emitters
+- [ ] Project open/close lifecycle event emitters
+- [ ] Large insertion detection
+- [ ] PackageCreated event emission
+- [ ] Real work version graph nodes/edges/validation
 - [x] Manifest, timeline, and version graph packaging
 - [x] Packaged session metadata
 - [x] Packaged receipts
