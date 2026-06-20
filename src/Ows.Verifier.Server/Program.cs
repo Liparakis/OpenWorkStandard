@@ -1984,7 +1984,7 @@ app.MapGet("/education/users/{id}", async (string id, IEducationStore educationS
 app.Run();
 
 // Handles a multipart .owspkg upload, stores it durably, registers metadata, and queues verification.
-static async Task<IResult> HandlePackageUploadAsync(
+async Task<IResult> HandlePackageUploadAsync(
     HttpRequest request,
     HttpContext context,
     IPackageSubmissionStore packageStore,
@@ -2219,7 +2219,7 @@ static async Task<IResult> HandlePackageUploadAsync(
 }
 
 // Queues verification and mirrors the current job/status onto the package metadata record.
-static async Task<PackageVerificationJobRecord> QueuePackageVerificationAsync(
+async Task<PackageVerificationJobRecord> QueuePackageVerificationAsync(
     string packageId,
     VerifierPackageSubmissionResponse submission,
     VerifierAccessContext? access,
@@ -2255,7 +2255,7 @@ static async Task<PackageVerificationJobRecord> QueuePackageVerificationAsync(
 }
 
 // Reuses session metadata as the source of truth when upload callers omit institution or student context.
-static async Task<(string? InstitutionId, string? AssessmentId, string? StudentUserId)>
+async Task<(string? InstitutionId, string? AssessmentId, string? StudentUserId)>
     ResolvePackageContextFromSessionAsync(
         IVerifierStorage storage,
         string? sessionId,
