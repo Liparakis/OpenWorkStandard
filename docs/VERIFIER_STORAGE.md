@@ -60,6 +60,7 @@ It is not a real institutional trust boundary because:
 - package metadata captures the current verifier session head when `sessionId` is supplied
 - duplicate package object registrations must match the original metadata exactly
 - `GET /packages/{id}` returns registered package metadata by durable submission ID
+- `GET /sessions/{id}/packages` returns all package metadata anchored to a verifier session, newest first
 
 ## Intended Durable Backend
 

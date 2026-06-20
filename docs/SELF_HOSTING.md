@@ -31,6 +31,7 @@ Current HTTP surface:
 - `POST /sessions/{id}/checkpoints`
 - `POST /packages`
 - `GET /packages/{id}`
+- `GET /sessions/{id}/packages`
 - `GET /sessions/{id}/receipts`
 - `GET /sessions/{id}/head`
 
@@ -136,7 +137,6 @@ Do not claim that the current self-hosted verifier already provides:
 - always-on local capture guarantees
 - institution/user/course management
 - full operational hardening
-- package submission workflow
 - production-grade multi-node rollout discipline
 
 The current Docker support is verifier-image-level only. Full production Compose or Helm packaging is still deferred.

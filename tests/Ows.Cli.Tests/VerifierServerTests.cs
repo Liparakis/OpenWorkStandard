@@ -388,6 +388,87 @@ public sealed class VerifierServerTests
     }
 
     /// <summary>
+    /// Verifies that package metadata can be listed by verifier session.
+    /// </summary>
+    [Fact]
+    public async Task GetSessionPackages_ShouldReturnPackagesForSessionNewestFirst()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKey", "" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            using (factory)
+            {
+                var firstPayload = new VerifierPackageSubmissionRequest
+                {
+                    SessionId = "session-a",
+                    ObjectStorageProvider = "aws",
+                    ObjectBucket = "test-bucket",
+                    ObjectKey = "first.owspkg",
+                    PackageSha256 = new string('a', 64),
+                    PackageSizeBytes = 100
+                };
+
+                var secondPayload = new VerifierPackageSubmissionRequest
+                {
+                    SessionId = "session-a",
+                    ObjectStorageProvider = "aws",
+                    ObjectBucket = "test-bucket",
+                    ObjectKey = "second.owspkg",
+                    PackageSha256 = new string('b', 64),
+                    PackageSizeBytes = 200
+                };
+
+                var otherSessionPayload = new VerifierPackageSubmissionRequest
+                {
+                    SessionId = "session-b",
+                    ObjectStorageProvider = "aws",
+                    ObjectBucket = "test-bucket",
+                    ObjectKey = "other.owspkg",
+                    PackageSha256 = new string('c', 64),
+                    PackageSizeBytes = 300
+                };
+
+                var firstResponse = await client.PostAsJsonAsync("/packages", firstPayload);
+                firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                await Task.Delay(25);
+
+                var secondResponse = await client.PostAsJsonAsync("/packages", secondPayload);
+                secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var otherResponse = await client.PostAsJsonAsync("/packages", otherSessionPayload);
+                otherResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var listResponse = await client.GetAsync("/sessions/session-a/packages");
+                listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var packages = await listResponse.Content.ReadFromJsonAsync<List<VerifierPackageSubmissionResponse>>();
+                packages.Should().NotBeNull();
+                packages!.Should().HaveCount(2);
+                packages.Select(package => package.SessionId).Should().OnlyContain(sessionId => sessionId == "session-a");
+                packages[0].ObjectKey.Should().Be("second.owspkg");
+                packages[1].ObjectKey.Should().Be("first.owspkg");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that multipart file upload (Option A) computes hash, verifies it, and exposes results.
     /// </summary>
     [Fact]

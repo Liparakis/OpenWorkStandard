@@ -14,7 +14,7 @@ if ! test_verifier_http_ready "$base_url"; then
   exit 1
 fi
 
-session_id="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions" | python -c "import json,sys; print(json.load(sys.stdin)['sessionId'])")"
+session_id="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions" -H "Content-Type: application/json" -d "{}" | python -c "import json,sys; print(json.load(sys.stdin)['sessionId'])")"
 checkpoint_body="$(printf '{"sessionId":"%s","sequenceNumber":1,"timelineHeadHash":"head-1"}' "$session_id")"
 if ! receipt_hash="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/sessions/$session_id/checkpoints" -H "Content-Type: application/json" -H "Idempotency-Key: checkpoint-1" -d "$checkpoint_body" | python -c "import json,sys; print(json.load(sys.stdin)['receiptHash'])")"; then
   echo "Smoke test failed during checkpoint append. Check status-local-verifier, logs-local-verifier, and confirm migrations succeeded." >&2
@@ -37,6 +37,9 @@ retry_package_id="$(curl -fsS -X POST "${auth_headers[@]}" "$base_url/packages" 
 fetched_package="$(curl -fsS "${auth_headers[@]}" "$base_url/packages/$package_id")"
 fetched_package_key="$(printf '%s' "$fetched_package" | python -c "import json,sys; print(json.load(sys.stdin)['objectKey'])")"
 fetched_package_receipt_head="$(printf '%s' "$fetched_package" | python -c "import json,sys; print(json.load(sys.stdin)['sessionHeadReceiptHash'])")"
+session_packages="$(curl -fsS "${auth_headers[@]}" "$base_url/sessions/$session_id/packages")"
+session_package_count="$(printf '%s' "$session_packages" | python -c "import json,sys; print(len(json.load(sys.stdin)))")"
+latest_session_package_id="$(printf '%s' "$session_packages" | python -c "import json,sys; packages=json.load(sys.stdin); print(packages[0]['submissionId'] if packages else '')")"
 
 if [[ "$receipt_hash" != "$retry_receipt_hash" ]]; then
   echo "Idempotent retry did not return the same receipt hash." >&2
@@ -73,6 +76,11 @@ if [[ "$fetched_package_receipt_head" != "$receipt_hash" ]]; then
   exit 1
 fi
 
+if [[ "$session_package_count" -lt "1" || "$latest_session_package_id" != "$package_id" ]]; then
+  echo "Session package lookup did not return the expected package metadata." >&2
+  exit 1
+fi
+
 printf 'SessionId: %s\nReceiptHash: %s\nReceiptCount: %s\nHeadSequence: %s\nHeadTimelineHeadHash: %s\nIdempotentRetryMatched: true\n' \
   "$session_id" "$receipt_hash" "$receipt_count" "$head_sequence" "$head_hash"
-printf 'PackageSubmissionId: %s\nPackageMetadataFetched: true\n' "$package_id"
+printf 'PackageSubmissionId: %s\nPackageMetadataFetched: true\nSessionPackageLookup: true\n' "$package_id"

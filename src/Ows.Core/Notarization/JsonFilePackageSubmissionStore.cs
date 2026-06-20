@@ -112,6 +112,24 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<VerifierPackageSubmissionResponse>> ListBySessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_gate)
+        {
+            IReadOnlyList<VerifierPackageSubmissionResponse> submissions = _submissions.Values
+                .Where(submission => string.Equals(submission.SessionId, sessionId, StringComparison.Ordinal))
+                .OrderByDescending(submission => submission.CreatedAtUtc)
+                .ToArray();
+            return Task.FromResult(submissions);
+        }
+    }
+
+    /// <inheritdoc />
     public Task UpdateVerificationResultAsync(
         string submissionId,
         string verificationStatus,

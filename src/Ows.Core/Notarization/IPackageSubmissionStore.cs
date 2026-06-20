@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -26,6 +27,16 @@ public interface IPackageSubmissionStore
     /// <returns>The submission record, or null if not found.</returns>
     Task<VerifierPackageSubmissionResponse?> GetAsync(
         string submissionId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists registered package submissions associated with a verifier session.
+    /// </summary>
+    /// <param name="sessionId">The verifier session identifier.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The package submissions anchored to the session, ordered by newest first.</returns>
+    Task<IReadOnlyList<VerifierPackageSubmissionResponse>> ListBySessionAsync(
+        string sessionId,
         CancellationToken cancellationToken);
 
     /// <summary>

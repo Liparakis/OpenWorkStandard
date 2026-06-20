@@ -10,7 +10,7 @@ if (-not [string]::IsNullOrWhiteSpace($env:OWS_VERIFIER_API_KEY)) {
 }
 
 try {
-    $session = Invoke-RestMethod -Method Post -Uri "$BaseUrl/sessions" -Headers $authHeaders
+    $session = Invoke-RestMethod -Method Post -Uri "$BaseUrl/sessions" -Headers $authHeaders -ContentType "application/json" -Body "{}"
 }
 catch {
     throw "Smoke test could not create a session at $BaseUrl. Run start-local-verifier first, then check status-local-verifier and logs-local-verifier."
@@ -45,6 +45,7 @@ try {
     $packageSubmission = Invoke-RestMethod -Method Post -Uri "$BaseUrl/packages" -Headers $packageHeaders -ContentType "application/json" -Body $packageBody
     $retriedPackageSubmission = Invoke-RestMethod -Method Post -Uri "$BaseUrl/packages" -Headers $packageHeaders -ContentType "application/json" -Body $packageBody
     $fetchedPackageSubmission = Invoke-RestMethod -Method Get -Uri "$BaseUrl/packages/$($packageSubmission.submissionId)" -Headers $authHeaders
+    $sessionPackages = Invoke-RestMethod -Method Get -Uri "$BaseUrl/sessions/$($session.sessionId)/packages" -Headers $authHeaders
 }
 catch {
     throw "Smoke test failed while exercising verifier endpoints at $BaseUrl. Check status-local-verifier, logs-local-verifier, and confirm migrations succeeded."
@@ -78,6 +79,10 @@ if ($fetchedPackageSubmission.sessionHeadReceiptHash -ne $receipt.receiptHash) {
     throw "Package metadata did not anchor the current session receipt head."
 }
 
+if ($sessionPackages.Count -lt 1 -or $sessionPackages[0].submissionId -ne $packageSubmission.submissionId) {
+    throw "Session package lookup did not return the expected package metadata."
+}
+
 [pscustomobject]@{
     SessionId = $session.sessionId
     ReceiptHash = $receipt.receiptHash
@@ -87,4 +92,5 @@ if ($fetchedPackageSubmission.sessionHeadReceiptHash -ne $receipt.receiptHash) {
     IdempotentRetryMatched = $true
     PackageSubmissionId = $packageSubmission.submissionId
     PackageMetadataFetched = $true
+    SessionPackageLookup = $true
 } | Format-List

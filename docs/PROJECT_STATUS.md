@@ -1,6 +1,6 @@
 # OWS Project Status
 
-Last updated: 2026-06-19
+Last updated: 2026-06-20
 
 Checklist source of truth:
 
@@ -182,6 +182,7 @@ Status:
 - `POST /sessions/{id}/checkpoints`
 - `POST /packages`
 - `GET /packages/{id}`
+- `GET /sessions/{id}/packages`
 - `GET /sessions/{id}/receipts`
 - `GET /sessions/{id}/head`
 
@@ -205,6 +206,7 @@ PostgreSQL setup model today:
 - package submission retries can use `Idempotency-Key`
 - duplicate package object registrations reject metadata drift
 - registered package submission metadata can be fetched by submission ID
+- registered package submission metadata can also be listed by verifier session
 - package registration captures the current verifier session head when `sessionId` is supplied
 - package bytes are not stored in PostgreSQL or local verifier disk
 
@@ -222,7 +224,7 @@ Local verifier dev flow today:
 - verifier status and smoke-test helpers send `X-OWS-Verifier-Key` from `OWS_VERIFIER_API_KEY` when present
 - `dotnet build` emits platform-specific launcher copies to `artifacts/generated-scripts/`
 - verifier logs now include per-request method, path, status, and duration
-- local verifier smoke tests cover package metadata registration, idempotent retry, lookup, and session-head anchoring
+- local verifier smoke tests cover package metadata registration, idempotent retry, lookup by ID and session, and session-head anchoring
 
 This is enough for architectural validation and the first durable-backend pass. It is still not enough for institutional trust claims until the PostgreSQL path is exercised in a real deployed environment.
 

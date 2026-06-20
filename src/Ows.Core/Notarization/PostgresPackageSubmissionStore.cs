@@ -166,6 +166,38 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<VerifierPackageSubmissionResponse>> ListBySessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
+        if (_dataSource is null)
+        {
+            throw new NotSupportedException("Package submission requires PostgreSQL verifier storage.");
+        }
+
+        await _initializationTask.WaitAsync(cancellationToken);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+                              select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, created_at, trust_status, verification_result_json, institution_id, assessment_id, student_user_id
+                              from verifier_package_submissions
+                              where session_id = @session_id
+                              order by created_at desc, id desc;
+                              """;
+        command.Parameters.AddWithValue("session_id", sessionId);
+
+        var submissions = new List<VerifierPackageSubmissionResponse>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            submissions.Add(ReadSubmission(reader));
+        }
+
+        return submissions;
+    }
+
+    /// <inheritdoc />
     public async Task UpdateVerificationResultAsync(
         string submissionId,
         string verificationStatus,

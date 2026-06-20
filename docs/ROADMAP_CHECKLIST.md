@@ -79,6 +79,7 @@ Connect the education domain (Institutions, Courses, Classes, Assessments, Users
 - [x] Server-side package verification
 - [x] Remote package object metadata registration
 - [x] Remote package metadata retrieval
+- [x] Remote package metadata session lookup
 - [x] Package metadata session-head anchoring
 - [x] Package metadata idempotent retries
 - [x] Remote package anchor workflow

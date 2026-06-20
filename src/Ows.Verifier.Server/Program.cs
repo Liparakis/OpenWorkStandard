@@ -773,6 +773,19 @@ app.MapGet("/packages/{id}", async (string id, IPackageSubmissionStore packageSt
     }
 });
 
+app.MapGet("/sessions/{id}/packages", async (string id, IPackageSubmissionStore packageStore,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await packageStore.ListBySessionAsync(id, cancellationToken));
+    }
+    catch (NotSupportedException exception)
+    {
+        return Results.BadRequest(exception.Message);
+    }
+});
+
 app.MapGet("/packages/{id}/verification", async (string id, IPackageSubmissionStore packageStore,
     CancellationToken cancellationToken) =>
 {
