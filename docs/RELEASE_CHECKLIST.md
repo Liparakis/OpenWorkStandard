@@ -46,6 +46,29 @@ Artifacts:
 - operator sign-off that the latest dry run summary still matches expected trust and scope behavior
 - doc review for any changed user-facing setup steps
 
+## Manual Sign-Off
+
+Current evidence bundle:
+
+- `artifacts/release-candidate/v0.1/`
+
+Current status:
+
+- automated gate: passed on 2026-06-20
+- evidence bundle: collected on 2026-06-20
+- manual sign-off: pending
+
+Checklist:
+
+- [ ] confirm `artifacts/release-candidate/v0.1/release-gate-summary.json` is the latest passing gate summary
+- [ ] confirm `artifacts/release-candidate/v0.1/live-dry-run-summary.json` is the latest passing live dry-run summary
+- [ ] confirm the latest dry run still shows `packageStatus = Completed`
+- [ ] confirm the latest dry run still shows `trustStatus = Verified`
+- [ ] confirm the latest dry run still shows `reviewerDeniedStatus = 403`
+- [ ] confirm the latest dry run still shows `rawKeyLeakDetected = false`
+- [ ] run the VS Code trusted-workspace smoke path if the extension changed
+- [ ] record operator approval for the v0.1 release candidate
+
 ## Fixture Reset And Cleanup
 
 `setup-pilot-fixture.ps1` is safe for repeated automation when you pass a unique `-Prefix`. That is what the dry-run and regression-gate scripts do.

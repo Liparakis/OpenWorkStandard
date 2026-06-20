@@ -33,6 +33,8 @@ What works today:
 - repo-owned live pilot dry run script that validates the full local PostgreSQL-backed pilot path and writes a machine-readable summary artifact
 - repo-owned release regression gate script that composes build, test, VS Code compile, and live pilot dry run into one release check
 - repo-owned release-candidate evidence script that copies the latest passing gate and dry-run summaries into one bundle
+- current v0.1 release-candidate evidence bundle at `artifacts/release-candidate/v0.1/`
+- current v0.1 manual sign-off status: pending
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -349,6 +351,7 @@ Recent uncommitted/working-tree progress:
 - `scripts/run-live-pilot-dry-run.ps1` now executes the verified end-to-end pilot rehearsal and writes `artifacts/pilot-demo/live-dry-run-summary.json`
 - `scripts/run-release-regression-gate.ps1` now executes the automated release gate and writes `artifacts/release-gate/release-gate-summary.json`
 - `scripts/collect-release-candidate-evidence.ps1` now writes `artifacts/release-candidate/v0.1/` from the latest passing gate and dry run
+- the current `artifacts/release-candidate/v0.1/` bundle was refreshed on 2026-06-20 from a passing gate and passing live dry run; manual sign-off is still pending
 - camelCase `.ows/config.json` fields are now honored by `ows session start` and related config-backed flows
 - PostgreSQL audit-event queries now bind nullable filters safely
 - receipt timestamps are normalized before hashing so PostgreSQL round-trips preserve valid verifier receipt chains
