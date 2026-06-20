@@ -561,6 +561,11 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     /// <param name="connection">The open database connection.</param>
     /// <param name="sessionId">The verifier session identifier.</param>
     /// <param name="receipt">The committed receipt.</param>
+    /// <param name="lastHeartbeatAt">The heartbeat timestamp to persist with the new head.</param>
+    /// <param name="leaseExpiresAt">The updated lease expiry to persist with the new head.</param>
+    /// <param name="hasLeaseGap">Whether the session has observed a lease gap.</param>
+    /// <param name="maxLeaseGapSeconds">The largest observed lease gap in seconds.</param>
+    /// <param name="firstLeaseGapAt">The timestamp of the first observed lease gap, if any.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     private static async Task UpdateSessionHeadAsync(
         NpgsqlConnection connection,
