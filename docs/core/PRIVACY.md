@@ -1,3 +1,7 @@
+Status: Reference  
+Audience: Student, Operator, Security reviewer  
+Last reviewed: 2026-06-20
+
 # Privacy Boundaries
 
 ## What OWS collects

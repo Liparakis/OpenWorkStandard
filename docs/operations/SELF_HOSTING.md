@@ -1,3 +1,7 @@
+Status: Active  
+Audience: Operator  
+Last reviewed: 2026-06-20
+
 # OWS Self-Hosting Guide
 
 ## Scope
@@ -109,7 +113,7 @@ The verifier also applies missing PostgreSQL migrations during normal startup.
 
 That is acceptable for MVP and simple self-hosting, but not the final answer for stricter multi-replica production rollout.
 
-See `docs/DEFERRED_NOTES.md` for that explicit deferral.
+See `docs/reference/DEFERRED_NOTES.md` for that explicit deferral.
 
 Receipts are HMAC-signed when `VerifierStorage__ReceiptSigningKey` is configured. Keep that key outside the repository and deployment images. Public-key signatures, key IDs, and rotation are still deferred.
 
@@ -135,7 +139,7 @@ Preferred pilot setup:
 
 Before institutional hosting, validate the flow locally:
 
-- follow `docs/VERIFIER_LOCAL_DEV.md`
+- follow `docs/development/VERIFIER_LOCAL_DEV.md`
 - use `docker-compose.local.yml`
 - run the helper scripts
 - confirm the smoke test passes
@@ -157,3 +161,4 @@ The current Docker support is verifier-image-level only. Full production Compose
 2. Validate PostgreSQL backups and restore.
 3. Use persisted API keys for pilot operators and reviewers.
 4. Add full identity and broader RBAC before broader institutional exposure.
+

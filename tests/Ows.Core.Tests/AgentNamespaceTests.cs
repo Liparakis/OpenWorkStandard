@@ -61,22 +61,23 @@ public sealed class AgentNamespaceTests
             // StartAsync blocks until the token is cancelled — cancel after 200 ms.
             var result = await agent.StartAsync(cts.Token);
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
+            var events = lines.Select(line => JsonSerializer.Deserialize<OwsEvent>(line)!).ToArray();
 
             result.Succeeded.Should().BeTrue();
             result.Status.Should().Be(TrackingAgentStatus.Stopped);
-            lines.Length.Should().Be(2);
-            lines[0].Should().Contain(nameof(OwsEventType.FileCreated));
-            lines[0].Should().Contain("notes.txt");
-            lines[1].Should().Contain(nameof(OwsEventType.WatcherStarted));
+            events.Select(owsEvent => owsEvent.EventType).Should().ContainInOrder(
+                OwsEventType.FileCreated,
+                OwsEventType.WatcherStarted,
+                OwsEventType.SnapshotUpdated);
             
-            var trackedEvent = JsonSerializer.Deserialize<OwsEvent>(lines[0]);
-            trackedEvent.Should().NotBeNull();
-            trackedEvent!.PreviousEventHash.Should().Be(OwsEventChain.GenesisPreviousEventHash);
+            var trackedEvent = events[0];
+            trackedEvent.RelativePath.Should().Be("notes.txt");
+            trackedEvent.PreviousEventHash.Should().Be(OwsEventChain.GenesisPreviousEventHash);
             trackedEvent.EventHash.Should().NotBeNullOrWhiteSpace();
 
-            var startedEvent = JsonSerializer.Deserialize<OwsEvent>(lines[1]);
-            startedEvent.Should().NotBeNull();
-            startedEvent!.PreviousEventHash.Should().Be(trackedEvent.EventHash);
+            var startedEvent = events[1];
+            startedEvent.PreviousEventHash.Should().Be(trackedEvent.EventHash);
+            events[2].PreviousEventHash.Should().Be(startedEvent.EventHash);
         }
         finally
         {

@@ -11,7 +11,7 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 Cut the v0.1 release-candidate evidence bundle from the latest green gate, then do manual sign-off before adding new UI surfaces or integrations.
 
-**Next milestone:** Regression Gate and Release Candidate v0.1.
+**Next milestone:** Snapshot Hash Binding v0.1.
 
 ## 1. Current MVP Status
 
@@ -75,6 +75,8 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Explicit build/test/program event commands
 - [x] Watcher started/stopped/interrupted/recovered lifecycle event emitters
 - [x] Observation Gap and Recovery Scan (gap duration, previous state tracking, exclusions, atomic snapshots, absolute deltas, trust degradation)
+- [x] Snapshot hash commitments in the timeline (`SnapshotUpdated`)
+- [x] Recovery snapshot mismatch/unbound degradation without misconduct verdicts
 - [ ] IDE-native build/test/run capture
 - [ ] Large insertion detection
 - [ ] IDE or host-managed long-running watcher lifecycle
@@ -203,9 +205,9 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 
 ## 13. Desktop and IDE Integrations
 
-- [x] Desktop UI v0.1 design spec (`docs/DESKTOP_UI.md`)
+- [x] Desktop UI v0.1 design spec (`docs/integrations/DESKTOP_UI.md`)
 - [x] VS Code integration v0.1 (`src/ows-vscode`)
-- [x] Rider integration v0.1 design (`docs/RIDER_INTEGRATION.md`)
+- [x] Rider integration v0.1 design (`docs/integrations/RIDER_INTEGRATION.md`)
 - [x] Host-specific watcher implementations via `IOwsWatchSessionManager`
 
 ## 14. Deferred and Future Technologies
@@ -219,20 +221,20 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 
 ## 15. Verifier Operations Hardening v0.1
 
-- [x] Backup model documented (`docs/BACKUP_RESTORE.md`)
-- [x] Restore order documented (`docs/BACKUP_RESTORE.md`)
-- [x] Recovery failure modes documented (`docs/BACKUP_RESTORE.md`)
+- [x] Backup model documented (`docs/operations/BACKUP_RESTORE.md`)
+- [x] Restore order documented (`docs/operations/BACKUP_RESTORE.md`)
+- [x] Recovery failure modes documented (`docs/operations/BACKUP_RESTORE.md`)
 - [x] Package blob backup documented
-- [x] Signing key custody documented (`docs/SECURITY_HARDENING.md`)
-- [x] Restore and verify known package drill documented (`docs/BACKUP_RESTORE.md`)
-- [x] `docs/OPERATIONS_RUNBOOK.md` created
+- [x] Signing key custody documented (`docs/operations/SECURITY_HARDENING.md`)
+- [x] Restore and verify known package drill documented (`docs/operations/BACKUP_RESTORE.md`)
+- [x] `docs/operations/OPERATIONS_RUNBOOK.md` created
 - [x] `scripts/verify-ops-readiness.ps1` created
 - [x] Package storage diagnostics (`packageStorageConfigured`, `packageStorageReady`, `packageBlobCount`)
 - [x] Signing key fingerprint diagnostics (`signingKeyFingerprintPresent` in `/diagnostics/summary`)
 - [x] `package.blob.missing` audit event implemented in worker
 - [x] Startup recovery for stale Running jobs (existing, documented in runbook)
-- [x] `docs/SELF_HOSTED_COMPOSE.md` updated with operator resource cross-references
-- [x] `docs/TROUBLESHOOTING.md` updated with restore/signing key failure modes
+- [x] `docs/operations/SELF_HOSTED_COMPOSE.md` updated with operator resource cross-references
+- [x] `docs/operations/TROUBLESHOOTING.md` updated with restore/signing key failure modes
 
 ## 16. Desktop and IDE Integrations v0.1
 
@@ -244,8 +246,8 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Secure API key storage (VS Code `SecretStorage` and OS Keychain integration)
 - [x] Package creation and upload from IDE
 - [x] Remote verification status query from IDE
-- [x] Minimal Desktop Tray/Status UI spec (`docs/DESKTOP_UI.md`)
-- [x] Rider integration design (`docs/RIDER_INTEGRATION.md`)
+- [x] Minimal Desktop Tray/Status UI spec (`docs/integrations/DESKTOP_UI.md`)
+- [x] Rider integration design (`docs/integrations/RIDER_INTEGRATION.md`)
 
 ## 17. Student Workflow Hardening v0.1
 
@@ -268,7 +270,7 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 ## 18. Pilot End-to-End Validation v0.1
 
 - [x] Pilot fixture setup script (`scripts/setup-pilot-fixture.ps1`)
-- [x] Main professor/sysadmin walkthrough (`docs/PILOT_DEMO.md`)
+- [x] Main professor/sysadmin walkthrough (`docs/workflows/PILOT_DEMO.md`)
 - [x] Student CLI workflow validation documented
 - [x] Student VS Code workflow validation documented
 - [x] StudentClient session/package/upload validation documented
@@ -280,8 +282,8 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 
 ## 19. Regression Gate and Release Candidate v0.1
 
-- [x] `docs/RELEASE_CHECKLIST.md`
-- [x] `docs/REGRESSION_GATE.md`
+- [x] `docs/development/RELEASE_CHECKLIST.md`
+- [x] `docs/development/REGRESSION_GATE.md`
 - [x] Automated release-gate script (`scripts/run-release-regression-gate.ps1`)
 - [x] Release-candidate evidence script (`scripts/collect-release-candidate-evidence.ps1`)
 - [x] Known-good local pilot path documented
@@ -350,3 +352,4 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [ ] QUIC
 - [ ] S3/external object storage
 - [ ] billing/SaaS features
+

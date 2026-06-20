@@ -177,7 +177,7 @@ Use it when operators want:
 - longer-lived pilot log search
 - easier review of readiness and verification-job trends
 
-See `docs/OBSERVABILITY.md` for startup and troubleshooting details.
+See `docs/operations/OBSERVABILITY.md` for startup and troubleshooting details.
 
 Do not try to invent a migration coordinator at this stage.
 
@@ -272,3 +272,4 @@ Key event types:
 | Weekly | Back up package blob storage |
 | Before each pilot | Record the signing key fingerprint |
 | After upgrades | Run `migrate`, then verify `/ready` and `/diagnostics/summary` |
+

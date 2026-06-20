@@ -57,7 +57,7 @@ Local development priorities:
 - no managed-cloud dependency
 - easy reset/rebuild loop
 
-See [VERIFIER_LOCAL_DEV.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/VERIFIER_LOCAL_DEV.md) for the current local PostgreSQL-backed verifier flow.
+See [VERIFIER_LOCAL_DEV.md](../development/VERIFIER_LOCAL_DEV.md) for the current local PostgreSQL-backed verifier flow.
 
 ## Self-Hosted Production
 
@@ -155,3 +155,4 @@ Later hardening should include:
 - release provenance
 
 Do not implement all of that before the verifier API exists.
+

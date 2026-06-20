@@ -1,10 +1,14 @@
+Status: Active  
+Audience: Developer, Operator  
+Last reviewed: 2026-06-20
+
 # OWS Project Status
 
 Last updated: 2026-06-20
 
 Checklist source of truth:
 
-- `docs/ROADMAP_CHECKLIST.md` tracks current capability status, partial work, and explicitly deferred scope.
+- `docs/development/ROADMAP_CHECKLIST.md` tracks current capability status, partial work, and explicitly deferred scope.
 
 > [!IMPORTANT]
 > **Event presence is evidence of recorded activity. Event absence is not proof of misconduct.**
@@ -64,7 +68,7 @@ Test projects:
 Notes:
 
 - `Ows.Core` remains the collapsed MVP domain project
-- `Ows.Desktop` is still placeholder-only (design specs detailed in `docs/DESKTOP_UI.md`)
+- `Ows.Desktop` is still placeholder-only (design specs detailed in `docs/integrations/DESKTOP_UI.md`)
 - `Ows.Verifier.Server` is intentionally small and self-hostable, not production-ready
 - `src/ows-vscode` is the VS Code extension codebase
 
@@ -91,6 +95,7 @@ What works:
 - performs an initial one-shot scan of the project tree
 - skips files under `.ows/`
 - appends chained file events to `.ows/timeline.jsonl`
+- persists `.ows/observed_snapshot.json` and commits its canonical hash into the timeline with `SnapshotUpdated`
 - continues watching for file-system changes via `FileSystemWatcher` (native OS signals)
 - falls back to a periodic polling loop when `--poll` is passed or when the native watcher fails
 - debounces burst saves (default 500 ms quiet window) so rapid auto-save + formatter activity
@@ -172,7 +177,7 @@ Trust behavior today:
 - `Unverified`: package is locally consistent but remote trust anchors are missing or incomplete
 - `Verified`: package and receipt evidence align cleanly
 - `Invalid`: structural, hash, event-chain, or receipt-integrity checks fail
-- `Degraded`: reserved for later policy work, not meaningfully used yet
+- `Degraded`: evidence continuity issues exist, including observation gaps, unobserved file changes, or snapshot baseline mismatches, without implying misconduct
 
 Status:
 
@@ -319,6 +324,7 @@ Current automated coverage includes:
 - idempotent retry behavior
 - package creation
 - package verification success and failure cases
+- snapshot-hash commitment and recovery-baseline trust-boundary cases
 - blob upload size and shape validation
 - worker handling for missing package blobs
 - receipt-chain verification
@@ -351,6 +357,7 @@ Recent uncommitted/working-tree progress:
 
 - implemented OWS Event Emitters v0.1: PackageCreated event logging, ProjectOpened/Closed lifecycle updates, and explicit build/test/run timeline events
 - implemented Observation Gap and Recovery Scan v0.1: atomic snapshot persistence, recovery gap duration computation, CleanStopped vs Interrupted metadata preservation, configurable exclusions, absolute creation/deletion deltas, trust degradation, and dynamic verifier report findings
+- implemented Snapshot Hash Binding v0.1: canonical snapshot hashing, `SnapshotUpdated` commitments, recovery mismatch detection, legacy unbound snapshot degradation, and non-accusatory snapshot continuity findings
 - PostgreSQL-backed verifier was validated in a live local Docker run
 - session creation bug for `jsonb` metadata insert was fixed
 - verifier host logging was simplified to console-only to avoid Windows Event Log permission failures
@@ -364,7 +371,7 @@ Recent uncommitted/working-tree progress:
 - `InstitutionAdmin` and `StudentClient` RBAC roles are implemented with strict institution and ownership validation scoping
 - Prometheus-compatible `/metrics` endpoint is exposed for scraping without key requirements
 - operational runbooks, backup/restore order, recovery failure modes, and restore drills are fully documented
-- `docs/PILOT_DEMO.md` now provides the main pilot walkthrough for professors and sysadmins
+- `docs/workflows/PILOT_DEMO.md` now provides the main pilot walkthrough for professors and sysadmins
 - `scripts/setup-pilot-fixture.ps1` creates a minimal institution/course/student/assessment fixture and delegated student/reviewer keys
 - `scripts/run-live-pilot-dry-run.ps1` now executes the verified end-to-end pilot rehearsal and writes `artifacts/pilot-demo/live-dry-run-summary.json`
 - `scripts/run-release-regression-gate.ps1` now executes the automated release gate and writes `artifacts/release-gate/release-gate-summary.json`
@@ -440,3 +447,4 @@ OWS currently has a credible MVP for:
 - running a local PostgreSQL-backed verifier with generated platform-specific helper scripts
 
 It does not yet have a credible always-on capture model or a production-grade remote trust boundary, but it now has the right minimal seams to grow into both.
+

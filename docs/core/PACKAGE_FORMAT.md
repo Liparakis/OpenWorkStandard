@@ -71,7 +71,7 @@ Current behavior:
 
 - canonical local event stream
 - each line is one serialized `OwsEvent`
-- event chaining rules are defined in `docs/EVENT_SCHEMA.md`
+- event chaining rules are defined in `docs/core/EVENT_SCHEMA.md`
 
 ### `version_graph.json`
 
@@ -129,5 +129,6 @@ Current package verification checks:
 If the implemented package shape changes:
 
 - update this document in the same commit
-- update `docs/ROADMAP_CHECKLIST.md` if capability status changes
+- update `docs/development/ROADMAP_CHECKLIST.md` if capability status changes
 - keep `ows verify` aligned with the documented required and optional entries
+

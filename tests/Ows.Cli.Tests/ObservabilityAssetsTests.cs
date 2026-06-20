@@ -20,7 +20,7 @@ public sealed class ObservabilityAssetsTests
             "deploy/observability/grafana/dashboards/ows-verifier-overview.json",
             "deploy/observability/grafana/provisioning/datasources/prometheus.yml",
             "deploy/observability/grafana/provisioning/dashboards/dashboards.yml",
-            "docs/OBSERVABILITY.md"
+            "docs/operations/OBSERVABILITY.md"
         ];
 
         foreach (var relativePath in requiredPaths)

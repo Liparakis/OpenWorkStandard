@@ -74,7 +74,10 @@ public sealed class ObservationGapTests
                 ProjectId = "test-project",
                 RelativePath = "work.txt"
             }, OwsEventChain.GenesisPreviousEventHash);
-            File.WriteAllText(timelinePath, JsonSerializer.Serialize(initialEvent) + Environment.NewLine);
+            var snapshotEvent = CreateSnapshotUpdatedEvent("test-project", snapshot, initialEvent.EventHash, "initial_baseline");
+            File.WriteAllText(timelinePath,
+                JsonSerializer.Serialize(initialEvent) + Environment.NewLine +
+                JsonSerializer.Serialize(snapshotEvent) + Environment.NewLine);
 
             // Modify the file now to trigger change comparison
             var currFile = Path.Combine(projectRoot, "work.txt");
@@ -97,9 +100,9 @@ public sealed class ObservationGapTests
 
             // Read timeline
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
-            lines.Length.Should().Be(4);
+            lines.Length.Should().Be(6);
 
-            var gapEvent = JsonSerializer.Deserialize<OwsEvent>(lines[2]);
+            var gapEvent = JsonSerializer.Deserialize<OwsEvent>(lines[3]);
             gapEvent.Should().NotBeNull();
             gapEvent!.EventType.Should().Be(OwsEventType.ObservationGapDetected);
             
@@ -147,8 +150,12 @@ public sealed class ObservationGapTests
                 EventType = OwsEventType.WatcherStopped,
                 ProjectId = "test-project"
             }, startedEvent.EventHash);
+            var snapshotEvent = CreateSnapshotUpdatedEvent("test-project", snapshot, stoppedEvent.EventHash, "initial_baseline");
 
-            File.WriteAllText(timelinePath, JsonSerializer.Serialize(startedEvent) + Environment.NewLine + JsonSerializer.Serialize(stoppedEvent) + Environment.NewLine);
+            File.WriteAllText(timelinePath,
+                JsonSerializer.Serialize(startedEvent) + Environment.NewLine +
+                JsonSerializer.Serialize(stoppedEvent) + Environment.NewLine +
+                JsonSerializer.Serialize(snapshotEvent) + Environment.NewLine);
 
             // Add a large file (exceeds 50KB default byte threshold)
             var largeFile = Path.Combine(projectRoot, "large.txt");
@@ -169,17 +176,18 @@ public sealed class ObservationGapTests
             try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
 
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
-            lines.Length.Should().Be(5);
+            lines.Length.Should().Be(7);
 
-            var gapEvent = JsonSerializer.Deserialize<OwsEvent>(lines[3]);
+            var gapEvent = JsonSerializer.Deserialize<OwsEvent>(lines[4]);
             gapEvent!.EventType.Should().Be(OwsEventType.ObservationGapDetected);
             gapEvent.Metadata["previousState"].Should().Be("CleanStopped");
             gapEvent.Metadata["recoveryReason"].Should().Be("user_start");
 
-            var largeEvent = JsonSerializer.Deserialize<OwsEvent>(lines[4]);
+            var largeEvent = JsonSerializer.Deserialize<OwsEvent>(lines[5]);
             largeEvent!.EventType.Should().Be(OwsEventType.LargeUnobservedChangeDetected);
             largeEvent.Metadata["changeKind"].Should().Be("Created");
             largeEvent.Metadata["relativePath"].Should().Be("large.txt");
+            JsonSerializer.Deserialize<OwsEvent>(lines[6])!.EventType.Should().Be(OwsEventType.SnapshotUpdated);
         }
         finally
         {
@@ -259,12 +267,57 @@ public sealed class ObservationGapTests
             try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
 
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
-            lines.Length.Should().Be(2); // FileCreated + WatcherStarted
+            lines.Length.Should().Be(3); // FileCreated + WatcherStarted + SnapshotUpdated
 
             var fileCreatedEvent = JsonSerializer.Deserialize<OwsEvent>(lines[0]);
             fileCreatedEvent!.EventType.Should().Be(OwsEventType.FileCreated);
             fileCreatedEvent.Metadata.Should().ContainKey("source").WhoseValue.Should().Be("initial_baseline");
             fileCreatedEvent.Metadata.Should().ContainKey("usedForTrust").WhoseValue.Should().Be("false");
+            JsonSerializer.Deserialize<OwsEvent>(lines[2])!.EventType.Should().Be(OwsEventType.SnapshotUpdated);
+        }
+        finally
+        {
+            EnsureCleanDirectory(projectRoot);
+        }
+    }
+
+    [Fact]
+    public async Task InitialBaseline_EmitsSnapshotUpdatedCommitment()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-snapshot-commit-{Guid.NewGuid():N}");
+        EnsureCleanDirectory(projectRoot);
+
+        try
+        {
+            var file1 = Path.Combine(projectRoot, "test.txt");
+            File.WriteAllText(file1, "some content");
+
+            var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);
+            var cts = new CancellationTokenSource();
+            var localOws = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+            Directory.CreateDirectory(localOws);
+            var timelinePath = Path.Combine(localOws, OwsConstants.TimelineFileName);
+            var snapshotPath = Path.Combine(localOws, OwsConstants.ObservedSnapshotFileName);
+
+            await agent.PrepareAsync(new TrackingAgentOptions
+            {
+                ProjectRootPath = projectRoot,
+                DatabasePath = Path.Combine(localOws, "ows.db"),
+                WasInterrupted = false
+            }, cts.Token);
+
+            cts.CancelAfter(200);
+            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
+
+            var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
+            var snapshotEvent = JsonSerializer.Deserialize<OwsEvent>(lines[^1]);
+
+            snapshotEvent!.EventType.Should().Be(OwsEventType.SnapshotUpdated);
+            snapshotEvent.Metadata["reason"].Should().Be("initial_baseline");
+            snapshotEvent.Metadata.Should().ContainKey("snapshotHash");
+
+            var snapshot = JsonSerializer.Deserialize<ObservedSnapshot>(File.ReadAllText(snapshotPath));
+            SnapshotHashCalculator.ComputeHash(snapshot!).Should().Be(snapshotEvent.Metadata["snapshotHash"]);
         }
         finally
         {
@@ -299,7 +352,10 @@ public sealed class ObservationGapTests
                 EventType = OwsEventType.WatcherStarted,
                 ProjectId = "test-project"
             }, OwsEventChain.GenesisPreviousEventHash);
-            File.WriteAllText(timelinePath, JsonSerializer.Serialize(startedEvent) + Environment.NewLine);
+            var snapshotEvent = CreateSnapshotUpdatedEvent("test-project", snapshot, startedEvent.EventHash, "initial_baseline");
+            File.WriteAllText(timelinePath,
+                JsonSerializer.Serialize(startedEvent) + Environment.NewLine +
+                JsonSerializer.Serialize(snapshotEvent) + Environment.NewLine);
 
             // Add files inside standard ignored directories (bin and obj)
             var binDir = Path.Combine(projectRoot, "bin");
@@ -320,8 +376,9 @@ public sealed class ObservationGapTests
             try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
 
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
-            lines.Length.Should().Be(2);
+            lines.Length.Should().Be(4);
             var eventTypes = lines.Select(l => JsonSerializer.Deserialize<OwsEvent>(l)!.EventType).ToList();
+            eventTypes.Should().Contain(OwsEventType.SnapshotUpdated);
             eventTypes.Should().NotContain(OwsEventType.ObservationGapDetected);
             eventTypes.Should().NotContain(OwsEventType.UnobservedChangeDetected);
             eventTypes.Should().NotContain(OwsEventType.LargeUnobservedChangeDetected);
@@ -402,7 +459,10 @@ public sealed class ObservationGapTests
                 EventType = OwsEventType.WatcherStarted,
                 ProjectId = "test-project"
             }, OwsEventChain.GenesisPreviousEventHash);
-            File.WriteAllText(timelinePath, JsonSerializer.Serialize(startedEvent) + Environment.NewLine);
+            var snapshotEvent = CreateSnapshotUpdatedEvent("test-project", snapshot, startedEvent.EventHash, "initial_baseline");
+            File.WriteAllText(timelinePath,
+                JsonSerializer.Serialize(startedEvent) + Environment.NewLine +
+                JsonSerializer.Serialize(snapshotEvent) + Environment.NewLine);
 
             // Delete the file in reality
             var realFile = Path.Combine(projectRoot, "work.txt");
@@ -422,12 +482,13 @@ public sealed class ObservationGapTests
             try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
 
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
-            lines.Length.Should().Be(4);
+            lines.Length.Should().Be(6);
 
-            var largeEvent = JsonSerializer.Deserialize<OwsEvent>(lines[3]);
+            var largeEvent = JsonSerializer.Deserialize<OwsEvent>(lines[4]);
             largeEvent!.EventType.Should().Be(OwsEventType.LargeUnobservedChangeDetected);
             largeEvent.Metadata["changeKind"].Should().Be("Deleted");
             largeEvent.Metadata["bytesDelta"].Should().Be("-60000");
+            JsonSerializer.Deserialize<OwsEvent>(lines[5])!.EventType.Should().Be(OwsEventType.SnapshotUpdated);
         }
         finally
         {
@@ -554,6 +615,27 @@ public sealed class ObservationGapTests
 
     private static string SerializeTimeline(params OwsEvent[] events) =>
         string.Join(Environment.NewLine, CreateChainedEvents(events).Select(owsEvent => JsonSerializer.Serialize(owsEvent)));
+
+    private static OwsEvent CreateSnapshotUpdatedEvent(
+        string projectId,
+        ObservedSnapshot snapshot,
+        string previousEventHash,
+        string reason)
+    {
+        return OwsEventChain.CreateChainedEvent(new OwsEvent
+        {
+            EventType = OwsEventType.SnapshotUpdated,
+            ProjectId = projectId,
+            ToolName = "ows watch",
+            Metadata = new Dictionary<string, string>
+            {
+                { "snapshotHash", SnapshotHashCalculator.ComputeHash(snapshot) },
+                { "fileCount", snapshot.Files.Count.ToString() },
+                { "observedAt", snapshot.ObservedAt.ToUniversalTime().ToString("O") },
+                { "reason", reason }
+            }
+        }, previousEventHash);
+    }
 
     private static IReadOnlyList<OwsEvent> CreateChainedEvents(params OwsEvent[] events)
     {

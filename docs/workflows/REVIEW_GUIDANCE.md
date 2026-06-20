@@ -1,3 +1,7 @@
+Status: Active  
+Audience: Reviewer  
+Last reviewed: 2026-06-20
+
 # OWS Review Guidance
 
 ## Purpose

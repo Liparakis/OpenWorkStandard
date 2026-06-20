@@ -26,7 +26,7 @@ This extension integrates the Open Work Standard (OWS) file watcher, remote veri
 
 ### Pilot Smoke Test
 
-For a full pilot smoke test, use the fixture from [PILOT_DEMO.md](PILOT_DEMO.md), then:
+For a full pilot smoke test, use the fixture from [PILOT_DEMO.md](../workflows/PILOT_DEMO.md), then:
 
 1. Configure `ows.cliPath` so the extension can run the local CLI.
 2. Configure `ows.verifierUrl`, `ows.institutionId`, `ows.assessmentId`, `ows.studentUserId`, and `ows.courseOfferingId`.

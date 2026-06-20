@@ -143,8 +143,8 @@ Instance mode values today:
 
 See:
 
-- [`deploy/compose/docker-compose.yml`](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/deploy/compose/docker-compose.yml)
-- [`deploy/compose/docker-compose.multi-instance.yml`](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/deploy/compose/docker-compose.multi-instance.yml)
+- [`deploy/compose/docker-compose.yml`](../../deploy/compose/docker-compose.yml)
+- [`deploy/compose/docker-compose.multi-instance.yml`](../../deploy/compose/docker-compose.multi-instance.yml)
 
 The multi-instance compose file demonstrates:
 

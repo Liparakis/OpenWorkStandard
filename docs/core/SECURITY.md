@@ -1,9 +1,13 @@
+Status: Active  
+Audience: Operator, Developer, Security reviewer  
+Last reviewed: 2026-06-20
+
 # Security Model
 
 See also:
 
-- `docs/THREAT_MODEL.md` for the explicit MVP threat model
-- `docs/PRIVACY.md` for privacy boundaries and current retention behavior
+- `docs/core/THREAT_MODEL.md` for the explicit MVP threat model
+- `docs/core/PRIVACY.md` for privacy boundaries and current retention behavior
 
 ## Security Posture
 
@@ -216,3 +220,4 @@ An institution should not claim that OWS is a strong trust boundary when any of 
 - durable backups have not been considered
 - local-only evidence is being treated as equivalent to remote durable receipts
 - watcher gaps or missing receipts are being hidden instead of surfaced as uncertainty
+

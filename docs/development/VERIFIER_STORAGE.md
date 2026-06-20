@@ -116,7 +116,7 @@ The first durable PostgreSQL design should start with:
 - `verifier_package_submissions`
 - optional `verifier_audit_events`
 
-See [verifier-postgres-foundation.sql](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/sql/verifier-postgres-foundation.sql) for the current schema draft.
+See [verifier-postgres-foundation.sql](../sql/verifier-postgres-foundation.sql) for the current schema draft.
 
 Applied migrations are tracked in `ows_verifier_schema_version`.
 
@@ -152,7 +152,7 @@ Do not add yet:
 
 Add those only if external clients actually need structured per-field API errors.
 
-See [DEFERRED_NOTES.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/DEFERRED_NOTES.md) for the running deferred decision list.
+See [DEFERRED_NOTES.md](../reference/DEFERRED_NOTES.md) for the running deferred decision list.
 
 ## Important Constraint
 
@@ -163,3 +163,4 @@ That means:
 - JSON persistence is good enough for local development
 - PostgreSQL or equivalent durable storage is required before stronger deployment claims
 - horizontal scaling is not credible until the durable backend exists
+

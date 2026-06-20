@@ -1,3 +1,5 @@
+> Archived: this document may be outdated. See `../core/OVERVIEW.md`, `../core/ARCHITECTURE.md`, and `../core/PACKAGE_FORMAT.md` for current guidance.
+
 # OWS Specification
 
 ## Purpose

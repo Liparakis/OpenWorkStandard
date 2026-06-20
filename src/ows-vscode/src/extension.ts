@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Poll status bar status periodically (every 10 seconds)
     const interval = setInterval(() => updateStatusBar(), 10000);
-    context.subscriptions.push({ dispose: () => clearInterval(interval) });
+    context.subscriptions.push({dispose: () => clearInterval(interval)});
 }
 
 export function deactivate() {
@@ -63,7 +63,9 @@ function registerCommand(context: vscode.ExtensionContext, id: string, callback:
 
 async function handleInitialize() {
     const workspaceRoot = await getWorkspaceRoot();
-    if (!workspaceRoot) { return; }
+    if (!workspaceRoot) {
+        return;
+    }
 
     outputChannel.appendLine("Initializing OWS project...");
     const result = await runCli(['init', '--json'], workspaceRoot);
@@ -77,7 +79,9 @@ async function handleInitialize() {
 
 async function handleConfigure(context: vscode.ExtensionContext) {
     const workspaceRoot = await getWorkspaceRoot();
-    if (!workspaceRoot) { return; }
+    if (!workspaceRoot) {
+        return;
+    }
 
     // Read current settings or local config
     let currentConfig: any = {};
@@ -85,7 +89,8 @@ async function handleConfigure(context: vscode.ExtensionContext) {
     if (fs.existsSync(configPath)) {
         try {
             currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        } catch { }
+        } catch {
+        }
     }
 
     const verifierUrl = await vscode.window.showInputBox({
@@ -137,7 +142,7 @@ async function handleConfigure(context: vscode.ExtensionContext) {
     // Save configuration parameters to .ows/config.json (avoiding secrets)
     const localOwsDir = path.join(workspaceRoot, '.ows');
     if (!fs.existsSync(localOwsDir)) {
-        fs.mkdirSync(localOwsDir, { recursive: true });
+        fs.mkdirSync(localOwsDir, {recursive: true});
     }
 
     const updatedConfig = {
@@ -160,7 +165,9 @@ async function handleConfigure(context: vscode.ExtensionContext) {
 
 async function handleStartWatch(context: vscode.ExtensionContext) {
     const workspaceRoot = await getWorkspaceRoot();
-    if (!workspaceRoot) { return; }
+    if (!workspaceRoot) {
+        return;
+    }
 
     const configPath = path.join(workspaceRoot, '.ows', 'config.json');
     if (!fs.existsSync(configPath)) {
@@ -191,7 +198,8 @@ async function handleStartWatch(context: vscode.ExtensionContext) {
     let currentConfig: any = {};
     try {
         currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch { }
+    } catch {
+    }
 
     if (!currentConfig.verifierUrl) {
         vscode.window.showWarningMessage("Warning: Verifier URL is empty in OWS configuration.");
@@ -207,12 +215,12 @@ async function handleStartWatch(context: vscode.ExtensionContext) {
     };
 
     try {
-        watchProcess = cp.spawn(exec, args, { cwd: workspaceRoot, env: childEnv });
+        watchProcess = cp.spawn(exec, args, {cwd: workspaceRoot, env: childEnv});
     } catch (err: any) {
         vscode.window.showErrorMessage(`Failed to start watcher process. OWS CLI executable not found at '${exec}'. Please check your 'ows.cliPath' setting.`);
         return;
     }
-    
+
     watchProcess.on('error', (err: any) => {
         if (err.code === 'ENOENT') {
             vscode.window.showErrorMessage(`Failed to start watcher process. OWS CLI executable not found at '${exec}'. Please check your 'ows.cliPath' setting.`);
@@ -227,7 +235,7 @@ async function handleStartWatch(context: vscode.ExtensionContext) {
     watchProcess.stdout?.on('data', async (data) => {
         const text = data.toString();
         outputChannel.appendLine(`[Watcher Out] ${redactApiKey(text)}`);
-        
+
         if (!started) {
             try {
                 const response = JSON.parse(text);
@@ -255,7 +263,9 @@ async function handleStartWatch(context: vscode.ExtensionContext) {
 
 async function handleStopWatch() {
     const workspaceRoot = await getWorkspaceRoot();
-    if (!workspaceRoot) { return; }
+    if (!workspaceRoot) {
+        return;
+    }
 
     const configPath = path.join(workspaceRoot, '.ows', 'config.json');
     if (!fs.existsSync(configPath)) {
@@ -264,7 +274,7 @@ async function handleStopWatch() {
     }
 
     outputChannel.appendLine("Stopping OWS file watcher...");
-    
+
     // Call CLI stop
     const result = await runCli(['watch', 'stop', '--json'], workspaceRoot);
     if (watchProcess) {
@@ -282,7 +292,9 @@ async function handleStopWatch() {
 
 async function handleShowStatus() {
     const workspaceRoot = await getWorkspaceRoot();
-    if (!workspaceRoot) { return; }
+    if (!workspaceRoot) {
+        return;
+    }
 
     const configPath = path.join(workspaceRoot, '.ows', 'config.json');
     if (!fs.existsSync(configPath)) {
@@ -305,8 +317,8 @@ async function handleShowStatus() {
             `Last Checkpoint At: ${result.lastCheckpointAt ?? 'None'}`,
             `Last Heartbeat At: ${result.lastHeartbeatAt ?? 'None'}`
         ].join('\n');
-        
-        vscode.window.showInformationMessage(`OWS Project Status`, { detail: details, modal: true });
+
+        vscode.window.showInformationMessage(`OWS Project Status`, {detail: details, modal: true});
     } else {
         throw new Error(result.errors.join('\n'));
     }
@@ -314,7 +326,9 @@ async function handleShowStatus() {
 
 async function handlePackage() {
     const workspaceRoot = await getWorkspaceRoot();
-    if (!workspaceRoot) { return; }
+    if (!workspaceRoot) {
+        return;
+    }
 
     const configPath = path.join(workspaceRoot, '.ows', 'config.json');
     if (!fs.existsSync(configPath)) {
@@ -339,7 +353,9 @@ async function handlePackage() {
 
 async function handleUpload() {
     const workspaceRoot = await getWorkspaceRoot();
-    if (!workspaceRoot) { return; }
+    if (!workspaceRoot) {
+        return;
+    }
 
     const configPath = path.join(workspaceRoot, '.ows', 'config.json');
     if (!fs.existsSync(configPath)) {
@@ -364,7 +380,9 @@ async function handleUpload() {
 
 async function handleCheckStatus() {
     const workspaceRoot = await getWorkspaceRoot();
-    if (!workspaceRoot) { return; }
+    if (!workspaceRoot) {
+        return;
+    }
 
     const configPath = path.join(workspaceRoot, '.ows', 'config.json');
     if (!fs.existsSync(configPath)) {
@@ -415,7 +433,7 @@ async function getWorkspaceRoot(silent = false): Promise<string | undefined> {
         return folders[0].uri.fsPath;
     }
 
-    const items = folders.map(f => ({ label: f.name, description: f.uri.fsPath }));
+    const items = folders.map(f => ({label: f.name, description: f.uri.fsPath}));
     const picked = await vscode.window.showQuickPick(items, {
         placeHolder: "Select OWS workspace folder"
     });
@@ -437,7 +455,7 @@ async function runCli(args: string[], cwd: string): Promise<any> {
             OWS_HOST: 'vscode'
         };
 
-        cp.execFile(exec, [...initialArgs, ...args], { cwd, env: childEnv }, (err, stdout, stderr) => {
+        cp.execFile(exec, [...initialArgs, ...args], {cwd, env: childEnv}, (err, stdout, stderr) => {
             if (err) {
                 if ((err as any).code === 'ENOENT') {
                     reject(new Error(`OWS CLI executable not found at: '${exec}'. Please check your 'ows.cliPath' setting.`));
@@ -460,6 +478,7 @@ async function runCli(args: string[], cwd: string): Promise<any> {
 }
 
 let cachedApiKey = "";
+
 async function getApiKey(): Promise<string> {
     try {
         if (extensionContext) {
@@ -469,7 +488,8 @@ async function getApiKey(): Promise<string> {
                 return key;
             }
         }
-    } catch { }
+    } catch {
+    }
 
     const key = process.env.OWS_VERIFIER_API_KEY || "";
     cachedApiKey = key;

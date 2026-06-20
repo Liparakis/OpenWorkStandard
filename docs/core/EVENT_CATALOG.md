@@ -30,6 +30,7 @@ This document defines the Open Work Standard (OWS) event vocabulary, detailing w
 | `ObservationGapDetected` | **Active** | `ows watch` (recovery) | Yes (`timeline.jsonl`) | Yes | Yes (Continuity) | Emitted when an interval of unobserved time is detected on watcher startup. |
 | `UnobservedChangeDetected` | **Active** | `ows watch` (recovery) | Yes (`timeline.jsonl`) | Yes | Yes (Continuity) | Emitted when a file change occurs during an unobserved gap. |
 | `LargeUnobservedChangeDetected` | **Active** | `ows watch` (recovery) | Yes (`timeline.jsonl`) | Yes | Yes (Continuity) | Emitted when a change exceeding delta thresholds occurs during an unobserved gap. |
+| `SnapshotUpdated` | **Active** | `ows watch` | Yes (`timeline.jsonl`) | Yes | Yes (Continuity) | Commits the canonical hash of `.ows/observed_snapshot.json` state without storing file contents. |
 
 ---
 
@@ -190,3 +191,12 @@ This document defines the Open Work Standard (OWS) event vocabulary, detailing w
 - **Persistence Status**: Appended to `.ows/timeline.jsonl`.
 - **Included in Timeline Hash Chain**: Yes
 - **Used in Current Trust Decisions**: Yes (used to degrade trust level to Degraded, indicating major unobserved changes).
+
+### SnapshotUpdated
+- **Description**: The current observed snapshot state was committed to the timeline using a canonical snapshot hash.
+- **Status**: `Active`
+- **Current Emitter**: `ows watch` (after initial baseline, recovery scans, and watcher-observed file updates).
+- **Persistence Status**: Appended to `.ows/timeline.jsonl`.
+- **Included in Timeline Hash Chain**: Yes
+- **Used in Current Trust Decisions**: Yes (used to validate whether `.ows/observed_snapshot.json` can be trusted as the next recovery baseline).
+- **Notes**: Metadata includes `snapshotHash`, `fileCount`, `observedAt`, `reason`, and optional `previousSnapshotHash`. The commitment covers observed project-file state, not raw file contents and not the timeline file itself.

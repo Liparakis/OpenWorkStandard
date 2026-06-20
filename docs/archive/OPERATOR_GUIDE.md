@@ -1,8 +1,10 @@
+> Archived: this document may be outdated. See `../operations/SELF_HOSTING.md` and `../workflows/PILOT_DEMO.md` for current operator guidance.
+
 # OWS Verifier Operator Guide
 
 This guide is designed for systems administrators and operators running a self-hosted OWS verifier instance.
 
-For the end-to-end pilot walkthrough, start with [PILOT_DEMO.md](PILOT_DEMO.md). It covers fixture creation, student submission, reviewer report access, audit checks, diagnostics, and negative-path validation.
+For the end-to-end pilot walkthrough, start with [PILOT_DEMO.md](../workflows/PILOT_DEMO.md). It covers fixture creation, student submission, reviewer report access, audit checks, diagnostics, and negative-path validation.
 
 ---
 

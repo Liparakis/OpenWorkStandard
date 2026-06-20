@@ -10,7 +10,7 @@ The default Compose stack packages two core components:
 1. **`postgres`**: A PostgreSQL 17 database service using a persistent named volume (`ows-postgres-data-prod`) for durable notarization storage.
 2. **`ows-verifier`**: The ASP.NET Core OWS Verifier Web API service, running on port `8080` internally and mounting a named volume (`ows-verifier-package-data`) for durable `.owspkg` blob storage.
 
-For the supported multi-instance pilot pattern, also see `deploy/compose/docker-compose.multi-instance.yml` and `docs/MULTI_INSTANCE_DEPLOYMENT.md`.
+For the supported multi-instance pilot pattern, also see `deploy/compose/docker-compose.multi-instance.yml` and `docs/operations/MULTI_INSTANCE_DEPLOYMENT.md`.
 
 ---
 
@@ -218,3 +218,4 @@ Run the ops readiness check at any time:
 ```powershell
 .\scripts\verify-ops-readiness.ps1 -BaseUrl http://localhost:5078 -ApiKey "<operator-key>"
 ```
+

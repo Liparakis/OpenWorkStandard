@@ -313,7 +313,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add README.md docs/CLI.md docs/ARCHITECTURE.md docs/PROJECT_STATUS.md
+git add README.md docs/development/CLI.md docs/core/ARCHITECTURE.md docs/development/PROJECT_STATUS.md
 git commit -m "docs: reframe OWS around remote trust boundaries"
 ```
 
@@ -355,3 +355,4 @@ git commit -m "feat: add trust grading and remote receipt foundation"
 - Docs updated to remote trust boundary framing.
 - Build and tests passing.
 ```
+

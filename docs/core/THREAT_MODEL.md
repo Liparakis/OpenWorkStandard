@@ -1,3 +1,7 @@
+Status: Reference  
+Audience: Security reviewer, Developer, Operator  
+Last reviewed: 2026-06-20
+
 # OWS Threat Model
 
 ## Scope
@@ -24,6 +28,7 @@ OWS does not aim to make a student-owned machine tamper-proof.
 
 - local timeline history in `.ows/timeline.jsonl`
 - local session metadata in `.ows/session.json`
+- local observed recovery snapshot in `.ows/observed_snapshot.json`
 - local receipt material in `.ows/receipts.json`
 - packaged artifacts inside `.owspkg`
 - package manifest, timeline, and version graph hashes
@@ -82,6 +87,8 @@ OWS does not aim to make a student-owned machine tamper-proof.
 - trust grading with `Verified`, `Unverified`, and `Invalid`
 - `Degraded` trust state for session continuity and observation gaps
 - observation gap and large unobserved change detection during watcher recovery
+- snapshot-hash commitments in the timeline via `SnapshotUpdated`
+- recovery baseline degradation when `observed_snapshot.json` is missing, corrupt, unbound, or mismatched
 - durable PostgreSQL-backed verifier storage
 - idempotent checkpoint retry handling
 - app-owned verifier migrations
@@ -92,10 +99,12 @@ OWS does not aim to make a student-owned machine tamper-proof.
 - auth and RBAC are not implemented
 - signing-key hardening is not implemented
 - retention enforcement is not implemented
+- a well-formed local snapshot can still be rewritten if an attacker also rewrites the local timeline and no stronger remote anchor exists
 
 ## What OWS Can Honestly Claim Today
 
 - package and event integrity can be checked
+- snapshot baseline continuity can be checked when `SnapshotUpdated` commitments are present
 - receipt chains can be validated
 - local evidence can be tamper-evident
 - remote durable receipts improve trust

@@ -30,7 +30,7 @@ This guide contains a troubleshooting matrix to resolve common configuration and
 | **Prometheus target for `ows-verifier` is down** | The optional observability overlay is running, but the base verifier service is unavailable on the compose network or `/metrics` is unreachable. | Open Prometheus targets UI and inspect `ows-verifier`. Check that the base compose stack is running. | Start the base compose stack first, then rerun the overlay. Verify the verifier serves `/metrics`. |
 | **Grafana shows no OWS dashboard** | Grafana provisioning files or dashboard mounts are missing. | Check Grafana logs and confirm `deploy/observability/grafana/provisioning/` and `deploy/observability/grafana/dashboards/` are mounted. | Fix the overlay file mounts and restart Grafana. |
 | **Loki has no verifier logs** | Promtail cannot reach Docker, the verifier container name does not match, or the optional overlay is not running. | Check Promtail logs and confirm access to `/var/run/docker.sock`. Verify the verifier container name is `ows-verifier-prod`. | Restart Promtail, fix Docker socket access, or update the Promtail container filter if the verifier container name changes. |
-| **Grafana dashboard has no request count or duration panels** | OWS v0.1 does not expose request count/duration metrics on `/metrics`. | Inspect the dashboard and `docs/OBSERVABILITY.md`. | This is expected. Use verifier logs plus `X-Request-Id` correlation until request metrics are added later. |
+| **Grafana dashboard has no request count or duration panels** | OWS v0.1 does not expose request count/duration metrics on `/metrics`. | Inspect the dashboard and `docs/operations/OBSERVABILITY.md`. | This is expected. Use verifier logs plus `X-Request-Id` correlation until request metrics are added later. |
 | **Package verification fails with "Package blob not found"** | Metadata still exists, but the blob volume or file was removed. | Check the package storage volume and compare the package record with the local blob directory contents. Check `/diagnostics/summary` for `packageBlobCount`. | Restore the blob volume from backup or re-upload the package. PostgreSQL metadata alone is not enough. See `BACKUP_RESTORE.md`. |
 | **After a restore, trust status differs from expected (e.g. `Verified` → `Degraded`)** | The signing key changed between the backup and the restore, so old receipts fail chain verification. | Compare the signing key fingerprint in startup logs with the recorded pre-backup fingerprint. | Restore the original signing key material (`VerifierStorage__ReceiptSigningKey`). See `SECURITY_HARDENING.md` for signing key custody procedures. |
 | **`/diagnostics/summary` shows `signingKeyFingerprintPresent: false`** | The signing key is not configured or is empty. | Check that `VerifierStorage__ReceiptSigningKey` is set in the `.env` file and is at least 16 characters. | Set a strong signing key and restart the verifier. |
@@ -76,7 +76,7 @@ If you run into an error you cannot solve, please contact your instructor/operat
 
 ## See Also
 
-- [PILOT_DEMO.md](PILOT_DEMO.md) - end-to-end pilot validation walkthrough
+- [PILOT_DEMO.md](../workflows/PILOT_DEMO.md) - end-to-end pilot validation walkthrough
 - [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) — daily operator procedures and emergency runbook
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) — what to back up, restore order, recovery drills
 - [SECURITY_HARDENING.md](SECURITY_HARDENING.md) — signing key custody, API key management, diagnostics fields
@@ -93,3 +93,4 @@ When OWS package verification fails or returns `Invalid`/`Unverified` status, in
 | `verifier.session.head.mismatch` | High | The local timeline head does not match the verifier session head. | Check timeline sync logs; indicates a mismatch between local history and verifier-notarized state. |
 | `lease.gap.long` | High | The session heartbeat was interrupted for an interval exceeding the significance threshold. | Conduct a thorough manual review of code changes around the gap interval. |
 | `lease.work_after_expiration` | High | Timeline events were recorded after the remote verifier session lease expired. | Verify whether the user forgot to run heartbeats or if the session was kept open past expiration. |
+

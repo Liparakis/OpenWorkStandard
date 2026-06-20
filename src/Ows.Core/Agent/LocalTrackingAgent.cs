@@ -104,15 +104,23 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         var currentFiles = ScanCurrentFiles(hashService);
 
         ObservedSnapshot? previousSnapshot = null;
+        string? computedSnapshotHash = null;
+        var hadSnapshotFile = File.Exists(snapshotPath);
+        var snapshotUnreadable = false;
         if (File.Exists(snapshotPath))
         {
             try
             {
                 var content = await File.ReadAllTextAsync(snapshotPath, cancellationToken);
                 previousSnapshot = JsonSerializer.Deserialize<ObservedSnapshot>(content);
+                if (previousSnapshot != null)
+                {
+                    computedSnapshotHash = SnapshotHashCalculator.ComputeHash(previousSnapshot);
+                }
             }
             catch (Exception ex)
             {
+                snapshotUnreadable = true;
                 logger.LogWarning("Failed to parse observed snapshot: {Message}. Treating as corrupted and running clean scan.", ex.Message);
                 try { File.Delete(snapshotPath); } catch { /*ignored*/ }
             }
@@ -124,8 +132,138 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             var previousEventHash = File.Exists(timelinePath)
                 ? OwsEventChain.ReadLastEventHash(timelinePath)
                 : OwsEventChain.GenesisPreviousEventHash;
+            var hadPriorTimeline = File.Exists(timelinePath) &&
+                                   File.ReadLines(timelinePath).Any(line => !string.IsNullOrWhiteSpace(line));
+            var committedSnapshotHash = hadPriorTimeline ? FindLatestCommittedSnapshotHash(timelinePath) : null;
+            var snapshotHashMismatch = previousSnapshot != null &&
+                                       !string.IsNullOrWhiteSpace(committedSnapshotHash) &&
+                                       !string.Equals(computedSnapshotHash, committedSnapshotHash, StringComparison.OrdinalIgnoreCase);
+            var snapshotLegacyUnbound = previousSnapshot != null &&
+                                        hadPriorTimeline &&
+                                        string.IsNullOrWhiteSpace(committedSnapshotHash);
 
-            if (previousSnapshot == null)
+            if (previousSnapshot == null && hadPriorTimeline)
+            {
+                var now = DateTimeOffset.UtcNow;
+                var lastHeartbeat = GetLastHeartbeatTime(_options.ProjectRootPath);
+                var gapStartedAt = lastHeartbeat ?? now;
+                var gapDurationMsVal = (long)(now - gapStartedAt).TotalMilliseconds;
+                var previousStateVal = DeterminePreviousWatcherState(timelinePath, _options.WasInterrupted);
+
+                if (_options.WasInterrupted)
+                {
+                    var interruptedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+                    {
+                        EventType = OwsEventType.WatcherInterrupted,
+                        ProjectId = projectId,
+                        ToolName = "ows watch",
+                        Metadata = new Dictionary<string, string>
+                        {
+                            { "previousPid", _options.InterruptedState?.Pid.ToString() ?? "unknown" },
+                            { "reason", "stale_pid" }
+                        }
+                    }, previousEventHash);
+
+                    await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(interruptedEvent)}{Environment.NewLine}", cancellationToken);
+                    previousEventHash = interruptedEvent.EventHash;
+
+                    var recoveredEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+                    {
+                        EventType = OwsEventType.WatcherRecovered,
+                        ProjectId = projectId,
+                        ToolName = "ows watch",
+                        Metadata = new Dictionary<string, string>
+                        {
+                            { "reason", "crash_recovery" },
+                            { "gapDurationMs", gapDurationMsVal.ToString() }
+                        }
+                    }, previousEventHash);
+
+                    await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(recoveredEvent)}{Environment.NewLine}", cancellationToken);
+                    previousEventHash = recoveredEvent.EventHash;
+                }
+                else
+                {
+                    var startedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+                    {
+                        EventType = OwsEventType.WatcherStarted,
+                        ProjectId = projectId,
+                        ToolName = "ows watch",
+                        Metadata = new Dictionary<string, string>
+                        {
+                            { "reason", "user_restart" }
+                        }
+                    }, previousEventHash);
+
+                    await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(startedEvent)}{Environment.NewLine}", cancellationToken);
+                    previousEventHash = startedEvent.EventHash;
+                }
+
+                var gapEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+                {
+                    EventType = OwsEventType.ObservationGapDetected,
+                    ProjectId = projectId,
+                    ToolName = "ows watch",
+                    Metadata = new Dictionary<string, string>
+                    {
+                        { "gapStartedAt", gapStartedAt.ToString("o") },
+                        { "gapEndedAt", now.ToString("o") },
+                        { "gapDurationMs", gapDurationMsVal.ToString() },
+                        { "previousState", previousStateVal },
+                        { "recoveryReason", _options.WasInterrupted ? "crash_recovery" : "user_start" },
+                        { "baselineState", snapshotUnreadable ? "corrupt_snapshot" : hadSnapshotFile ? "missing_snapshot" : "missing_snapshot" }
+                    }
+                }, previousEventHash);
+
+                await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(gapEvent)}{Environment.NewLine}", cancellationToken);
+                previousEventHash = gapEvent.EventHash;
+            }
+            else if (snapshotHashMismatch || snapshotLegacyUnbound)
+            {
+                var now = DateTimeOffset.UtcNow;
+                var lastHeartbeat = GetLastHeartbeatTime(_options.ProjectRootPath);
+                var gapStartedAt = lastHeartbeat ?? now;
+                var gapDurationMsVal = (long)(now - gapStartedAt).TotalMilliseconds;
+                var previousStateVal = DeterminePreviousWatcherState(timelinePath, _options.WasInterrupted);
+
+                previousEventHash = await AppendRecoveryLifecycleEventsAsync(
+                    timelinePath,
+                    projectId,
+                    previousEventHash,
+                    gapDurationMsVal,
+                    cancellationToken);
+
+                var baselineState = snapshotHashMismatch ? "snapshot_hash_mismatch" : "legacy_unbound_snapshot";
+                var gapMetadata = new Dictionary<string, string>
+                {
+                    { "gapStartedAt", gapStartedAt.ToString("o") },
+                    { "gapEndedAt", now.ToString("o") },
+                    { "gapDurationMs", gapDurationMsVal.ToString() },
+                    { "previousState", previousStateVal },
+                    { "recoveryReason", _options.WasInterrupted ? "crash_recovery" : "user_start" },
+                    { "baselineState", baselineState }
+                };
+                if (!string.IsNullOrWhiteSpace(committedSnapshotHash))
+                {
+                    gapMetadata["committedSnapshotHash"] = committedSnapshotHash;
+                }
+                if (!string.IsNullOrWhiteSpace(computedSnapshotHash))
+                {
+                    gapMetadata["computedSnapshotHash"] = computedSnapshotHash;
+                }
+
+                var gapEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+                {
+                    EventType = OwsEventType.ObservationGapDetected,
+                    ProjectId = projectId,
+                    ToolName = "ows watch",
+                    Metadata = gapMetadata
+                }, previousEventHash);
+
+                await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(gapEvent)}{Environment.NewLine}", cancellationToken);
+                previousEventHash = gapEvent.EventHash;
+            }
+            else if (previousSnapshot == null)
             {
                 // 1. Initial/first run: Emit file creation baseline events and WatcherStarted
                 foreach (var fileState in currentFiles.Values)
@@ -160,6 +298,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                 }, previousEventHash);
 
                 await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(startedEvent)}{Environment.NewLine}", cancellationToken);
+                previousEventHash = startedEvent.EventHash;
             }
             else
             {
@@ -178,57 +317,12 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
 
                 var previousStateVal = DeterminePreviousWatcherState(timelinePath, _options.WasInterrupted);
 
-                // Watcher lifecycle events first
-                if (_options.WasInterrupted)
-                {
-                    var interruptedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
-                    {
-                        EventType = OwsEventType.WatcherInterrupted,
-                        ProjectId = projectId,
-                        ToolName = "ows watch",
-                        Metadata = new Dictionary<string, string>
-                        {
-                            { "previousPid", _options.InterruptedState?.Pid.ToString() ?? "unknown" },
-                            { "reason", "stale_pid" }
-                        }
-                    }, previousEventHash);
-
-                    await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(interruptedEvent)}{Environment.NewLine}", cancellationToken);
-                    previousEventHash = interruptedEvent.EventHash;
-
-                    var recoveredMetadata = new Dictionary<string, string>
-                    {
-                        { "reason", "crash_recovery" },
-                        { "gapDurationMs", gapDurationMsVal.ToString() }
-                    };
-
-                    var recoveredEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
-                    {
-                        EventType = OwsEventType.WatcherRecovered,
-                        ProjectId = projectId,
-                        ToolName = "ows watch",
-                        Metadata = recoveredMetadata
-                    }, previousEventHash);
-
-                    await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(recoveredEvent)}{Environment.NewLine}", cancellationToken);
-                    previousEventHash = recoveredEvent.EventHash;
-                }
-                else
-                {
-                    var startedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
-                    {
-                        EventType = OwsEventType.WatcherStarted,
-                        ProjectId = projectId,
-                        ToolName = "ows watch",
-                        Metadata = new Dictionary<string, string>
-                        {
-                            { "reason", "user_restart" }
-                        }
-                    }, previousEventHash);
-
-                    await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(startedEvent)}{Environment.NewLine}", cancellationToken);
-                    previousEventHash = startedEvent.EventHash;
-                }
+                previousEventHash = await AppendRecoveryLifecycleEventsAsync(
+                    timelinePath,
+                    projectId,
+                    previousEventHash,
+                    gapDurationMsVal,
+                    cancellationToken);
 
                 // Compare snapshot to current state
                 var createdFiles = new List<ObservedFileState>();
@@ -381,6 +475,13 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                 Files = currentFiles
             };
             await SaveSnapshotAtomicallyAsync(snapshotPath, _currentSnapshot, cancellationToken);
+            await AppendSnapshotUpdatedEventAsync(
+                timelinePath,
+                projectId,
+                previousEventHash,
+                previousSnapshot == null ? "initial_baseline" : "recovery_scan",
+                computedSnapshotHash,
+                CancellationToken.None);
         }
         finally
         {
@@ -427,6 +528,127 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         }
 
         return files;
+    }
+
+    private async Task<string> AppendRecoveryLifecycleEventsAsync(
+        string timelinePath,
+        string projectId,
+        string previousEventHash,
+        long gapDurationMsVal,
+        CancellationToken cancellationToken)
+    {
+        if (_options!.WasInterrupted)
+        {
+            var interruptedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+            {
+                EventType = OwsEventType.WatcherInterrupted,
+                ProjectId = projectId,
+                ToolName = "ows watch",
+                Metadata = new Dictionary<string, string>
+                {
+                    { "previousPid", _options.InterruptedState?.Pid.ToString() ?? "unknown" },
+                    { "reason", "stale_pid" }
+                }
+            }, previousEventHash);
+
+            await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(interruptedEvent)}{Environment.NewLine}", cancellationToken);
+            previousEventHash = interruptedEvent.EventHash;
+
+            var recoveredEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+            {
+                EventType = OwsEventType.WatcherRecovered,
+                ProjectId = projectId,
+                ToolName = "ows watch",
+                Metadata = new Dictionary<string, string>
+                {
+                    { "reason", "crash_recovery" },
+                    { "gapDurationMs", gapDurationMsVal.ToString() }
+                }
+            }, previousEventHash);
+
+            await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(recoveredEvent)}{Environment.NewLine}", cancellationToken);
+            return recoveredEvent.EventHash;
+        }
+
+        var startedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+        {
+            EventType = OwsEventType.WatcherStarted,
+            ProjectId = projectId,
+            ToolName = "ows watch",
+            Metadata = new Dictionary<string, string>
+            {
+                { "reason", "user_restart" }
+            }
+        }, previousEventHash);
+
+        await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(startedEvent)}{Environment.NewLine}", cancellationToken);
+        return startedEvent.EventHash;
+    }
+
+    private async Task AppendSnapshotUpdatedEventAsync(
+        string timelinePath,
+        string projectId,
+        string previousEventHash,
+        string reason,
+        string? previousSnapshotHash,
+        CancellationToken cancellationToken)
+    {
+        var snapshotHash = SnapshotHashCalculator.ComputeHash(_currentSnapshot);
+        var metadata = new Dictionary<string, string>
+        {
+            { "snapshotHash", snapshotHash },
+            { "fileCount", _currentSnapshot.Files.Count.ToString() },
+            { "observedAt", _currentSnapshot.ObservedAt.ToUniversalTime().ToString("O") },
+            { "reason", reason }
+        };
+
+        if (!string.IsNullOrWhiteSpace(previousSnapshotHash))
+        {
+            metadata["previousSnapshotHash"] = previousSnapshotHash;
+        }
+
+        var snapshotEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+        {
+            EventType = OwsEventType.SnapshotUpdated,
+            ProjectId = projectId,
+            ToolName = "ows watch",
+            Metadata = metadata
+        }, previousEventHash);
+
+        await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(snapshotEvent)}{Environment.NewLine}", cancellationToken);
+    }
+
+    private static string? FindLatestCommittedSnapshotHash(string timelinePath)
+    {
+        if (!File.Exists(timelinePath))
+        {
+            return null;
+        }
+
+        foreach (var line in File.ReadLines(timelinePath).Reverse())
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            try
+            {
+                var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line);
+                if (owsEvent?.EventType == OwsEventType.SnapshotUpdated &&
+                    owsEvent.Metadata.TryGetValue("snapshotHash", out var snapshotHash) &&
+                    !string.IsNullOrWhiteSpace(snapshotHash))
+                {
+                    return snapshotHash;
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     private async Task SaveSnapshotAtomicallyAsync(string snapshotPath, ObservedSnapshot snapshot, CancellationToken cancellationToken)
@@ -560,6 +782,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         try
         {
             var previousEventHash = OwsEventChain.ReadLastEventHash(timelinePath);
+            var previousSnapshotHash = SnapshotHashCalculator.ComputeHash(_currentSnapshot);
             var owsEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
             {
                 EventType = eventType,
@@ -604,6 +827,13 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             var localFolder = Path.Combine(_options!.ProjectRootPath, OwsConstants.LocalFolderName);
             var snapshotPath = Path.Combine(localFolder, OwsConstants.ObservedSnapshotFileName);
             await SaveSnapshotAtomicallyAsync(snapshotPath, _currentSnapshot, cancellationToken);
+            await AppendSnapshotUpdatedEventAsync(
+                timelinePath,
+                projectId,
+                owsEvent.EventHash,
+                "watcher_event",
+                previousSnapshotHash,
+                CancellationToken.None);
         }
         finally
         {

@@ -1,139 +1,41 @@
 # Open Work Standard
 
-Open Work Standard (OWS) is an academic work provenance and notarization protocol. Its purpose is to capture the evolution of coursework, package that evidence into `.owspkg` archives, and support verification against local integrity signals and remote verifier receipts.
+Open Work Standard (OWS) is local-first academic work provenance and notarization infrastructure. It records project-scoped evidence, packages that evidence into `.owspkg`, and supports later verification and human review without claiming automated misconduct judgment.
 
-OWS is not an AI detector, proctoring tool, surveillance product, or automated misconduct judge. It is provenance and notarization infrastructure for preserving work history and supporting human review.
+OWS does:
+- record project-scoped work evidence
+- package evidence into `.owspkg`
+- verify package hashes, timeline integrity, and optional remote receipts
+- surface neutral review signals for continuity gaps
 
-## MVP goals
+OWS does not:
+- run AI cheating detection
+- make automated misconduct decisions
+- treat missing events as proof of misconduct
+- collect keylogging, webcam, microphone, or unrelated personal data
 
-- Establish the core OWS domain model and terminology.
-- Provide a CLI entry point for `init`, `watch`, `package`, `verify`, and `report`.
-- Define the local `.ows/` storage model and `.owspkg` package contract.
-- Keep local capture simple while preparing for remote trust boundaries.
-- Produce a testable, documented .NET solution that can grow into the full reference implementation.
+Core invariant:
+Event presence is evidence of recorded activity. Event absence is not proof of misconduct.
 
-## Quick start
+Quick demo path:
+1. `dotnet build OWS.sln -nologo`
+2. `dotnet test OWS.sln -nologo`
+3. Follow [docs/START_HERE.md](docs/START_HERE.md)
+4. For a walkthrough, use [docs/workflows/LOCAL_DEMO.md](docs/workflows/LOCAL_DEMO.md)
 
-```bash
-dotnet restore
-dotnet build
-dotnet test
-dotnet run --project src/Ows.Cli -- --help
-```
+Current status:
+- MVP reference flow is real
+- optional remote verifier path exists
+- observation gaps degrade continuity rather than implying misconduct
+- the semantic Work Version Graph is still scaffolded/deferred
 
-## Repository structure
+Documentation entry point:
+- [Start Here](docs/START_HERE.md)
 
-- `src/Ows.Core`: shared domain models plus agent, packaging, notarization, verification, and reporting namespaces.
-- `src/Ows.Cli`: command-line entry point for the reference client.
-- `src/Ows.Desktop`: placeholder project for a future Avalonia UI.
-- `src/Ows.Verifier.Server`: minimal ASP.NET Core verifier API backed by local JSON snapshots or PostgreSQL.
-- `tests/Ows.Core.Tests`: xUnit coverage for core behavior and collapsed MVP service skeletons.
-- `tests/Ows.Cli.Tests`: xUnit coverage for command construction.
-- `docs`: specification, architecture, privacy, security, package format, CLI, and glossary.
-- `docs/THREAT_MODEL.md`: explicit MVP threat model and trust-boundary limits.
-- `docs/REVIEW_GUIDANCE.md`: how reviewers should interpret trust states, findings, and signals.
-- `docs/SELF_HOSTING.md`: current verifier self-hosting baseline and bootstrap flow.
-- `docs/DEFERRED_NOTES.md`: explicit "not yet" decisions and deferred follow-up items.
-- `samples/sample-project`: tiny sample tree used for demos and future integration tests.
+Key references:
+- [Review Guidance](docs/workflows/REVIEW_GUIDANCE.md)
+- [Threat Model](docs/core/THREAT_MODEL.md)
+- [Project Status](docs/development/PROJECT_STATUS.md)
 
-## Development setup
-
-- SDK target: `.NET 9`
-- CLI package: `System.CommandLine`
-- Hosting/logging: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.Logging`
-- Local storage dependency planned for the agent: `Microsoft.Data.Sqlite`
-- Test stack: `xUnit`, `FluentAssertions`
-
-The repository includes a local `NuGet.Config` so it does not inherit broken machine-level package sources.
-
-## Current status
-
-This repository now has a thin but real local MVP:
-
-- `ows init` creates local `.ows` state
-- `ows watch` performs a one-shot project scan
-- `ows session start` and `ows session checkpoint` work locally or against a configured verifier API
-- `ows package` creates real `.owspkg` archives
-- `ows verify` validates package integrity and can cross-check packaged receipts against a live verifier API
-- `ows report` writes a text or JSON integrity report with findings and review signals
-- the verifier can accept real `.owspkg` uploads and verify them asynchronously
-
-The main architectural gap is operational hardening. Local capture alone is not enough, so the verifier path now focuses on durable storage, signing-key custody, auth, and deployment discipline.
-
-## Capture Fidelity & Event Vocabulary Status
-
-OWS defines a broader event vocabulary for future IDE/desktop integrations. The current MVP emits file-system and session/package events only where explicitly documented. Reserved event types are not currently used as trust evidence. For a full breakdown of every event type and its emission status, see the [OWS Event Catalog](docs/EVENT_CATALOG.md).
-
-Furthermore, OWS packages a `version_graph.json` placeholder today. Real graph nodes, edges, validation, and graph-derived trust signals are deferred. The event timeline is real and verified today; the semantic version graph is not.
-
-## Verifier schema setup
-
-The Work Verifier owns its PostgreSQL schema lifecycle.
-
-For local development or self-hosted bootstrap, run:
-
-```bash
-dotnet run --project src/Ows.Verifier.Server -- migrate
-```
-
-Normal PostgreSQL-backed verifier startup also applies missing ordered migrations automatically. DevOps still owns the database instance, credentials, backups, and deployment policy; OWS owns the verifier schema shape.
-
-For multi-instance pilots, do not leave that on by habit. Run `migrate` once, then set `VerifierStorage__ApplyMigrationsOnStartup=false` on steady-state instances.
-
-Set `VerifierStorage__ReceiptSigningKey` to sign issued receipts. Keep that key outside the repository and deployment image.
-
-Set `VerifierSecurity__ApiKey` for bootstrap/shared-key compatibility, or use persisted operator/reviewer API keys for pilot deployments. CLI calls send `X-OWS-Verifier-Key` from `OWS_VERIFIER_API_KEY` when the environment variable is present.
-
-The verifier also now has an optional OIDC/JWT bearer foundation for future human-facing dashboard/API access. It is disabled by default, keeps API keys working unchanged, reuses the same RBAC rules, and rejects dual-auth requests that send both `X-OWS-Verifier-Key` and `Authorization: Bearer`. This is not full SSO. See [OIDC_INTEGRATION.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/OIDC_INTEGRATION.md).
-
-## Local durable verifier
-
-For the smallest real PostgreSQL-backed local flow:
-
-```bash
-docker compose -f docker-compose.local.yml up -d
-```
-
-Then follow [VERIFIER_LOCAL_DEV.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/VERIFIER_LOCAL_DEV.md).
-
-Fastest local path on Windows:
-
-```powershell
-.\scripts\run-local-verifier.ps1
-```
-
-Then smoke-test the verifier directly with:
-
-```powershell
-.\scripts\test-local-verifier.ps1
-```
-
-`dotnet build` also emits platform-specific verifier helper scripts under `artifacts/generated-scripts/`.
-
-The repo also includes a verifier server Dockerfile at `src/Ows.Verifier.Server/Dockerfile`.
-
-Verifier observability now includes:
-
-- `X-Request-Id` request correlation on every response
-- operator-only `GET /audit/events`
-- operator-only `GET /diagnostics/summary`
-- secret-safe readiness dependency details from `GET /ready`
-
-Verifier package intake now includes:
-
-- `POST /packages/upload` for real `.owspkg` bytes
-- local durable blob storage outside PostgreSQL
-- a durable in-process verification job worker with `PackageVerificationWorker__Enabled` for API-only vs worker instances
-- `GET /packages/{id}/verification` and `GET /packages/{id}/report`
-
-Multi-instance pilot guidance now lives in [MULTI_INSTANCE_DEPLOYMENT.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/MULTI_INSTANCE_DEPLOYMENT.md).
-
-For background local lifecycle on Windows:
-
-```powershell
-.\scripts\start-local-verifier.ps1
-.\scripts\status-local-verifier.ps1
-.\scripts\logs-local-verifier.ps1
-.\scripts\test-local-verifier.ps1
-.\scripts\stop-local-verifier.ps1
-```
+License:
+- [LICENSE](LICENSE)

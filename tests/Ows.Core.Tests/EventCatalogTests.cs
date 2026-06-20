@@ -13,10 +13,22 @@ public sealed class EventCatalogTests
         var current = AppContext.BaseDirectory;
         while (!string.IsNullOrEmpty(current))
         {
-            var path = Path.Combine(current, "docs", filename);
-            if (File.Exists(path))
+            var docsPath = Path.Combine(current, "docs");
+            if (Directory.Exists(docsPath))
             {
-                return path;
+                var directPath = Path.Combine(docsPath, filename);
+                if (File.Exists(directPath))
+                {
+                    return directPath;
+                }
+
+                var recursivePath = Directory
+                    .EnumerateFiles(docsPath, filename, SearchOption.AllDirectories)
+                    .FirstOrDefault();
+                if (recursivePath is not null)
+                {
+                    return recursivePath;
+                }
             }
 
             var parent = Path.GetDirectoryName(current);
@@ -63,7 +75,8 @@ public sealed class EventCatalogTests
                 or OwsEventType.WatcherRecovered
                 or OwsEventType.ObservationGapDetected
                 or OwsEventType.UnobservedChangeDetected
-                or OwsEventType.LargeUnobservedChangeDetected;
+                or OwsEventType.LargeUnobservedChangeDetected
+                or OwsEventType.SnapshotUpdated;
             if (isActive)
             {
                 // Should be documented as Active

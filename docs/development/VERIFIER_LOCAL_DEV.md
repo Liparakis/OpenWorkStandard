@@ -8,7 +8,7 @@ This is the smallest useful deployment-validation path for the current MVP.
 
 ## Maintenance Rule
 
-If the verifier workflow changes, update `docs/ROADMAP_CHECKLIST.md` and this document in the same commit.
+If the verifier workflow changes, update `docs/development/ROADMAP_CHECKLIST.md` and this document in the same commit.
 
 ## Clean Clone Quick Start
 
@@ -150,7 +150,7 @@ That script checks:
 
 Use `validate-local-verifier.ps1` (or `validate-local-verifier.sh` on Unix/macOS) when you want a comprehensive read-only environmental preflight check before starting anything. It diagnostics-checks .NET SDK, Docker, PostgreSQL reachability, verifier port binds, health/readiness endpoints, API keys, paths containing spaces, PowerShell Execution Policies, and non-admin shell warnings.
 
-Refer to [LOCAL_DEMO.md](LOCAL_DEMO.md) for a detailed, step-by-step local validation guide, and [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for a complete troubleshooting diagnostics matrix.
+Refer to [LOCAL_DEMO.md](../workflows/LOCAL_DEMO.md) for a detailed, step-by-step local validation guide, and [TROUBLESHOOTING.md](../operations/TROUBLESHOOTING.md) for a complete troubleshooting diagnostics matrix.
 
 
 ## Environment Modes and Production Hardening
@@ -277,3 +277,4 @@ It is not yet:
 - multi-replica rollout validation
 - backup/restore validation
 - Kubernetes deployment
+

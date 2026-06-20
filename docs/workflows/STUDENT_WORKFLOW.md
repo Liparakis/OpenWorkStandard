@@ -1,3 +1,7 @@
+Status: Active  
+Audience: Student  
+Last reviewed: 2026-06-20
+
 # OWS Student Workflow Guide
 
 This guide walks through the student workflow using the Open Work Standard (OWS) CLI and VS Code extension to record, package, and upload evidence of academic work.

@@ -1,3 +1,5 @@
+> Archived: this document may be outdated. See `../development/PROJECT_STATUS.md` for the current status view.
+
 # OWS Project Snapshot
 
 Last updated: 2026-06-19
@@ -74,6 +76,7 @@ Harden the local verifier helper lifecycle across restricted environments, then 
 
 ## Reference Docs
 
-- [PROJECT_STATUS.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/PROJECT_STATUS.md)
-- [VERIFIER_LOCAL_DEV.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/VERIFIER_LOCAL_DEV.md)
-- [DEFERRED_NOTES.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/DEFERRED_NOTES.md)
+- [PROJECT_STATUS.md](../development/PROJECT_STATUS.md)
+- [VERIFIER_LOCAL_DEV.md](../development/VERIFIER_LOCAL_DEV.md)
+- [DEFERRED_NOTES.md](../reference/DEFERRED_NOTES.md)
+

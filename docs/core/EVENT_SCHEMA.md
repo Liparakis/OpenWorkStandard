@@ -38,6 +38,7 @@ Each `OwsEvent` should be serializable with these core fields:
 - `ObservationGapDetected`
 - `UnobservedChangeDetected`
 - `LargeUnobservedChangeDetected`
+- `SnapshotUpdated`
 
 ## Required fields
 
@@ -67,6 +68,7 @@ Optional metadata may include:
 - test suite name
 - editor or IDE name
 - line or byte thresholds for `LargeInsert`
+- `snapshotHash`, `fileCount`, `observedAt`, `reason`, and optional `previousSnapshotHash` for `SnapshotUpdated`
 
 Optional metadata must remain project-scoped and must not introduce surveillance data.
 
