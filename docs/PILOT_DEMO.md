@@ -28,6 +28,26 @@ $env:VerifierStorage__ReceiptSigningKey = "pilot-signing-key-12345"
 
 This script starts the verifier, creates a unique fixture, runs the student CLI flow, waits for heartbeats, uploads a package, waits for worker verification, checks reviewer/operator flows, writes `artifacts/pilot-demo/live-dry-run-summary.json`, and then stops the verifier.
 
+## Known-Good Local Pilot Path
+
+Use this when you want the shortest path that is already known to pass locally:
+
+1. Run `dotnet build OWS.sln -nologo`.
+2. Run `dotnet test OWS.sln -nologo`.
+3. Run `src/ows-vscode/node_modules/.bin/tsc.cmd -p ./` from `src/ows-vscode`.
+4. Run `.\scripts\run-release-regression-gate.ps1` or `.\scripts\run-live-pilot-dry-run.ps1`.
+5. Check `artifacts/pilot-demo/live-dry-run-summary.json`.
+
+The current known-good summary must show:
+
+- `verifierHealth = Healthy`
+- `verifierReady = Ready`
+- `activeStatus = SessionActive`
+- `packageStatus = Completed`
+- `trustStatus = Verified`
+- `reviewerDeniedStatus = 403`
+- `rawKeyLeakDetected = false`
+
 ## 1. Operator Fixture Setup
 
 Create the minimal pilot fixture:
@@ -49,6 +69,12 @@ The script creates:
 - institution-scoped `InstructorReviewer` API key
 
 It prints the raw delegated keys once. It writes non-secret metadata to `artifacts/pilot-demo/fixture-metadata.json`.
+
+Repeatability note:
+
+- automated runs already pass a unique `-Prefix`, so they do not collide with previous fixtures
+- manual reruns should also pass a unique `-Prefix`
+- if you insist on reusing the default `pilot` prefix, reset the local dev database/package storage first
 
 ## 2. Student CLI Flow
 

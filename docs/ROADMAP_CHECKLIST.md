@@ -4,9 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Keep the live pilot dry run green as a regression gate before adding new UI surfaces or integrations.
+Keep the release regression gate green before adding new UI surfaces or integrations.
 
-**Current milestone status:** Live Pilot Dry Run v0.1 completed.
+**Next milestone:** Regression Gate and Release Candidate v0.1.
 
 ## 1. Current MVP Status
 
@@ -257,3 +257,14 @@ Keep the live pilot dry run green as a regression gate before adding new UI surf
 - [x] Heartbeat lifecycle validation documented
 - [x] Negative-path validation checklist documented
 - [x] Full live pilot dry run against the local PostgreSQL-backed verifier path
+
+## 19. Regression Gate and Release Candidate v0.1
+
+- [x] `docs/RELEASE_CHECKLIST.md`
+- [x] `docs/REGRESSION_GATE.md`
+- [x] Automated release-gate script (`scripts/run-release-regression-gate.ps1`)
+- [x] Known-good local pilot path documented
+- [x] Automated vs manual checks documented
+- [x] Fixture repeatability/reset guidance documented
+- [x] Latest live dry run passed and remains checked
+- [x] Latest release gate passed
