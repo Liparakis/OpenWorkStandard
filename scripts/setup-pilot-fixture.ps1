@@ -80,8 +80,7 @@ Invoke-OwsJson POST "/education/course-offerings" @{
 Invoke-OwsJson POST "/education/enrollments" @{
     id = New-WrappedId $enrollmentId
     courseOfferingId = New-WrappedId $courseOfferingId
-    userId = New-WrappedId $studentUserId
-    role = 0
+    studentUserId = New-WrappedId $studentUserId
     createdAt = $now
 } | Out-Null
 
