@@ -32,6 +32,7 @@ What works today:
 - documented pilot demo path covering operator setup, student workflow, reviewer report access, diagnostics, audit, and negative-path checks
 - repo-owned live pilot dry run script that validates the full local PostgreSQL-backed pilot path and writes a machine-readable summary artifact
 - repo-owned release regression gate script that composes build, test, VS Code compile, and live pilot dry run into one release check
+- repo-owned release-candidate evidence script that copies the latest passing gate and dry-run summaries into one bundle
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -347,6 +348,7 @@ Recent uncommitted/working-tree progress:
 - `scripts/setup-pilot-fixture.ps1` creates a minimal institution/course/student/assessment fixture and delegated student/reviewer keys
 - `scripts/run-live-pilot-dry-run.ps1` now executes the verified end-to-end pilot rehearsal and writes `artifacts/pilot-demo/live-dry-run-summary.json`
 - `scripts/run-release-regression-gate.ps1` now executes the automated release gate and writes `artifacts/release-gate/release-gate-summary.json`
+- `scripts/collect-release-candidate-evidence.ps1` now writes `artifacts/release-candidate/v0.1/` from the latest passing gate and dry run
 - camelCase `.ows/config.json` fields are now honored by `ows session start` and related config-backed flows
 - PostgreSQL audit-event queries now bind nullable filters safely
 - receipt timestamps are normalized before hashing so PostgreSQL round-trips preserve valid verifier receipt chains
@@ -398,7 +400,7 @@ The weakest assumption to avoid: thinking durable local blobs plus PostgreSQL ar
 Best next steps, in order:
 
 1. Keep the release regression gate green whenever verifier/session/package behavior changes.
-2. Use the gate summary and latest dry run summary as the v0.1 release-candidate evidence bundle.
+2. Use `scripts/collect-release-candidate-evidence.ps1` after a green gate, then do manual sign-off.
 3. Defer Rider, desktop polish, and LMS integration until the pilot path is boring.
 
 ## Bottom Line

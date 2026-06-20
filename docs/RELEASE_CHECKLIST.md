@@ -38,6 +38,7 @@ Artifacts:
 
 - gate summary: `artifacts/release-gate/release-gate-summary.json`
 - latest dry run summary: `artifacts/pilot-demo/live-dry-run-summary.json`
+- release-candidate evidence bundle: `.\scripts\collect-release-candidate-evidence.ps1` writes `artifacts/release-candidate/v0.1/`
 
 ## Manual Checks
 

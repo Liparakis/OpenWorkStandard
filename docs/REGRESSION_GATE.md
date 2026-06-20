@@ -41,3 +41,13 @@ If the gate fails:
 - fix the regression first
 - rerun the gate
 - do not mark the roadmap release-gate milestone complete off stale evidence
+
+## Release Candidate Evidence
+
+When the gate is green, collect one boring bundle:
+
+```powershell
+.\scripts\collect-release-candidate-evidence.ps1
+```
+
+This copies the latest passing gate and dry-run summaries into `artifacts/release-candidate/v0.1/` and writes a small manifest for manual sign-off.

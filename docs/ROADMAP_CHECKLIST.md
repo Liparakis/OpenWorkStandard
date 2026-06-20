@@ -4,7 +4,7 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Keep the release regression gate green before adding new UI surfaces or integrations.
+Cut the v0.1 release-candidate evidence bundle from the latest green gate, then do manual sign-off before adding new UI surfaces or integrations.
 
 **Next milestone:** Regression Gate and Release Candidate v0.1.
 
@@ -263,6 +263,7 @@ Keep the release regression gate green before adding new UI surfaces or integrat
 - [x] `docs/RELEASE_CHECKLIST.md`
 - [x] `docs/REGRESSION_GATE.md`
 - [x] Automated release-gate script (`scripts/run-release-regression-gate.ps1`)
+- [x] Release-candidate evidence script (`scripts/collect-release-candidate-evidence.ps1`)
 - [x] Known-good local pilot path documented
 - [x] Automated vs manual checks documented
 - [x] Fixture repeatability/reset guidance documented
