@@ -88,7 +88,7 @@ Implement the Desktop UI and IDE integrations (VS Code/Rider) for student watch 
 - [x] Operator role implemented
 - [x] InstructorReviewer role implemented
 - [x] InstitutionAdmin role
-- [ ] StudentClient role - Deferred
+- [x] StudentClient role
 - [x] Institution scoping enforced for package metadata and verification resources
 - [x] Institution scoping enforced for education read endpoints
 - [x] Reviewer read-only policy enforced
@@ -104,7 +104,8 @@ Implement the Desktop UI and IDE integrations (VS Code/Rider) for student watch 
 - [x] `GET /diagnostics/summary`
 - [x] `/ready` dependency detail response
 - [x] Secret-safe audit and diagnostics output
-- [ ] Prometheus/Grafana/Loki - Deferred
+- [x] Prometheus-compatible metrics endpoint
+- [ ] Grafana/Loki - Deferred
 
 ## 7. Package Submission and Server-Side Verification
 

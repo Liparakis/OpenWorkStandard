@@ -59,6 +59,11 @@ public sealed record VerifierApiKeyCreateRequest
     public string? InstitutionId { get; init; }
 
     /// <summary>
+    /// Gets the optional student user ID binding (only for StudentClient keys).
+    /// </summary>
+    public string? StudentUserId { get; init; }
+
+    /// <summary>
     /// Gets the optional UTC expiry timestamp.
     /// </summary>
     public DateTimeOffset? ExpiresAtUtc { get; init; }
@@ -70,12 +75,12 @@ public sealed record VerifierApiKeyCreateRequest
     {
         if (!VerifierRolePolicy.IsSupportedRole(Role))
         {
-            return "Role must be Operator, InstitutionAdmin, or InstructorReviewer.";
+            return "Role must be Operator, InstitutionAdmin, InstructorReviewer, or StudentClient.";
         }
 
         if (VerifierRolePolicy.IsInstitutionScopedRole(Role) && string.IsNullOrWhiteSpace(InstitutionId))
         {
-            return "InstitutionId is required for InstitutionAdmin and InstructorReviewer keys.";
+            return "InstitutionId is required for InstitutionAdmin, InstructorReviewer, and StudentClient keys.";
         }
 
         return null;
@@ -124,6 +129,11 @@ public sealed record VerifierApiKeyMetadata
     public string? InstitutionId { get; init; }
 
     /// <summary>
+    /// Gets the optional student user ID binding.
+    /// </summary>
+    public string? StudentUserId { get; init; }
+
+    /// <summary>
     /// Gets the UTC creation timestamp.
     /// </summary>
     public DateTimeOffset CreatedAtUtc { get; init; }
@@ -156,6 +166,8 @@ internal sealed record PersistedVerifierApiKeyRecord
 
     public string? InstitutionId { get; init; }
 
+    public string? StudentUserId { get; init; }
+
     public DateTimeOffset CreatedAtUtc { get; init; }
 
     public DateTimeOffset? ExpiresAtUtc { get; init; }
@@ -171,6 +183,7 @@ internal sealed record PersistedVerifierApiKeyRecord
             KeyPrefix = KeyPrefix,
             Role = Role,
             InstitutionId = InstitutionId,
+            StudentUserId = StudentUserId,
             CreatedAtUtc = CreatedAtUtc,
             ExpiresAtUtc = ExpiresAtUtc,
             LastUsedAtUtc = LastUsedAtUtc,
@@ -242,6 +255,7 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
             KeyHash = VerifierApiKeyMaterial.ComputeKeyHash(rawKey),
             Role = VerifierRolePolicy.NormalizeRoleName(request.Role),
             InstitutionId = VerifierRolePolicy.NormalizeInstitutionId(request.InstitutionId),
+            StudentUserId = request.StudentUserId?.Trim(),
             CreatedAtUtc = now,
             ExpiresAtUtc = request.ExpiresAtUtc
         };
@@ -321,7 +335,8 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
                 record.InstitutionId,
                 rawApiKey,
                 record.KeyId,
-                record.KeyPrefix));
+                record.KeyPrefix,
+                record.StudentUserId));
         }
     }
 
@@ -438,6 +453,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
             KeyHash = VerifierApiKeyMaterial.ComputeKeyHash(rawKey),
             Role = VerifierRolePolicy.NormalizeRoleName(request.Role),
             InstitutionId = VerifierRolePolicy.NormalizeInstitutionId(request.InstitutionId),
+            StudentUserId = request.StudentUserId?.Trim(),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             ExpiresAtUtc = request.ExpiresAtUtc
         };
@@ -451,6 +467,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
                                   key_hash,
                                   role,
                                   institution_id,
+                                  student_user_id,
                                   created_at,
                                   expires_at,
                                   last_used_at,
@@ -462,6 +479,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
                                   @key_hash,
                                   @role,
                                   @institution_id,
+                                  @student_user_id,
                                   @created_at,
                                   @expires_at,
                                   @last_used_at,
@@ -473,6 +491,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         command.Parameters.AddWithValue("key_hash", record.KeyHash);
         command.Parameters.AddWithValue("role", record.Role);
         command.Parameters.AddWithValue("institution_id", (object?)record.InstitutionId ?? DBNull.Value);
+        command.Parameters.AddWithValue("student_user_id", (object?)record.StudentUserId ?? DBNull.Value);
         command.Parameters.AddWithValue("created_at", record.CreatedAtUtc);
         command.Parameters.AddWithValue("expires_at", (object?)record.ExpiresAtUtc ?? DBNull.Value);
         command.Parameters.AddWithValue("last_used_at", DBNull.Value);
@@ -493,7 +512,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, key_prefix, key_hash, role, institution_id, created_at, expires_at, last_used_at, revoked_at
+                              select id, key_prefix, key_hash, role, institution_id, created_at, expires_at, last_used_at, revoked_at, student_user_id
                               from verifier_api_keys
                               order by created_at desc, id desc;
                               """;
@@ -535,7 +554,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         var keyHash = VerifierApiKeyMaterial.ComputeKeyHash(rawApiKey);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              select id, key_prefix, key_hash, role, institution_id, created_at, expires_at, last_used_at, revoked_at
+                              select id, key_prefix, key_hash, role, institution_id, created_at, expires_at, last_used_at, revoked_at, student_user_id
                               from verifier_api_keys
                               where key_hash = @key_hash;
                               """;
@@ -563,7 +582,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         updateCommand.Parameters.AddWithValue("id", record.KeyId);
         updateCommand.Parameters.AddWithValue("last_used_at", DateTimeOffset.UtcNow);
         await updateCommand.ExecuteNonQueryAsync(cancellationToken);
-        return new VerifierAccessContext(record.Role, record.InstitutionId, rawApiKey, record.KeyId, record.KeyPrefix);
+        return new VerifierAccessContext(record.Role, record.InstitutionId, rawApiKey, record.KeyId, record.KeyPrefix, record.StudentUserId);
     }
 
     /// <inheritdoc />
@@ -580,7 +599,8 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
             CreatedAtUtc = reader.GetFieldValue<DateTimeOffset>(5),
             ExpiresAtUtc = reader.IsDBNull(6) ? null : reader.GetFieldValue<DateTimeOffset>(6),
             LastUsedAtUtc = reader.IsDBNull(7) ? null : reader.GetFieldValue<DateTimeOffset>(7),
-            RevokedAtUtc = reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8)
+            RevokedAtUtc = reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8),
+            StudentUserId = reader.IsDBNull(9) ? null : reader.GetString(9)
         };
 }
 

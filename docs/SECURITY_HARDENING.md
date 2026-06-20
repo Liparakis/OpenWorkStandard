@@ -74,12 +74,12 @@ Current pilot-grade verifier auth uses API keys, not user login.
 Implemented:
 
 - `Operator`: full verifier access, including API key lifecycle management.
-- `InstitutionAdmin`: read/write access scoped to one institution (metadata and sessions), and ability to create `InstructorReviewer` keys for the same institution.
+- `InstitutionAdmin`: read/write access scoped to one institution (metadata and sessions), and ability to create `InstructorReviewer` and `StudentClient` keys for the same institution.
 - `InstructorReviewer`: read-only access scoped to one institution.
+- `StudentClient`: student-facing access (either bound to a student user ID or unbound). Allowed to start sessions, send heartbeats, append checkpoints, and upload packages. Bound keys can read their own package status and reports, while unbound keys are restricted from reading packages/reports to prevent cross-student exposure.
 
 Deferred:
 
-- `StudentClient`
 - SSO/OIDC/SAML
 
 Persisted verifier API keys are stored as:

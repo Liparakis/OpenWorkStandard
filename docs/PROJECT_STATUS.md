@@ -335,6 +335,9 @@ Recent uncommitted/working-tree progress:
 - package uploads now store real `.owspkg` bytes on local verifier disk behind a blob-store abstraction
 - package verification now runs through a durable job store and in-process worker instead of inline-only handling
 - package verification results and reports persist across verifier restarts
+- `InstitutionAdmin` and `StudentClient` RBAC roles are implemented with strict institution and ownership validation scoping
+- Prometheus-compatible `/metrics` endpoint is exposed for scraping without key requirements
+- operational runbooks, backup/restore order, recovery failure modes, and restore drills are fully documented
 
 Net result:
 
@@ -342,6 +345,7 @@ Net result:
 - package verification can meaningfully consult a verifier
 - the package format now carries enough session context to resolve remote anchors
 - verifier-side package intake now survives restart and exposes operator/reviewer status endpoints
+- OWS has a hardened production-readiness operational baseline with multi-institution scoping and monitoring support
 
 ## Current Gaps
 
@@ -350,9 +354,8 @@ The main missing pieces are:
 - platform-specific hosts for VS Code, Rider, and desktop
 - multi-instance verifier deployment model
 - desktop UI beyond placeholder state
-- fuller institutional auth (InstitutionAdmin, StudentClient, SSO)
-- full monitoring stack and external metrics pipeline
-- stronger operator backup, restore, and signing-key custody guidance
+- Single Sign-On (SSO) integration for dashboards (OIDC/SAML)
+- external Grafana/Loki visualization integration
 
 ## Reality Check
 
@@ -363,15 +366,15 @@ What is solid:
 - command/test discipline
 - small, coherent project structure
 - local verifier storage seam and local dev ergonomics
-- comprehensive environment diagnostics and troubleshooting procedures
+- comprehensive environment diagnostics, backup/restore drills, and operational runbooks
+- multi-tenant scoping and key delegation security checks
 
 What is still weak:
 
 - capture fidelity
 - long-running tracking
 - operational trust guarantees beyond a single-node local blob store
-- production verifier hosting, user identity, fuller RBAC, and key management
-- restore drills, backup policy, and package-blob retention discipline
+- production verifier hosting and user identity dashboard integration
 
 The weakest assumption to avoid: thinking durable local blobs plus PostgreSQL are already a finished institutional trust boundary. They are not. This is a better foundation, not the finished boundary.
 
@@ -379,9 +382,9 @@ The weakest assumption to avoid: thinking durable local blobs plus PostgreSQL ar
 
 Best next steps, in order:
 
-1. Add stronger operator deployment/runbook guidance around blob backups, restore drills, and receipt-key custody.
-2. Validate failure recovery and restore procedures against the Compose deployment path.
-3. Defer full monitoring stack integration until pilots need external scraping and dashboards.
+1. Implement watch lifecycle integrations for VS Code and Rider.
+2. Build Desktop UI for student watch status.
+3. Design and implement OIDC authentication for institutional dashboards.
 
 ## Bottom Line
 

@@ -231,7 +231,7 @@ public sealed class VerifierServerTests
             using var client = CreateClientWithEnv(config, out var factory);
             await using (factory)
             {
-                var response = await client.GetAsync("/health");
+                var response = await client.GetAsync("/diagnostics/summary");
 
                 response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
                 var content = await response.Content.ReadAsStringAsync();
@@ -268,7 +268,7 @@ public sealed class VerifierServerTests
             using var client = CreateClientWithEnv(config, out var factory);
             await using (factory)
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, "/health");
+                using var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 request.Headers.Add("X-OWS-Verifier-Key", "wrong-api-key-here-12345");
 
                 var response = await client.SendAsync(request);
@@ -394,7 +394,7 @@ public sealed class VerifierServerTests
             using var client = CreateClientWithEnv(config, out var factory);
             await using (factory)
             {
-                using var badRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                using var badRequest = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 badRequest.Headers.Add("X-OWS-Verifier-Key", badKey);
                 var badResponse = await client.SendAsync(badRequest);
                 badResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -511,7 +511,7 @@ public sealed class VerifierServerTests
                 rawApiKey.Should().NotBeNullOrWhiteSpace();
                 keyPrefix.Should().NotBeNullOrWhiteSpace();
 
-                using var healthRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                using var healthRequest = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 healthRequest.Headers.Add("X-OWS-Verifier-Key", rawApiKey);
                 var healthResponse = await client.SendAsync(healthRequest);
                 healthResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -550,7 +550,7 @@ public sealed class VerifierServerTests
                         revokedKeyId == keyId)
                     .Should().BeTrue();
 
-                using var revokedHealthRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                using var revokedHealthRequest = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 revokedHealthRequest.Headers.Add("X-OWS-Verifier-Key", rawApiKey);
                 var revokedHealthResponse = await client.SendAsync(revokedHealthRequest);
                 revokedHealthResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -609,7 +609,7 @@ public sealed class VerifierServerTests
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 var rawApiKey = created.GetProperty("apiKey").GetString();
 
-                using var healthRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                using var healthRequest = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 healthRequest.Headers.Add("X-OWS-Verifier-Key", rawApiKey);
                 var healthResponse = await client.SendAsync(healthRequest);
                 healthResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

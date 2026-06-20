@@ -387,6 +387,17 @@ app.Use(async (context, next) =>
 
 app.Use(async (context, next) =>
 {
+    var path = context.Request.Path.Value ?? string.Empty;
+    var isBypassPath = HttpMethods.IsGet(context.Request.Method) &&
+        (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(path, "/ready", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(path, "/metrics", StringComparison.OrdinalIgnoreCase));
+    if (isBypassPath)
+    {
+        await next(context);
+        return;
+    }
+
     var auditStore = context.RequestServices.GetRequiredService<IVerifierAuditStore>();
     var persistentApiKeyStore = context.RequestServices.GetRequiredService<IVerifierApiKeyStore>();
     var hasBootstrapKeys = configuredApiKeys.Count > 0;
@@ -461,6 +472,88 @@ app.Use(async (context, next) =>
 });
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
+
+app.MapGet("/metrics",
+    async (HttpContext context, IVerifierAuditStore auditStore, IPackageVerificationJobStore jobStore,
+        IVerifierStorage storage, IEducationStore educationStore, IPackageBlobStore blobStore,
+        VerifierStorageOptions options, CancellationToken cancellationToken) =>
+    {
+        var summary = await auditStore.GetSummaryAsync(cancellationToken);
+        var jobSummary = await jobStore.GetSummaryAsync(cancellationToken);
+
+        bool storageReady = false;
+        try { storageReady = await storage.CheckHealthAsync(cancellationToken); } catch { }
+
+        bool educationReady = false;
+        try { educationReady = await CheckEducationStoreReadyAsync(educationStore, cancellationToken); } catch { }
+
+        bool packageStorageReady = false;
+        try { packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken); } catch { }
+
+        var signingConfigured = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey);
+
+        var auditTotalSum = summary.SessionsCreated +
+                             summary.CheckpointsAccepted +
+                             summary.HeartbeatsAccepted +
+                             summary.PackagesSubmitted +
+                             summary.PackagesVerified +
+                             summary.ReportsRead +
+                             summary.AuthFailures +
+                             summary.AccessDenied;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("# HELP ows_sessions_created_total Total number of OWS assessment sessions created.");
+        sb.AppendLine("# TYPE ows_sessions_created_total counter");
+        sb.AppendLine($"ows_sessions_created_total {summary.SessionsCreated}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_checkpoints_accepted_total Total number of checkpoints accepted.");
+        sb.AppendLine("# TYPE ows_checkpoints_accepted_total counter");
+        sb.AppendLine($"ows_checkpoints_accepted_total {summary.CheckpointsAccepted}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_heartbeats_accepted_total Total number of heartbeats accepted.");
+        sb.AppendLine("# TYPE ows_heartbeats_accepted_total counter");
+        sb.AppendLine($"ows_heartbeats_accepted_total {summary.HeartbeatsAccepted}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_package_uploads_total Total number of package uploads.");
+        sb.AppendLine("# TYPE ows_package_uploads_total counter");
+        sb.AppendLine($"ows_package_uploads_total {summary.PackagesSubmitted}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_package_verification_jobs_total Total number of package verification jobs by status.");
+        sb.AppendLine("# TYPE ows_package_verification_jobs_total gauge");
+        sb.AppendLine($"ows_package_verification_jobs_total{{status=\"pending\"}} {jobSummary.Pending}");
+        sb.AppendLine($"ows_package_verification_jobs_total{{status=\"running\"}} {jobSummary.Running}");
+        sb.AppendLine($"ows_package_verification_jobs_total{{status=\"succeeded\"}} {jobSummary.Succeeded}");
+        sb.AppendLine($"ows_package_verification_jobs_total{{status=\"failed\"}} {jobSummary.Failed}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_auth_failures_total Total number of API key authentication failures.");
+        sb.AppendLine("# TYPE ows_auth_failures_total counter");
+        sb.AppendLine($"ows_auth_failures_total {summary.AuthFailures}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_access_denied_total Total number of forbidden access attempts.");
+        sb.AppendLine("# TYPE ows_access_denied_total counter");
+        sb.AppendLine($"ows_access_denied_total {summary.AccessDenied}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_audit_events_total Sum of all recorded audit events.");
+        sb.AppendLine("# TYPE ows_audit_events_total counter");
+        sb.AppendLine($"ows_audit_events_total {auditTotalSum}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_ready_dependency_status Health readiness status of OWS verifier dependencies (1 = healthy, 0 = unhealthy).");
+        sb.AppendLine("# TYPE ows_ready_dependency_status gauge");
+        sb.AppendLine($"ows_ready_dependency_status{{dependency=\"storage\"}} {(storageReady ? 1 : 0)}");
+        sb.AppendLine($"ows_ready_dependency_status{{dependency=\"education\"}} {(educationReady ? 1 : 0)}");
+        sb.AppendLine($"ows_ready_dependency_status{{dependency=\"packages\"}} {(packageStorageReady ? 1 : 0)}");
+        sb.AppendLine($"ows_ready_dependency_status{{dependency=\"signing\"}} {(signingConfigured ? 1 : 0)}");
+
+        return Results.Content(sb.ToString(), "text/plain; version=0.0.4; charset=utf-8");
+    });
 
 app.MapGet("/ready",
     async (HttpContext context, IVerifierStorage storage, IEducationStore educationStore, IVerifierApiKeyStore apiKeyStore,
@@ -581,12 +674,14 @@ app.MapPost("/auth/api-keys", async (HttpContext context, VerifierApiKeyCreateRe
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        // InstitutionAdmin can only create InstructorReviewer keys for their own institution.
+        // InstitutionAdmin can only create InstructorReviewer or StudentClient keys for their own institution.
         var targetRole = NormalizeVerifierRoleName(request.Role);
-        if (!string.Equals(targetRole, VerifierRolePolicy.InstructorReviewer, StringComparison.Ordinal))
+        var isAllowedTargetRole = string.Equals(targetRole, VerifierRolePolicy.InstructorReviewer, StringComparison.Ordinal) ||
+                                  string.Equals(targetRole, VerifierRolePolicy.StudentClient, StringComparison.Ordinal);
+        if (!isAllowedTargetRole)
         {
             return Results.Json(
-                new { error = "InstitutionAdmin may only create InstructorReviewer keys." },
+                new { error = "InstitutionAdmin may only create InstructorReviewer or StudentClient keys." },
                 statusCode: StatusCodes.Status403Forbidden);
         }
 
@@ -657,8 +752,19 @@ app.MapPost("/sessions", async (HttpContext context, StartSessionRequest? body, 
             !string.Equals(body.InstitutionId, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
         {
             return Results.Json(
-                new { error = "InstitutionAdmin may only create sessions for their own institution." },
+                new { error = $"{callerAccess.Role} may only create sessions for their own institution." },
                 statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (IsStudentClientRole(callerAccess.Role) && !string.IsNullOrWhiteSpace(callerAccess.StudentUserId))
+        {
+            if (string.IsNullOrWhiteSpace(body?.StudentUserId) ||
+                !string.Equals(body.StudentUserId, callerAccess.StudentUserId, StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Json(
+                    new { error = "StudentClient bound key must match the student user ID in the session request." },
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
         }
     }
 
@@ -904,6 +1010,44 @@ app.MapPost("/packages", async (HttpRequest request, HttpContext context, IPacka
     if (validationError is not null)
     {
         return Results.BadRequest(validationError);
+    }
+
+    var derivedContext = await ResolvePackageContextFromSessionAsync(
+        storage,
+        jsonRequest.SessionId,
+        jsonRequest.InstitutionId,
+        jsonRequest.AssessmentId,
+        jsonRequest.StudentUserId,
+        cancellationToken);
+
+    jsonRequest = jsonRequest with
+    {
+        InstitutionId = derivedContext.InstitutionId,
+        AssessmentId = derivedContext.AssessmentId,
+        StudentUserId = derivedContext.StudentUserId
+    };
+
+    var access = TryGetAccessContext(context);
+    if (access is not null && !IsOperatorRole(access.Role))
+    {
+        if (string.IsNullOrWhiteSpace(jsonRequest.InstitutionId) ||
+            !string.Equals(jsonRequest.InstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Json(
+                new { error = $"{access.Role} may only submit packages for their own institution." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (IsStudentClientRole(access.Role) && !string.IsNullOrWhiteSpace(access.StudentUserId))
+        {
+            if (string.IsNullOrWhiteSpace(jsonRequest.StudentUserId) ||
+                !string.Equals(jsonRequest.StudentUserId, access.StudentUserId, StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Json(
+                    new { error = "StudentClient bound key must match the student user ID of the package." },
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+        }
     }
 
     try
@@ -1574,6 +1718,29 @@ static async Task<IResult> HandlePackageUploadAsync(
             assessmentId,
             studentUserId,
             cancellationToken);
+
+        if (access is not null && !IsOperatorRole(access.Role))
+        {
+            if (string.IsNullOrWhiteSpace(derivedContext.InstitutionId) ||
+                !string.Equals(derivedContext.InstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Json(
+                    new { error = $"{access.Role} may only upload packages for their own institution." },
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            if (IsStudentClientRole(access.Role) && !string.IsNullOrWhiteSpace(access.StudentUserId))
+            {
+                if (string.IsNullOrWhiteSpace(derivedContext.StudentUserId) ||
+                    !string.Equals(derivedContext.StudentUserId, access.StudentUserId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.Json(
+                        new { error = "StudentClient bound key must match the student user ID of the package." },
+                        statusCode: StatusCodes.Status403Forbidden);
+                }
+            }
+        }
+
         var submissionRequest = new VerifierPackageSubmissionRequest
         {
             SessionId = sessionId,
@@ -2026,6 +2193,7 @@ static async Task<bool> IsAuthorizedAsync(
 
     var isAdmin = IsInstitutionAdminRole(access.Role);
     var isReviewer = IsInstructorReviewerRole(access.Role);
+    var isStudent = IsStudentClientRole(access.Role);
 
     var segments = context.Request.Path.Value?
                        .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -2062,40 +2230,114 @@ static async Task<bool> IsAuthorizedAsync(
         return false;
     }
 
-    // All remaining paths require GET or are education writes for InstitutionAdmin.
     var isGet = HttpMethods.IsGet(context.Request.Method);
     var isWrite = !isGet;
 
-    // Package resources: read for both institution-scoped roles.
-    if (segments is ["packages", _] or ["packages", _, "verification"] or ["packages", _, "report"])
+    // POST /sessions: InstitutionAdmin and StudentClient may create sessions.
+    if (segments is ["sessions"])
     {
+        if (isWrite)
+        {
+            return isAdmin || isStudent;
+        }
+        return false;
+    }
+
+    // Session resources.
+    if (segments is ["sessions", _, "heartbeat"] || segments is ["sessions", _, "checkpoints"])
+    {
+        var sessionId = segments[1];
+        if (isWrite)
+        {
+            return isStudent && await MatchesStudentSessionScopeAsync(
+                sessionId,
+                access,
+                context.RequestServices.GetRequiredService<IVerifierStorage>(),
+                cancellationToken);
+        }
+        return false;
+    }
+
+    if (segments is ["sessions", _, "packages"] || segments is ["sessions", _, "receipts"] || segments is ["sessions", _, "head"])
+    {
+        var sessionId = segments[1];
         if (isWrite) return false;
+        if (isStudent)
+        {
+            return await MatchesStudentSessionScopeAsync(
+                sessionId,
+                access,
+                context.RequestServices.GetRequiredService<IVerifierStorage>(),
+                cancellationToken);
+        }
+        return (isAdmin || isReviewer) && await MatchesInstitutionScopeAsync(
+            null,
+            sessionId,
+            access,
+            context.RequestServices.GetRequiredService<IVerifierStorage>(),
+            cancellationToken);
+    }
+
+    // Package upload and verify endpoints.
+    if (segments is ["packages"] or ["packages", "upload"])
+    {
+        if (isWrite)
+        {
+            return isStudent;
+        }
+        return false;
+    }
+
+    if (segments is ["packages", _, "verify"])
+    {
+        var packageId = segments[1];
+        if (isWrite)
+        {
+            return isStudent && await MatchesStudentPackageScopeAsync(
+                packageId,
+                access,
+                context.RequestServices.GetRequiredService<IPackageSubmissionStore>(),
+                cancellationToken);
+        }
+        return false;
+    }
+
+    // Package resources: read/write package itself or its report/verification.
+    if (segments is ["packages", _] || segments is ["packages", _, "verification"] || segments is ["packages", _, "report"])
+    {
+        var packageId = segments[1];
+        if (isWrite)
+        {
+            // PUT /packages/{id}
+            if (segments.Length == 2)
+            {
+                return isStudent && await MatchesStudentPackageScopeAsync(
+                    packageId,
+                    access,
+                    context.RequestServices.GetRequiredService<IPackageSubmissionStore>(),
+                    cancellationToken);
+            }
+            return false;
+        }
+
+        // GET requests
+        if (isStudent)
+        {
+            return await MatchesStudentPackageScopeAsync(
+                packageId,
+                access,
+                context.RequestServices.GetRequiredService<IPackageSubmissionStore>(),
+                cancellationToken);
+        }
+
         var packageStore = context.RequestServices.GetRequiredService<IPackageSubmissionStore>();
-        var submission = await packageStore.GetAsync(segments[1], cancellationToken);
-        return submission is not null && await MatchesInstitutionScopeAsync(
+        var submission = await packageStore.GetAsync(packageId, cancellationToken);
+        return submission is not null && (isAdmin || isReviewer) && await MatchesInstitutionScopeAsync(
             submission.InstitutionId,
             submission.SessionId,
             access,
             context.RequestServices.GetRequiredService<IVerifierStorage>(),
             cancellationToken);
-    }
-
-    // Session resources.
-    if (segments is ["sessions", _, "packages"] or ["sessions", _, "receipts"] or ["sessions", _, "head"])
-    {
-        if (isWrite) return false;
-        return await MatchesInstitutionScopeAsync(
-            null,
-            segments[1],
-            access,
-            context.RequestServices.GetRequiredService<IVerifierStorage>(),
-            cancellationToken);
-    }
-
-    // POST /sessions: InstitutionAdmin may create sessions (institution validated in handler).
-    if (segments is ["sessions"] && !isGet)
-    {
-        return isAdmin;
     }
 
     // Education endpoints.
@@ -2114,7 +2356,7 @@ static async Task<bool> IsAuthorizedAsync(
             // Collection-level POSTs (no ID segment): allow; body validation enforces scope.
             if (segments.Length == 2)
             {
-                return true; // endpoint body-validation enforces institution scope
+                return true; 
             }
 
             // Write to a specific resource: resolve institution from store.
@@ -2157,6 +2399,84 @@ static async Task<bool> MatchesInstitutionScopeAsync(
 
     return !string.IsNullOrWhiteSpace(resolvedInstitutionId) &&
            string.Equals(resolvedInstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase);
+}
+
+static async Task<bool> MatchesStudentSessionScopeAsync(
+    string sessionId,
+    VerifierAccessContext access,
+    IVerifierStorage storage,
+    CancellationToken cancellationToken)
+{
+    try
+    {
+        var session = await storage.GetSessionAsync(new AssessmentSessionId(sessionId), cancellationToken);
+        if (session is null)
+        {
+            return false;
+        }
+
+        var sessionInstId = NormalizeInstitutionIdValue(TryGetInstitutionIdFromMetadata(session.MetadataJson));
+        if (string.IsNullOrWhiteSpace(sessionInstId) ||
+            !string.Equals(sessionInstId, access.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(access.StudentUserId))
+        {
+            var sessionStudentId = TryGetMetadataValue(session.MetadataJson, "studentUserId");
+            if (!string.Equals(sessionStudentId, access.StudentUserId, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+static async Task<bool> MatchesStudentPackageScopeAsync(
+    string packageId,
+    VerifierAccessContext access,
+    IPackageSubmissionStore packageStore,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(access.StudentUserId))
+    {
+        // Reject reads if the key is not bound to a student
+        return false;
+    }
+
+    try
+    {
+        var submission = await packageStore.GetAsync(packageId, cancellationToken);
+        if (submission is null)
+        {
+            return false;
+        }
+
+        var packageInstId = NormalizeInstitutionIdValue(submission.InstitutionId);
+        if (string.IsNullOrWhiteSpace(packageInstId) ||
+            !string.Equals(packageInstId, access.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!string.Equals(submission.StudentUserId, access.StudentUserId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
 }
 
 // Session metadata is already a tiny JSON blob; pull only the institution id we need for reviewer scoping.
@@ -2210,6 +2530,9 @@ static bool IsInstitutionAdminRole(string role) =>
 
 static bool IsInstructorReviewerRole(string role) =>
     VerifierRolePolicy.IsInstructorReviewerRole(role);
+
+static bool IsStudentClientRole(string role) =>
+    VerifierRolePolicy.IsStudentClientRole(role);
 
 static string NormalizeVerifierRoleName(string role) =>
     VerifierRolePolicy.NormalizeRoleName(role);
@@ -2315,7 +2638,7 @@ public sealed record StartSessionRequest
 sealed record VerifierAccessContext
 {
     public VerifierAccessContext(string role, string? institutionId, string key, string? keyId = null,
-        string? keyPrefix = null)
+        string? keyPrefix = null, string? studentUserId = null)
     {
         Role = string.IsNullOrWhiteSpace(role) ? VerifierRolePolicy.Operator : VerifierRolePolicy.NormalizeRoleName(role);
         InstitutionId = string.IsNullOrWhiteSpace(institutionId) ? null : institutionId.Trim();
@@ -2324,6 +2647,7 @@ sealed record VerifierAccessContext
         KeyPrefix = string.IsNullOrWhiteSpace(keyPrefix)
             ? (string.IsNullOrWhiteSpace(key) ? null : key[..Math.Min(12, key.Length)])
             : keyPrefix.Trim();
+        StudentUserId = string.IsNullOrWhiteSpace(studentUserId) ? null : studentUserId.Trim();
     }
 
     public string Role { get; init; }
@@ -2335,6 +2659,8 @@ sealed record VerifierAccessContext
     public string? KeyId { get; init; }
 
     public string? KeyPrefix { get; init; }
+
+    public string? StudentUserId { get; init; }
 }
 
 /// <summary>

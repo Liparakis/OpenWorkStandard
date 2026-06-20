@@ -67,6 +67,11 @@ internal static class VerifierRolePolicy
     public const string InstructorReviewer = "InstructorReviewer";
 
     /// <summary>
+    /// Gets the student client role name.
+    /// </summary>
+    public const string StudentClient = "StudentClient";
+
+    /// <summary>
     /// Normalizes a configured or requested role name.
     /// </summary>
     public static string NormalizeRoleName(string role)
@@ -80,6 +85,9 @@ internal static class VerifierRolePolicy
             "admin" => InstitutionAdmin,
             "reviewer" => InstructorReviewer,
             "instructorreviewer" => InstructorReviewer,
+            "studentclient" => StudentClient,
+            "student" => StudentClient,
+            "client" => StudentClient,
             _ => role?.Trim() ?? string.Empty
         };
     }
@@ -92,7 +100,8 @@ internal static class VerifierRolePolicy
         var normalized = NormalizeRoleName(role);
         return string.Equals(normalized, Operator, StringComparison.Ordinal) ||
                string.Equals(normalized, InstitutionAdmin, StringComparison.Ordinal) ||
-               string.Equals(normalized, InstructorReviewer, StringComparison.Ordinal);
+               string.Equals(normalized, InstructorReviewer, StringComparison.Ordinal) ||
+               string.Equals(normalized, StudentClient, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -114,10 +123,16 @@ internal static class VerifierRolePolicy
         string.Equals(NormalizeRoleName(role), InstructorReviewer, StringComparison.Ordinal);
 
     /// <summary>
+    /// Returns whether the role is the student client role.
+    /// </summary>
+    public static bool IsStudentClientRole(string role) =>
+        string.Equals(NormalizeRoleName(role), StudentClient, StringComparison.Ordinal);
+
+    /// <summary>
     /// Returns whether the role is institution-scoped (requires InstitutionId).
     /// </summary>
     public static bool IsInstitutionScopedRole(string role) =>
-        IsInstitutionAdminRole(role) || IsInstructorReviewerRole(role);
+        IsInstitutionAdminRole(role) || IsInstructorReviewerRole(role) || IsStudentClientRole(role);
 
     /// <summary>
     /// Normalizes an institution identifier.

@@ -4,16 +4,20 @@ using Ows.Verifier.Server;
 namespace Ows.Cli.Tests;
 
 /// <summary>
-/// Tests the role policy normalization and request validation for InstitutionAdmin.
+/// Tests the role policy normalization and request validation for InstitutionAdmin and StudentClient.
 /// </summary>
 public sealed class RbacPolicyTests
 {
     [Fact]
-    public void IsSupportedRole_ShouldRecognizeInstitutionAdmin()
+    public void IsSupportedRole_ShouldRecognizeInstitutionAdminAndStudentClient()
     {
         VerifierRolePolicy.IsSupportedRole("InstitutionAdmin").Should().BeTrue();
         VerifierRolePolicy.IsSupportedRole("institutionadmin").Should().BeTrue();
         VerifierRolePolicy.IsSupportedRole("admin").Should().BeTrue();
+        VerifierRolePolicy.IsSupportedRole("StudentClient").Should().BeTrue();
+        VerifierRolePolicy.IsSupportedRole("studentclient").Should().BeTrue();
+        VerifierRolePolicy.IsSupportedRole("student").Should().BeTrue();
+        VerifierRolePolicy.IsSupportedRole("client").Should().BeTrue();
     }
 
     [Fact]
@@ -24,10 +28,13 @@ public sealed class RbacPolicyTests
         VerifierRolePolicy.NormalizeRoleName("reviewer").Should().Be(VerifierRolePolicy.InstructorReviewer);
         VerifierRolePolicy.NormalizeRoleName("instructorreviewer").Should().Be(VerifierRolePolicy.InstructorReviewer);
         VerifierRolePolicy.NormalizeRoleName("operator").Should().Be(VerifierRolePolicy.Operator);
+        VerifierRolePolicy.NormalizeRoleName("studentclient").Should().Be(VerifierRolePolicy.StudentClient);
+        VerifierRolePolicy.NormalizeRoleName("student").Should().Be(VerifierRolePolicy.StudentClient);
+        VerifierRolePolicy.NormalizeRoleName("client").Should().Be(VerifierRolePolicy.StudentClient);
     }
 
     [Fact]
-    public void CreateRequest_RequiresInstitutionId_ForInstitutionAdminAndReviewer()
+    public void CreateRequest_RequiresInstitutionId_ForInstitutionAdminReviewerAndStudentClient()
     {
         var adminRequest = new VerifierApiKeyCreateRequest
         {
@@ -42,6 +49,13 @@ public sealed class RbacPolicyTests
             InstitutionId = ""
         };
         reviewerRequest.GetValidationError().Should().Contain("InstitutionId is required");
+
+        var studentRequest = new VerifierApiKeyCreateRequest
+        {
+            Role = "StudentClient",
+            InstitutionId = "   "
+        };
+        studentRequest.GetValidationError().Should().Contain("InstitutionId is required");
     }
 
     [Fact]
@@ -60,6 +74,13 @@ public sealed class RbacPolicyTests
             InstitutionId = "inst-1"
         };
         reviewerRequest.GetValidationError().Should().BeNull();
+
+        var studentRequest = new VerifierApiKeyCreateRequest
+        {
+            Role = "StudentClient",
+            InstitutionId = "inst-1"
+        };
+        studentRequest.GetValidationError().Should().BeNull();
     }
 
     [Fact]
@@ -88,8 +109,13 @@ public sealed class RbacPolicyTests
         VerifierRolePolicy.IsInstructorReviewerRole("reviewer").Should().BeTrue();
         VerifierRolePolicy.IsInstructorReviewerRole("Operator").Should().BeFalse();
 
+        VerifierRolePolicy.IsStudentClientRole("StudentClient").Should().BeTrue();
+        VerifierRolePolicy.IsStudentClientRole("student").Should().BeTrue();
+        VerifierRolePolicy.IsStudentClientRole("Operator").Should().BeFalse();
+
         VerifierRolePolicy.IsInstitutionScopedRole("InstitutionAdmin").Should().BeTrue();
         VerifierRolePolicy.IsInstitutionScopedRole("InstructorReviewer").Should().BeTrue();
+        VerifierRolePolicy.IsInstitutionScopedRole("StudentClient").Should().BeTrue();
         VerifierRolePolicy.IsInstitutionScopedRole("Operator").Should().BeFalse();
     }
 }

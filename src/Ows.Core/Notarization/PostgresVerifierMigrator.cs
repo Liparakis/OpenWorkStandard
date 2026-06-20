@@ -217,8 +217,13 @@ public static class PostgresVerifierMigrator
                                                                 on ows_package_verification_jobs (package_id, created_at desc);
 
                                                             create index if not exists ix_ows_package_verification_jobs_status
-                                                                on ows_package_verification_jobs (status, created_at asc);
+                                                                 on ows_package_verification_jobs (status, created_at asc);
                                                             """;
+
+    private const string Migration010StudentClientSql = """
+                                                        alter table verifier_api_keys
+                                                            add column if not exists student_user_id text null;
+                                                        """;
 
     /// <summary>
     /// Applies any missing ordered verifier schema migrations using a fresh data source.
@@ -277,7 +282,8 @@ public static class PostgresVerifierMigrator
         new(6, "session-leases", Migration006SessionLeasesSql),
         new(7, "education-wiring", Migration007EducationSql),
         new(8, "api-keys", Migration008ApiKeysSql),
-        new(9, "package-intake-jobs", Migration009PackageIntakeJobsSql)
+        new(9, "package-intake-jobs", Migration009PackageIntakeJobsSql),
+        new(10, "student-client", Migration010StudentClientSql)
     ];
 
     /// <summary>
