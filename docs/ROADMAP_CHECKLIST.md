@@ -4,9 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Implement the Desktop UI and IDE integrations (VS Code/Rider) for student watch lifecycle.
+Implement LMS integration options, LTI launch workflows, and student/professor pilot feedback improvements.
 
-**Next milestone:** Desktop UI and IDE Integrations (v0.1).
+**Next milestone:** LMS Integration and Pilot Hardening v0.1.
 
 ## 1. Current MVP Status
 
@@ -183,10 +183,10 @@ Implement the Desktop UI and IDE integrations (VS Code/Rider) for student watch 
 
 ## 13. Desktop and IDE Integrations
 
-- [ ] Desktop UI
-- [ ] VS Code integration
-- [ ] Rider integration
-- [ ] Host-specific watcher implementations
+- [x] Desktop UI v0.1 design spec (`docs/DESKTOP_UI.md`)
+- [x] VS Code integration v0.1 (`src/ows-vscode`)
+- [x] Rider integration v0.1 design (`docs/RIDER_INTEGRATION.md`)
+- [x] Host-specific watcher implementations via `IOwsWatchSessionManager`
 
 ## 14. Deferred and Future Technologies
 
@@ -213,3 +213,16 @@ Implement the Desktop UI and IDE integrations (VS Code/Rider) for student watch 
 - [x] Startup recovery for stale Running jobs (existing, documented in runbook)
 - [x] `docs/SELF_HOSTED_COMPOSE.md` updated with operator resource cross-references
 - [x] `docs/TROUBLESHOOTING.md` updated with restore/signing key failure modes
+
+## 16. Desktop and IDE Integrations v0.1
+
+- [x] Host-managed watcher lifecycle abstraction (`IOwsWatchSessionManager`)
+- [x] Machine-readable CLI status/control (`--json` output format)
+- [x] Local project config (`.ows/config.json`)
+- [x] VS Code extension commands
+- [x] VS Code status bar showing active watcher/session status
+- [x] Secure API key storage (VS Code `SecretStorage` and OS Keychain integration)
+- [x] Package creation and upload from IDE
+- [x] Remote verification status query from IDE
+- [x] Minimal Desktop Tray/Status UI spec (`docs/DESKTOP_UI.md`)
+- [x] Rider integration design (`docs/RIDER_INTEGRATION.md`)

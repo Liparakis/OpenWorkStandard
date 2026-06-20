@@ -1,3 +1,5 @@
+using System;
+
 namespace Ows.Core.Notarization;
 
 /// <summary>
@@ -14,4 +16,39 @@ public sealed record SessionState
     /// Gets the optional verifier base URL associated with the session.
     /// </summary>
     public string? VerifierUrl { get; init; }
+
+    /// <summary>
+    /// Gets the optional institution identifier.
+    /// </summary>
+    public string? InstitutionId { get; init; }
+
+    /// <summary>
+    /// Gets the optional assessment identifier.
+    /// </summary>
+    public string? AssessmentId { get; init; }
+
+    /// <summary>
+    /// Gets the optional student user identifier.
+    /// </summary>
+    public string? StudentUserId { get; init; }
+
+    /// <summary>
+    /// Gets the optional course offering identifier.
+    /// </summary>
+    public string? CourseOfferingId { get; init; }
+
+    /// <summary>
+    /// Gets the last checkpoint timestamp.
+    /// </summary>
+    public DateTimeOffset? LastCheckpointAt { get; init; }
+
+    /// <summary>
+    /// Gets the last heartbeat timestamp.
+    /// </summary>
+    public DateTimeOffset? LastHeartbeatAt { get; init; }
+
+    /// <summary>
+    /// Gets the last package submission ID.
+    /// </summary>
+    public string? LastPackageId { get; init; }
 }

@@ -31,10 +31,16 @@ public sealed class HttpsReceiptTransport(
         this._nextSequenceNumber = nextSequenceNumber;
     }
 
+    /// <summary>
+    /// Gets or sets the optional education context request payload.
+    /// </summary>
+    public StartSessionRequest? StartSessionRequest { get; set; }
+
     /// <inheritdoc />
     public async Task<AssessmentSessionId> StartSessionAsync(CancellationToken cancellationToken)
     {
-        var response = await httpClient.PostAsJsonAsync("sessions", new StartSessionRequest(), cancellationToken);
+        var requestBody = StartSessionRequest ?? new StartSessionRequest();
+        var response = await httpClient.PostAsJsonAsync("sessions", requestBody, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var body = await response.Content.ReadFromJsonAsync<StartSessionResponse>(cancellationToken);

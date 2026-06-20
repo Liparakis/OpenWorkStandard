@@ -1,0 +1,98 @@
+{
+  "name": "ows-vscode",
+  "displayName": "Open Work Standard Integration",
+  "description": "VS Code integration for the Open Work Standard (OWS) file watcher and remote verifier.",
+  "version": "0.1.0",
+  "publisher": "ows",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ows.initialize",
+        "title": "OWS: Initialize Project"
+      },
+      {
+        "command": "ows.configure",
+        "title": "OWS: Configure Assessment Context"
+      },
+      {
+        "command": "ows.startWatch",
+        "title": "OWS: Start Watch Session"
+      },
+      {
+        "command": "ows.stopWatch",
+        "title": "OWS: Stop Watch Session"
+      },
+      {
+        "command": "ows.showStatus",
+        "title": "OWS: Show Status"
+      },
+      {
+        "command": "ows.package",
+        "title": "OWS: Package Submission"
+      },
+      {
+        "command": "ows.upload",
+        "title": "OWS: Upload Package"
+      },
+      {
+        "command": "ows.checkStatus",
+        "title": "OWS: Check Verification Status"
+      }
+    ],
+    "configuration": {
+      "title": "Open Work Standard",
+      "properties": {
+        "ows.cliPath": {
+          "type": "string",
+          "default": "ows",
+          "description": "Path to the ows CLI executable (e.g. 'ows' or 'dotnet /path/to/Ows.Cli.dll')."
+        },
+        "ows.verifierUrl": {
+          "type": "string",
+          "default": "http://localhost:5078",
+          "description": "Default OWS remote verifier server URL."
+        },
+        "ows.institutionId": {
+          "type": "string",
+          "default": "",
+          "description": "Default institution identifier."
+        },
+        "ows.assessmentId": {
+          "type": "string",
+          "default": "",
+          "description": "Default assessment identifier."
+        },
+        "ows.studentUserId": {
+          "type": "string",
+          "default": "",
+          "description": "Default student user identifier."
+        },
+        "ows.courseOfferingId": {
+          "type": "string",
+          "default": "",
+          "description": "Default course offering identifier."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.7",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^4.9.4"
+  }
+}

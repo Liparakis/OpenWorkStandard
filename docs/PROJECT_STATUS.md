@@ -26,6 +26,9 @@ What works today:
 - structured verifier request logging with request ids, actor scope, and safe resource metadata
 - persistent verifier audit events plus operator diagnostics endpoints
 - durable `.owspkg` blob intake with worker-backed server-side verification
+- unified OwsWatchSessionManager lifecycle foundation library for host integrations
+- machine-readable CLI commands with global `--json` option and API key redaction
+- minimal VS Code extension supporting full student watch/session/package lifecycle and secure key storage
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -46,8 +49,9 @@ Test projects:
 Notes:
 
 - `Ows.Core` remains the collapsed MVP domain project
-- `Ows.Desktop` is still placeholder-only
+- `Ows.Desktop` is still placeholder-only (design specs detailed in `docs/DESKTOP_UI.md`)
 - `Ows.Verifier.Server` is intentionally small and self-hostable, not production-ready
+- `src/ows-vscode` is the VS Code extension codebase
 
 ## Implemented Capabilities
 
@@ -82,14 +86,12 @@ What works:
 - `--debounce <ms>` controls the quiet-time window
 
 What does not work yet:
-
-- no IDE host integration
-- no background service lifecycle (the process must stay open)
+- no daemon-based background service (the CLI process must stay open, though VS Code extension spawns it as a background child process).
 
 Status:
-
 - working persistent watcher
 - polling fallback available for cross-platform environments
+- host-managed start/stop CLI hooks and manager abstractions integrated
 
 ### `ows session start`
 
