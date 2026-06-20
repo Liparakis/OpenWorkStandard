@@ -56,6 +56,7 @@ This repository now has a thin but real local MVP:
 - `ows package` creates real `.owspkg` archives
 - `ows verify` validates package integrity and can cross-check packaged receipts against a live verifier API
 - `ows report` writes a text or JSON integrity report with findings and review signals
+- the verifier can accept real `.owspkg` uploads and verify them asynchronously
 
 The main architectural gap is operational hardening. Local capture alone is not enough, so the verifier path now focuses on durable storage, signing-key custody, auth, and deployment discipline.
 
@@ -107,6 +108,13 @@ Verifier observability now includes:
 - operator-only `GET /audit/events`
 - operator-only `GET /diagnostics/summary`
 - secret-safe readiness dependency details from `GET /ready`
+
+Verifier package intake now includes:
+
+- `POST /packages/upload` for real `.owspkg` bytes
+- local durable blob storage outside PostgreSQL
+- a durable in-process verification job worker
+- `GET /packages/{id}/verification` and `GET /packages/{id}/report`
 
 For background local lifecycle on Windows:
 

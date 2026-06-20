@@ -81,6 +81,11 @@ public sealed record VerifierPackageSubmissionResponse
     public string VerificationStatus { get; init; } = "Registered";
 
     /// <summary>
+    /// Gets the optional current verification job identifier.
+    /// </summary>
+    public string? VerificationJobId { get; init; }
+
+    /// <summary>
     /// Gets the trust status of the verification (e.g. Verified, Degraded, Unverified, Invalid).
     /// </summary>
     public string? TrustStatus { get; init; }
@@ -89,6 +94,11 @@ public sealed record VerifierPackageSubmissionResponse
     /// Gets the full verification result JSON.
     /// </summary>
     public string? VerificationResultJson { get; init; }
+
+    /// <summary>
+    /// Gets the last verification error message, if any.
+    /// </summary>
+    public string? LastVerificationError { get; init; }
 
     /// <summary>
     /// Gets the UTC creation time for the package submission record.

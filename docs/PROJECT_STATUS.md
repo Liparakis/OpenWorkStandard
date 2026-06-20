@@ -25,6 +25,7 @@ What works today:
 - config-backed verifier API guard with operator and reviewer scopes
 - structured verifier request logging with request ids, actor scope, and safe resource metadata
 - persistent verifier audit events plus operator diagnostics endpoints
+- durable `.owspkg` blob intake with worker-backed server-side verification
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -82,7 +83,6 @@ What works:
 
 What does not work yet:
 
-- no heartbeat or lease model
 - no IDE host integration
 - no background service lifecycle (the process must stay open)
 
@@ -185,7 +185,12 @@ Status:
 - `POST /sessions`
 - `POST /sessions/{id}/checkpoints`
 - `POST /packages`
+- `POST /packages/upload`
+- `PUT /packages/{id}`
+- `POST /packages/{id}/verify`
 - `GET /packages/{id}`
+- `GET /packages/{id}/verification`
+- `GET /packages/{id}/report`
 - `GET /sessions/{id}/packages`
 - `GET /sessions/{id}/receipts`
 - `GET /sessions/{id}/head`
@@ -214,13 +219,16 @@ PostgreSQL setup model today:
 - `GET /diagnostics/summary` exposes lightweight safe counters instead of a full monitoring stack
 - `/ready` now reports safe dependency state for storage, education store reachability, package storage, signing configuration, and auth mode
 - audit events cover API key lifecycle, auth failures, access denials, session creation, checkpoint/heartbeat acceptance, lease-gap detection, package submission, package verification, and report reads
-- package submissions register object storage provider, bucket, key, package SHA-256, and package size
+- package uploads stream into local durable blob storage with server-side content-addressed object keys
+- package submissions persist package SHA-256, package size, verification job id, and latest verification error
 - package submission retries can use `Idempotency-Key`
 - duplicate package object registrations reject metadata drift
 - registered package submission metadata can be fetched by submission ID
 - registered package submission metadata can also be listed by verifier session
 - package registration captures the current verifier session head when `sessionId` is supplied
-- package bytes are not stored in PostgreSQL or local verifier disk
+- package bytes are not stored in PostgreSQL
+- package verification runs through a durable in-process job worker with restart recovery for stale running jobs
+- package report reads are available through `GET /packages/{id}/report`
 
 Local verifier dev flow today:
 
@@ -236,7 +244,7 @@ Local verifier dev flow today:
 - verifier status and smoke-test helpers send `X-OWS-Verifier-Key` from `OWS_VERIFIER_API_KEY` when present
 - `dotnet build` emits platform-specific launcher copies to `artifacts/generated-scripts/`
 - verifier logs now include per-request method, path, status, and duration
-- local verifier smoke tests cover package metadata registration, idempotent retry, lookup by ID and session, and session-head anchoring
+- local verifier smoke tests cover package upload, asynchronous verification completion, idempotent retry, lookup by ID and session, and report retrieval
 
 This is enough for architectural validation and the first durable-backend pass. It is still not enough for institutional trust claims until the PostgreSQL path is exercised in a real deployed environment.
 
@@ -271,6 +279,8 @@ Important implemented pieces:
 - package assembly
 - package verification and trust grading
 - package object metadata registration
+- durable package blob intake
+- worker-backed package verification jobs
 - lightweight verifier observability foundation
 
 ## Testing Status
@@ -285,6 +295,8 @@ Current automated coverage includes:
 - idempotent retry behavior
 - package creation
 - package verification success and failure cases
+- blob upload size and shape validation
+- worker handling for missing package blobs
 - receipt-chain verification
 - live verifier cross-check behavior
 - report generation
@@ -320,12 +332,16 @@ Recent uncommitted/working-tree progress:
 - local verifier helper scripts now cover run, start, status, logs, smoke-test, and stop
 - build now emits platform-specific verifier helper scripts under `artifacts/generated-scripts/`
 - a living roadmap checklist now tracks done, partial, and missing work in one place
+- package uploads now store real `.owspkg` bytes on local verifier disk behind a blob-store abstraction
+- package verification now runs through a durable job store and in-process worker instead of inline-only handling
+- package verification results and reports persist across verifier restarts
 
 Net result:
 
 - OWS now has a real remote receipt path
 - package verification can meaningfully consult a verifier
 - the package format now carries enough session context to resolve remote anchors
+- verifier-side package intake now survives restart and exposes operator/reviewer status endpoints
 
 ## Current Gaps
 
@@ -336,6 +352,7 @@ The main missing pieces are:
 - desktop UI beyond placeholder state
 - fuller institutional auth (InstitutionAdmin, StudentClient, SSO)
 - full monitoring stack and external metrics pipeline
+- stronger operator backup, restore, and signing-key custody guidance
 
 ## Reality Check
 
@@ -352,18 +369,18 @@ What is still weak:
 
 - capture fidelity
 - long-running tracking
-- operational trust guarantees
+- operational trust guarantees beyond a single-node local blob store
 - production verifier hosting, user identity, fuller RBAC, and key management
-- background verifier lifecycle robustness across restricted local environments
+- restore drills, backup policy, and package-blob retention discipline
 
-The weakest assumption to avoid: thinking the current verifier server is already a real institutional trust boundary. It is not. It is a good foundation, not the finished boundary.
+The weakest assumption to avoid: thinking durable local blobs plus PostgreSQL are already a finished institutional trust boundary. They are not. This is a better foundation, not the finished boundary.
 
 ## Recommended Next Steps
 
 Best next steps, in order:
 
-1. Add durable package blob intake and a server-side verification worker.
-2. Add stronger operator deployment/runbook guidance around storage, backups, and receipt-key custody.
+1. Add stronger operator deployment/runbook guidance around blob backups, restore drills, and receipt-key custody.
+2. Validate failure recovery and restore procedures against the Compose deployment path.
 3. Defer full monitoring stack integration until pilots need external scraping and dashboards.
 
 ## Bottom Line
@@ -376,6 +393,7 @@ OWS currently has a credible MVP for:
 - packaging evidence into `.owspkg`
 - verifying package integrity and receipt alignment
 - consulting a live verifier during verification
+- submitting packages to a verifier for durable storage and asynchronous verification
 - running a local PostgreSQL-backed verifier with generated platform-specific helper scripts
 
 It does not yet have a credible always-on capture model or a production-grade remote trust boundary, but it now has the right minimal seams to grow into both.

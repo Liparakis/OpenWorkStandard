@@ -54,4 +54,24 @@ public interface IPackageSubmissionStore
         string trustStatus,
         string verificationResultJson,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Updates the verification lifecycle state for a package submission.
+    /// </summary>
+    /// <param name="submissionId">The package submission identifier.</param>
+    /// <param name="verificationStatus">The current verification lifecycle state.</param>
+    /// <param name="verificationJobId">The optional current verification job identifier.</param>
+    /// <param name="trustStatus">The optional trust status.</param>
+    /// <param name="verificationResultJson">The optional serialized verification result.</param>
+    /// <param name="lastVerificationError">The optional last verification error.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task UpdateVerificationStateAsync(
+        string submissionId,
+        string verificationStatus,
+        string? verificationJobId,
+        string? trustStatus,
+        string? verificationResultJson,
+        string? lastVerificationError,
+        CancellationToken cancellationToken);
 }

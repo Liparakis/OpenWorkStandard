@@ -135,6 +135,24 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
         string verificationStatus,
         string trustStatus,
         string verificationResultJson,
+        CancellationToken cancellationToken) =>
+        UpdateVerificationStateAsync(
+            submissionId,
+            verificationStatus,
+            null,
+            trustStatus,
+            verificationResultJson,
+            null,
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task UpdateVerificationStateAsync(
+        string submissionId,
+        string verificationStatus,
+        string? verificationJobId,
+        string? trustStatus,
+        string? verificationResultJson,
+        string? lastVerificationError,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(submissionId);
@@ -151,7 +169,9 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
             {
                 VerificationStatus = verificationStatus,
                 TrustStatus = trustStatus,
-                VerificationResultJson = verificationResultJson
+                VerificationResultJson = verificationResultJson,
+                VerificationJobId = verificationJobId,
+                LastVerificationError = lastVerificationError
             };
 
             _submissions[submissionId] = updated;

@@ -4,9 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Stabilize package submission operations with durable blob upload flow and server-side verification worker execution.
+Harden verifier operator runbooks around package-blob backups, signing-key custody, and restore/recovery drills.
 
-**Next milestone:** Package Intake Operations v0.1.
+**Next milestone:** Verifier Operations Hardening v0.1.
 
 ## 1. Current MVP Status
 
@@ -108,14 +108,30 @@ Stabilize package submission operations with durable blob upload flow and server
 
 ## 7. Package Submission and Server-Side Verification
 
-- [x] Server-side package submission
-- [x] Server-side package verification
+- [x] Server-side package metadata submission
+- [x] Server-side package verification API surface
 - [x] Remote package object metadata registration
 - [x] Remote package metadata retrieval
 - [x] Remote package metadata session lookup
 - [x] Package metadata session-head anchoring
 - [x] Package metadata idempotent retries
 - [x] Remote package anchor workflow
+
+## 7A. Package Intake Operations v0.1
+
+- [x] Durable local package blob storage abstraction
+- [x] Actual `.owspkg` blob upload endpoint
+- [x] Package hash and size computed during upload
+- [x] Package blobs stored outside PostgreSQL
+- [x] Package upload max-size enforcement
+- [x] Package upload shape validation
+- [x] Worker-backed package verification job boundary
+- [x] Durable package verification job store
+- [x] Startup recovery for stale running package verification jobs
+- [x] Persisted package verification status and result
+- [x] Reviewer-safe package status/report reads
+- [x] Package verification audit events
+- [x] Package verification diagnostics counters
 
 ## 8. Reports and Professor Review
 
@@ -178,4 +194,4 @@ Stabilize package submission operations with durable blob upload flow and server
 - [ ] NATS
 - [ ] QUIC
 - [ ] Broad infrastructure expansion before the verifier workflow is stable
-- [ ] Actual package blob upload and server-side package verification worker. Add when object storage credentials/upload flow is defined.
+- [ ] External object storage / S3 package blob backend

@@ -34,4 +34,19 @@ public sealed record VerifierStorageOptions
     /// Gets the maximum allowed uploaded package size in bytes.
     /// </summary>
     public long MaxPackageSizeBytes { get; init; } = 52428800; // 50 MB
+
+    /// <summary>
+    /// Gets a value indicating whether the in-process package verification worker is enabled.
+    /// </summary>
+    public bool PackageWorkerEnabled { get; init; } = true;
+
+    /// <summary>
+    /// Gets the worker polling interval in milliseconds.
+    /// </summary>
+    public int PackageWorkerPollIntervalMilliseconds { get; init; } = 250;
+
+    /// <summary>
+    /// Gets the timeout in seconds after which a stale running job is reset.
+    /// </summary>
+    public int PackageWorkerStaleRunningTimeoutSeconds { get; init; } = 300;
 }

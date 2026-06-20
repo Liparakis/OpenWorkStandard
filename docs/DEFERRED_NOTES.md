@@ -38,8 +38,9 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 
 - Do not store `.owspkg` blobs in PostgreSQL.
 - Do not add local filesystem package storage as the production path.
-- The current `POST /packages` endpoint registers object storage metadata only; package upload and server-side package verification workers are still separate follow-up work.
-- Actual package blob upload and server-side package verification worker should be added when the object storage credentials/upload flow is defined.
+- The current MVP now supports local durable blob upload plus an in-process verification worker.
+- Do not add external object storage, queue infrastructure, or separate verification workers yet.
+- Add those only when single-node local blob storage stops being enough for pilot operations.
 
 ## Watcher / Hosts
 

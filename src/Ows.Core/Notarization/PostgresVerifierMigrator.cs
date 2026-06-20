@@ -195,6 +195,31 @@ public static class PostgresVerifierMigrator
                                                       where institution_id is not null;
                                                   """;
 
+    private const string Migration009PackageIntakeJobsSql = """
+                                                            alter table verifier_package_submissions
+                                                                add column if not exists verification_job_id text null,
+                                                                add column if not exists last_verification_error text null;
+
+                                                            create table if not exists ows_package_verification_jobs (
+                                                                id text primary key,
+                                                                package_id text not null references verifier_package_submissions(id) on delete cascade,
+                                                                status text not null,
+                                                                attempts integer not null default 0,
+                                                                requested_by_api_key_id text null,
+                                                                created_at timestamptz not null,
+                                                                started_at timestamptz null,
+                                                                completed_at timestamptz null,
+                                                                last_error text null,
+                                                                result_json text null
+                                                            );
+
+                                                            create index if not exists ix_ows_package_verification_jobs_package_id
+                                                                on ows_package_verification_jobs (package_id, created_at desc);
+
+                                                            create index if not exists ix_ows_package_verification_jobs_status
+                                                                on ows_package_verification_jobs (status, created_at asc);
+                                                            """;
+
     /// <summary>
     /// Applies any missing ordered verifier schema migrations using a fresh data source.
     /// </summary>
@@ -251,7 +276,8 @@ public static class PostgresVerifierMigrator
         new(5, "package-verification-results", Migration005PackageVerificationResultSql),
         new(6, "session-leases", Migration006SessionLeasesSql),
         new(7, "education-wiring", Migration007EducationSql),
-        new(8, "api-keys", Migration008ApiKeysSql)
+        new(8, "api-keys", Migration008ApiKeysSql),
+        new(9, "package-intake-jobs", Migration009PackageIntakeJobsSql)
     ];
 
     /// <summary>

@@ -68,6 +68,41 @@ public sealed class VerifierServerTests
     }
 
     /// <summary>
+    /// Polls the package status endpoint until one of the expected statuses is observed.
+    /// </summary>
+    private static async Task<JsonElement> WaitForPackageStatusAsync(
+        HttpClient client,
+        string submissionId,
+        string? apiKey = null,
+        params string[] expectedStatuses)
+    {
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/packages/{submissionId}");
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                request.Headers.Add("X-OWS-Verifier-Key", apiKey);
+            }
+
+            var response = await client.SendAsync(request);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var json = await response.Content.ReadAsStringAsync();
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement.Clone();
+            var status = root.GetProperty("verificationStatus").GetString();
+            if (expectedStatuses.Contains(status, StringComparer.OrdinalIgnoreCase))
+            {
+                return root;
+            }
+
+            await Task.Delay(100);
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            $"Package '{submissionId}' never reached one of the expected statuses: {string.Join(", ", expectedStatuses)}.");
+    }
+
+    /// <summary>
     /// Verifies that GET /health returns 200 OK and "Healthy".
     /// </summary>
     [Fact]
@@ -402,6 +437,7 @@ public sealed class VerifierServerTests
                 { "VerifierEnvironment", "Local" },
                 { "VerifierStorage__Provider", "json" },
                 { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierStorage__LocalStoragePath", Path.Combine(tempDbDir, "packages") },
                 { "VerifierSecurity__ApiKeys__0__Key", "operator-test-api-key-1234" },
                 { "VerifierSecurity__ApiKeys__0__Role", "operator" },
                 { "VerifierSecurity__ApiKeys__1__Key", "reviewer-test-api-key-1234" },
@@ -772,6 +808,7 @@ public sealed class VerifierServerTests
                 uploadRequest.Content = uploadContent;
                 var uploadResponse = await client.SendAsync(uploadRequest);
                 uploadResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                await WaitForPackageStatusAsync(client, submission.SubmissionId, "operator-test-api-key-1234", "Completed");
 
                 using var allowedRequest =
                     new HttpRequestMessage(HttpMethod.Get, $"/packages/{submission.SubmissionId}/verification");
@@ -1122,7 +1159,7 @@ public sealed class VerifierServerTests
     }
 
     /// <summary>
-    /// Verifies that multipart file upload (Option A) computes hash, verifies it, and exposes results.
+    /// Verifies that multipart file upload stores the blob durably, queues verification, and exposes the eventual result.
     /// </summary>
     [Fact]
     public async Task PostPackageMultipart_ShouldUploadAndVerify()
@@ -1140,6 +1177,7 @@ public sealed class VerifierServerTests
                 { "VerifierEnvironment", "Local" },
                 { "VerifierStorage__Provider", "json" },
                 { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierStorage__LocalStoragePath", Path.Combine(tempDbDir, "packages") },
                 { "VerifierSecurity__ApiKey", "" }
             };
 
@@ -1163,10 +1201,13 @@ public sealed class VerifierServerTests
                 using var doc = JsonDocument.Parse(contentJson);
                 var root = doc.RootElement;
 
-                root.GetProperty("verificationStatus").GetString().Should().Be("Completed");
-                root.GetProperty("trustStatus").GetString().Should().Be("Unverified");
+                root.GetProperty("verificationStatus").GetString().Should().Be("Pending");
 
                 var submissionId = root.GetProperty("submissionId").GetString();
+                var packageState = await WaitForPackageStatusAsync(client, submissionId!, null, "Completed");
+                packageState.GetProperty("blobAvailable").GetBoolean().Should().BeTrue();
+                packageState.GetProperty("verificationStatus").GetString().Should().Be("Completed");
+                packageState.GetProperty("trustStatus").GetString().Should().Be("Unverified");
 
                 // Fetch verification report later
                 var reportResponse = await client.GetAsync($"/packages/{submissionId}/verification");
@@ -1177,6 +1218,11 @@ public sealed class VerifierServerTests
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 reportResult.Should().NotBeNull();
                 reportResult.TrustStatus.Should().Be(TrustStatus.Unverified);
+
+                var textReportResponse = await client.GetAsync($"/packages/{submissionId}/report");
+                textReportResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var textReport = await textReportResponse.Content.ReadAsStringAsync();
+                textReport.Should().Contain("OWS Verification Report");
 
                 var auditResponse = await client.GetAsync($"/audit/events?packageId={submissionId}&eventType=package.verified");
                 auditResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1196,7 +1242,7 @@ public sealed class VerifierServerTests
     }
 
     /// <summary>
-    /// Verifies that metadata registration followed by PUT file upload works correctly.
+    /// Verifies that metadata registration followed by PUT file upload queues worker verification correctly.
     /// </summary>
     [Fact]
     public async Task PutPackageFile_ShouldUploadAndVerify()
@@ -1217,6 +1263,7 @@ public sealed class VerifierServerTests
                 { "VerifierEnvironment", "Local" },
                 { "VerifierStorage__Provider", "json" },
                 { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierStorage__LocalStoragePath", Path.Combine(tempDbDir, "packages") },
                 { "VerifierSecurity__ApiKey", "" }
             };
 
@@ -1252,16 +1299,122 @@ public sealed class VerifierServerTests
 
                 var putResponse = await client.PutAsync($"/packages/{submissionId}", content);
                 putResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var putJson = JsonDocument.Parse(await putResponse.Content.ReadAsStringAsync()).RootElement;
+                putJson.GetProperty("verificationStatus").GetString().Should().Be("Pending");
 
-                // Verify triggering POST /packages/{id}/verify now works
+                var completedState = await WaitForPackageStatusAsync(client, submissionId!, null, "Completed");
+                completedState.GetProperty("trustStatus").GetString().Should().Be("Unverified");
+
+                // Verify triggering POST /packages/{id}/verify now requeues safely
                 var verifyResponse = await client.PostAsync($"/packages/{submissionId}/verify", null);
                 verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var verifyRoot = JsonDocument.Parse(await verifyResponse.Content.ReadAsStringAsync()).RootElement;
+                verifyRoot.GetProperty("verificationStatus").GetString().Should().Be("Pending");
+                var reverifiedState = await WaitForPackageStatusAsync(client, submissionId!, null, "Completed");
+                reverifiedState.GetProperty("trustStatus").GetString().Should().Be("Unverified");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
+            if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, recursive: true);
+        }
+    }
 
-                var verifyJson = await verifyResponse.Content.ReadAsStringAsync();
-                var verifyResult = JsonSerializer.Deserialize<VerificationResult>(verifyJson,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                verifyResult.Should().NotBeNull();
-                verifyResult.TrustStatus.Should().Be(TrustStatus.Unverified);
+    /// <summary>
+    /// Verifies that package upload rejects non-package payloads before job creation.
+    /// </summary>
+    [Fact]
+    public async Task PostPackageUpload_ShouldRejectInvalidPackageShape()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierStorage__LocalStoragePath", Path.Combine(tempDbDir, "packages") },
+                { "VerifierSecurity__ApiKey", "" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                using var content = new MultipartFormDataContent();
+                var fileContent = new ByteArrayContent("not-a-zip"u8.ToArray());
+                fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
+                content.Add(fileContent, "file", "broken.owspkg");
+
+                var response = await client.PostAsync("/packages/upload", content);
+                response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+                var body = await response.Content.ReadAsStringAsync();
+                body.Should().Contain(".owspkg archive");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a missing blob causes the worker to fail the package status clearly.
+    /// </summary>
+    [Fact]
+    public async Task PackageVerificationWorker_ShouldFailClearlyWhenBlobIsMissing()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-test-pkg-{Guid.NewGuid():N}");
+        try
+        {
+            var packagePath = await CreateTestPackageAsync(projectRoot);
+            var fileBytes = await File.ReadAllBytesAsync(packagePath);
+            var packageStoragePath = Path.Combine(tempDbDir, "packages");
+
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierStorage__LocalStoragePath", packageStoragePath },
+                { "VerifierSecurity__ApiKey", "" },
+                { "VerifierStorage__PackageWorkerPollIntervalMilliseconds", "1000" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                using var sha256 = System.Security.Cryptography.SHA256.Create();
+                var hash = Convert.ToHexString(sha256.ComputeHash(fileBytes)).ToLowerInvariant();
+                var metadataPayload = new VerifierPackageSubmissionRequest
+                {
+                    SessionId = "session-missing-blob",
+                    ObjectStorageProvider = "local",
+                    ObjectBucket = "packages",
+                    ObjectKey = $"{hash}.owspkg",
+                    PackageSha256 = hash,
+                    PackageSizeBytes = fileBytes.Length
+                };
+
+                var regResponse = await client.PostAsJsonAsync("/packages", metadataPayload);
+                regResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var regResult = await regResponse.Content.ReadFromJsonAsync<VerifierPackageSubmissionResponse>();
+                regResult.Should().NotBeNull();
+
+                using var content = new MultipartFormDataContent();
+                var fileContent = new ByteArrayContent(fileBytes);
+                fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
+                content.Add(fileContent, "file", "test.owspkg");
+                var putResponse = await client.PutAsync($"/packages/{regResult!.SubmissionId}", content);
+                putResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                File.Delete(Path.Combine(packageStoragePath, $"{hash}.owspkg"));
+
+                var failedState = await WaitForPackageStatusAsync(client, regResult.SubmissionId, null, "Failed");
+                failedState.GetProperty("lastVerificationError").GetString().Should().Contain("missing");
             }
         }
         finally

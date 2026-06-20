@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Ows.Core.Education;
 using Ows.Core.Notarization;
+using Ows.Core.Reporting;
 using Ows.Core.Verification;
 using Ows.Verifier.Server;
 
@@ -158,6 +159,7 @@ if (args.Any(static arg => string.Equals(arg, "migrate", StringComparison.Ordina
 builder.Services.AddSingleton(normalizedStorageOptions);
 builder.Services.AddSingleton(securityOptions);
 builder.Services.AddSingleton<IPackageVerifier, OwsPackageVerifier>();
+builder.Services.AddSingleton<IReportGenerator, OwsReportGenerator>();
 builder.Services.AddSingleton<IVerifierApiKeyStore>(_ =>
 {
     var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ??
@@ -176,6 +178,24 @@ builder.Services.AddSingleton<IPackageSubmissionStore>(_ =>
         : new JsonFilePackageSubmissionStore(Path.Combine(
             Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath,
             "package_submissions.json")));
+builder.Services.AddSingleton<IPackageBlobStore>(_ =>
+    new LocalFilePackageBlobStore(normalizedStorageOptions.LocalStoragePath, normalizedStorageOptions.MaxPackageSizeBytes));
+builder.Services.AddSingleton<IPackageVerificationJobStore>(_ =>
+{
+    var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ??
+                    builder.Environment.ContentRootPath;
+    return string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
+        ? new PostgresPackageVerificationJobStore(
+            !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
+                ? normalizedStorageOptions.PostgresConnectionString
+                : throw new InvalidOperationException(
+                    "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."))
+        : new JsonFilePackageVerificationJobStore(Path.Combine(storeRoot, "package_verification_jobs.json"));
+});
+if (normalizedStorageOptions.PackageWorkerEnabled)
+{
+    builder.Services.AddHostedService<PackageVerificationWorker>();
+}
 builder.Services.AddSingleton<IVerifierAuditStore>(_ =>
 {
     var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ??
@@ -313,6 +333,22 @@ catch (Exception ex)
     }
 }
 
+var packageJobStore = app.Services.GetRequiredService<IPackageVerificationJobStore>();
+try
+{
+    startupLogger.LogInformation("Initializing package verification job store...");
+    await packageJobStore.InitializeAsync(CancellationToken.None);
+    startupLogger.LogInformation("Package verification job store initialized successfully.");
+}
+catch (Exception ex)
+{
+    startupLogger.LogError(ex, "Failed to initialize package verification job store.");
+    if (isProduction)
+    {
+        throw;
+    }
+}
+
 app.Use(async (context, next) =>
 {
     var requestId = context.Request.Headers["X-Request-Id"].FirstOrDefault();
@@ -428,15 +464,15 @@ app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 
 app.MapGet("/ready",
     async (HttpContext context, IVerifierStorage storage, IEducationStore educationStore, IVerifierApiKeyStore apiKeyStore,
-        VerifierStorageOptions options, CancellationToken cancellationToken) =>
+        IPackageBlobStore blobStore, VerifierStorageOptions options, CancellationToken cancellationToken) =>
     {
-        var packageStorageReady = CheckPackageStorageReady(options.LocalStoragePath);
         var signingConfigured = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey);
         try
         {
             var authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken);
             var healthy = await storage.CheckHealthAsync(cancellationToken);
             var educationReady = await CheckEducationStoreReadyAsync(educationStore, cancellationToken);
+            var packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken);
             if (!healthy || !educationReady || !packageStorageReady)
             {
                 await WriteAuditEventAsync(
@@ -489,9 +525,11 @@ app.MapGet("/ready",
         catch (Exception exception)
         {
             var authMode = "unknown";
+            var packageStorageReady = false;
             try
             {
                 authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken);
+                packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken);
             }
             catch
             {
@@ -791,235 +829,96 @@ app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest re
     }
 });
 
-app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore packageStore,
-    HttpContext context, IVerifierStorage storage, IPackageVerifier verifier, IEducationStore educationStore,
-    IVerifierAuditStore auditStore, VerifierStorageOptions options, CancellationToken cancellationToken) =>
+app.MapPost("/packages", async (HttpRequest request, HttpContext context, IPackageSubmissionStore packageStore,
+    IVerifierStorage storage, IVerifierAuditStore auditStore, IPackageBlobStore blobStore,
+    IPackageVerificationJobStore jobStore, CancellationToken cancellationToken) =>
 {
-    var idempotencyKey = request.Headers["Idempotency-Key"].FirstOrDefault();
-
     if (request.HasFormContentType)
     {
-        if (request.Form.Files.GetFile("file") is not { } file)
-        {
-            return Results.BadRequest("A file upload is required.");
-        }
-
-        var extension = Path.GetExtension(file.FileName);
-        if (!string.Equals(extension, ".owspkg", StringComparison.OrdinalIgnoreCase))
-        {
-            return Results.BadRequest("Only .owspkg files are accepted.");
-        }
-
-        if (file.Length > (options.MaxPackageSizeBytes > 0 ? options.MaxPackageSizeBytes : 50 * 1024 * 1024))
-        {
-            return Results.BadRequest("Uploaded package exceeds maximum size limit.");
-        }
-
-        var sessionId = request.Form["sessionId"].FirstOrDefault();
-        var tempFilePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.tmp");
-        try
-        {
-            using (var tempStream = File.Create(tempFilePath))
-            {
-                await file.CopyToAsync(tempStream, cancellationToken);
-            }
-
-            var hash = await ComputeSha256HashAsync(tempFilePath, cancellationToken);
-            var packageFilePath = Path.Combine(options.LocalStoragePath, $"{hash}.owspkg");
-
-            var submissionRequest = new VerifierPackageSubmissionRequest
-            {
-                SessionId = sessionId,
-                IdempotencyKey = idempotencyKey,
-                ObjectStorageProvider = "local",
-                ObjectBucket = "packages",
-                ObjectKey = $"{hash}.owspkg",
-                PackageSha256 = hash,
-                PackageSizeBytes = file.Length
-            };
-
-            VerifierPackageSubmissionResponse submissionResponse;
-            try
-            {
-                submissionResponse = await packageStore.SubmitAsync(submissionRequest, cancellationToken);
-            }
-            catch (InvalidOperationException exception)
-            {
-                if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
-                    exception.Message.Contains("already registered with different metadata",
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    return Results.Conflict(exception.Message);
-                }
-
-                return Results.BadRequest(exception.Message);
-            }
-
-            Directory.CreateDirectory(options.LocalStoragePath);
-            File.Move(tempFilePath, packageFilePath, overwrite: true);
-
-            ReceiptChain? trustedReceiptChain = null;
-            SessionHeadResponse? trustedSessionHead = null;
-            VerifierSessionRecord? verifierSession = null;
-
-            if (!string.IsNullOrWhiteSpace(submissionResponse.SessionId))
-            {
-                var assessmentSessionId = new AssessmentSessionId(submissionResponse.SessionId);
-                try
-                {
-                    trustedReceiptChain = await storage.GetReceiptsAsync(assessmentSessionId, cancellationToken);
-                    trustedSessionHead = await storage.GetHeadAsync(assessmentSessionId, cancellationToken);
-                    verifierSession = await storage.GetSessionAsync(assessmentSessionId, cancellationToken);
-                }
-                catch (InvalidOperationException)
-                {
-                    // Session not found
-                }
-            }
-
-            var educationContext = await ResolveEducationContextAsync(
-                submissionRequest.InstitutionId,
-                submissionRequest.AssessmentId,
-                submissionRequest.StudentUserId,
-                educationStore,
-                cancellationToken);
-
-            var verifyRequest = new PackageVerificationRequest
-            {
-                PackagePath = packageFilePath,
-                TrustedReceiptChain = trustedReceiptChain,
-                TrustedSessionHead = trustedSessionHead,
-                SessionLastHeartbeatAt = verifierSession?.LastHeartbeatAt,
-                SessionLeaseExpiresAt = verifierSession?.LeaseExpiresAt,
-                SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
-                SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
-                SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt,
-                EducationContext = educationContext
-            };
-
-            var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
-            var resultJson = JsonSerializer.Serialize(verificationResult);
-
-            await packageStore.UpdateVerificationResultAsync(
-                submissionResponse.SubmissionId,
-                "Completed",
-                verificationResult.TrustStatus.ToString(),
-                resultJson,
-                cancellationToken);
-            await WriteAuditEventAsync(
-                auditStore,
-                auditLogger,
-                context,
-                eventType: "package.submitted",
-                result: "Stored",
-                access: TryGetAccessContext(context),
-                institutionId: submissionResponse.InstitutionId,
-                sessionId: submissionResponse.SessionId,
-                packageId: submissionResponse.SubmissionId,
-                assessmentId: submissionResponse.AssessmentId,
-                metadata: CreateMetadata(
-                    ("storageProvider", submissionResponse.ObjectStorageProvider),
-                    ("objectBucket", submissionResponse.ObjectBucket),
-                    ("objectKey", submissionResponse.ObjectKey)),
-                cancellationToken: cancellationToken);
-            await WriteAuditEventAsync(
-                auditStore,
-                auditLogger,
-                context,
-                eventType: "package.verified",
-                result: verificationResult.TrustStatus.ToString(),
-                access: TryGetAccessContext(context),
-                institutionId: submissionResponse.InstitutionId,
-                sessionId: submissionResponse.SessionId,
-                packageId: submissionResponse.SubmissionId,
-                assessmentId: submissionResponse.AssessmentId,
-                metadata: CreateMetadata(
-                    ("verificationStatus", "Completed"),
-                    ("trustStatus", verificationResult.TrustStatus.ToString())),
-                cancellationToken: cancellationToken);
-
-            return Results.Ok(new
-            {
-                submissionId = submissionResponse.SubmissionId,
-                sessionId = submissionResponse.SessionId,
-                packageSha256 = submissionResponse.PackageSha256,
-                verificationStatus = "Completed",
-                trustStatus = verificationResult.TrustStatus.ToString(),
-                verificationResult = verificationResult
-            });
-        }
-        finally
-        {
-            if (File.Exists(tempFilePath))
-            {
-                File.Delete(tempFilePath);
-            }
-        }
+        return await HandlePackageUploadAsync(
+            request,
+            context,
+            packageStore,
+            storage,
+            auditStore,
+            blobStore,
+            jobStore,
+            cancellationToken);
     }
-    else
+
+    var idempotencyKey = request.Headers["Idempotency-Key"].FirstOrDefault();
+    VerifierPackageSubmissionRequest jsonRequest;
+    try
     {
-        VerifierPackageSubmissionRequest jsonRequest;
-        try
+        jsonRequest = await request.ReadFromJsonAsync<VerifierPackageSubmissionRequest>(cancellationToken)
+                      ?? throw new JsonException("Request body deserialized to null.");
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Invalid JSON payload: {ex.Message}");
+    }
+
+    jsonRequest = jsonRequest with { IdempotencyKey = idempotencyKey };
+    var validationError = jsonRequest.GetValidationError();
+    if (validationError is not null)
+    {
+        return Results.BadRequest(validationError);
+    }
+
+    try
+    {
+        var response = await packageStore.SubmitAsync(jsonRequest, cancellationToken);
+        await WriteAuditEventAsync(
+            auditStore,
+            auditLogger,
+            context,
+            eventType: "package.submitted",
+            result: "Registered",
+            access: TryGetAccessContext(context),
+            institutionId: response.InstitutionId,
+            sessionId: response.SessionId,
+            packageId: response.SubmissionId,
+            assessmentId: response.AssessmentId,
+            metadata: CreateMetadata(
+                ("storageProvider", response.ObjectStorageProvider),
+                ("objectBucket", response.ObjectBucket),
+                ("objectKey", response.ObjectKey),
+                ("idempotencyKey", response.IdempotencyKey)),
+            cancellationToken: cancellationToken);
+        return Results.Ok(response);
+    }
+    catch (NotSupportedException exception)
+    {
+        return Results.BadRequest(exception.Message);
+    }
+    catch (InvalidOperationException exception)
+    {
+        if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
+            exception.Message.Contains("already registered with different metadata", StringComparison.OrdinalIgnoreCase))
         {
-            jsonRequest = await request.ReadFromJsonAsync<VerifierPackageSubmissionRequest>(cancellationToken)
-                          ?? throw new JsonException("Request body deserialized to null.");
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest($"Invalid JSON payload: {ex.Message}");
+            return Results.Conflict(exception.Message);
         }
 
-        jsonRequest = jsonRequest with { IdempotencyKey = idempotencyKey };
-        var validationError = jsonRequest.GetValidationError();
-        if (validationError is not null)
-        {
-            return Results.BadRequest(validationError);
-        }
-
-        try
-        {
-            var response = await packageStore.SubmitAsync(jsonRequest, cancellationToken);
-            await WriteAuditEventAsync(
-                auditStore,
-                auditLogger,
-                context,
-                eventType: "package.submitted",
-                result: "Registered",
-                access: TryGetAccessContext(context),
-                institutionId: response.InstitutionId,
-                sessionId: response.SessionId,
-                packageId: response.SubmissionId,
-                assessmentId: response.AssessmentId,
-                metadata: CreateMetadata(
-                    ("storageProvider", response.ObjectStorageProvider),
-                    ("objectBucket", response.ObjectBucket),
-                    ("objectKey", response.ObjectKey),
-                    ("idempotencyKey", response.IdempotencyKey)),
-                cancellationToken: cancellationToken);
-            return Results.Ok(response);
-        }
-        catch (NotSupportedException exception)
-        {
-            return Results.BadRequest(exception.Message);
-        }
-        catch (InvalidOperationException exception)
-        {
-            if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
-                exception.Message.Contains("already registered with different metadata",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return Results.Conflict(exception.Message);
-            }
-
-            return Results.BadRequest(exception.Message);
-        }
+        return Results.BadRequest(exception.Message);
     }
 });
 
+app.MapPost("/packages/upload", async (HttpRequest request, HttpContext context, IPackageSubmissionStore packageStore,
+    IVerifierStorage storage, IVerifierAuditStore auditStore, IPackageBlobStore blobStore,
+    IPackageVerificationJobStore jobStore, CancellationToken cancellationToken) =>
+    await HandlePackageUploadAsync(
+        request,
+        context,
+        packageStore,
+        storage,
+        auditStore,
+        blobStore,
+        jobStore,
+        cancellationToken));
+
 app.MapPut("/packages/{id}", async (string id, HttpRequest request, HttpContext context,
-    IPackageSubmissionStore packageStore, IVerifierStorage storage, IPackageVerifier verifier,
-    IEducationStore educationStore, IVerifierAuditStore auditStore, VerifierStorageOptions options,
-    CancellationToken cancellationToken) =>
+    IPackageSubmissionStore packageStore, IVerifierAuditStore auditStore, IPackageBlobStore blobStore,
+    IPackageVerificationJobStore jobStore, CancellationToken cancellationToken) =>
 {
     var submission = await packageStore.GetAsync(id, cancellationToken);
     if (submission is null)
@@ -1027,7 +926,13 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, HttpContext 
         return Results.NotFound("Unknown package submission.");
     }
 
-    if (!request.HasFormContentType || request.Form.Files.GetFile("file") is not { } file)
+    if (!request.HasFormContentType)
+    {
+        return Results.BadRequest("A file upload is required.");
+    }
+
+    var form = await request.ReadFormAsync(cancellationToken);
+    if (form.Files.GetFile("file") is not { } file)
     {
         return Results.BadRequest("A file upload is required.");
     }
@@ -1038,113 +943,96 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, HttpContext 
         return Results.BadRequest("Only .owspkg files are accepted.");
     }
 
-    if (file.Length > (options.MaxPackageSizeBytes > 0 ? options.MaxPackageSizeBytes : 50 * 1024 * 1024))
-    {
-        return Results.BadRequest("Uploaded package exceeds maximum size limit.");
-    }
+    await WriteAuditEventAsync(
+        auditStore,
+        auditLogger,
+        context,
+        eventType: "package.upload.started",
+        result: "Started",
+        access: TryGetAccessContext(context),
+        institutionId: submission.InstitutionId,
+        sessionId: submission.SessionId,
+        packageId: submission.SubmissionId,
+        assessmentId: submission.AssessmentId,
+        cancellationToken: cancellationToken);
 
-    var tempFilePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.tmp");
     try
     {
-        using (var tempStream = File.Create(tempFilePath))
+        await using var source = file.OpenReadStream();
+        var savedBlob = await blobStore.SaveAsync(source, cancellationToken);
+        if (!string.Equals(savedBlob.PackageSha256, submission.PackageSha256, StringComparison.OrdinalIgnoreCase))
         {
-            await file.CopyToAsync(tempStream, cancellationToken);
-        }
-
-        var hash = await ComputeSha256HashAsync(tempFilePath, cancellationToken);
-        if (!string.Equals(hash, submission.PackageSha256, StringComparison.OrdinalIgnoreCase))
-        {
+            await WriteAuditEventAsync(
+                auditStore,
+                auditLogger,
+                context,
+                eventType: "package.upload.failed",
+                result: "HashMismatch",
+                access: TryGetAccessContext(context),
+                institutionId: submission.InstitutionId,
+                sessionId: submission.SessionId,
+                packageId: submission.SubmissionId,
+                assessmentId: submission.AssessmentId,
+                metadata: CreateMetadata(("packageSha256", savedBlob.PackageSha256)),
+                cancellationToken: cancellationToken);
             return Results.BadRequest("Uploaded package hash does not match the registered package SHA-256 metadata.");
         }
 
-        var packageFilePath = Path.Combine(options.LocalStoragePath, $"{hash}.owspkg");
-        Directory.CreateDirectory(options.LocalStoragePath);
-        File.Move(tempFilePath, packageFilePath, overwrite: true);
-
-        ReceiptChain? trustedReceiptChain = null;
-        SessionHeadResponse? trustedSessionHead = null;
-        VerifierSessionRecord? verifierSession = null;
-
-        if (!string.IsNullOrWhiteSpace(submission.SessionId))
-        {
-            var assessmentSessionId = new AssessmentSessionId(submission.SessionId);
-            try
-            {
-                trustedReceiptChain = await storage.GetReceiptsAsync(assessmentSessionId, cancellationToken);
-                trustedSessionHead = await storage.GetHeadAsync(assessmentSessionId, cancellationToken);
-                verifierSession = await storage.GetSessionAsync(assessmentSessionId, cancellationToken);
-            }
-            catch (InvalidOperationException)
-            {
-                // Session not found
-            }
-        }
-
-        var educationContext = await ResolveEducationContextAsync(
-            submission.InstitutionId,
-            submission.AssessmentId,
-            submission.StudentUserId,
-            educationStore,
+        var job = await QueuePackageVerificationAsync(
+            submission.SubmissionId,
+            submission,
+            TryGetAccessContext(context),
+            packageStore,
+            jobStore,
+            auditStore,
+            context,
             cancellationToken);
 
-        var verifyRequest = new PackageVerificationRequest
-        {
-            PackagePath = packageFilePath,
-            TrustedReceiptChain = trustedReceiptChain,
-            TrustedSessionHead = trustedSessionHead,
-            SessionLastHeartbeatAt = verifierSession?.LastHeartbeatAt,
-            SessionLeaseExpiresAt = verifierSession?.LeaseExpiresAt,
-            SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
-            SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
-            SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt,
-            EducationContext = educationContext
-        };
-
-        var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
-        var resultJson = JsonSerializer.Serialize(verificationResult);
-
-        await packageStore.UpdateVerificationResultAsync(
-            id,
-            "Completed",
-            verificationResult.TrustStatus.ToString(),
-            resultJson,
-            cancellationToken);
         await WriteAuditEventAsync(
             auditStore,
             auditLogger,
             context,
-            eventType: "package.verified",
-            result: verificationResult.TrustStatus.ToString(),
+            eventType: "package.upload.completed",
+            result: "Stored",
             access: TryGetAccessContext(context),
             institutionId: submission.InstitutionId,
             sessionId: submission.SessionId,
-            packageId: id,
+            packageId: submission.SubmissionId,
             assessmentId: submission.AssessmentId,
-            metadata: CreateMetadata(
-                ("verificationStatus", "Completed"),
-                ("trustStatus", verificationResult.TrustStatus.ToString())),
+            metadata: CreateMetadata(("packageSha256", savedBlob.PackageSha256)),
             cancellationToken: cancellationToken);
 
         return Results.Ok(new
         {
-            submissionId = id,
-            verificationStatus = "Completed",
-            trustStatus = verificationResult.TrustStatus.ToString(),
-            verificationResult = verificationResult
+            submissionId = submission.SubmissionId,
+            sessionId = submission.SessionId,
+            packageSha256 = savedBlob.PackageSha256,
+            verificationStatus = "Pending",
+            verificationJobId = job.Id
         });
     }
-    finally
+    catch (InvalidOperationException exception)
     {
-        if (File.Exists(tempFilePath))
-        {
-            File.Delete(tempFilePath);
-        }
+        await WriteAuditEventAsync(
+            auditStore,
+            auditLogger,
+            context,
+            eventType: "package.upload.failed",
+            result: "Rejected",
+            access: TryGetAccessContext(context),
+            institutionId: submission.InstitutionId,
+            sessionId: submission.SessionId,
+            packageId: submission.SubmissionId,
+            assessmentId: submission.AssessmentId,
+            metadata: CreateMetadata(("error", exception.Message)),
+            cancellationToken: cancellationToken);
+        return Results.BadRequest(exception.Message);
     }
 });
 
 app.MapPost("/packages/{id}/verify", async (string id, HttpContext context, IPackageSubmissionStore packageStore,
-    IVerifierStorage storage, IPackageVerifier verifier, IEducationStore educationStore,
-    IVerifierAuditStore auditStore, VerifierStorageOptions options, CancellationToken cancellationToken) =>
+    IVerifierAuditStore auditStore, IPackageBlobStore blobStore, IPackageVerificationJobStore jobStore,
+    CancellationToken cancellationToken) =>
 {
     var submission = await packageStore.GetAsync(id, cancellationToken);
     if (submission is null)
@@ -1152,86 +1040,62 @@ app.MapPost("/packages/{id}/verify", async (string id, HttpContext context, IPac
         return Results.NotFound("Unknown package submission.");
     }
 
-    var packageFilePath = Path.Combine(options.LocalStoragePath, $"{submission.PackageSha256}.owspkg");
-    if (!File.Exists(packageFilePath))
+    if (!await blobStore.ExistsAsync(submission.ObjectKey, cancellationToken))
     {
         return Results.BadRequest("Package bytes are not available for verification. Please upload the package file.");
     }
 
-    ReceiptChain? trustedReceiptChain = null;
-    SessionHeadResponse? trustedSessionHead = null;
-    VerifierSessionRecord? verifierSession = null;
-
-    if (!string.IsNullOrWhiteSpace(submission.SessionId))
-    {
-        var assessmentSessionId = new AssessmentSessionId(submission.SessionId);
-        try
-        {
-            trustedReceiptChain = await storage.GetReceiptsAsync(assessmentSessionId, cancellationToken);
-            trustedSessionHead = await storage.GetHeadAsync(assessmentSessionId, cancellationToken);
-            verifierSession = await storage.GetSessionAsync(assessmentSessionId, cancellationToken);
-        }
-        catch (InvalidOperationException)
-        {
-            // Session not found
-        }
-    }
-
-    var educationContext = await ResolveEducationContextAsync(
-        submission.InstitutionId,
-        submission.AssessmentId,
-        submission.StudentUserId,
-        educationStore,
-        cancellationToken);
-
-    var verifyRequest = new PackageVerificationRequest
-    {
-        PackagePath = packageFilePath,
-        TrustedReceiptChain = trustedReceiptChain,
-        TrustedSessionHead = trustedSessionHead,
-        SessionLastHeartbeatAt = verifierSession?.LastHeartbeatAt,
-        SessionLeaseExpiresAt = verifierSession?.LeaseExpiresAt,
-        SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
-        SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
-        SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt,
-        EducationContext = educationContext
-    };
-
-    var verificationResult = await verifier.VerifyAsync(verifyRequest, cancellationToken);
-    var resultJson = JsonSerializer.Serialize(verificationResult);
-
-    await packageStore.UpdateVerificationResultAsync(
-        id,
-        "Completed",
-        verificationResult.TrustStatus.ToString(),
-        resultJson,
-        cancellationToken);
-    await WriteAuditEventAsync(
+    var job = await QueuePackageVerificationAsync(
+        submission.SubmissionId,
+        submission,
+        TryGetAccessContext(context),
+        packageStore,
+        jobStore,
         auditStore,
-        auditLogger,
         context,
-        eventType: "package.verified",
-        result: verificationResult.TrustStatus.ToString(),
-        access: TryGetAccessContext(context),
-        institutionId: submission.InstitutionId,
-        sessionId: submission.SessionId,
-        packageId: id,
-        assessmentId: submission.AssessmentId,
-        metadata: CreateMetadata(
-            ("verificationStatus", "Completed"),
-            ("trustStatus", verificationResult.TrustStatus.ToString())),
-        cancellationToken: cancellationToken);
-
-    return Results.Ok(verificationResult);
+        cancellationToken);
+    return Results.Ok(new
+    {
+        submissionId = submission.SubmissionId,
+        verificationStatus = "Pending",
+        verificationJobId = job.Id
+    });
 });
 
 app.MapGet("/packages/{id}", async (string id, IPackageSubmissionStore packageStore,
-    CancellationToken cancellationToken) =>
+    IPackageBlobStore blobStore, CancellationToken cancellationToken) =>
 {
     try
     {
         var submission = await packageStore.GetAsync(id, cancellationToken);
-        return submission is null ? Results.NotFound("Unknown package submission.") : Results.Ok(submission);
+        if (submission is null)
+        {
+            return Results.NotFound("Unknown package submission.");
+        }
+
+        return Results.Ok(new
+        {
+            submission.SubmissionId,
+            submission.SessionId,
+            submission.InstitutionId,
+            submission.AssessmentId,
+            submission.StudentUserId,
+            submission.IdempotencyKey,
+            submission.ObjectStorageProvider,
+            submission.ObjectBucket,
+            submission.ObjectKey,
+            submission.PackageSha256,
+            submission.PackageSizeBytes,
+            submission.SessionHeadReceiptHash,
+            submission.SessionHeadEventHash,
+            submission.SessionCheckpointCount,
+            submission.VerificationStatus,
+            submission.VerificationJobId,
+            submission.TrustStatus,
+            submission.LastVerificationError,
+            submission.CreatedAtUtc,
+            blobAvailable = await blobStore.ExistsAsync(submission.ObjectKey, cancellationToken)
+        });
     }
     catch (NotSupportedException exception)
     {
@@ -1263,7 +1127,15 @@ app.MapGet("/packages/{id}/verification", async (string id, HttpContext context,
 
     if (string.IsNullOrWhiteSpace(submission.VerificationResultJson))
     {
-        return Results.NotFound("Verification result not found or package has not been verified yet.");
+        return Results.Json(
+            new
+            {
+                status = submission.VerificationStatus,
+                error = submission.LastVerificationError
+            },
+            statusCode: submission.VerificationStatus == "Failed"
+                ? StatusCodes.Status409Conflict
+                : StatusCodes.Status404NotFound);
     }
 
     await WriteAuditEventAsync(
@@ -1283,6 +1155,61 @@ app.MapGet("/packages/{id}/verification", async (string id, HttpContext context,
     return Results.Content(submission.VerificationResultJson, "application/json");
 });
 
+app.MapGet("/packages/{id}/report", async (string id, HttpContext context, IPackageSubmissionStore packageStore,
+    IVerifierAuditStore auditStore, IReportGenerator reportGenerator, CancellationToken cancellationToken) =>
+{
+    var submission = await packageStore.GetAsync(id, cancellationToken);
+    if (submission is null)
+    {
+        return Results.NotFound("Unknown package submission.");
+    }
+
+    if (string.IsNullOrWhiteSpace(submission.VerificationResultJson))
+    {
+        return Results.Json(
+            new
+            {
+                status = submission.VerificationStatus,
+                error = submission.LastVerificationError
+            },
+            statusCode: submission.VerificationStatus == "Failed"
+                ? StatusCodes.Status409Conflict
+                : StatusCodes.Status404NotFound);
+    }
+
+    var verificationResult = JsonSerializer.Deserialize<VerificationResult>(
+        submission.VerificationResultJson,
+        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    if (verificationResult is null)
+    {
+        return Results.Problem("Stored verification result is invalid.");
+    }
+
+    var report = await reportGenerator.GenerateAsync(
+        new ReportRequest
+        {
+            VerificationResult = verificationResult,
+            Format = ReportFormat.Text
+        },
+        cancellationToken);
+
+    await WriteAuditEventAsync(
+        auditStore,
+        auditLogger,
+        context,
+        eventType: "report.read",
+        result: "Returned",
+        access: TryGetAccessContext(context),
+        institutionId: submission.InstitutionId,
+        sessionId: submission.SessionId,
+        packageId: submission.SubmissionId,
+        assessmentId: submission.AssessmentId,
+        metadata: CreateMetadata(("contentType", "text/plain")),
+        cancellationToken: cancellationToken);
+
+    return Results.Text(report.Content, "text/plain");
+});
+
 app.MapGet("/audit/events", async (string? institutionId, string? sessionId, string? packageId, string? eventType,
     DateTimeOffset? since, int? limit, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
 {
@@ -1299,15 +1226,20 @@ app.MapGet("/audit/events", async (string? institutionId, string? sessionId, str
 });
 
 app.MapGet("/diagnostics/summary", async (IVerifierAuditStore auditStore, IVerifierApiKeyStore apiKeyStore,
-    CancellationToken cancellationToken) =>
+    IPackageVerificationJobStore jobStore, IPackageBlobStore blobStore, CancellationToken cancellationToken) =>
 {
     var summary = await auditStore.GetSummaryAsync(cancellationToken);
+    var jobSummary = await jobStore.GetSummaryAsync(cancellationToken);
     return Results.Ok(new
     {
         environment = envMode.ToString(),
         storageProvider = normalizedStorageOptions.Provider,
+        packageStorageConfigured = !string.IsNullOrWhiteSpace(normalizedStorageOptions.LocalStoragePath),
+        packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken),
         authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken),
         metrics = summary
+        ,
+        packageVerificationJobs = jobSummary
     });
 });
 
@@ -1455,62 +1387,278 @@ app.MapGet("/education/users/{id}", async (string id, IEducationStore educationS
 
 app.Run();
 
-// Resolves a report education context from the store and returns null when no education ids were supplied.
-static async Task<ReportEducationContext?> ResolveEducationContextAsync(
+// Handles a multipart .owspkg upload, stores it durably, registers metadata, and queues verification.
+static async Task<IResult> HandlePackageUploadAsync(
+    HttpRequest request,
+    HttpContext context,
+    IPackageSubmissionStore packageStore,
+    IVerifierStorage storage,
+    IVerifierAuditStore auditStore,
+    IPackageBlobStore blobStore,
+    IPackageVerificationJobStore jobStore,
+    CancellationToken cancellationToken)
+{
+    if (!request.HasFormContentType)
+    {
+        return Results.BadRequest("A file upload is required.");
+    }
+
+    var form = await request.ReadFormAsync(cancellationToken);
+    if (form.Files.GetFile("file") is not { } file)
+    {
+        return Results.BadRequest("A file upload is required.");
+    }
+
+    var extension = Path.GetExtension(file.FileName);
+    if (!string.Equals(extension, ".owspkg", StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.BadRequest("Only .owspkg files are accepted.");
+    }
+
+    var access = TryGetAccessContext(context);
+    var idempotencyKey = request.Headers["Idempotency-Key"].FirstOrDefault();
+    var sessionId = form["sessionId"].FirstOrDefault();
+    var institutionId = form["institutionId"].FirstOrDefault();
+    var assessmentId = form["assessmentId"].FirstOrDefault();
+    var studentUserId = form["studentUserId"].FirstOrDefault();
+
+    await WriteAuditEventAsync(
+        auditStore,
+        context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit"),
+        context,
+        eventType: "package.upload.started",
+        result: "Started",
+        access: access,
+        institutionId: institutionId,
+        sessionId: sessionId,
+        assessmentId: assessmentId,
+        cancellationToken: cancellationToken);
+
+    try
+    {
+        await using var source = file.OpenReadStream();
+        var savedBlob = await blobStore.SaveAsync(source, cancellationToken);
+        var derivedContext = await ResolvePackageContextFromSessionAsync(
+            storage,
+            sessionId,
+            institutionId,
+            assessmentId,
+            studentUserId,
+            cancellationToken);
+        var submissionRequest = new VerifierPackageSubmissionRequest
+        {
+            SessionId = sessionId,
+            InstitutionId = derivedContext.InstitutionId,
+            AssessmentId = derivedContext.AssessmentId,
+            StudentUserId = derivedContext.StudentUserId,
+            IdempotencyKey = idempotencyKey,
+            ObjectStorageProvider = "local",
+            ObjectBucket = "packages",
+            ObjectKey = savedBlob.ObjectKey,
+            PackageSha256 = savedBlob.PackageSha256,
+            PackageSizeBytes = savedBlob.PackageSizeBytes
+        };
+
+        VerifierPackageSubmissionResponse submission;
+        try
+        {
+            submission = await packageStore.SubmitAsync(submissionRequest, cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
+                exception.Message.Contains("already registered with different metadata", StringComparison.OrdinalIgnoreCase))
+            {
+                await WriteAuditEventAsync(
+                    auditStore,
+                    context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit"),
+                    context,
+                    eventType: "package.upload.failed",
+                    result: "Conflict",
+                    access: access,
+                    institutionId: derivedContext.InstitutionId,
+                    sessionId: sessionId,
+                    assessmentId: derivedContext.AssessmentId,
+                    metadata: CreateMetadata(("error", exception.Message)),
+                    cancellationToken: cancellationToken);
+                return Results.Conflict(exception.Message);
+            }
+
+            throw;
+        }
+
+        if (submission.VerificationStatus is "Pending" or "Running" or "Completed" &&
+            !string.IsNullOrWhiteSpace(submission.VerificationJobId))
+        {
+            return Results.Ok(new
+            {
+                submissionId = submission.SubmissionId,
+                sessionId = submission.SessionId,
+                packageSha256 = submission.PackageSha256,
+                verificationStatus = submission.VerificationStatus,
+                verificationJobId = submission.VerificationJobId,
+                trustStatus = submission.TrustStatus
+            });
+        }
+
+        PackageVerificationJobRecord job;
+        try
+        {
+            job = await QueuePackageVerificationAsync(
+                submission.SubmissionId,
+                submission,
+                access,
+                packageStore,
+                jobStore,
+                auditStore,
+                context,
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            await packageStore.UpdateVerificationStateAsync(
+                submission.SubmissionId,
+                "Failed",
+                null,
+                null,
+                null,
+                "Package uploaded but verification job queue failed.",
+                cancellationToken);
+            await WriteAuditEventAsync(
+                auditStore,
+                context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit"),
+                context,
+                eventType: "package.upload.failed",
+                result: "JobQueueFailed",
+                access: access,
+                institutionId: submission.InstitutionId,
+                sessionId: submission.SessionId,
+                packageId: submission.SubmissionId,
+                assessmentId: submission.AssessmentId,
+                metadata: CreateMetadata(("error", exception.Message)),
+                cancellationToken: cancellationToken);
+            return Results.Problem("Package was uploaded but verification job creation failed.");
+        }
+
+        await WriteAuditEventAsync(
+            auditStore,
+            context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit"),
+            context,
+            eventType: "package.upload.completed",
+            result: "Stored",
+            access: access,
+            institutionId: submission.InstitutionId,
+            sessionId: submission.SessionId,
+            packageId: submission.SubmissionId,
+            assessmentId: submission.AssessmentId,
+            metadata: CreateMetadata(("packageSha256", submission.PackageSha256)),
+            cancellationToken: cancellationToken);
+        await WriteAuditEventAsync(
+            auditStore,
+            context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit"),
+            context,
+            eventType: "package.submitted",
+            result: "Stored",
+            access: access,
+            institutionId: submission.InstitutionId,
+            sessionId: submission.SessionId,
+            packageId: submission.SubmissionId,
+            assessmentId: submission.AssessmentId,
+            metadata: CreateMetadata(
+                ("storageProvider", submission.ObjectStorageProvider),
+                ("objectBucket", submission.ObjectBucket),
+                ("objectKey", submission.ObjectKey)),
+            cancellationToken: cancellationToken);
+
+        return Results.Ok(new
+        {
+            submissionId = submission.SubmissionId,
+            sessionId = submission.SessionId,
+            packageSha256 = submission.PackageSha256,
+            verificationStatus = "Pending",
+            verificationJobId = job.Id
+        });
+    }
+    catch (InvalidOperationException exception)
+    {
+        await WriteAuditEventAsync(
+            auditStore,
+            context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit"),
+            context,
+            eventType: "package.upload.failed",
+            result: "Rejected",
+            access: access,
+            institutionId: institutionId,
+            sessionId: sessionId,
+            assessmentId: assessmentId,
+            metadata: CreateMetadata(("error", exception.Message)),
+            cancellationToken: cancellationToken);
+        return Results.BadRequest(exception.Message);
+    }
+}
+
+// Queues verification and mirrors the current job/status onto the package metadata record.
+static async Task<PackageVerificationJobRecord> QueuePackageVerificationAsync(
+    string packageId,
+    VerifierPackageSubmissionResponse submission,
+    VerifierAccessContext? access,
+    IPackageSubmissionStore packageStore,
+    IPackageVerificationJobStore jobStore,
+    IVerifierAuditStore auditStore,
+    HttpContext context,
+    CancellationToken cancellationToken)
+{
+    var job = await jobStore.QueueAsync(packageId, access?.KeyId, cancellationToken);
+    await packageStore.UpdateVerificationStateAsync(
+        packageId,
+        job.Status == "Running" ? "Running" : "Pending",
+        job.Id,
+        null,
+        null,
+        null,
+        cancellationToken);
+    await WriteAuditEventAsync(
+        auditStore,
+        context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit"),
+        context,
+        eventType: "package.verification.queued",
+        result: job.Status,
+        access: access,
+        institutionId: submission.InstitutionId,
+        sessionId: submission.SessionId,
+        packageId: submission.SubmissionId,
+        assessmentId: submission.AssessmentId,
+        metadata: CreateMetadata(("jobId", job.Id)),
+        cancellationToken: cancellationToken);
+    return job;
+}
+
+// Reuses session metadata as the source of truth when upload callers omit institution or student context.
+static async Task<(string? InstitutionId, string? AssessmentId, string? StudentUserId)> ResolvePackageContextFromSessionAsync(
+    IVerifierStorage storage,
+    string? sessionId,
     string? institutionId,
     string? assessmentId,
     string? studentUserId,
-    IEducationStore educationStore,
     CancellationToken cancellationToken)
 {
-    if (string.IsNullOrWhiteSpace(institutionId)
-        && string.IsNullOrWhiteSpace(assessmentId)
-        && string.IsNullOrWhiteSpace(studentUserId))
+    if (string.IsNullOrWhiteSpace(sessionId))
     {
-        return null;
+        return (institutionId, assessmentId, studentUserId);
     }
 
-    Institution? institution = null;
-    if (!string.IsNullOrWhiteSpace(institutionId))
+    try
     {
-        institution = await educationStore.GetInstitutionAsync(new InstitutionId(institutionId), cancellationToken);
+        var session = await storage.GetSessionAsync(new AssessmentSessionId(sessionId), cancellationToken);
+        return (
+            institutionId ?? TryGetMetadataValue(session.MetadataJson, "institutionId"),
+            assessmentId ?? session.AssessmentId ?? TryGetMetadataValue(session.MetadataJson, "assessmentId"),
+            studentUserId ?? TryGetMetadataValue(session.MetadataJson, "studentUserId"));
     }
-
-    Assessment? assessment = null;
-    Course? course = null;
-    CourseOffering? offering = null;
-    if (!string.IsNullOrWhiteSpace(assessmentId))
+    catch (InvalidOperationException)
     {
-        assessment = await educationStore.GetAssessmentAsync(new AssessmentId(assessmentId), cancellationToken);
-        if (assessment is not null)
-        {
-            offering = await educationStore.GetCourseOfferingAsync(assessment.CourseOfferingId, cancellationToken);
-            if (offering is not null)
-            {
-                course = await educationStore.GetCourseAsync(offering.CourseId, cancellationToken);
-            }
-        }
+        return (institutionId, assessmentId, studentUserId);
     }
-
-    User? student = null;
-    if (!string.IsNullOrWhiteSpace(studentUserId))
-    {
-        student = await educationStore.GetUserAsync(new UserId(studentUserId), cancellationToken);
-    }
-
-    return new ReportEducationContext
-    {
-        InstitutionId = institution?.Id.Value,
-        InstitutionName = institution?.Name,
-        CourseId = course?.Id.Value,
-        CourseCode = course?.Code,
-        CourseTitle = course?.Title,
-        AssessmentId = assessment?.Id.Value,
-        AssessmentTitle = assessment?.Title,
-        StudentUserId = student?.Id.Value,
-        StudentDisplayName = student?.DisplayName,
-        StudentExternalId = student?.ExternalId
-    };
 }
 
 // Returns the current request id, creating a fallback only if middleware was bypassed.
@@ -1636,23 +1784,6 @@ static async Task<string> ResolveAuthModeAsync(
     };
 }
 
-// Verifies that the local package storage path is creatable and writable.
-static bool CheckPackageStorageReady(string path)
-{
-    try
-    {
-        Directory.CreateDirectory(path);
-        var probePath = Path.Combine(path, ".ows-ready");
-        File.WriteAllText(probePath, "ready");
-        File.Delete(probePath);
-        return true;
-    }
-    catch
-    {
-        return false;
-    }
-}
-
 // Verifies that the education store can serve a minimal read without exposing details.
 static async Task<bool> CheckEducationStoreReadyAsync(IEducationStore educationStore, CancellationToken cancellationToken)
 {
@@ -1665,14 +1796,6 @@ static async Task<bool> CheckEducationStoreReadyAsync(IEducationStore educationS
     {
         return false;
     }
-}
-
-static async Task<string> ComputeSha256HashAsync(string filePath, CancellationToken cancellationToken)
-{
-    using var stream = File.OpenRead(filePath);
-    using var sha256 = SHA256.Create();
-    var bytes = await sha256.ComputeHashAsync(stream, cancellationToken);
-    return Convert.ToHexString(bytes).ToLowerInvariant();
 }
 
 // ponytail: config-backed keys are enough for v0.1; add a real identity provider only when external operators need user-level auth.
@@ -1792,7 +1915,7 @@ static async Task<bool> IsAuthorizedAsync(
         return IsOperatorRole(access.Role);
     }
 
-    if (segments is ["packages", _] or ["packages", _, "verification"])
+    if (segments is ["packages", _] or ["packages", _, "verification"] or ["packages", _, "report"])
     {
         var packageStore = context.RequestServices.GetRequiredService<IPackageSubmissionStore>();
         var submission = await packageStore.GetAsync(segments[1], cancellationToken);
@@ -1865,6 +1988,25 @@ static string? TryGetInstitutionIdFromMetadata(string? metadataJson)
         return document.RootElement.TryGetProperty("institutionId", out var institutionIdElement)
             ? institutionIdElement.GetString()
             : null;
+    }
+    catch (JsonException)
+    {
+        return null;
+    }
+}
+
+// Pulls one property value out of session metadata without introducing a second metadata model.
+static string? TryGetMetadataValue(string? metadataJson, string propertyName)
+{
+    if (string.IsNullOrWhiteSpace(metadataJson) || string.IsNullOrWhiteSpace(propertyName))
+    {
+        return null;
+    }
+
+    try
+    {
+        using var document = JsonDocument.Parse(metadataJson);
+        return document.RootElement.TryGetProperty(propertyName, out var element) ? element.GetString() : null;
     }
     catch (JsonException)
     {

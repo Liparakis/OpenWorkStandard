@@ -28,8 +28,12 @@ services:
       - VerifierStorage__Provider=${VerifierStorage__Provider:-postgres}
       - VerifierStorage__PostgresConnectionString=${VerifierStorage__PostgresConnectionString}
       - VerifierStorage__LocalStoragePath=${VerifierStorage__LocalStoragePath:-/app/packages}
+      - VerifierStorage__MaxPackageSizeBytes=${VerifierStorage__MaxPackageSizeBytes:-52428800}
+      - VerifierStorage__PackageWorkerEnabled=${VerifierStorage__PackageWorkerEnabled:-true}
+      - VerifierStorage__PackageWorkerPollIntervalMilliseconds=${VerifierStorage__PackageWorkerPollIntervalMilliseconds:-250}
+      - VerifierStorage__PackageWorkerStaleRunningTimeoutSeconds=${VerifierStorage__PackageWorkerStaleRunningTimeoutSeconds:-300}
       - VerifierSecurity__ApiKey=${VerifierSecurity__ApiKey}
-      - VerifierSecurity__SigningKey=${VerifierSecurity__SigningKey}
+      - VerifierStorage__ReceiptSigningKey=${VerifierStorage__ReceiptSigningKey}
     depends_on:
       postgres:
         condition: service_healthy

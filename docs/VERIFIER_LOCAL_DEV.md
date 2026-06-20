@@ -144,6 +144,9 @@ That script checks:
 - idempotent retry behavior
 - receipt-chain fetch
 - head fetch
+- multipart package upload
+- asynchronous package verification completion
+- package report retrieval
 
 Use `validate-local-verifier.ps1` (or `validate-local-verifier.sh` on Unix/macOS) when you want a comprehensive read-only environmental preflight check before starting anything. It diagnostics-checks .NET SDK, Docker, PostgreSQL reachability, verifier port binds, health/readiness endpoints, API keys, paths containing spaces, PowerShell Execution Policies, and non-admin shell warnings.
 
@@ -209,6 +212,16 @@ If migrations fail:
 - verify `OWS_VERIFIER_CONNECTION_STRING` if you overrode the default
 - run `.\scripts\logs-local-verifier.ps1 -All` to see the startup failure without losing console output
 - rerun the startup helper after fixing the database issue
+
+### Package upload or verification failures
+
+If package intake fails:
+
+- confirm `VerifierStorage__LocalStoragePath` points to a writable directory or mounted volume
+- confirm `VerifierStorage__MaxPackageSizeBytes` is large enough for the test package
+- inspect `.\scripts\logs-local-verifier.ps1 -All` for `package.upload.*` or `package.verification.*` events
+- query `GET /diagnostics/summary` with an operator key to confirm whether jobs are stuck in `Pending`, `Running`, or `Failed`
+- if the verifier crashed mid-job, restart it and let stale `Running` jobs be reset to `Pending`
 
 ### Missing verifier API key
 

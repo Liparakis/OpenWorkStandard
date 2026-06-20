@@ -8,7 +8,7 @@ This guide explains how to deploy the Open Work Standard (OWS) verifier server i
 
 The Compose stack packages two core components:
 1. **`postgres`**: A PostgreSQL 17 database service using a persistent named volume (`ows-postgres-data-prod`) for durable notarization storage.
-2. **`ows-verifier`**: The ASP.NET Core OWS Verifier Web API service, running on port `8080` internally and mounting a named volume (`ows-verifier-package-data`) for secure package submission file storage.
+2. **`ows-verifier`**: The ASP.NET Core OWS Verifier Web API service, running on port `8080` internally and mounting a named volume (`ows-verifier-package-data`) for durable `.owspkg` blob storage.
 
 ---
 
@@ -84,6 +84,8 @@ Returns lightweight safe counters for pilot operations:
 curl -H "X-OWS-Verifier-Key: <operator-key>" http://localhost:5078/diagnostics/summary
 ```
 
+The response includes package-storage readiness and verification-job counters so operators can tell whether uploads are only accepted, actively processing, or piling up.
+
 ### 4. `/audit/events` Endpoint
 Returns operator-only audit events with simple filters:
 ```bash
@@ -122,7 +124,16 @@ docker compose exec -t postgres pg_dump -U ows -d ows_verifier > ows_backup_$(da
 ```
 
 ### Package Storage Backup
-Submitted student `.owspkg` package archives are stored in the named volume configured under `VerifierStorage__LocalStoragePath`. If you configured OWS to retain package submissions, ensure you back up the volume directory files.
+Submitted student `.owspkg` package archives are stored in the named volume configured under `VerifierStorage__LocalStoragePath`. Back up that volume together with PostgreSQL or you will retain package metadata without the package bytes needed for re-verification or report regeneration.
+
+### Package Verification Lifecycle
+
+- `POST /packages/upload` stores the `.owspkg` blob durably and queues verification.
+- `POST /packages` still supports metadata-first registration when you need to anchor package metadata before bytes are uploaded.
+- the in-process worker reads pending jobs from durable storage and writes `Pending`, `Running`, `Completed`, or `Failed` status back to the database
+- stale `Running` jobs are reset to `Pending` after the configured timeout when the verifier restarts
+
+For MVP self-hosting, this is enough. External object storage, Redis queues, and separate workers are still deferred.
 
 ### Upgrades
 To upgrade to a new release:
