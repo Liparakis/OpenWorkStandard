@@ -27,7 +27,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public bool IsProjectInitialized(string projectRoot)
     {
-        if (string.IsNullOrWhiteSpace(projectRoot)) return false;
+        if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot)) return false;
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         return Directory.Exists(localFolder) && File.Exists(Path.Combine(localFolder, "config.json"));
     }
@@ -35,6 +35,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public void InitializeProject(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var initializer = new OwsProjectInitializer();
         initializer.Initialize(projectRoot);
     }
@@ -42,6 +43,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public async Task StartWatcherAsync(string projectRoot, bool usePolling = false, int debounceMs = 500)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         Directory.CreateDirectory(localFolder);
 
@@ -90,6 +92,46 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             }
         }, token);
 
+        // Background poller for session heartbeats (every 30 seconds)
+        var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(30000, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+
+                if (token.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                if (File.Exists(sessionPath))
+                {
+                    try
+                    {
+                        var content = File.ReadAllText(sessionPath);
+                        var sessionState = JsonSerializer.Deserialize<SessionState>(content);
+                        if (sessionState != null && !string.IsNullOrWhiteSpace(sessionState.VerifierUrl))
+                        {
+                            await SendHeartbeatAsync(projectRoot);
+                        }
+                    }
+                    catch
+                    {
+                        // Swallow background heartbeat loop errors to keep the watcher alive.
+                        // SendHeartbeatAsync automatically writes the error flags to session.json.
+                    }
+                }
+            }
+        }, token);
+
         _activeAgent = new LocalTrackingAgent(new NullLogger<LocalTrackingAgent>());
         await _activeAgent.PrepareAsync(new TrackingAgentOptions
         {
@@ -118,6 +160,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public async Task StopWatcherAsync(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var watcherJsonPath = Path.Combine(localFolder, "watcher.json");
         var stopFilePath = Path.Combine(localFolder, "watcher.stop");
@@ -169,6 +212,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public bool IsWatcherRunning(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var watcherJsonPath = Path.Combine(localFolder, "watcher.json");
         if (!File.Exists(watcherJsonPath)) return false;
@@ -180,7 +224,10 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             if (state == null) return false;
 
             var proc = System.Diagnostics.Process.GetProcessById(state.Pid);
-            return proc != null && !proc.HasExited;
+            if (proc == null || proc.HasExited) return false;
+
+            var procName = proc.ProcessName.ToLowerInvariant();
+            return procName.Contains("ows") || procName.Contains("dotnet") || procName.Contains("testhost");
         }
         catch
         {
@@ -189,8 +236,27 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     }
 
     /// <inheritdoc />
+    public bool DidWatcherCrash(string projectRoot)
+    {
+        EnsureProjectDirectoryExists(projectRoot);
+        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+        var watcherJsonPath = Path.Combine(localFolder, "watcher.json");
+        if (!File.Exists(watcherJsonPath)) return false;
+        return !IsWatcherRunning(projectRoot);
+    }
+
+    private void EnsureProjectDirectoryExists(string projectRoot)
+    {
+        if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot))
+        {
+            throw new DirectoryNotFoundException($"Project directory not found at: {projectRoot}");
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<string> StartSessionAsync(string projectRoot, string? verifierUrlOverride = null)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         Directory.CreateDirectory(localFolder);
 
@@ -243,6 +309,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public async Task SendHeartbeatAsync(string projectRoot, string? verifierUrlOverride = null)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         if (!File.Exists(sessionPath))
@@ -264,24 +331,69 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             ? OwsEventChain.ReadLastEventHash(timelinePath)
             : null;
 
-        using var httpClient = CreateHttpClient(verifierUrl);
-        var payload = new
+        try
         {
-            LastKnownEventHash = lastEventHash,
-            ClientTimestamp = DateTimeOffset.UtcNow,
-            ClientStatusSummary = "Active"
-        };
+            using var httpClient = CreateHttpClient(verifierUrl);
+            var payload = new
+            {
+                LastKnownEventHash = lastEventHash,
+                ClientTimestamp = DateTimeOffset.UtcNow,
+                ClientStatusSummary = "Active"
+            };
 
-        using var response = await httpClient.PostAsJsonAsync($"sessions/{state.SessionId}/heartbeat", payload);
-        response.EnsureSuccessStatusCode();
+            using var response = await httpClient.PostAsJsonAsync($"sessions/{state.SessionId}/heartbeat", payload);
 
-        var updatedState = state with { LastHeartbeatAt = DateTimeOffset.UtcNow };
-        File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                throw new UnauthorizedAccessException("Verifier returned unauthorized or forbidden status code.");
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var heartbeatResponse = await response.Content.ReadFromJsonAsync<SessionHeartbeatResponse>()
+                ?? throw new InvalidOperationException("Verifier returned an invalid heartbeat response.");
+
+            bool isDegraded = heartbeatResponse.SessionTrustState == "Degraded";
+
+            var updatedState = state with
+            {
+                LastHeartbeatAt = DateTimeOffset.UtcNow,
+                IsVerifierOffline = false,
+                IsHeartbeatFailing = false,
+                IsDegraded = isDegraded,
+                LastHeartbeatError = null
+            };
+            File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+        }
+        catch (HttpRequestException ex)
+        {
+            var updatedState = state with
+            {
+                IsVerifierOffline = true,
+                IsHeartbeatFailing = false,
+                LastHeartbeatError = ex.Message
+            };
+            File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+            throw;
+        }
+        catch (Exception ex)
+        {
+            var updatedState = state with
+            {
+                IsVerifierOffline = false,
+                IsHeartbeatFailing = true,
+                IsDegraded = ex is UnauthorizedAccessException ? false : state.IsDegraded,
+                LastHeartbeatError = ex.Message
+            };
+            File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+            throw;
+        }
     }
 
     /// <inheritdoc />
     public async Task<string> AddCheckpointAsync(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         var receiptsPath = Path.Combine(localFolder, OwsConstants.ReceiptsFileName);
@@ -314,20 +426,51 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         }
         else
         {
-            using var httpClient = CreateHttpClient(state.VerifierUrl);
-            var transport = new HttpsReceiptTransport(
-                httpClient,
-                (activeSessionId, sequenceNumber) =>
-                    Checkpoint.FromTimeline(timelinePath, activeSessionId, sequenceNumber));
-            transport.RestoreSession(sessionId, receiptChain.Receipts.Count + 1);
-            receipt = await transport.SendCheckpointAsync(CancellationToken.None);
-            updatedReceiptChain = await transport.GetReceiptsAsync(CancellationToken.None);
+            try
+            {
+                using var httpClient = CreateHttpClient(state.VerifierUrl);
+                var transport = new HttpsReceiptTransport(
+                    httpClient,
+                    (activeSessionId, sequenceNumber) =>
+                        Checkpoint.FromTimeline(timelinePath, activeSessionId, sequenceNumber));
+                transport.RestoreSession(sessionId, receiptChain.Receipts.Count + 1);
+                receipt = await transport.SendCheckpointAsync(CancellationToken.None);
+                updatedReceiptChain = await transport.GetReceiptsAsync(CancellationToken.None);
+            }
+            catch (HttpRequestException ex)
+            {
+                var updatedState = state with
+                {
+                    IsVerifierOffline = true,
+                    IsHeartbeatFailing = false,
+                    LastHeartbeatError = ex.Message
+                };
+                File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var updatedState = state with
+                {
+                    IsVerifierOffline = false,
+                    IsHeartbeatFailing = true,
+                    LastHeartbeatError = ex.Message
+                };
+                File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+                throw;
+            }
         }
 
         File.WriteAllText(receiptsPath, JsonSerializer.Serialize(updatedReceiptChain, SerializerOptions));
 
-        var updatedState = state with { LastCheckpointAt = DateTimeOffset.UtcNow };
-        File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+        var finalState = state with
+        {
+            LastCheckpointAt = DateTimeOffset.UtcNow,
+            IsVerifierOffline = false,
+            IsHeartbeatFailing = false,
+            LastHeartbeatError = null
+        };
+        File.WriteAllText(sessionPath, JsonSerializer.Serialize(finalState, SerializerOptions));
 
         return receipt.ReceiptHash;
     }
@@ -335,6 +478,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public string? GetCurrentSessionId(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         if (!File.Exists(sessionPath)) return null;
@@ -352,6 +496,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public string? GetVerifierUrl(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         if (File.Exists(sessionPath))
@@ -371,6 +516,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public OwsProjectConfig? GetProjectConfig(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var configPath = Path.Combine(localFolder, "config.json");
         if (!File.Exists(configPath)) return null;
@@ -388,6 +534,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public void SaveProjectConfig(string projectRoot, OwsProjectConfig config)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         Directory.CreateDirectory(localFolder);
         var configPath = Path.Combine(localFolder, "config.json");
@@ -397,6 +544,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public DateTimeOffset? GetLastCheckpointAt(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         if (!File.Exists(sessionPath)) return null;
@@ -412,6 +560,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public DateTimeOffset? GetLastHeartbeatAt(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         if (!File.Exists(sessionPath)) return null;
@@ -427,6 +576,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public async Task<string> PackageProjectAsync(string projectRoot)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
         var builder = new OwsPackageBuilder();
         var result = await builder.CreatePackageAsync(new PackageCreationRequest
@@ -446,6 +596,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public async Task<string> UploadPackageAsync(string projectRoot, string packagePath, string? verifierUrlOverride = null)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         
@@ -487,8 +638,10 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         }
 
         using var httpClient = CreateHttpClient(verifierUrl);
+        httpClient.Timeout = TimeSpan.FromSeconds(60);
+
         using var form = new MultipartFormDataContent();
-        
+
         var fileStream = File.OpenRead(packagePath);
         var fileContent = new StreamContent(fileStream);
         fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
@@ -500,6 +653,21 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         if (!string.IsNullOrWhiteSpace(studentUserId)) form.Add(new StringContent(studentUserId), "studentUserId");
 
         var response = await httpClient.PostAsync("packages/upload", form);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.RequestEntityTooLarge)
+        {
+            throw new InvalidOperationException("Package is too large for the verifier server.");
+        }
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Upload unauthorized: Invalid or expired API key.");
+        }
+        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new ArgumentException($"Invalid package shape: {errorBody}");
+        }
+
         response.EnsureSuccessStatusCode();
 
         var body = await response.Content.ReadFromJsonAsync<VerifierPackageSubmissionResponse>()
@@ -525,6 +693,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <inheritdoc />
     public async Task<string> QueryPackageStatusAsync(string projectRoot, string packageId, string? verifierUrlOverride = null)
     {
+        EnsureProjectDirectoryExists(projectRoot);
         var verifierUrl = verifierUrlOverride ?? GetVerifierUrl(projectRoot);
         if (string.IsNullOrWhiteSpace(verifierUrl))
         {
@@ -533,6 +702,12 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
 
         using var httpClient = CreateHttpClient(verifierUrl);
         var response = await httpClient.GetAsync($"packages/{packageId}");
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            throw new UnauthorizedAccessException("Query unauthorized: Invalid or expired API key.");
+        }
+
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadAsStringAsync();

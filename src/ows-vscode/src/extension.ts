@@ -62,7 +62,7 @@ function registerCommand(context: vscode.ExtensionContext, id: string, callback:
 // ── Command Handlers ────────────────────────────────────────────────────────
 
 async function handleInitialize() {
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = await getWorkspaceRoot();
     if (!workspaceRoot) { return; }
 
     outputChannel.appendLine("Initializing OWS project...");
@@ -76,7 +76,7 @@ async function handleInitialize() {
 }
 
 async function handleConfigure(context: vscode.ExtensionContext) {
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = await getWorkspaceRoot();
     if (!workspaceRoot) { return; }
 
     // Read current settings or local config
@@ -159,8 +159,14 @@ async function handleConfigure(context: vscode.ExtensionContext) {
 }
 
 async function handleStartWatch(context: vscode.ExtensionContext) {
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = await getWorkspaceRoot();
     if (!workspaceRoot) { return; }
+
+    const configPath = path.join(workspaceRoot, '.ows', 'config.json');
+    if (!fs.existsSync(configPath)) {
+        vscode.window.showErrorMessage("OWS is not initialized for this project. Please run 'Initialize OWS Project' first.");
+        return;
+    }
 
     outputChannel.appendLine("Starting OWS file watcher...");
 
@@ -177,9 +183,21 @@ async function handleStartWatch(context: vscode.ExtensionContext) {
 
     const args = [...initialArgs, 'watch', 'start', '--json'];
 
-    const apiKey = await context.secrets.get("ows.apiKey") || "";
+    const apiKey = await getApiKey();
     if (!apiKey) {
         vscode.window.showWarningMessage("Warning: No OWS Verifier API Key is configured. Remote heartbeats/checkpoints will fail.");
+    }
+
+    let currentConfig: any = {};
+    try {
+        currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch { }
+
+    if (!currentConfig.verifierUrl) {
+        vscode.window.showWarningMessage("Warning: Verifier URL is empty in OWS configuration.");
+    }
+    if (!currentConfig.institutionId || !currentConfig.assessmentId || !currentConfig.studentUserId) {
+        vscode.window.showWarningMessage("Warning: Assessment context fields (Institution ID, Assessment ID, Student User ID) are missing in OWS configuration.");
     }
 
     const childEnv = {
@@ -187,8 +205,23 @@ async function handleStartWatch(context: vscode.ExtensionContext) {
         OWS_VERIFIER_API_KEY: apiKey
     };
 
-    watchProcess = cp.spawn(exec, args, { cwd: workspaceRoot, env: childEnv });
+    try {
+        watchProcess = cp.spawn(exec, args, { cwd: workspaceRoot, env: childEnv });
+    } catch (err: any) {
+        vscode.window.showErrorMessage(`Failed to start watcher process. OWS CLI executable not found at '${exec}'. Please check your 'ows.cliPath' setting.`);
+        return;
+    }
     
+    watchProcess.on('error', (err: any) => {
+        if (err.code === 'ENOENT') {
+            vscode.window.showErrorMessage(`Failed to start watcher process. OWS CLI executable not found at '${exec}'. Please check your 'ows.cliPath' setting.`);
+        } else {
+            vscode.window.showErrorMessage(`Watcher process error: ${redactApiKey(err.message)}`);
+        }
+        watchProcess = null;
+        updateStatusBar();
+    });
+
     let started = false;
     watchProcess.stdout?.on('data', async (data) => {
         const text = data.toString();
@@ -220,8 +253,14 @@ async function handleStartWatch(context: vscode.ExtensionContext) {
 }
 
 async function handleStopWatch() {
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = await getWorkspaceRoot();
     if (!workspaceRoot) { return; }
+
+    const configPath = path.join(workspaceRoot, '.ows', 'config.json');
+    if (!fs.existsSync(configPath)) {
+        vscode.window.showErrorMessage("OWS is not initialized for this project. Please run 'Initialize OWS Project' first.");
+        return;
+    }
 
     outputChannel.appendLine("Stopping OWS file watcher...");
     
@@ -241,8 +280,14 @@ async function handleStopWatch() {
 }
 
 async function handleShowStatus() {
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = await getWorkspaceRoot();
     if (!workspaceRoot) { return; }
+
+    const configPath = path.join(workspaceRoot, '.ows', 'config.json');
+    if (!fs.existsSync(configPath)) {
+        vscode.window.showErrorMessage("OWS is not initialized for this project. Please run 'Initialize OWS Project' first.");
+        return;
+    }
 
     outputChannel.appendLine("Fetching OWS status...");
     const result = await runCli(['status', '--json'], workspaceRoot);
@@ -267,8 +312,14 @@ async function handleShowStatus() {
 }
 
 async function handlePackage() {
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = await getWorkspaceRoot();
     if (!workspaceRoot) { return; }
+
+    const configPath = path.join(workspaceRoot, '.ows', 'config.json');
+    if (!fs.existsSync(configPath)) {
+        vscode.window.showErrorMessage("OWS is not initialized for this project. Please run 'Initialize OWS Project' first.");
+        return;
+    }
 
     outputChannel.appendLine("Packaging project...");
     vscode.window.withProgress({
@@ -286,8 +337,14 @@ async function handlePackage() {
 }
 
 async function handleUpload() {
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = await getWorkspaceRoot();
     if (!workspaceRoot) { return; }
+
+    const configPath = path.join(workspaceRoot, '.ows', 'config.json');
+    if (!fs.existsSync(configPath)) {
+        vscode.window.showErrorMessage("OWS is not initialized for this project. Please run 'Initialize OWS Project' first.");
+        return;
+    }
 
     outputChannel.appendLine("Uploading package...");
     vscode.window.withProgress({
@@ -305,8 +362,14 @@ async function handleUpload() {
 }
 
 async function handleCheckStatus() {
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = await getWorkspaceRoot();
     if (!workspaceRoot) { return; }
+
+    const configPath = path.join(workspaceRoot, '.ows', 'config.json');
+    if (!fs.existsSync(configPath)) {
+        vscode.window.showErrorMessage("OWS is not initialized for this project. Please run 'Initialize OWS Project' first.");
+        return;
+    }
 
     outputChannel.appendLine("Checking verification status...");
     const result = await runCli(['package', 'status', '--json'], workspaceRoot);
@@ -319,13 +382,43 @@ async function handleCheckStatus() {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function getWorkspaceRoot(): string | undefined {
-    const folders = vscode.workspace.workspaceFolders;
-    if (!folders || folders.length === 0) {
-        vscode.window.showErrorMessage("Open a workspace folder first to run OWS.");
+async function getWorkspaceRoot(silent = false): Promise<string | undefined> {
+    if (!vscode.workspace.isTrusted) {
+        if (!silent) {
+            vscode.window.showErrorMessage("OWS commands cannot run in an untrusted workspace. Please trust this workspace folder first.");
+        }
         return undefined;
     }
-    return folders[0].uri.fsPath;
+
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+        if (!silent) {
+            vscode.window.showErrorMessage("Open a workspace folder first to run OWS.");
+        }
+        return undefined;
+    }
+    if (folders.length === 1) {
+        return folders[0].uri.fsPath;
+    }
+
+    // Check active text editor
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor) {
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(activeEditor.document.uri);
+        if (workspaceFolder) {
+            return workspaceFolder.uri.fsPath;
+        }
+    }
+
+    if (silent) {
+        return folders[0].uri.fsPath;
+    }
+
+    const items = folders.map(f => ({ label: f.name, description: f.uri.fsPath }));
+    const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: "Select OWS workspace folder"
+    });
+    return picked ? picked.description : undefined;
 }
 
 async function runCli(args: string[], cwd: string): Promise<any> {
@@ -343,9 +436,15 @@ async function runCli(args: string[], cwd: string): Promise<any> {
         };
 
         cp.execFile(exec, [...initialArgs, ...args], { cwd, env: childEnv }, (err, stdout, stderr) => {
-            if (err && !stdout) {
-                reject(new Error(stderr || err.message));
-                return;
+            if (err) {
+                if ((err as any).code === 'ENOENT') {
+                    reject(new Error(`OWS CLI executable not found at: '${exec}'. Please check your 'ows.cliPath' setting.`));
+                    return;
+                }
+                if (!stdout) {
+                    reject(new Error(stderr || err.message));
+                    return;
+                }
             }
             try {
                 const response = JSON.parse(stdout.trim());
@@ -358,21 +457,27 @@ async function runCli(args: string[], cwd: string): Promise<any> {
     });
 }
 
+let cachedApiKey = "";
 async function getApiKey(): Promise<string> {
     try {
         if (extensionContext) {
             const key = await extensionContext.secrets.get("ows.apiKey");
-            if (key) return key;
+            if (key) {
+                cachedApiKey = key;
+                return key;
+            }
         }
     } catch { }
 
-    return process.env.OWS_VERIFIER_API_KEY || "";
+    const key = process.env.OWS_VERIFIER_API_KEY || "";
+    cachedApiKey = key;
+    return key;
 }
 
 async function updateStatusBar() {
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = await getWorkspaceRoot(true);
     if (!workspaceRoot) {
-        statusBarItem.text = '$(shield) OWS: No folder';
+        statusBarItem.text = '$(shield) OWS: Untrusted';
         statusBarItem.backgroundColor = undefined;
         return;
     }
@@ -380,23 +485,40 @@ async function updateStatusBar() {
     try {
         const result = await runCli(['status', '--json'], workspaceRoot);
         if (result.success) {
-            let icon = '$(shield)';
             let statusText = result.status || 'Ready';
+            statusBarItem.backgroundColor = undefined;
 
-            if (result.watcherRunning && result.sessionId) {
-                statusBarItem.text = `$(pulse) OWS: Watching & Session active`;
-                statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground'); // warm active
-            } else if (result.watcherRunning) {
-                statusBarItem.text = `$(eye) OWS: Watching`;
-                statusBarItem.backgroundColor = undefined;
-            } else if (result.sessionId) {
-                statusBarItem.text = `$(check) OWS: Session active`;
-                statusBarItem.backgroundColor = undefined;
+            if (statusText === 'WatchingLocalOnly') {
+                statusBarItem.text = `$(eye) OWS: Watching (Local)`;
+            } else if (statusText === 'SessionActive') {
+                if (result.watcherRunning) {
+                    statusBarItem.text = `$(pulse) OWS: Watching & Session active`;
+                    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+                } else {
+                    statusBarItem.text = `$(check) OWS: Session active`;
+                }
+            } else if (statusText === 'VerifierOffline') {
+                statusBarItem.text = `$(warning) OWS: Verifier Offline`;
+                statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+            } else if (statusText === 'HeartbeatFailing') {
+                statusBarItem.text = `$(alert) OWS: Heartbeat Failing`;
+                statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+            } else if (statusText === 'Degraded') {
+                statusBarItem.text = `$(warning) OWS: Degraded`;
+                statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+            } else if (statusText === 'Error') {
+                statusBarItem.text = `$(alert) OWS: Error`;
+                statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+            } else if (statusText === 'Not Initialized') {
+                statusBarItem.text = '$(alert) OWS: Not initialized';
             } else {
-                statusBarItem.text = `$(shield) OWS: Ready`;
-                statusBarItem.backgroundColor = undefined;
+                statusBarItem.text = `$(shield) OWS: ${statusText}`;
             }
+
             statusBarItem.tooltip = `OWS Status: ${statusText}\nSession: ${result.sessionId ?? 'None'}\nWatcher: ${result.watcherRunning ? 'Running' : 'Stopped'}`;
+            if (result.errors && result.errors.length > 0) {
+                statusBarItem.tooltip += `\nErrors:\n${result.errors.join('\n')}`;
+            }
         } else {
             statusBarItem.text = '$(alert) OWS: Not initialized';
             statusBarItem.backgroundColor = undefined;
@@ -410,7 +532,15 @@ async function updateStatusBar() {
 }
 
 function redactApiKey(input: string): string {
-    const apiKey = process.env.OWS_VERIFIER_API_KEY || "";
-    if (!apiKey || apiKey.length < 6) return input;
-    return input.replace(new RegExp(apiKey, 'g'), "[REDACTED_API_KEY]");
+    let result = input;
+    if (cachedApiKey && cachedApiKey.length >= 6) {
+        const escapedKey = cachedApiKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        result = result.replace(new RegExp(escapedKey, 'g'), "[REDACTED_API_KEY]");
+    }
+    const envKey = process.env.OWS_VERIFIER_API_KEY || "";
+    if (envKey && envKey.length >= 6 && envKey !== cachedApiKey) {
+        const escapedEnvKey = envKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        result = result.replace(new RegExp(escapedEnvKey, 'g'), "[REDACTED_API_KEY]");
+    }
+    return result;
 }

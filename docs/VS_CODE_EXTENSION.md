@@ -19,6 +19,19 @@ This extension integrates the Open Work Standard (OWS) file watcher, remote veri
 3. Open `src/ows-vscode` in VS Code and press `F5` to launch an Extension Development Host window.
 4. Open your project folder inside the new window.
 
+### Pilot Smoke Test
+
+For a full pilot smoke test, use the fixture from [PILOT_DEMO.md](PILOT_DEMO.md), then:
+
+1. Configure `ows.cliPath` so the extension can run the local CLI.
+2. Configure `ows.verifierUrl`, `ows.institutionId`, `ows.assessmentId`, `ows.studentUserId`, and `ows.courseOfferingId`.
+3. Open a trusted workspace.
+4. Run `OWS: Configure Assessment Context` and enter the `StudentClient` key.
+5. Run `OWS: Start Watch Session`.
+6. Confirm the status bar reaches active tracking.
+7. Run package, upload, and verification status commands.
+8. Confirm output and error messages redact the raw API key.
+
 ---
 
 ## 2. Configuration Settings

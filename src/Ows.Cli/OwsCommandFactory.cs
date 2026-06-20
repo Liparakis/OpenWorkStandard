@@ -71,7 +71,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -105,6 +105,7 @@ public static class OwsCommandFactory
                     var config = manager.GetProjectConfig(projectRoot);
                     var sessId = manager.GetCurrentSessionId(projectRoot);
                     var watcherRunning = manager.IsWatcherRunning(projectRoot);
+                    var watcherCrashed = manager.DidWatcherCrash(projectRoot);
 
                     response.Success = true;
                     response.SessionId = sessId;
@@ -122,30 +123,79 @@ public static class OwsCommandFactory
                     response.LastCheckpointAt = manager.GetLastCheckpointAt(projectRoot);
                     response.LastHeartbeatAt = manager.GetLastHeartbeatAt(projectRoot);
 
-                    if (watcherRunning && sessId != null)
+                    bool isOffline = false;
+                    bool isFailing = false;
+                    bool isDegraded = false;
+                    string? lastErr = null;
+
+                    var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+                    var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
+                    if (File.Exists(sessionPath))
                     {
-                        response.Status = "Watching & Session active";
+                        try
+                        {
+                            var content = File.ReadAllText(sessionPath);
+                            var state = JsonSerializer.Deserialize<SessionState>(content);
+                            if (state != null)
+                            {
+                                isOffline = state.IsVerifierOffline;
+                                isFailing = state.IsHeartbeatFailing;
+                                isDegraded = state.IsDegraded;
+                                lastErr = state.LastHeartbeatError;
+                            }
+                        }
+                        catch { }
+                    }
+
+                    if (watcherCrashed)
+                    {
+                        response.Status = "Error";
+                        response.Errors.Add("Watcher has crashed or is not running.");
+                    }
+                    else if (isOffline)
+                    {
+                        response.Status = "VerifierOffline";
+                        response.Errors.Add(lastErr ?? "Verifier server is offline or unreachable.");
+                    }
+                    else if (isFailing)
+                    {
+                        response.Status = "HeartbeatFailing";
+                        response.Errors.Add(lastErr ?? "Verifier session heartbeats are failing.");
+                    }
+                    else if (isDegraded)
+                    {
+                        response.Status = "Degraded";
+                        response.Message = "OWS session is active but degraded (lease gap detected).";
                     }
                     else if (watcherRunning)
                     {
-                        response.Status = "Watching";
+                        if (string.IsNullOrWhiteSpace(response.VerifierUrl))
+                        {
+                            response.Status = "WatchingLocalOnly";
+                            response.Message = "Watcher is running in local-only mode.";
+                        }
+                        else
+                        {
+                            response.Status = "SessionActive";
+                            response.Message = "Watcher is running and session is active.";
+                        }
                     }
                     else if (sessId != null)
                     {
-                        response.Status = "Session active";
+                        response.Status = "SessionActive";
+                        response.Message = "Session is active but watcher is not running.";
                     }
                     else
                     {
                         response.Status = "Ready";
+                        response.Message = "OWS is ready.";
                     }
-
-                    response.Message = $"OWS Status: {response.Status}. Watcher running: {watcherRunning}. Session active: {sessId != null}";
                 }
             }
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -207,7 +257,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -260,7 +310,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -295,7 +345,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -336,7 +386,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -413,7 +463,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
                 PrintResult(response, useJson);
                 return 1;
             }
@@ -445,7 +495,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -504,7 +554,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -545,7 +595,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -595,7 +645,7 @@ public static class OwsCommandFactory
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Errors.Add(ex.Message);
+                response.Errors.Add(GetFriendlyErrorMessage(ex));
             }
 
             PrintResult(response, useJson);
@@ -787,6 +837,77 @@ public static class OwsCommandFactory
         });
 
         return command;
+    }
+
+    private static string GetFriendlyErrorMessage(Exception ex)
+    {
+        var msg = ex.Message;
+
+        if (ex is DirectoryNotFoundException)
+        {
+            return msg;
+        }
+
+        if (msg.Contains("not initialized", StringComparison.OrdinalIgnoreCase))
+        {
+            return "OWS project is not initialized. Run 'ows init' first.";
+        }
+
+        if (msg.Contains("No remote verifier URL configured", StringComparison.OrdinalIgnoreCase))
+        {
+            return "No remote verifier URL configured.";
+        }
+
+        if (msg.Contains("Assessment context is missing", StringComparison.OrdinalIgnoreCase) ||
+            (msg.Contains("institutionId", StringComparison.OrdinalIgnoreCase) && msg.Contains("required", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "Assessment context is missing (Institution ID, Assessment ID, or Student User ID). Please configure the project context.";
+        }
+
+        if (msg.Contains("OWS_VERIFIER_API_KEY", StringComparison.OrdinalIgnoreCase) || msg.Contains("API Key is missing", StringComparison.OrdinalIgnoreCase))
+        {
+            return "No API key configured for remote verifier. Please set OWS_VERIFIER_API_KEY.";
+        }
+
+        if (ex is UnauthorizedAccessException || msg.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("forbidden", StringComparison.OrdinalIgnoreCase) || msg.Contains("401") || msg.Contains("403") ||
+            msg.Contains("rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            return "API key was rejected by the verifier. Please check your credentials.";
+        }
+
+        if (msg.Contains("Watcher is already running", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Watcher is already running for this project.";
+        }
+
+        if (msg.Contains("Watcher has crashed", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Watcher has crashed or is not running.";
+        }
+
+        if (ex is System.Net.Http.HttpRequestException || msg.Contains("connection refused", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("unreachable", StringComparison.OrdinalIgnoreCase) || msg.Contains("503") || msg.Contains("offline", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Verifier server is offline or unreachable.";
+        }
+
+        if (msg.Contains("database is locked", StringComparison.OrdinalIgnoreCase) || msg.Contains("SQLite Error 5", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Local OWS database is locked by another process.";
+        }
+
+        if (msg.Contains("Packaging failed", StringComparison.OrdinalIgnoreCase))
+        {
+            return msg;
+        }
+
+        if (msg.Contains("Upload failed", StringComparison.OrdinalIgnoreCase) || msg.Contains("upload", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"Package upload failed: {msg}";
+        }
+
+        return msg;
     }
 
     private static void PrintResult(OwsCliResponse response, bool useJson)

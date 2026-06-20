@@ -35,6 +35,11 @@ public interface IOwsWatchSessionManager
     bool IsWatcherRunning(string projectRoot);
 
     /// <summary>
+    /// Gets whether the watcher has crashed (watcher.json exists but process is dead).
+    /// </summary>
+    bool DidWatcherCrash(string projectRoot);
+
+    /// <summary>
     /// Starts a session (local or remote based on config).
     /// </summary>
     Task<string> StartSessionAsync(string projectRoot, string? verifierUrlOverride = null);

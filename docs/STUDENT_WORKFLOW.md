@@ -53,14 +53,17 @@ ows session start
 This contacts the remote verifier to register the session and creates `.ows/session.json`.
 
 ### Step 6: Maintain Heartbeats & Checkpoints
-- **Heartbeat**: Sends a heartbeat signal to indicate the user is active:
-  ```bash
-  ows session heartbeat
-  ```
-- **Checkpoint**: Captures the current timeline head and receives a remote receipt:
-  ```bash
-  ows session checkpoint
-  ```
+When `ows watch start` is running, the watcher process sends verifier heartbeats every 30 seconds for remote sessions. The manual heartbeat command is only a probe:
+
+```bash
+ows session heartbeat
+```
+
+Use checkpoints to capture the current timeline head and receive a remote receipt:
+
+```bash
+ows session checkpoint
+```
 
 ### Step 7: Show Status
 Check current state at any time:
@@ -94,6 +97,8 @@ The VS Code extension handles the entire lifecycle visually:
 4. **Active Session**: Run `OWS: Start Watch Session` (or starting a session) will show `OWS: Watching & Session active`.
 5. **Heartbeats & Checkpoints**: The extension automatically routes session signals.
 6. **Submit**: Run `OWS: Package Submission` and `OWS: Upload Package`. The Submission ID and verification job result will be displayed as notifications.
+
+For the full pilot validation sequence, use [PILOT_DEMO.md](PILOT_DEMO.md).
 
 ---
 

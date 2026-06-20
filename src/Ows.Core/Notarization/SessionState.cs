@@ -51,4 +51,24 @@ public sealed record SessionState
     /// Gets the last package submission ID.
     /// </summary>
     public string? LastPackageId { get; init; }
+
+    /// <summary>
+    /// Gets whether the verifier is offline/unreachable.
+    /// </summary>
+    public bool IsVerifierOffline { get; init; }
+
+    /// <summary>
+    /// Gets whether the heartbeat is failing.
+    /// </summary>
+    public bool IsHeartbeatFailing { get; init; }
+
+    /// <summary>
+    /// Gets whether the session is degraded (lease gap).
+    /// </summary>
+    public bool IsDegraded { get; init; }
+
+    /// <summary>
+    /// Gets the last heartbeat error message.
+    /// </summary>
+    public string? LastHeartbeatError { get; init; }
 }

@@ -29,13 +29,48 @@ This guide contains a troubleshooting matrix to resolve common configuration and
 
 ---
 
+## Student-Facing Troubleshooting & Recovery
+
+### 1. Common Student Status Indicators
+- **WatchingLocalOnly**: The file watcher is running locally, but no remote verifier session is active (or verifier URL is omitted). Work is saved only on your local machine.
+- **SessionActive**: A remote verifier session is registered. Files are tracked, and heartbeats/checkpoints are successfully sent. (Standard mode for active exams/assignments).
+- **VerifierOffline**: The remote verifier is currently unreachable (network down or server crashed). OWS continues local tracking; it will automatically retry connecting when network returns.
+- **HeartbeatFailing**: The verifier returned an error during a heartbeat (such as `401 Unauthorized` or `403 Forbidden`). This usually indicates an expired or misconfigured API key.
+- **Degraded**: A lease gap was detected by the verifier (e.g., your laptop was closed, or heartbeats were paused for a long time). OWS remains active, but you should continue working so continuity can be verified.
+- **Error**: The watcher process crashed or could not start (such as when the CLI executable path is incorrect).
+
+### 2. How to Recover from a Stale Watcher
+If you see an error saying the watcher is already running, or if the watcher crashes:
+1. Run `ows watch stop` in the terminal, or select `OWS: Stop Watch Session` in VS Code.
+2. If it still fails, OWS will automatically recover on the next start by checking if the process ID (PID) stored in `.ows/watcher.json` belongs to an active OWS/dotnet process. If the process is dead, OWS safely deletes the stale lock file.
+3. You can also manually delete `.ows/watcher.json` and `.ows/watcher.stop` if you need to force a reset.
+
+### 3. Reconfiguring Assessment Context
+If you entered the wrong Student ID, Assessment ID, or Verifier URL:
+- Run `OWS: Configure Assessment Context` in VS Code to enter new values.
+- Or run `ows init` again, then edit `.ows/config.json` manually.
+
+### 4. Safely Resetting Local State
+If your local state becomes corrupt or you want to start fresh:
+1. Stop the watcher: `ows watch stop`.
+2. Delete the `.ows` folder from your project root. (Caution: this removes local timeline history and receipts).
+3. Initialize the project again: `ows init`.
+
+### 5. How to Report an Issue
+If you run into an error you cannot solve, please contact your instructor/operator and provide:
+- **Request ID**: Find the `X-Request-Id` in the verifier logs or CLI outputs.
+- **Session ID**: Located in `.ows/session.json` or displayed in `ows status`.
+- **Package ID / Submission ID**: Returned after running `ows package upload`.
+
+---
+
 ## See Also
 
+- [PILOT_DEMO.md](PILOT_DEMO.md) - end-to-end pilot validation walkthrough
 - [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) — daily operator procedures and emergency runbook
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) — what to back up, restore order, recovery drills
 - [SECURITY_HARDENING.md](SECURITY_HARDENING.md) — signing key custody, API key management, diagnostics fields
 - [SELF_HOSTED_COMPOSE.md](SELF_HOSTED_COMPOSE.md) — production Docker Compose deployment
-
 
 When OWS package verification fails or returns `Invalid`/`Unverified` status, inspect the findings in the generated review reports. Reference this table:
 

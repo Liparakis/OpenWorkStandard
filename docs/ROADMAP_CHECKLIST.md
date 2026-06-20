@@ -4,9 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Implement LMS integration options, LTI launch workflows, and student/professor pilot feedback improvements.
+Validate the complete pilot workflow end-to-end before adding more UI surfaces.
 
-**Next milestone:** LMS Integration and Pilot Hardening v0.1.
+**Next milestone:** Pilot End-to-End Validation v0.1.
 
 ## 1. Current MVP Status
 
@@ -226,3 +226,34 @@ Implement LMS integration options, LTI launch workflows, and student/professor p
 - [x] Remote verification status query from IDE
 - [x] Minimal Desktop Tray/Status UI spec (`docs/DESKTOP_UI.md`)
 - [x] Rider integration design (`docs/RIDER_INTEGRATION.md`)
+
+## 17. Student Workflow Hardening v0.1
+
+- [x] Stale watcher PID lock recovery & name validation
+- [x] Duplicate watcher start prevention
+- [x] Safe watcher stop when already stopped
+- [x] Missing or moved project directory checks (DirectoryNotFoundException)
+- [x] Offline verifier background heartbeat loop and state persistence
+- [x] Heartbeat and checkpoint error state tracking
+- [x] Package upload timeout (60 seconds) and specific HTTP error code parsing (400, 413, 401, 403)
+- [x] CLI/extension status mapping (WatchingLocalOnly, SessionActive, VerifierOffline, HeartbeatFailing, Degraded, Error)
+- [x] Student-friendly exception translation
+- [x] VS Code workspace trust checking
+- [x] VS Code multi-folder support (silent fallback vs quickpick vs active editor)
+- [x] VS Code spawn error detection (ENOENT)
+- [x] VS Code API key and environment variable redactions in logs and error displays
+- [x] Comprehensive watcher and CLI status/redaction tests
+- [x] Updated troubleshooting and student workflow documentation
+
+## 18. Pilot End-to-End Validation v0.1
+
+- [x] Pilot fixture setup script (`scripts/setup-pilot-fixture.ps1`)
+- [x] Main professor/sysadmin walkthrough (`docs/PILOT_DEMO.md`)
+- [x] Student CLI workflow validation documented
+- [x] Student VS Code workflow validation documented
+- [x] StudentClient session/package/upload validation documented
+- [x] Reviewer report workflow validation documented
+- [x] Audit and diagnostics workflow validation documented
+- [x] Heartbeat lifecycle validation documented
+- [x] Negative-path validation checklist documented
+- [ ] Full live pilot dry run against a fresh Compose stack

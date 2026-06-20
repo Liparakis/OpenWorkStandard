@@ -2,6 +2,8 @@
 
 This guide is designed for systems administrators and operators running a self-hosted OWS verifier instance.
 
+For the end-to-end pilot walkthrough, start with [PILOT_DEMO.md](PILOT_DEMO.md). It covers fixture creation, student submission, reviewer report access, audit checks, diagnostics, and negative-path validation.
+
 ---
 
 ## 1. Role Scopes

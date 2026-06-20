@@ -29,6 +29,7 @@ What works today:
 - unified OwsWatchSessionManager lifecycle foundation library for host integrations
 - machine-readable CLI commands with global `--json` option and API key redaction
 - minimal VS Code extension supporting full student watch/session/package lifecycle and secure key storage
+- documented pilot demo path covering operator setup, student workflow, reviewer report access, diagnostics, audit, and negative-path checks
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -340,6 +341,8 @@ Recent uncommitted/working-tree progress:
 - `InstitutionAdmin` and `StudentClient` RBAC roles are implemented with strict institution and ownership validation scoping
 - Prometheus-compatible `/metrics` endpoint is exposed for scraping without key requirements
 - operational runbooks, backup/restore order, recovery failure modes, and restore drills are fully documented
+- `docs/PILOT_DEMO.md` now provides the main pilot walkthrough for professors and sysadmins
+- `scripts/setup-pilot-fixture.ps1` creates a minimal institution/course/student/assessment fixture and delegated student/reviewer keys
 
 Net result:
 
@@ -348,6 +351,7 @@ Net result:
 - the package format now carries enough session context to resolve remote anchors
 - verifier-side package intake now survives restart and exposes operator/reviewer status endpoints
 - OWS has a hardened production-readiness operational baseline with multi-institution scoping and monitoring support
+- OWS has a documented end-to-end pilot validation path before adding Rider, desktop polish, or LMS integration
 
 ## Current Gaps
 
@@ -384,9 +388,9 @@ The weakest assumption to avoid: thinking durable local blobs plus PostgreSQL ar
 
 Best next steps, in order:
 
-1. Implement watch lifecycle integrations for VS Code and Rider.
-2. Build Desktop UI for student watch status.
-3. Design and implement OIDC authentication for institutional dashboards.
+1. Run a full live pilot dry run against a fresh Compose stack and archive the evidence.
+2. Fix any workflow seams found during that dry run.
+3. Defer Rider, desktop polish, and LMS integration until the pilot path is boring.
 
 ## Bottom Line
 
