@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Ows.Cli;
 
 namespace Ows.Cli.Tests;
 
@@ -59,7 +58,7 @@ public sealed class OwsWatchCommandTests
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-watch-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
-        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "draft");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft");
         var originalDirectory = Directory.GetCurrentDirectory();
 
         try
@@ -72,14 +71,14 @@ public sealed class OwsWatchCommandTests
             // Run the agent directly (bypassing the CLI watch command) with a short-lived
             // token so the watcher stops after the initial scan.
             using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
-            var agent = new Ows.Core.Agent.LocalTrackingAgent(
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<Ows.Core.Agent.LocalTrackingAgent>.Instance);
+            var agent = new Core.Agent.LocalTrackingAgent(
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<Core.Agent.LocalTrackingAgent>.Instance);
             await agent.PrepareAsync(
-                new Ows.Core.Agent.TrackingAgentOptions
+                new Core.Agent.TrackingAgentOptions
                 {
                     ProjectRootPath = projectRoot,
-                    DatabasePath = Path.Combine(projectRoot, Ows.Core.OwsConstants.LocalFolderName, "ows.db"),
-                    WatcherOptions = new Ows.Core.Agent.FileWatcherOptions
+                    DatabasePath = Path.Combine(projectRoot, Core.OwsConstants.LocalFolderName, "ows.db"),
+                    WatcherOptions = new Core.Agent.FileWatcherOptions
                     {
                         UsePollingFallback = true,
                         PollingIntervalMs = 50,
@@ -91,7 +90,8 @@ public sealed class OwsWatchCommandTests
             await agent.StartAsync(cts.Token);
 
             var timelinePath = Path.Combine(projectRoot, ".ows", "timeline.jsonl");
-            var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
+            var lines = (await File.ReadAllLinesAsync(timelinePath))
+                .Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
 
             lines.Should().Contain(line => line.Contains("draft.txt"),
                 "the initial scan should have appended a FileCreated event for draft.txt");

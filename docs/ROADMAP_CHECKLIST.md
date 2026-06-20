@@ -4,9 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Connect the education domain (Institutions, Courses, Classes, Assessments, Users) to verifier review reports.
+Harden Auth/RBAC v0.1 by completing API key lifecycle controls, role-policy tests, institution scoping checks, and operator documentation.
 
-**Next milestone:** Auth and RBAC v0.1 — add operator-level API key management, institution-scoped access, and a read-only reviewer role for professors to query verification results.
+**Next milestone:** Auth/RBAC Hardening v0.1.
 
 ## 1. Current MVP Status
 
@@ -74,7 +74,26 @@ Connect the education domain (Institutions, Courses, Classes, Assessments, Users
 - [x] Operator API keys
 - [x] Institution-scoped reviewer API keys
 - [x] Read-only reviewer access to verification resources
+- [x] Persistent API key records
+- [x] API key hash storage only
+- [x] API key revocation
+- [x] API key expiry
+- [x] API key last-used tracking
+- [x] Legacy shared-key compatibility
+- [ ] Full SSO/OIDC/SAML - Deferred
 - [ ] Observability - Status: Partial (Endpoints /health and /ready, and structured startup logs implemented)
+
+## 6A. Auth and RBAC v0.1
+
+- [x] Operator role implemented
+- [x] InstructorReviewer role implemented
+- [ ] InstitutionAdmin role - Deferred
+- [ ] StudentClient role - Deferred
+- [x] Institution scoping enforced for package metadata and verification resources
+- [x] Institution scoping enforced for education read endpoints
+- [x] Reviewer read-only policy enforced
+- [x] Operator API key lifecycle endpoints
+- [x] Operator documentation for pilot key management
 
 ## 7. Package Submission and Server-Side Verification
 

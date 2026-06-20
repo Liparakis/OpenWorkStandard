@@ -41,14 +41,7 @@ var configuredApiKeys = BuildConfiguredApiKeys(securityOptions);
 // Check API Keys
 if (configuredApiKeys.Count == 0)
 {
-    if (isProduction)
-    {
-        startupErrors.Add("VerifierSecurity:ApiKey or VerifierSecurity:ApiKeys must be configured in Production mode.");
-    }
-    else
-    {
-        startupWarnings.Add("VerifierSecurity API keys are not configured. Request guard is disabled.");
-    }
+    startupWarnings.Add("VerifierSecurity bootstrap API keys are not configured. Persisted API keys or unguarded local bootstrap mode will be used.");
 }
 else
 {
@@ -78,12 +71,12 @@ else
 
         if (!IsSupportedVerifierRole(apiKey.Role))
         {
-            startupErrors.Add($"VerifierSecurity role '{apiKey.Role}' is not supported. Use 'operator' or 'reviewer'.");
+            startupErrors.Add($"VerifierSecurity role '{apiKey.Role}' is not supported. Use 'Operator' or 'InstructorReviewer'.");
         }
 
-        if (IsReviewerRole(apiKey.Role) && string.IsNullOrWhiteSpace(apiKey.InstitutionId))
+        if (IsInstructorReviewerRole(apiKey.Role) && string.IsNullOrWhiteSpace(apiKey.InstitutionId))
         {
-            startupErrors.Add("VerifierSecurity reviewer keys must set InstitutionId.");
+            startupErrors.Add("VerifierSecurity InstructorReviewer keys must set InstitutionId.");
         }
     }
 }
@@ -158,6 +151,17 @@ if (args.Any(static arg => string.Equals(arg, "migrate", StringComparison.Ordina
 builder.Services.AddSingleton(normalizedStorageOptions);
 builder.Services.AddSingleton(securityOptions);
 builder.Services.AddSingleton<IPackageVerifier, OwsPackageVerifier>();
+builder.Services.AddSingleton<IVerifierApiKeyStore>(_ =>
+{
+    var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath;
+    return string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
+        ? new PostgresVerifierApiKeyStore(
+            !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
+                ? normalizedStorageOptions.PostgresConnectionString
+                : throw new InvalidOperationException(
+                    "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."))
+        : new JsonFileVerifierApiKeyStore(Path.Combine(storeRoot, "api_keys.json"));
+});
 builder.Services.AddSingleton<IPackageSubmissionStore>(_ => string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
     ? new PostgresPackageSubmissionStore(normalizedStorageOptions.PostgresConnectionString)
     : new JsonFilePackageSubmissionStore(Path.Combine(Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath, "package_submissions.json")));
@@ -243,6 +247,27 @@ if (app.Services.GetService<IEducationStore>() is { } educationStore)
     }
 }
 
+var apiKeyStore = app.Services.GetRequiredService<IVerifierApiKeyStore>();
+try
+{
+    startupLogger.LogInformation("Initializing verifier API key store...");
+    await apiKeyStore.InitializeAsync(CancellationToken.None);
+    var hasPersistedKeys = await apiKeyStore.HasActiveKeysAsync(CancellationToken.None);
+    startupLogger.LogInformation("Verifier API key store initialized successfully. Persisted Keys Present: {HasPersistedKeys}", hasPersistedKeys);
+    if (isProduction && configuredApiKeys.Count == 0 && !hasPersistedKeys)
+    {
+        throw new InvalidOperationException("Production mode requires either bootstrap API keys or persisted verifier API keys.");
+    }
+}
+catch (Exception ex)
+{
+    startupLogger.LogError(ex, "Failed to initialize verifier API key store.");
+    if (isProduction)
+    {
+        throw;
+    }
+}
+
 app.Use(async (context, next) =>
 {
     var stopwatch = Stopwatch.StartNew();
@@ -262,30 +287,54 @@ app.Use(async (context, next) =>
     }
 });
 
-if (configuredApiKeys.Count > 0)
+app.Use(async (context, next) =>
 {
-    app.Use(async (context, next) =>
+    var persistentApiKeyStore = context.RequestServices.GetRequiredService<IVerifierApiKeyStore>();
+    var hasBootstrapKeys = configuredApiKeys.Count > 0;
+    var hasPersistedKeys = false;
+    try
     {
-        var access = TryAuthenticateApiKey(context.Request, securityOptions.HeaderName, configuredApiKeys);
-        if (access is null)
+        hasPersistedKeys = await persistentApiKeyStore.HasActiveKeysAsync(context.RequestAborted);
+    }
+    catch when (!isProduction)
+    {
+        if (!hasBootstrapKeys)
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            var hasHeader = context.Request.Headers.ContainsKey(securityOptions.HeaderName);
-            var message = hasHeader ? "Invalid verifier API key." : "Verifier API key is required.";
-            await context.Response.WriteAsync(message);
+            await next(context);
             return;
         }
+    }
 
-        if (!await IsAuthorizedAsync(context, access, CancellationToken.None))
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsync("Verifier API key is not authorized for this resource.");
-            return;
-        }
-
+    if (!hasBootstrapKeys && !hasPersistedKeys)
+    {
         await next(context);
-    });
-}
+        return;
+    }
+
+    var suppliedKey = TryGetSuppliedApiKey(context.Request, securityOptions.HeaderName);
+    var access = suppliedKey is null
+        ? null
+        : TryAuthenticateConfiguredApiKey(suppliedKey, configuredApiKeys)
+          ?? await TryAuthenticatePersistedApiKeyAsync(persistentApiKeyStore, suppliedKey, context.RequestAborted);
+    if (access is null)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        var hasHeader = context.Request.Headers.ContainsKey(securityOptions.HeaderName);
+        var message = hasHeader ? "Invalid verifier API key." : "Verifier API key is required.";
+        await context.Response.WriteAsync(message);
+        return;
+    }
+
+    if (!await IsAuthorizedAsync(context, access, context.RequestAborted))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsync("Verifier API key is not authorized for this resource.");
+        return;
+    }
+
+    context.Items["VerifierAccessContext"] = access;
+    await next(context);
+});
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 
@@ -313,6 +362,28 @@ app.MapGet("/ready", async (IVerifierStorage storage, VerifierStorageOptions opt
         return Results.Json(new { status = "Unhealthy", error = ex.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 });
+
+app.MapPost("/auth/api-keys", async (VerifierApiKeyCreateRequest request, IVerifierApiKeyStore apiKeyStore,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await apiKeyStore.CreateAsync(request, cancellationToken));
+    }
+    catch (InvalidOperationException exception)
+    {
+        return Results.BadRequest(exception.Message);
+    }
+});
+
+app.MapGet("/auth/api-keys", async (IVerifierApiKeyStore apiKeyStore, CancellationToken cancellationToken) =>
+    Results.Ok(await apiKeyStore.ListAsync(cancellationToken)));
+
+app.MapPost("/auth/api-keys/{id}/revoke", async (string id, IVerifierApiKeyStore apiKeyStore,
+    CancellationToken cancellationToken) =>
+    await apiKeyStore.RevokeAsync(id, cancellationToken)
+        ? Results.Ok(new { keyId = id, revoked = true })
+        : Results.NotFound("Unknown verifier API key."));
 
 app.MapPost("/sessions", async (StartSessionRequest? body, IVerifierStorage storage,
     IEducationStore educationStore, CancellationToken cancellationToken) =>
@@ -1058,7 +1129,7 @@ static List<VerifierAccessContext> BuildConfiguredApiKeys(VerifierSecurityOption
     var configuredKeys = new List<VerifierAccessContext>();
     if (!string.IsNullOrWhiteSpace(options.ApiKey))
     {
-        configuredKeys.Add(new VerifierAccessContext("operator", null, options.ApiKey));
+        configuredKeys.Add(new VerifierAccessContext(VerifierRolePolicy.Operator, null, options.ApiKey));
     }
 
     foreach (var apiKey in options.ApiKeys)
@@ -1069,7 +1140,7 @@ static List<VerifierAccessContext> BuildConfiguredApiKeys(VerifierSecurityOption
         }
 
         configuredKeys.Add(new VerifierAccessContext(
-            NormalizeVerifierRole(apiKey.Role),
+            NormalizeVerifierRoleName(apiKey.Role),
             apiKey.InstitutionId,
             apiKey.Key));
     }
@@ -1077,11 +1148,7 @@ static List<VerifierAccessContext> BuildConfiguredApiKeys(VerifierSecurityOption
     return configuredKeys;
 }
 
-// Checks configured verifier API keys without leaking timing differences for equal-length values.
-static VerifierAccessContext? TryAuthenticateApiKey(
-    HttpRequest request,
-    string headerName,
-    IReadOnlyList<VerifierAccessContext> configuredApiKeys)
+static string? TryGetSuppliedApiKey(HttpRequest request, string headerName)
 {
     if (string.IsNullOrWhiteSpace(headerName) ||
         !request.Headers.TryGetValue(headerName, out var suppliedValues))
@@ -1095,6 +1162,14 @@ static VerifierAccessContext? TryAuthenticateApiKey(
         return null;
     }
 
+    return suppliedKey;
+}
+
+// Checks configured bootstrap API keys without leaking timing differences for equal-length values.
+static VerifierAccessContext? TryAuthenticateConfiguredApiKey(
+    string suppliedKey,
+    IReadOnlyList<VerifierAccessContext> configuredApiKeys)
+{
     var suppliedBytes = Encoding.UTF8.GetBytes(suppliedKey);
     foreach (var configuredApiKey in configuredApiKeys)
     {
@@ -1107,6 +1182,21 @@ static VerifierAccessContext? TryAuthenticateApiKey(
     }
 
     return null;
+}
+
+static async Task<VerifierAccessContext?> TryAuthenticatePersistedApiKeyAsync(
+    IVerifierApiKeyStore apiKeyStore,
+    string suppliedKey,
+    CancellationToken cancellationToken)
+{
+    try
+    {
+        return await apiKeyStore.AuthenticateAsync(suppliedKey, cancellationToken);
+    }
+    catch
+    {
+        return null;
+    }
 }
 
 // Reviewer keys are deliberately narrow: read-only verifier evidence queries, scoped to one institution.
@@ -1133,6 +1223,11 @@ static async Task<bool> IsAuthorizedAsync(
         return false;
     }
 
+    if (segments is ["auth", "api-keys"] or ["auth", "api-keys", _, "revoke"])
+    {
+        return IsOperatorRole(access.Role);
+    }
+
     if (segments is ["packages", _] or ["packages", _, "verification"])
     {
         var packageStore = context.RequestServices.GetRequiredService<IPackageSubmissionStore>();
@@ -1155,6 +1250,14 @@ static async Task<bool> IsAuthorizedAsync(
             cancellationToken);
     }
 
+    if (segments.Length >= 2 && string.Equals(segments[0], "education", StringComparison.OrdinalIgnoreCase))
+    {
+        var educationStore = context.RequestServices.GetRequiredService<IEducationStore>();
+        var institutionId = await ResolveEducationInstitutionIdAsync(segments, educationStore, cancellationToken);
+        return !string.IsNullOrWhiteSpace(institutionId) &&
+               string.Equals(institutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase);
+    }
+
     return false;
 }
 
@@ -1166,13 +1269,13 @@ static async Task<bool> MatchesInstitutionScopeAsync(
     IVerifierStorage storage,
     CancellationToken cancellationToken)
 {
-    var resolvedInstitutionId = NormalizeInstitutionId(institutionId);
+    var resolvedInstitutionId = NormalizeInstitutionIdValue(institutionId);
     if (string.IsNullOrWhiteSpace(resolvedInstitutionId) && !string.IsNullOrWhiteSpace(sessionId))
     {
         try
         {
             var session = await storage.GetSessionAsync(new AssessmentSessionId(sessionId), cancellationToken);
-            resolvedInstitutionId = NormalizeInstitutionId(TryGetInstitutionIdFromMetadata(session.MetadataJson));
+            resolvedInstitutionId = NormalizeInstitutionIdValue(TryGetInstitutionIdFromMetadata(session.MetadataJson));
         }
         catch (InvalidOperationException)
         {
@@ -1206,19 +1309,67 @@ static string? TryGetInstitutionIdFromMetadata(string? metadataJson)
 }
 
 static bool IsSupportedVerifierRole(string role) =>
-    IsOperatorRole(role) || IsReviewerRole(role);
+    VerifierRolePolicy.IsSupportedRole(role);
 
 static bool IsOperatorRole(string role) =>
-    string.Equals(NormalizeVerifierRole(role), "operator", StringComparison.Ordinal);
+    VerifierRolePolicy.IsOperatorRole(role);
 
-static bool IsReviewerRole(string role) =>
-    string.Equals(NormalizeVerifierRole(role), "reviewer", StringComparison.Ordinal);
+static bool IsInstructorReviewerRole(string role) =>
+    VerifierRolePolicy.IsInstructorReviewerRole(role);
 
-static string NormalizeVerifierRole(string role) =>
-    string.IsNullOrWhiteSpace(role) ? "operator" : role.Trim().ToLowerInvariant();
+static string NormalizeVerifierRoleName(string role) =>
+    VerifierRolePolicy.NormalizeRoleName(role);
 
-static string? NormalizeInstitutionId(string? institutionId) =>
-    string.IsNullOrWhiteSpace(institutionId) ? null : institutionId.Trim();
+static string? NormalizeInstitutionIdValue(string? institutionId) =>
+    VerifierRolePolicy.NormalizeInstitutionId(institutionId);
+
+static async Task<string?> ResolveEducationInstitutionIdAsync(
+    string[] segments,
+    IEducationStore educationStore,
+    CancellationToken cancellationToken)
+{
+    if (segments is ["education", "institutions", var institutionIdSegment])
+    {
+        return institutionIdSegment;
+    }
+
+    if (segments is ["education", "courses", var courseId])
+    {
+        return (await educationStore.GetCourseAsync(new CourseId(courseId), cancellationToken))?.InstitutionId.Value;
+    }
+
+    if (segments is ["education", "class-groups", var classGroupId])
+    {
+        return (await educationStore.GetClassGroupAsync(new ClassGroupId(classGroupId), cancellationToken))?.InstitutionId.Value;
+    }
+
+    if (segments is ["education", "course-offerings", var offeringId])
+    {
+        return (await educationStore.GetCourseOfferingAsync(new CourseOfferingId(offeringId), cancellationToken))?.InstitutionId.Value;
+    }
+
+    if (segments is ["education", "assessments", var assessmentId])
+    {
+        return (await educationStore.GetAssessmentAsync(new AssessmentId(assessmentId), cancellationToken))?.InstitutionId.Value;
+    }
+
+    if (segments is ["education", "users", var userId])
+    {
+        return (await educationStore.GetUserAsync(new UserId(userId), cancellationToken))?.InstitutionId.Value;
+    }
+
+    if (segments is ["education", "enrollments", "user", var enrollmentUserId])
+    {
+        return (await educationStore.GetUserAsync(new UserId(enrollmentUserId), cancellationToken))?.InstitutionId.Value;
+    }
+
+    if (segments is ["education", "enrollments", "offering", var enrollmentOfferingId])
+    {
+        return (await educationStore.GetCourseOfferingAsync(new CourseOfferingId(enrollmentOfferingId), cancellationToken))?.InstitutionId.Value;
+    }
+
+    return null;
+}
 
 static bool IsWeakSecret(string secret)
 {

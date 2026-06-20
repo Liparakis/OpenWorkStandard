@@ -27,6 +27,9 @@ The repository now includes a verifier server Dockerfile at:
 
 Current HTTP surface:
 
+- `POST /auth/api-keys`
+- `GET /auth/api-keys`
+- `POST /auth/api-keys/{id}/revoke`
 - `POST /sessions`
 - `POST /sessions/{id}/checkpoints`
 - `POST /packages`
@@ -66,11 +69,8 @@ Example:
 $env:VerifierStorage__Provider = "postgres"
 $env:VerifierStorage__PostgresConnectionString = "Host=db.example;Port=5432;Database=ows_verifier;Username=ows;Password=change-me"
 $env:VerifierStorage__ReceiptSigningKey = "<long-random-secret>"
-$env:VerifierSecurity__ApiKey = "<operator-api-key>"
-$env:VerifierSecurity__ApiKeys__0__Key = "<reviewer-api-key>"
-$env:VerifierSecurity__ApiKeys__0__Role = "reviewer"
-$env:VerifierSecurity__ApiKeys__0__InstitutionId = "institution-1"
-$env:OWS_VERIFIER_API_KEY = "<operator-api-key>"
+$env:VerifierSecurity__ApiKey = "<bootstrap-operator-key>"
+$env:OWS_VERIFIER_API_KEY = "<bootstrap-operator-key>"
 ```
 
 ## First Bootstrap
@@ -113,7 +113,14 @@ See `docs/DEFERRED_NOTES.md` for that explicit deferral.
 
 Receipts are HMAC-signed when `VerifierStorage__ReceiptSigningKey` is configured. Keep that key outside the repository and deployment images. Public-key signatures, key IDs, and rotation are still deferred.
 
-Requests require `X-OWS-Verifier-Key` when verifier API keys are configured. The current v0.1 model supports full-access `operator` keys and read-only institution-scoped `reviewer` keys. It is still config-backed API-key auth, not user identity or full institutional RBAC.
+Requests require `X-OWS-Verifier-Key` when verifier API keys are configured. The current v0.1 model supports full-access `Operator` keys and read-only institution-scoped `InstructorReviewer` keys. It is still API-key auth, not user identity or full institutional RBAC.
+
+Preferred pilot setup:
+
+1. Start with a bootstrap operator key through `VerifierSecurity__ApiKey`.
+2. Create persisted operator and reviewer keys through `POST /auth/api-keys`.
+3. Distribute only persisted keys to users.
+4. Rotate the bootstrap key out of daily use once persisted operator keys exist.
 
 ## What To Check After Startup
 
@@ -148,5 +155,5 @@ The current Docker support is verifier-image-level only. Full production Compose
 
 1. Keep the verifier API narrow.
 2. Validate PostgreSQL backups and restore.
-3. Add deployment packaging only after the verifier workflow is stable.
-4. Add auth and RBAC before broader institutional exposure.
+3. Use persisted API keys for pilot operators and reviewers.
+4. Add full identity and broader RBAC before broader institutional exposure.

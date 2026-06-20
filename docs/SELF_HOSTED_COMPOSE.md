@@ -36,7 +36,7 @@ Before starting, ensure the host system has:
 
 > [!IMPORTANT]
 > **Production Key Enforcement**: When `VerifierEnvironment` is set to `Production`, the verifier will execute startup preflight checks and abort immediately if weak configurations or default keys are detected.
-> Ensure that both `VerifierSecurity__ApiKey` and `VerifierSecurity__SigningKey` are at least 16 characters long.
+> Ensure that `VerifierSecurity__ApiKey` and `VerifierStorage__ReceiptSigningKey` are at least 16 characters long when used as bootstrap secrets.
 
 ---
 
@@ -92,7 +92,7 @@ docker compose logs -f ows-verifier
 > **Production Deployment Hardening Checklist**:
 > 1. **TLS / HTTPS Termination**: The OWS Verifier does NOT handle TLS termination natively in the container. **You must run a reverse proxy (e.g. Nginx, Traefik, Caddy, or an AWS ALB) in front of the Compose stack to enforce HTTPS.**
 > 2. **Secret Privacy**: Never commit the `.env` file to version control.
-> 3. **API Key Guard limits**: The shared-key API guard (`VerifierSecurity__ApiKey`) acts as a basic trust boundary to prevent unauthorized scans. It does not replace full OAuth/OIDC authentication or fine-grained RBAC.
+> 3. **API Key Guard limits**: The bootstrap key (`VerifierSecurity__ApiKey`) is compatibility/bootstrap-only. Persisted operator/reviewer keys are preferred for pilots, and they still do not replace full OAuth/OIDC authentication or fine-grained institutional RBAC.
 > 4. **No Dev Keys**: Double-check that dev-mode default signing keys are not active in production environments.
 
 ---

@@ -4,9 +4,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Ows.Core.Education;
 using Ows.Core.Notarization;
 using Ows.Core.Verification;
-using Xunit;
+using Ows.Verifier.Server;
 
 namespace Ows.Cli.Tests;
 
@@ -16,12 +17,13 @@ namespace Ows.Cli.Tests;
 [Collection(CliCommandCollection.Name)]
 public sealed class VerifierServerTests
 {
-    private static readonly object EnvLock = new();
+    private static readonly Lock EnvLock = new();
 
     /// <summary>
     /// Helper to create a test client and factory with environment variables configured before host building.
     /// </summary>
-    private static HttpClient CreateClientWithEnv(Dictionary<string, string?> envVars, out WebApplicationFactory<global::Program> factory)
+    private static HttpClient CreateClientWithEnv(Dictionary<string, string?> envVars,
+        out WebApplicationFactory<global::Program> factory)
     {
         lock (EnvLock)
         {
@@ -48,7 +50,7 @@ public sealed class VerifierServerTests
     private static async Task<string> CreateTestPackageAsync(string projectRoot)
     {
         Directory.CreateDirectory(projectRoot);
-        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "draft content");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft content");
         var originalDirectory = Directory.GetCurrentDirectory();
         try
         {
@@ -84,7 +86,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 var response = await client.GetAsync("/health");
 
@@ -122,13 +124,13 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 var response = await client.GetAsync("/ready");
 
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
                 var content = await response.Content.ReadAsStringAsync();
-                
+
                 using var doc = JsonDocument.Parse(content);
                 var root = doc.RootElement;
                 root.GetProperty("status").GetString().Should().Be("Ready");
@@ -155,12 +157,15 @@ public sealed class VerifierServerTests
         {
             { "VerifierEnvironment", "Local" },
             { "VerifierStorage__Provider", "postgres" },
-            { "VerifierStorage__PostgresConnectionString", "Host=127.0.0.1;Port=54321;Database=nonexistent_db_for_test;Username=postgres;Password=badpassword;Timeout=1;" },
+            {
+                "VerifierStorage__PostgresConnectionString",
+                "Host=127.0.0.1;Port=54321;Database=nonexistent_db_for_test;Username=postgres;Password=badpassword;Timeout=1;"
+            },
             { "VerifierSecurity__ApiKey", "" }
         };
 
         using var client = CreateClientWithEnv(config, out var factory);
-        using (factory)
+        await using (factory)
         {
             var response = await client.GetAsync("/ready");
 
@@ -189,7 +194,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 var response = await client.GetAsync("/health");
 
@@ -226,7 +231,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/health");
                 request.Headers.Add("X-OWS-Verifier-Key", "wrong-api-key-here-12345");
@@ -266,7 +271,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/health");
                 request.Headers.Add("X-OWS-Verifier-Key", "strong-test-api-key-16-chars-long");
@@ -276,6 +281,140 @@ public sealed class VerifierServerTests
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
                 var content = await response.Content.ReadAsStringAsync();
                 content.Should().Contain("Healthy");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that persisted API keys can be created, listed, used, and revoked without storing raw secrets.
+    /// </summary>
+    [Fact]
+    public async Task PersistentApiKeys_ShouldSupportLifecycleWithoutStoringRawSecret()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKey", "bootstrap-operator-key-1234" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                var createPayload = new
+                {
+                    role = "Operator"
+                };
+
+                using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/api-keys");
+                createRequest.Headers.Add("X-OWS-Verifier-Key", "bootstrap-operator-key-1234");
+                createRequest.Content = JsonContent.Create(createPayload);
+                var createResponse = await client.SendAsync(createRequest);
+                createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var created = JsonSerializer.Deserialize<JsonElement>(
+                    await createResponse.Content.ReadAsStringAsync(),
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var rawApiKey = created.GetProperty("apiKey").GetString();
+                var keyId = created.GetProperty("metadata").GetProperty("keyId").GetString();
+                var keyPrefix = created.GetProperty("metadata").GetProperty("keyPrefix").GetString();
+                rawApiKey.Should().NotBeNullOrWhiteSpace();
+                keyPrefix.Should().NotBeNullOrWhiteSpace();
+
+                using var healthRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                healthRequest.Headers.Add("X-OWS-Verifier-Key", rawApiKey);
+                var healthResponse = await client.SendAsync(healthRequest);
+                healthResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/auth/api-keys");
+                listRequest.Headers.Add("X-OWS-Verifier-Key", "bootstrap-operator-key-1234");
+                var listResponse = await client.SendAsync(listRequest);
+                listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var listJson = await listResponse.Content.ReadAsStringAsync();
+                listJson.Should().NotContain(rawApiKey);
+                var listed = await listResponse.Content.ReadFromJsonAsync<List<VerifierApiKeyMetadata>>();
+                listed.Should().NotBeNull();
+                var listedKey = listed.Single(key => key.KeyId == keyId);
+                listedKey.KeyPrefix.Should().Be(keyPrefix);
+                listedKey.LastUsedAtUtc.Should().NotBeNull();
+
+                using var revokeRequest = new HttpRequestMessage(HttpMethod.Post, $"/auth/api-keys/{keyId}/revoke");
+                revokeRequest.Headers.Add("X-OWS-Verifier-Key", "bootstrap-operator-key-1234");
+                var revokeResponse = await client.SendAsync(revokeRequest);
+                revokeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                using var revokedHealthRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                revokedHealthRequest.Headers.Add("X-OWS-Verifier-Key", rawApiKey);
+                var revokedHealthResponse = await client.SendAsync(revokedHealthRequest);
+                revokedHealthResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+                var apiKeyStorePath = Path.Combine(tempDbDir, "api_keys.json");
+                var storedJson = await File.ReadAllTextAsync(apiKeyStorePath);
+                storedJson.Should().NotContain(rawApiKey);
+                storedJson.Should().Contain(keyPrefix);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that expired persisted API keys are rejected.
+    /// </summary>
+    [Fact]
+    public async Task PersistentApiKeys_ShouldRejectExpiredKey()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKey", "bootstrap-operator-key-1234" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                var createPayload = new
+                {
+                    role = "Operator",
+                    expiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1)
+                };
+
+                using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/api-keys");
+                createRequest.Headers.Add("X-OWS-Verifier-Key", "bootstrap-operator-key-1234");
+                createRequest.Content = JsonContent.Create(createPayload);
+                var createResponse = await client.SendAsync(createRequest);
+                createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var created = JsonSerializer.Deserialize<JsonElement>(
+                    await createResponse.Content.ReadAsStringAsync(),
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var rawApiKey = created.GetProperty("apiKey").GetString();
+
+                using var healthRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                healthRequest.Headers.Add("X-OWS-Verifier-Key", rawApiKey);
+                var healthResponse = await client.SendAsync(healthRequest);
+                healthResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
             }
         }
         finally
@@ -310,7 +449,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 var payload = new VerifierPackageSubmissionRequest
                 {
@@ -324,7 +463,8 @@ public sealed class VerifierServerTests
 
                 using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/packages");
                 createRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
-                createRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                createRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8,
+                    "application/json");
                 var createResponse = await client.SendAsync(createRequest);
                 createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 var submission = JsonSerializer.Deserialize<VerifierPackageSubmissionResponse>(
@@ -370,7 +510,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 var payload = new VerifierPackageSubmissionRequest
                 {
@@ -384,7 +524,8 @@ public sealed class VerifierServerTests
 
                 using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/packages");
                 createRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
-                createRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                createRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8,
+                    "application/json");
                 var createResponse = await client.SendAsync(createRequest);
                 createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 var submission = JsonSerializer.Deserialize<VerifierPackageSubmissionResponse>(
@@ -408,10 +549,100 @@ public sealed class VerifierServerTests
     }
 
     /// <summary>
-    /// Verifies that reviewer keys are read-only and cannot create package metadata.
+    /// Verifies that reviewer keys can read verification reports for their institution and not for another institution.
     /// </summary>
     [Fact]
-    public async Task ReviewerApiKey_ShouldRejectWrites()
+    public async Task ReviewerApiKey_ShouldAllowScopedVerificationReport()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-test-pkg-{Guid.NewGuid():N}");
+        try
+        {
+            var packagePath = await CreateTestPackageAsync(projectRoot);
+            var fileBytes = await File.ReadAllBytesAsync(packagePath);
+
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            var hash = Convert.ToHexString(sha256.ComputeHash(fileBytes)).ToLowerInvariant();
+
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKeys__0__Key", "operator-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__0__Role", "operator" },
+                { "VerifierSecurity__ApiKeys__1__Key", "reviewer-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__1__Role", "reviewer" },
+                { "VerifierSecurity__ApiKeys__1__InstitutionId", "inst-1" },
+                { "VerifierSecurity__ApiKeys__2__Key", "reviewer-test-api-key-9999" },
+                { "VerifierSecurity__ApiKeys__2__Role", "reviewer" },
+                { "VerifierSecurity__ApiKeys__2__InstitutionId", "inst-2" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                var metadataPayload = new VerifierPackageSubmissionRequest
+                {
+                    InstitutionId = "inst-1",
+                    ObjectStorageProvider = "local",
+                    ObjectBucket = "packages",
+                    ObjectKey = $"{hash}.owspkg",
+                    PackageSha256 = hash,
+                    PackageSizeBytes = fileBytes.Length
+                };
+
+                using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/packages");
+                createRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
+                createRequest.Content = JsonContent.Create(metadataPayload);
+                var createResponse = await client.SendAsync(createRequest);
+                createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var submission = await createResponse.Content.ReadFromJsonAsync<VerifierPackageSubmissionResponse>();
+
+                using var uploadContent = new MultipartFormDataContent();
+                var fileContent = new ByteArrayContent(fileBytes);
+                fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
+                uploadContent.Add(fileContent, "file", "report.owspkg");
+                using var uploadRequest =
+                    new HttpRequestMessage(HttpMethod.Put, $"/packages/{submission!.SubmissionId}");
+                uploadRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
+                uploadRequest.Content = uploadContent;
+                var uploadResponse = await client.SendAsync(uploadRequest);
+                uploadResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                using var allowedRequest =
+                    new HttpRequestMessage(HttpMethod.Get, $"/packages/{submission.SubmissionId}/verification");
+                allowedRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
+                var allowedResponse = await client.SendAsync(allowedRequest);
+                allowedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                using var deniedRequest =
+                    new HttpRequestMessage(HttpMethod.Get, $"/packages/{submission.SubmissionId}/verification");
+                deniedRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-9999");
+                var deniedResponse = await client.SendAsync(deniedRequest);
+                deniedResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that reviewer keys remain read-only for education metadata and API key management.
+    /// </summary>
+    [Fact]
+    public async Task ReviewerApiKey_ShouldRejectEducationMutationAndApiKeyManagement()
     {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
@@ -428,24 +659,81 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
-                var payload = new VerifierPackageSubmissionRequest
+                var institution = new Institution(new InstitutionId("inst-1"), "Institution One", "inst-one",
+                    DateTimeOffset.UtcNow);
+                using var institutionRequest = new HttpRequestMessage(HttpMethod.Post, "/education/institutions");
+                institutionRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
+                institutionRequest.Content = JsonContent.Create(institution);
+                var institutionResponse = await client.SendAsync(institutionRequest);
+                institutionResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+                using var keyRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/api-keys");
+                keyRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
+                keyRequest.Content = JsonContent.Create(new { role = "Operator" });
+                var keyResponse = await client.SendAsync(keyRequest);
+                keyResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that reviewer keys can read education data for their institution but not another institution.
+    /// </summary>
+    [Fact]
+    public async Task ReviewerApiKey_ShouldRespectEducationInstitutionScope()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKeys__0__Key", "operator-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__0__Role", "operator" },
+                { "VerifierSecurity__ApiKeys__1__Key", "reviewer-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__1__Role", "reviewer" },
+                { "VerifierSecurity__ApiKeys__1__InstitutionId", "inst-1" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                foreach (var institution in new[]
+                         {
+                             new Institution(new InstitutionId("inst-1"), "Institution One", "inst-one",
+                                 DateTimeOffset.UtcNow),
+                             new Institution(new InstitutionId("inst-2"), "Institution Two", "inst-two",
+                                 DateTimeOffset.UtcNow)
+                         })
                 {
-                    InstitutionId = "inst-1",
-                    ObjectStorageProvider = "aws",
-                    ObjectBucket = "test-bucket",
-                    ObjectKey = "blocked-write.owspkg",
-                    PackageSha256 = new string('c', 64),
-                    PackageSizeBytes = 1024
-                };
+                    using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/education/institutions");
+                    createRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
+                    createRequest.Content = JsonContent.Create(institution);
+                    var createResponse = await client.SendAsync(createRequest);
+                    createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                }
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, "/packages");
-                request.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
-                request.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                using var allowedRequest = new HttpRequestMessage(HttpMethod.Get, "/education/institutions/inst-1");
+                allowedRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
+                var allowedResponse = await client.SendAsync(allowedRequest);
+                allowedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-                var response = await client.SendAsync(request);
-                response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                using var deniedRequest = new HttpRequestMessage(HttpMethod.Get, "/education/institutions/inst-2");
+                deniedRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
+                var deniedResponse = await client.SendAsync(deniedRequest);
+                deniedResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
         }
         finally
@@ -530,7 +818,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 var payload = new VerifierPackageSubmissionRequest
                 {
@@ -544,32 +832,37 @@ public sealed class VerifierServerTests
 
                 using var request1 = new HttpRequestMessage(HttpMethod.Post, "/packages");
                 request1.Headers.Add("Idempotency-Key", "key-123");
-                request1.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                request1.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8,
+                    "application/json");
 
                 var response1 = await client.SendAsync(request1);
                 response1.StatusCode.Should().Be(HttpStatusCode.OK);
 
                 var content1 = await response1.Content.ReadAsStringAsync();
-                var submission1 = JsonSerializer.Deserialize<VerifierPackageSubmissionResponse>(content1, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var submission1 = JsonSerializer.Deserialize<VerifierPackageSubmissionResponse>(content1,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 submission1.Should().NotBeNull();
-                submission1!.SubmissionId.Should().NotBeNullOrWhiteSpace();
+                submission1.SubmissionId.Should().NotBeNullOrWhiteSpace();
 
                 // Idempotent retry with same payload
                 using var request2 = new HttpRequestMessage(HttpMethod.Post, "/packages");
                 request2.Headers.Add("Idempotency-Key", "key-123");
-                request2.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                request2.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8,
+                    "application/json");
 
                 var response2 = await client.SendAsync(request2);
                 response2.StatusCode.Should().Be(HttpStatusCode.OK);
                 var content2 = await response2.Content.ReadAsStringAsync();
-                var submission2 = JsonSerializer.Deserialize<VerifierPackageSubmissionResponse>(content2, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var submission2 = JsonSerializer.Deserialize<VerifierPackageSubmissionResponse>(content2,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 submission2!.SubmissionId.Should().Be(submission1.SubmissionId);
 
                 // Different payload same key -> Conflict
                 var payloadDiff = payload with { PackageSizeBytes = 9999 };
                 using var request3 = new HttpRequestMessage(HttpMethod.Post, "/packages");
                 request3.Headers.Add("Idempotency-Key", "key-123");
-                request3.Content = new StringContent(JsonSerializer.Serialize(payloadDiff), System.Text.Encoding.UTF8, "application/json");
+                request3.Content = new StringContent(JsonSerializer.Serialize(payloadDiff), System.Text.Encoding.UTF8,
+                    "application/json");
 
                 var response3 = await client.SendAsync(request3);
                 response3.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -603,7 +896,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 var firstPayload = new VerifierPackageSubmissionRequest
                 {
@@ -650,8 +943,9 @@ public sealed class VerifierServerTests
                 listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 var packages = await listResponse.Content.ReadFromJsonAsync<List<VerifierPackageSubmissionResponse>>();
                 packages.Should().NotBeNull();
-                packages!.Should().HaveCount(2);
-                packages.Select(package => package.SessionId).Should().OnlyContain(sessionId => sessionId == "session-a");
+                packages.Should().HaveCount(2);
+                packages.Select(package => package.SessionId).Should()
+                    .OnlyContain(sessionId => sessionId == "session-a");
                 packages[0].ObjectKey.Should().Be("second.owspkg");
                 packages[1].ObjectKey.Should().Be("first.owspkg");
             }
@@ -688,7 +982,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 using var content = new MultipartFormDataContent();
                 var fileContent = new ByteArrayContent(fileBytes);
@@ -717,9 +1011,10 @@ public sealed class VerifierServerTests
                 reportResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 var reportJson = await reportResponse.Content.ReadAsStringAsync();
 
-                var reportResult = JsonSerializer.Deserialize<VerificationResult>(reportJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var reportResult = JsonSerializer.Deserialize<VerificationResult>(reportJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 reportResult.Should().NotBeNull();
-                reportResult!.TrustStatus.Should().Be(TrustStatus.Unverified);
+                reportResult.TrustStatus.Should().Be(TrustStatus.Unverified);
             }
         }
         finally
@@ -755,7 +1050,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 // Register metadata first
                 var metadataPayload = new VerifierPackageSubmissionRequest
@@ -772,7 +1067,7 @@ public sealed class VerifierServerTests
                 regResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 var regResult = await regResponse.Content.ReadFromJsonAsync<VerifierPackageSubmissionResponse>();
                 regResult.Should().NotBeNull();
-                var submissionId = regResult!.SubmissionId;
+                var submissionId = regResult.SubmissionId;
 
                 // Attempt verify without file bytes -> should fail
                 var verifyFailResponse = await client.PostAsync($"/packages/{submissionId}/verify", null);
@@ -792,9 +1087,10 @@ public sealed class VerifierServerTests
                 verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
                 var verifyJson = await verifyResponse.Content.ReadAsStringAsync();
-                var verifyResult = JsonSerializer.Deserialize<VerificationResult>(verifyJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var verifyResult = JsonSerializer.Deserialize<VerificationResult>(verifyJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 verifyResult.Should().NotBeNull();
-                verifyResult!.TrustStatus.Should().Be(TrustStatus.Unverified);
+                verifyResult.TrustStatus.Should().Be(TrustStatus.Unverified);
             }
         }
         finally
@@ -824,7 +1120,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 // Reject invalid extension
                 using (var content = new MultipartFormDataContent())
@@ -881,15 +1177,16 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
+            await using (factory)
             {
                 // Start a session
                 var startResponse = await client.PostAsync("/sessions", null);
                 startResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 var startJson = await startResponse.Content.ReadAsStringAsync();
-                var startSession = JsonSerializer.Deserialize<StartSessionResponse>(startJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var startSession = JsonSerializer.Deserialize<StartSessionResponse>(startJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 startSession.Should().NotBeNull();
-                var sessionId = startSession!.SessionId;
+                var sessionId = startSession.SessionId;
 
                 // Send heartbeat
                 var request = new SessionHeartbeatRequest
@@ -903,9 +1200,10 @@ public sealed class VerifierServerTests
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
 
                 var json = await response.Content.ReadAsStringAsync();
-                var heartbeatResponse = JsonSerializer.Deserialize<SessionHeartbeatResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var heartbeatResponse = JsonSerializer.Deserialize<SessionHeartbeatResponse>(json,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 heartbeatResponse.Should().NotBeNull();
-                heartbeatResponse!.SessionHead.SessionId.Should().Be(sessionId);
+                heartbeatResponse.SessionHead.SessionId.Should().Be(sessionId);
                 heartbeatResponse.SessionTrustState.Should().Be("Active");
                 heartbeatResponse.LeaseExpiresAt.Should().BeAfter(DateTimeOffset.UtcNow);
 

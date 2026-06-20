@@ -22,7 +22,7 @@ public sealed class PostgresVerifierMigratorTests
         getMigrationsMethod.Should().NotBeNull();
         var migrations = ((IEnumerable<object>)getMigrationsMethod!.Invoke(null, null)!).ToArray();
 
-        migrations.Should().HaveCount(7);
+        migrations.Should().HaveCount(8);
         GetVersion(migrations[0]).Should().Be(1);
         GetName(migrations[0]).Should().Be("foundation");
         GetSql(migrations[0]).Should().Contain("create table if not exists verifier_sessions");
@@ -52,6 +52,11 @@ public sealed class PostgresVerifierMigratorTests
         GetSql(migrations[6]).Should().Contain("institution_id");
         GetSql(migrations[6]).Should().Contain("assessment_id");
         GetSql(migrations[6]).Should().Contain("student_user_id");
+        GetVersion(migrations[7]).Should().Be(8);
+        GetName(migrations[7]).Should().Be("api-keys");
+        GetSql(migrations[7]).Should().Contain("create table if not exists verifier_api_keys");
+        GetSql(migrations[7]).Should().Contain("key_hash");
+        GetSql(migrations[7]).Should().Contain("last_used_at");
     }
 
     /// <summary>

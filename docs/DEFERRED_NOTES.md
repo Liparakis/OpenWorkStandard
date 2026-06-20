@@ -29,7 +29,9 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 ## Verifier Auth
 
 - Do not add users, JWT/OIDC, or directory sync yet.
-- The current verifier auth path is config-backed API keys with `operator` and institution-scoped `reviewer` roles.
+- The current verifier auth path is persisted hash-only API keys plus bootstrap/config compatibility keys.
+- The implemented roles are `Operator` and institution-scoped `InstructorReviewer`.
+- `InstitutionAdmin` and `StudentClient` are still deferred.
 - Add real user identity, managed key lifecycle, and fuller institutional RBAC before exposing a verifier to broad institutional users.
 
 ## Package Submission

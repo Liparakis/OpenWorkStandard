@@ -55,7 +55,7 @@ The current repository already implements:
 - in-memory receipt chain issuance/validation helpers
 - optional packaged receipt-chain verification
 - optional HMAC verifier receipt signatures when a server signing key is configured
-- config-backed verifier API key guard with operator and reviewer scopes
+- persisted hash-only verifier API keys with bootstrap key compatibility
 - PostgreSQL package metadata registration for object-storage-backed `.owspkg` blobs
 - structured verifier request logging without request bodies or headers
 - trust grading with `Verified`, `Unverified`, and `Invalid`
@@ -88,8 +88,9 @@ Why:
 
 Directional security requirements:
 
-- config-backed verifier API keys for the MVP
-- read-only reviewer keys scoped to one institution for verification queries
+- persisted API keys with revocation, expiry, and last-used tracking for the MVP
+- read-only `InstructorReviewer` keys scoped to one institution for verification queries
+- bootstrap/shared key compatibility through `VerifierSecurity__ApiKey`
 - TLS everywhere
 - JWT/OIDC for authentication
 - institution SSO later via OIDC or SAML

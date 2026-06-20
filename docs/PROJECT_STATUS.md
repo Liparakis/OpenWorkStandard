@@ -178,6 +178,9 @@ Status:
 
 `src/Ows.Verifier.Server` currently provides:
 
+- `POST /auth/api-keys`
+- `GET /auth/api-keys`
+- `POST /auth/api-keys/{id}/revoke`
 - `POST /sessions`
 - `POST /sessions/{id}/checkpoints`
 - `POST /packages`
@@ -197,11 +200,14 @@ PostgreSQL setup model today:
 - migration tracking in `ows_verifier_schema_version`
 - explicit `migrate` bootstrap mode for self-hosting
 - normal PostgreSQL server startup also applies missing migrations
+- persistent verifier API keys are stored as hash-only durable records
+- persisted keys expose creation, listing, revocation, optional expiry, key prefix display, and last-used timestamps
 - checkpoint requests are validated before storage append
 - idempotent checkpoint retries are enforced in both JSON and PostgreSQL storage
 - receipts include an HMAC server signature when `VerifierStorage:ReceiptSigningKey` is configured
 - requests require `X-OWS-Verifier-Key` when verifier API keys are configured
-- the current auth slice supports full-access `operator` keys and institution-scoped read-only `reviewer` keys
+- the current auth slice supports full-access `Operator` keys and institution-scoped read-only `InstructorReviewer` keys
+- the legacy shared bootstrap key remains supported through `VerifierSecurity:ApiKey`
 - request logs include method, path, status code, and elapsed time, but not bodies or headers
 - package submissions register object storage provider, bucket, key, package SHA-256, and package size
 - package submission retries can use `Idempotency-Key`
@@ -253,6 +259,7 @@ Important implemented pieces:
 - PostgreSQL-backed verifier storage foundation
 - PostgreSQL migration runner
 - MVP verifier receipt signing
+- durable API key lifecycle with hash-only storage
 - config-backed verifier API guard with institution-scoped reviewer access
 - verifier request validation
 - idempotency-key enforcement
@@ -321,7 +328,7 @@ The main missing pieces are:
 - platform-specific hosts for VS Code, Rider, and desktop
 - multi-instance verifier deployment model
 - desktop UI beyond placeholder state
-- multi-tenant education models (institutions, courses, classes, students)
+- fuller institutional auth (InstitutionAdmin, StudentClient, SSO)
 
 ## Reality Check
 

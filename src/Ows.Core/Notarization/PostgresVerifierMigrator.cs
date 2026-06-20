@@ -174,6 +174,27 @@ public static class PostgresVerifierMigrator
                                                          add column if not exists student_user_id text null;
                                                      """;
 
+    private const string Migration008ApiKeysSql = """
+                                                  create table if not exists verifier_api_keys (
+                                                      id text primary key,
+                                                      key_prefix text not null,
+                                                      key_hash text not null unique,
+                                                      role text not null,
+                                                      institution_id text null,
+                                                      created_at timestamptz not null,
+                                                      expires_at timestamptz null,
+                                                      last_used_at timestamptz null,
+                                                      revoked_at timestamptz null
+                                                  );
+
+                                                  create index if not exists ix_verifier_api_keys_role
+                                                      on verifier_api_keys (role);
+
+                                                  create index if not exists ix_verifier_api_keys_institution_id
+                                                      on verifier_api_keys (institution_id)
+                                                      where institution_id is not null;
+                                                  """;
+
     /// <summary>
     /// Applies any missing ordered verifier schema migrations using a fresh data source.
     /// </summary>
@@ -229,7 +250,8 @@ public static class PostgresVerifierMigrator
         new(4, "package-idempotency", Migration004PackageIdempotencySql),
         new(5, "package-verification-results", Migration005PackageVerificationResultSql),
         new(6, "session-leases", Migration006SessionLeasesSql),
-        new(7, "education-wiring", Migration007EducationSql)
+        new(7, "education-wiring", Migration007EducationSql),
+        new(8, "api-keys", Migration008ApiKeysSql)
     ];
 
     /// <summary>
