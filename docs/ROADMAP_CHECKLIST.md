@@ -4,9 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Harden verifier operator runbooks around package-blob backups, signing-key custody, and restore/recovery drills.
+Wire education CRUD endpoints to actual pilot workflows, then harden the platform for stable multi-institution operation.
 
-**Next milestone:** Verifier Operations Hardening v0.1.
+**Next milestone:** Auth and RBAC v0.2 — institution-scoped admin roles and broader RBAC for multi-institution pilots.
 
 ## 1. Current MVP Status
 
@@ -195,3 +195,20 @@ Harden verifier operator runbooks around package-blob backups, signing-key custo
 - [ ] QUIC
 - [ ] Broad infrastructure expansion before the verifier workflow is stable
 - [ ] External object storage / S3 package blob backend
+
+## 15. Verifier Operations Hardening v0.1
+
+- [x] Backup model documented (`docs/BACKUP_RESTORE.md`)
+- [x] Restore order documented (`docs/BACKUP_RESTORE.md`)
+- [x] Recovery failure modes documented (`docs/BACKUP_RESTORE.md`)
+- [x] Package blob backup documented
+- [x] Signing key custody documented (`docs/SECURITY_HARDENING.md`)
+- [x] Restore and verify known package drill documented (`docs/BACKUP_RESTORE.md`)
+- [x] `docs/OPERATIONS_RUNBOOK.md` created
+- [x] `scripts/verify-ops-readiness.ps1` created
+- [x] Package storage diagnostics (`packageStorageConfigured`, `packageStorageReady`, `packageBlobCount`)
+- [x] Signing key fingerprint diagnostics (`signingKeyFingerprintPresent` in `/diagnostics/summary`)
+- [x] `package.blob.missing` audit event implemented in worker
+- [x] Startup recovery for stale Running jobs (existing, documented in runbook)
+- [x] `docs/SELF_HOSTED_COMPOSE.md` updated with operator resource cross-references
+- [x] `docs/TROUBLESHOOTING.md` updated with restore/signing key failure modes

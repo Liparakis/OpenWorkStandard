@@ -21,12 +21,21 @@ This guide contains a troubleshooting matrix to resolve common configuration and
 | **Package upload returns "Uploaded package exceeds maximum size limit."** | The verifier package upload limit is lower than the submitted `.owspkg` size. | Check `VerifierStorage__MaxPackageSizeBytes` and compare it with the file size. | Raise the configured limit for your pilot deployment or submit a smaller package. |
 | **Package upload returns "missing required entry" or "not a valid .owspkg archive"** | The uploaded file is not a real OWS package or is missing canonical entries. | Open the archive and confirm it contains `manifest.json`, `timeline.jsonl`, and `version_graph.json`. | Regenerate the package with `ows package` and upload that output, not a random zip file. |
 | **Package status stays `Pending` or `Running`** | The in-process verification worker is disabled, crashed, or cannot reach the stored blob/package dependencies. | Check `VerifierStorage__PackageWorkerEnabled`, inspect `GET /diagnostics/summary`, and read verifier logs for `package.verification.*` entries. | Re-enable the worker, fix the storage/database issue, and restart the verifier so stale running jobs can be reset to `Pending`. |
-| **Package verification fails with "Package blob not found"** | Metadata still exists, but the blob volume or file was removed. | Check the package storage volume and compare the package record with the local blob directory contents. | Restore the blob volume from backup or re-upload the package. PostgreSQL metadata alone is not enough. |
+| **Package verification fails with "Package blob not found"** | Metadata still exists, but the blob volume or file was removed. | Check the package storage volume and compare the package record with the local blob directory contents. Check `/diagnostics/summary` for `packageBlobCount`. | Restore the blob volume from backup or re-upload the package. PostgreSQL metadata alone is not enough. See `BACKUP_RESTORE.md`. |
+| **After a restore, trust status differs from expected (e.g. `Verified` → `Degraded`)** | The signing key changed between the backup and the restore, so old receipts fail chain verification. | Compare the signing key fingerprint in startup logs with the recorded pre-backup fingerprint. | Restore the original signing key material (`VerifierStorage__ReceiptSigningKey`). See `SECURITY_HARDENING.md` for signing key custody procedures. |
+| **`/diagnostics/summary` shows `signingKeyFingerprintPresent: false`** | The signing key is not configured or is empty. | Check that `VerifierStorage__ReceiptSigningKey` is set in the `.env` file and is at least 16 characters. | Set a strong signing key and restart the verifier. |
+| **`/diagnostics/summary` shows `packageBlobCount: null`** | The package blob storage root is not accessible or not configured. | Check `/ready` for `packageStorageReady`. Check the Docker volume mount and `VerifierStorage__LocalStoragePath`. | Ensure the `verifier-packages` volume is mounted correctly. Restart the verifier. |
 | **Warnings about non-administrator shell** | Not a failure. System warning indicating shell is not elevated. | None. | Administrator privileges are **not required** to run OWS watcher, CLI, or local verifier services. You can safely ignore this check. |
 
 ---
 
-## Common Verification Error Codes
+## See Also
+
+- [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) — daily operator procedures and emergency runbook
+- [BACKUP_RESTORE.md](BACKUP_RESTORE.md) — what to back up, restore order, recovery drills
+- [SECURITY_HARDENING.md](SECURITY_HARDENING.md) — signing key custody, API key management, diagnostics fields
+- [SELF_HOSTED_COMPOSE.md](SELF_HOSTED_COMPOSE.md) — production Docker Compose deployment
+
 
 When OWS package verification fails or returns `Invalid`/`Unverified` status, inspect the findings in the generated review reports. Reference this table:
 

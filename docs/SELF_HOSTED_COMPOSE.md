@@ -141,3 +141,21 @@ To upgrade to a new release:
 2. Stop the current stack: `docker compose down`.
 3. Restart the stack: `docker compose up -d`.
 4. Rerun migrations: `docker compose exec ows-verifier dotnet Ows.Verifier.Server.dll migrate`.
+
+---
+
+## 7. Operator Resources
+
+| Document | Purpose |
+|---|---|
+| [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) | Day-to-day operator procedures, startup checklist, emergency procedures |
+| [BACKUP_RESTORE.md](BACKUP_RESTORE.md) | What to back up, restore order, recovery failure modes, recovery drill |
+| [SECURITY_HARDENING.md](SECURITY_HARDENING.md) | Signing key custody, API key management, diagnostics fields reference |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common symptoms, causes, and fixes |
+
+Run the ops readiness check at any time:
+
+```powershell
+.\scripts\verify-ops-readiness.ps1 -BaseUrl http://localhost:5078 -ApiKey "<operator-key>"
+```
+

@@ -1230,15 +1230,37 @@ app.MapGet("/diagnostics/summary", async (IVerifierAuditStore auditStore, IVerif
 {
     var summary = await auditStore.GetSummaryAsync(cancellationToken);
     var jobSummary = await jobStore.GetSummaryAsync(cancellationToken);
+    var packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken);
+
+    // Count blobs in the package storage directory (cheap: directory listing, no file reads).
+    // Returns null when the storage root is not configured or not accessible.
+    int? packageBlobCount = null;
+    if (packageStorageReady && !string.IsNullOrWhiteSpace(normalizedStorageOptions.LocalStoragePath)
+        && Directory.Exists(normalizedStorageOptions.LocalStoragePath))
+    {
+        try
+        {
+            packageBlobCount = Directory.GetFiles(normalizedStorageOptions.LocalStoragePath, "*.owspkg").Length;
+        }
+        catch
+        {
+            // Non-fatal: leave null if enumeration fails (e.g. permission issue mid-request)
+        }
+    }
+
+    var signingKeyFingerprint = ReceiptChainVerifier.ComputeFingerprint(normalizedStorageOptions.ReceiptSigningKey);
+    var signingKeyFingerprintPresent = !string.IsNullOrWhiteSpace(signingKeyFingerprint);
+
     return Results.Ok(new
     {
         environment = envMode.ToString(),
         storageProvider = normalizedStorageOptions.Provider,
         packageStorageConfigured = !string.IsNullOrWhiteSpace(normalizedStorageOptions.LocalStoragePath),
-        packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken),
+        packageStorageReady,
+        packageBlobCount,
+        signingKeyFingerprintPresent,
         authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken),
-        metrics = summary
-        ,
+        metrics = summary,
         packageVerificationJobs = jobSummary
     });
 });

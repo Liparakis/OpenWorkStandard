@@ -1,5 +1,72 @@
 # Security Hardening
 
+## Signing Key Custody
+
+The verifier receipt signing key (`VerifierStorage__ReceiptSigningKey`) is the most sensitive operational secret.
+
+### Where signing keys are configured
+
+The signing key is configured via the `VerifierStorage__ReceiptSigningKey` environment variable, set in the Compose `.env` file or injected via a secret management tool.
+
+### Default and development keys are unsafe
+
+In `Production` environment mode, the verifier refuses to start if the signing key is absent or too short (fewer than 16 characters). In development mode it logs a warning but continues. **Never run a pilot or student-facing deployment with a dev-mode signing key.**
+
+### How to find the current signing key fingerprint
+
+The verifier logs the signing key fingerprint (a safe, non-secret SHA-256 derived identifier) at startup:
+
+```bash
+docker compose logs ows-verifier | grep "Signing Key Fingerprint"
+# Signing Key Fingerprint: sha256:<hex>
+```
+
+The fingerprint is also returned by `GET /diagnostics/summary` as `signingKeyFingerprintPresent: true/false`. The actual fingerprint is **not** returned by the API — only its presence is confirmed.
+
+### Who should have access
+
+- Signing key material should be held by no more than two operators.
+- Treat the signing key like a root credential.
+- Store it in a password manager (e.g. Bitwarden, 1Password) or a secret management tool (e.g. HashiCorp Vault).
+- Do not store it in the same location as the database dump.
+- Do not share it over unencrypted channels.
+
+### How to back up the signing key
+
+1. Record the raw key in your password manager under a named entry (e.g. `OWS Verifier Signing Key - Pilot 2025`).
+2. Record the fingerprint alongside it.
+3. Record the date the key was activated.
+4. Store a second copy in an offline or write-protected location.
+
+### What happens if the signing key is lost
+
+If the signing key is permanently lost:
+
+- Receipts issued under that key can no longer be verified using the chain verifier.
+- Sessions and packages verified under that key will show a fingerprint mismatch.
+- You must document the date range the key was active and treat those sessions as having a non-recoverable signing gap.
+- Create a new signing key for future sessions.
+
+### What happens if the signing key is compromised
+
+1. Immediately rotate to a new key by updating `VerifierStorage__ReceiptSigningKey` and restarting the verifier.
+2. Document the old key fingerprint and the date it was retired.
+3. Receipts already issued under the old key retain their validity (the chain is still mathematically valid), but you must treat the trust boundary as degraded if the old key may have been used to forge receipts.
+4. Audit recent sessions for unusual patterns.
+
+### Key rotation
+
+Key rotation is deferred in v0.1. The verifier uses a single active signing key. When rotating:
+
+1. Issue the new key.
+2. Record the old key fingerprint and retire date.
+3. Update `VerifierStorage__ReceiptSigningKey`.
+4. Restart the verifier.
+5. Confirm the new fingerprint appears in startup logs.
+6. Old receipts validated against the old fingerprint remain valid for their historical sessions — they are read-only and immutable.
+
+---
+
 ## Auth/RBAC v0.1
 
 Current pilot-grade verifier auth uses API keys, not user login.
@@ -64,6 +131,20 @@ Operator diagnostics:
 
 - `GET /audit/events`
 - `GET /diagnostics/summary`
+
+The diagnostics summary now includes:
+
+| Field | Description |
+|---|---|
+| `environment` | Current environment mode (Development/Production) |
+| `storageProvider` | Active storage provider (json/postgres) |
+| `packageStorageConfigured` | Whether `LocalStoragePath` is set |
+| `packageStorageReady` | Whether the blob directory is accessible |
+| `packageBlobCount` | Count of `.owspkg` blobs in storage (null if not accessible) |
+| `signingKeyFingerprintPresent` | Whether a non-empty signing key fingerprint is computed |
+| `authMode` | Active auth mode (none/bootstrap/persisted) |
+| `metrics` | Audit event aggregate counts |
+| `packageVerificationJobs` | Job counts by status (pending/running/succeeded/failed) |
 
 These endpoints are operator-only when API-key auth is enabled. They are designed for pilot diagnostics, not for a full monitoring pipeline.
 
