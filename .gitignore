@@ -6,6 +6,7 @@ TestResults/
 
 # OWS local evidence
 .ows/
+.ows-verifier/
 *.owspkg
 
 # Visual Studio
@@ -35,5 +36,5 @@ Desktop.ini
 # Logs
 *.log
 
-# Package lock files created by tooling
-packages/
+# Legacy root-level packages folder created by older tooling
+/packages/
