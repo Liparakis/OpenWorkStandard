@@ -54,8 +54,10 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Project open/close lifecycle event emitters
 - [ ] Large insertion detection
 - [x] PackageCreated event emission
+- [x] Manifest packaging
+- [x] Timeline packaging
+- [x] Empty version graph placeholder packaged for forward compatibility
 - [ ] Real work version graph nodes/edges/validation
-- [x] Manifest, timeline, and version graph packaging
 - [x] Packaged session metadata
 - [x] Packaged receipts
 - [x] Artifact hash verification
@@ -68,7 +70,12 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 
 - [x] Persistent always-on watcher
 - [x] Heartbeat and lease model
-- [x] Higher-fidelity capture beyond one-shot scans
+- [x] Persistent file-system watcher capture
+- [x] Event hash-chain timeline
+- [x] Explicit build/test/program event commands
+- [x] Project open/close lifecycle event emitters
+- [ ] IDE-native build/test/run capture
+- [ ] Large insertion detection
 - [ ] IDE or host-managed long-running watcher lifecycle
 
 ## 6. Remote Verifier and Storage
@@ -90,7 +97,8 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] API key expiry
 - [x] API key last-used tracking
 - [x] Legacy shared-key compatibility
-- [ ] Full SSO/OIDC/SAML - Deferred
+- [x] OIDC/JWT bearer foundation
+- [ ] Full interactive SSO login / SAML - Deferred
 - [x] Observability v0.1
 
 ## 6A. Auth and RBAC v0.1
@@ -115,7 +123,8 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] `/ready` dependency detail response
 - [x] Secret-safe audit and diagnostics output
 - [x] Prometheus-compatible metrics endpoint
-- [ ] Grafana/Loki - Deferred
+- [x] Optional Grafana/Loki/Promtail overlay
+- [ ] Mandatory/production monitoring stack - Deferred
 
 ## 7. Package Submission and Server-Side Verification
 
