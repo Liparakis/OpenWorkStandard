@@ -79,3 +79,6 @@ OWS does not implement or endorse:
 - keylogging
 - cloud-first storage requirements
 - automatic misconduct judgment
+> [!WARNING]
+> Archived document. This may contain outdated design notes.
+> Current guidance lives under docs/core/, docs/workflows/, docs/operations/, and docs/integrations/.

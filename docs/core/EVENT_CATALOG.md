@@ -11,7 +11,7 @@ This document defines the Open Work Standard (OWS) event vocabulary, detailing w
 
 | Event Type | Status | Emitter | Persisted | Hash Chain | Trust Evidence | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `FileCreated` | **Active** | `ows watch` (file watcher & scan) | Yes (`timeline.jsonl`) | Yes | Yes (Fidelity) | Emitted when a new file is detected or during initial scan. |
+| `FileCreated` | **Active** | `ows watch` (file watcher & scan) | Yes (`timeline.jsonl`) | Yes | Yes (Fidelity), except `initial_baseline` records | Emitted when a new file is detected. Initial scan may also record pre-existing files as baseline metadata only. |
 | `FileModified` | **Active** | `ows watch` (file watcher) | Yes (`timeline.jsonl`) | Yes | Yes (Fidelity) | Emitted when a file change is saved or debounced. |
 | `FileDeleted` | **Active** | `ows watch` (file watcher) | Yes (`timeline.jsonl`) | Yes | Yes (Fidelity) | Emitted when a file is deleted from the tracked directory. |
 | `ProjectOpened` | **Active** | `ows watch start` / VS Code extension | Yes (`timeline.jsonl`) | Yes | Yes | Emitted when watcher state transitions from not-running to running. |
@@ -43,6 +43,8 @@ This document defines the Open Work Standard (OWS) event vocabulary, detailing w
 - **Persistence Status**: Appended to `.ows/timeline.jsonl`.
 - **Included in Timeline Hash Chain**: Yes
 - **Used in Current Trust Decisions**: Yes (used to establish presence, active work timeline, and file-change consistency).
+- **Baseline Distinction**: Initial scan may record pre-existing files as baseline-only records with metadata equivalent to `source = initial_baseline` and `usedForTrust = false`.
+- **Trust Boundary**: Baseline records are not evidence that the student created those files during active observation. They only establish the starting local file state from which later observed changes can be compared.
 
 ### FileModified
 - **Description**: A file was modified inside the tracked project directory.

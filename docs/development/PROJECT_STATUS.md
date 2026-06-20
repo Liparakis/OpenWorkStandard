@@ -446,5 +446,5 @@ OWS currently has a credible MVP for:
 - submitting packages to a verifier for durable storage and asynchronous verification
 - running a local PostgreSQL-backed verifier with generated platform-specific helper scripts
 
-It does not yet have a credible always-on capture model or a production-grade remote trust boundary, but it now has the right minimal seams to grow into both.
+OWS now has a credible local capture and evidence-continuity model for v0.1, including watcher lifecycle events, recovery scans, and snapshot hash commitments. It does not yet have a production-grade remote trust boundary, hosted verifier operations model, or institution-scale deployment hardening, but it now has the right minimal seams to grow into those areas.
 

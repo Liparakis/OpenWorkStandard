@@ -16,7 +16,8 @@ This document outlines the production-readiness status, operational security pos
 | **Backup and Restore Drills** | **Pilot-ready** | Pilot | Documented runbooks cover PostgreSQL dumps, package blob volumes, and restore validation. |
 | **HTTPS / TLS** | **Needs hardening** | Production | Must be terminated at a reverse proxy (e.g. Nginx, Caddy) or cloud load balancer. |
 | **Secrets Management** | **Needs hardening** | Production | Environment variables should be managed via Docker Secrets, Vault, or AWS KMS. |
-| **SSO / OIDC Authentication** | **Deferred** | Scale | Institutional user dashboards will require SAML/OIDC. API endpoints use API keys. |
+| **OIDC/JWT bearer foundation** | **Pilot-ready** | Pilot | Optional bearer-token validation is implemented for verifier APIs. API keys remain the primary client path. |
+| **Interactive SSO / browser auth / SAML** | **Deferred** | Scale | Full login screens, browser sessions, dashboard auth flows, and SAML are not implemented in v0.1. |
 | **Kubernetes Clustering** | **Deferred** | Scale | Docker Compose is the default deployment template; Helm charts are deferred. |
 | **Distributed Cache & Queue** | **Deferred** | Scale | PostgreSQL handles verification job states and metadata queue; Redis/NATS are deferred. |
 

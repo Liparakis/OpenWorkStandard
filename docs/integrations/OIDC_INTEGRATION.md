@@ -1,17 +1,18 @@
 # OIDC/JWT Bearer Foundation
 
-This document describes the current Open Work Standard verifier OIDC/JWT bearer foundation. It is deliberately not full SSO.
+This document describes the current Open Work Standard verifier OIDC/JWT bearer foundation. It is implemented for API bearer validation, and it is deliberately not full interactive SSO.
 
 What this milestone does:
 
 - keeps API keys as the primary auth mechanism for CLI, VS Code, watcher, and automation clients
-- adds optional JWT bearer validation for future human-facing API and dashboard flows
+- adds optional JWT bearer validation for verifier API access
 - maps validated bearer claims into the same internal verifier access context used by API keys
 - reuses the existing RBAC rules for `Operator`, `InstitutionAdmin`, `InstructorReviewer`, and `StudentClient`
 
 What this milestone does not do:
 
 - browser login screens
+- browser session management
 - cookies or session management
 - callback routes
 - logout flows

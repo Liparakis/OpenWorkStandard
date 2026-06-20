@@ -11,7 +11,7 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 Cut the v0.1 release-candidate evidence bundle from the latest green gate, then do manual sign-off before adding new UI surfaces or integrations.
 
-**Next milestone:** Snapshot Hash Binding v0.1.
+**Next milestone:** Public Alpha Truth Audit and Release Candidate v0.1.
 
 ## 1. Current MVP Status
 
@@ -101,7 +101,7 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] API key last-used tracking
 - [x] Legacy shared-key compatibility
 - [x] OIDC/JWT bearer foundation
-- [ ] Full interactive SSO login / SAML - Deferred
+- [ ] Full interactive SSO login, browser sessions, dashboard auth flows, and SAML - Deferred
 - [x] Observability v0.1
 
 ## 6A. Auth and RBAC v0.1
@@ -306,8 +306,9 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [ ] Redis
 - [ ] NATS
 - [ ] QUIC
-- [ ] full SSO/OIDC/SAML
-- [ ] Grafana/Loki stack
+- [ ] full interactive SSO, browser sessions, dashboard auth flows, and SAML
+- [x] optional Grafana/Loki/Promtail overlay
+- [ ] mandatory/production monitoring stack and Alertmanager
 - [ ] billing/SaaS features
 
 ## External Observability Integration v0.1
@@ -324,7 +325,7 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [ ] production alerting/Alertmanager
 - [ ] Kubernetes monitoring
 - [ ] hosted Grafana Cloud integration
-- [ ] SSO/OIDC/SAML
+- [ ] full interactive SSO, browser sessions, dashboard auth flows, and SAML
 - [ ] Redis
 - [ ] NATS
 - [ ] QUIC
@@ -341,9 +342,10 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] diagnostics/readiness OIDC status
 - [x] OIDC/JWT bearer docs
 - [x] dual-auth rejection and safe audit event
+- [ ] browser login and callback flow
+- [ ] dashboard/browser session management
 - [ ] SAML
 - [ ] dashboard UI
-- [ ] cookie/browser login flow
 - [ ] user provisioning UI
 - [ ] full LMS integration
 - [ ] Kubernetes

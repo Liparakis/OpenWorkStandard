@@ -120,3 +120,6 @@ scrape_configs:
     static_configs:
       - targets: ['ows-verifier:5078']
 ```
+> [!WARNING]
+> Archived document. This may contain outdated design notes.
+> Current guidance lives under docs/core/, docs/workflows/, docs/operations/, and docs/integrations/.

@@ -80,3 +80,6 @@ Harden the local verifier helper lifecycle across restricted environments, then 
 - [VERIFIER_LOCAL_DEV.md](../development/VERIFIER_LOCAL_DEV.md)
 - [DEFERRED_NOTES.md](../reference/DEFERRED_NOTES.md)
 
+> [!WARNING]
+> Archived document. This may contain outdated design notes.
+> Current guidance lives under docs/core/, docs/workflows/, docs/operations/, and docs/integrations/.

@@ -164,6 +164,6 @@ Do not add yet:
 - Redis
 - NATS
 - QUIC
-- full SSO/OIDC/SAML
-- Grafana/Loki stack
+- full interactive SSO, browser sessions, dashboard auth flows, and SAML
+- mandatory/production monitoring stack and Alertmanager
 - billing or SaaS tenancy layers
