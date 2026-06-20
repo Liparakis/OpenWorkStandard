@@ -67,18 +67,18 @@ Key rotation is deferred in v0.1. The verifier uses a single active signing key.
 
 ---
 
-## Auth/RBAC v0.1
+## Auth/RBAC v0.2
 
 Current pilot-grade verifier auth uses API keys, not user login.
 
 Implemented:
 
-- `Operator`: full verifier access, including API key lifecycle management
-- `InstructorReviewer`: read-only access scoped to one institution
+- `Operator`: full verifier access, including API key lifecycle management.
+- `InstitutionAdmin`: read/write access scoped to one institution (metadata and sessions), and ability to create `InstructorReviewer` keys for the same institution.
+- `InstructorReviewer`: read-only access scoped to one institution.
 
 Deferred:
 
-- `InstitutionAdmin`
 - `StudentClient`
 - SSO/OIDC/SAML
 

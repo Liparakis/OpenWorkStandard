@@ -70,12 +70,12 @@ public sealed record VerifierApiKeyCreateRequest
     {
         if (!VerifierRolePolicy.IsSupportedRole(Role))
         {
-            return "Role must be Operator or InstructorReviewer.";
+            return "Role must be Operator, InstitutionAdmin, or InstructorReviewer.";
         }
 
-        if (VerifierRolePolicy.IsInstructorReviewerRole(Role) && string.IsNullOrWhiteSpace(InstitutionId))
+        if (VerifierRolePolicy.IsInstitutionScopedRole(Role) && string.IsNullOrWhiteSpace(InstitutionId))
         {
-            return "InstitutionId is required for InstructorReviewer keys.";
+            return "InstitutionId is required for InstitutionAdmin and InstructorReviewer keys.";
         }
 
         return null;

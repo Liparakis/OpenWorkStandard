@@ -1,4 +1,4 @@
-﻿# OWS Verifier Operations Runbook
+# OWS Verifier Operations Runbook
 
 This runbook covers day-to-day and emergency procedures for operating a self-hosted OWS verifier during a pilot program. It is a companion to `BACKUP_RESTORE.md`, `SECURITY_HARDENING.md`, and `SELF_HOSTED_COMPOSE.md`.
 
@@ -134,12 +134,13 @@ See `SECURITY_HARDENING.md` for full key lifecycle documentation.
 
 Daily operations summary:
 
-| Action | Endpoint |
-|---|---|
-| Create operator key | `POST /auth/api-keys` with `{"role":"Operator"}` |
-| Create reviewer key | `POST /auth/api-keys` with role + institutionId + optional expiry |
-| List keys | `GET /auth/api-keys` |
-| Revoke key | `POST /auth/api-keys/{id}/revoke` |
+| Action | Endpoint | Scoping & Delegation |
+|---|---|---|
+| Create operator key | `POST /auth/api-keys` with `{"role":"Operator"}` | Operator only |
+| Create institution admin key | `POST /auth/api-keys` with `{"role":"InstitutionAdmin", "institutionId":"<id>"}` | Operator only |
+| Create reviewer key | `POST /auth/api-keys` with `{"role":"InstructorReviewer", "institutionId":"<id>"}` | Operator, or InstitutionAdmin (own institution only) |
+| List keys | `GET /auth/api-keys` | Operator only |
+| Revoke key | `POST /auth/api-keys/{id}/revoke` | Operator only |
 
 Raw key secrets are returned once on creation and never stored. Store them in a password manager immediately.
 

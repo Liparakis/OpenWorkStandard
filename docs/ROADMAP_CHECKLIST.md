@@ -4,9 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Wire education CRUD endpoints to actual pilot workflows, then harden the platform for stable multi-institution operation.
+Implement the Desktop UI and IDE integrations (VS Code/Rider) for student watch lifecycle.
 
-**Next milestone:** Auth and RBAC v0.2 — institution-scoped admin roles and broader RBAC for multi-institution pilots.
+**Next milestone:** Desktop UI and IDE Integrations (v0.1).
 
 ## 1. Current MVP Status
 
@@ -87,7 +87,7 @@ Wire education CRUD endpoints to actual pilot workflows, then harden the platfor
 
 - [x] Operator role implemented
 - [x] InstructorReviewer role implemented
-- [ ] InstitutionAdmin role - Deferred
+- [x] InstitutionAdmin role
 - [ ] StudentClient role - Deferred
 - [x] Institution scoping enforced for package metadata and verification resources
 - [x] Institution scoping enforced for education read endpoints

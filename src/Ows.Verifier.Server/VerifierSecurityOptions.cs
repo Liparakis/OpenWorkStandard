@@ -1,3 +1,7 @@
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("Ows.Cli.Tests")]
+
 namespace Ows.Verifier.Server;
 
 /// <summary>
@@ -32,12 +36,12 @@ public sealed record VerifierApiKeyOptions
     public string Key { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the role granted by the key. Supported values are <c>Operator</c> and <c>InstructorReviewer</c>.
+    /// Gets the role granted by the key. Supported values are <c>Operator</c>, <c>InstitutionAdmin</c>, and <c>InstructorReviewer</c>.
     /// </summary>
     public string Role { get; init; } = "operator";
 
     /// <summary>
-    /// Gets the optional institution scope. Reviewer keys must set this.
+    /// Gets the optional institution scope. InstitutionAdmin and InstructorReviewer keys must set this.
     /// </summary>
     public string? InstitutionId { get; init; }
 }
@@ -51,6 +55,11 @@ internal static class VerifierRolePolicy
     /// Gets the full-access operator role name.
     /// </summary>
     public const string Operator = "Operator";
+
+    /// <summary>
+    /// Gets the institution-scoped admin role name.
+    /// </summary>
+    public const string InstitutionAdmin = "InstitutionAdmin";
 
     /// <summary>
     /// Gets the institution-scoped read-only reviewer role name.
@@ -67,6 +76,8 @@ internal static class VerifierRolePolicy
         return normalized switch
         {
             "operator" => Operator,
+            "institutionadmin" => InstitutionAdmin,
+            "admin" => InstitutionAdmin,
             "reviewer" => InstructorReviewer,
             "instructorreviewer" => InstructorReviewer,
             _ => role?.Trim() ?? string.Empty
@@ -80,6 +91,7 @@ internal static class VerifierRolePolicy
     {
         var normalized = NormalizeRoleName(role);
         return string.Equals(normalized, Operator, StringComparison.Ordinal) ||
+               string.Equals(normalized, InstitutionAdmin, StringComparison.Ordinal) ||
                string.Equals(normalized, InstructorReviewer, StringComparison.Ordinal);
     }
 
@@ -90,10 +102,22 @@ internal static class VerifierRolePolicy
         string.Equals(NormalizeRoleName(role), Operator, StringComparison.Ordinal);
 
     /// <summary>
+    /// Returns whether the role is the institution-scoped admin role.
+    /// </summary>
+    public static bool IsInstitutionAdminRole(string role) =>
+        string.Equals(NormalizeRoleName(role), InstitutionAdmin, StringComparison.Ordinal);
+
+    /// <summary>
     /// Returns whether the role is the institution-scoped reviewer role.
     /// </summary>
     public static bool IsInstructorReviewerRole(string role) =>
         string.Equals(NormalizeRoleName(role), InstructorReviewer, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Returns whether the role is institution-scoped (requires InstitutionId).
+    /// </summary>
+    public static bool IsInstitutionScopedRole(string role) =>
+        IsInstitutionAdminRole(role) || IsInstructorReviewerRole(role);
 
     /// <summary>
     /// Normalizes an institution identifier.

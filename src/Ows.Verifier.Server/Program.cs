@@ -569,6 +569,35 @@ app.MapGet("/ready",
 app.MapPost("/auth/api-keys", async (HttpContext context, VerifierApiKeyCreateRequest request,
     IVerifierApiKeyStore apiKeyStore, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
 {
+    // Delegation policy:
+    //   Operator → can create any role.
+    //   InstitutionAdmin → can create InstructorReviewer for own institution only.
+    //   InstructorReviewer → cannot create keys.
+    var callerAccess = TryGetAccessContext(context);
+    if (!IsOperatorRole(callerAccess?.Role ?? string.Empty))
+    {
+        if (!IsInstitutionAdminRole(callerAccess?.Role ?? string.Empty))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        // InstitutionAdmin can only create InstructorReviewer keys for their own institution.
+        var targetRole = NormalizeVerifierRoleName(request.Role);
+        if (!string.Equals(targetRole, VerifierRolePolicy.InstructorReviewer, StringComparison.Ordinal))
+        {
+            return Results.Json(
+                new { error = "InstitutionAdmin may only create InstructorReviewer keys." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        if (!string.Equals(request.InstitutionId, callerAccess!.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Json(
+                new { error = "InstitutionAdmin may only create keys for their own institution." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+    }
+
     try
     {
         var result = await apiKeyStore.CreateAsync(request, cancellationToken);
@@ -578,7 +607,7 @@ app.MapPost("/auth/api-keys", async (HttpContext context, VerifierApiKeyCreateRe
             context,
             eventType: "api_key.created",
             result: "Created",
-            access: TryGetAccessContext(context),
+            access: callerAccess,
             institutionId: result.Metadata.InstitutionId,
             metadata: CreateMetadata(
                 ("createdKeyId", result.Metadata.KeyId),
@@ -621,6 +650,18 @@ app.MapPost("/auth/api-keys/{id}/revoke", async (HttpContext context, string id,
 app.MapPost("/sessions", async (HttpContext context, StartSessionRequest? body, IVerifierStorage storage,
     IEducationStore educationStore, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
 {
+    var callerAccess = TryGetAccessContext(context);
+    if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
+    {
+        if (string.IsNullOrWhiteSpace(body?.InstitutionId) ||
+            !string.Equals(body.InstitutionId, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Json(
+                new { error = "InstitutionAdmin may only create sessions for their own institution." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+    }
+
     string? clientId = body?.StudentUserId;
     string? assessmentId = body?.AssessmentId;
     string? metadataJson = null;
@@ -1210,12 +1251,21 @@ app.MapGet("/packages/{id}/report", async (string id, HttpContext context, IPack
     return Results.Text(report.Content, "text/plain");
 });
 
-app.MapGet("/audit/events", async (string? institutionId, string? sessionId, string? packageId, string? eventType,
-    DateTimeOffset? since, int? limit, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
+app.MapGet("/audit/events", async (HttpContext context, string? institutionId, string? sessionId,
+    string? packageId, string? eventType, DateTimeOffset? since, int? limit,
+    IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
 {
+    var callerAccess = TryGetAccessContext(context);
+
+    // InstitutionAdmin can only read their own institution's audit events.
+    // Enforce the scope regardless of what the caller supplied.
+    var effectiveInstitutionId = IsInstitutionAdminRole(callerAccess?.Role ?? string.Empty)
+        ? callerAccess!.InstitutionId
+        : institutionId;
+
     var query = new VerifierAuditQuery
     {
-        InstitutionId = institutionId,
+        InstitutionId = effectiveInstitutionId,
         SessionId = sessionId,
         PackageId = packageId,
         EventType = eventType,
@@ -1293,9 +1343,17 @@ app.MapGet("/sessions/{id}/head", async (string id, IVerifierStorage storage, Ca
 // ── Education endpoints ───────────────────────────────────────────────────
 
 // Institutions
-app.MapPost("/education/institutions", async (Institution institution, IEducationStore educationStore,
+app.MapPost("/education/institutions", async (HttpContext context, Institution institution, IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
+    var callerAccess = TryGetAccessContext(context);
+    if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
+    {
+        if (!string.Equals(institution.Id.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+    }
     await educationStore.CreateInstitutionAsync(institution, cancellationToken);
     return Results.Ok(institution);
 });
@@ -1308,9 +1366,17 @@ app.MapGet("/education/institutions/{id}", async (string id, IEducationStore edu
 });
 
 // Courses
-app.MapPost("/education/courses", async (Course course, IEducationStore educationStore,
+app.MapPost("/education/courses", async (HttpContext context, Course course, IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
+    var callerAccess = TryGetAccessContext(context);
+    if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
+    {
+        if (!string.Equals(course.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+    }
     await educationStore.CreateCourseAsync(course, cancellationToken);
     return Results.Ok(course);
 });
@@ -1323,9 +1389,17 @@ app.MapGet("/education/courses/{id}", async (string id, IEducationStore educatio
 });
 
 // Class groups
-app.MapPost("/education/class-groups", async (ClassGroup classGroup, IEducationStore educationStore,
+app.MapPost("/education/class-groups", async (HttpContext context, ClassGroup classGroup, IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
+    var callerAccess = TryGetAccessContext(context);
+    if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
+    {
+        if (!string.Equals(classGroup.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+    }
     await educationStore.CreateClassGroupAsync(classGroup, cancellationToken);
     return Results.Ok(classGroup);
 });
@@ -1338,9 +1412,17 @@ app.MapGet("/education/class-groups/{id}", async (string id, IEducationStore edu
 });
 
 // Course offerings
-app.MapPost("/education/course-offerings", async (CourseOffering offering, IEducationStore educationStore,
+app.MapPost("/education/course-offerings", async (HttpContext context, CourseOffering offering, IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
+    var callerAccess = TryGetAccessContext(context);
+    if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
+    {
+        if (!string.Equals(offering.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+    }
     await educationStore.CreateCourseOfferingAsync(offering, cancellationToken);
     return Results.Ok(offering);
 });
@@ -1353,9 +1435,18 @@ app.MapGet("/education/course-offerings/{id}", async (string id, IEducationStore
 });
 
 // Enrollments
-app.MapPost("/education/enrollments", async (Enrollment enrollment, IEducationStore educationStore,
+app.MapPost("/education/enrollments", async (HttpContext context, Enrollment enrollment, IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
+    var callerAccess = TryGetAccessContext(context);
+    if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
+    {
+        var offering = await educationStore.GetCourseOfferingAsync(enrollment.CourseOfferingId, cancellationToken);
+        if (offering is null || !string.Equals(offering.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+    }
     await educationStore.CreateEnrollmentAsync(enrollment, cancellationToken);
     return Results.Ok(enrollment);
 });
@@ -1376,9 +1467,17 @@ app.MapGet("/education/enrollments/offering/{offeringId}", async (string offerin
 });
 
 // Assessments
-app.MapPost("/education/assessments", async (Assessment assessment, IEducationStore educationStore,
+app.MapPost("/education/assessments", async (HttpContext context, Assessment assessment, IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
+    var callerAccess = TryGetAccessContext(context);
+    if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
+    {
+        if (!string.Equals(assessment.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+    }
     await educationStore.CreateAssessmentAsync(assessment, cancellationToken);
     return Results.Ok(assessment);
 });
@@ -1391,9 +1490,17 @@ app.MapGet("/education/assessments/{id}", async (string id, IEducationStore educ
 });
 
 // Users / students
-app.MapPost("/education/users", async (User user, IEducationStore educationStore,
+app.MapPost("/education/users", async (HttpContext context, User user, IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
+    var callerAccess = TryGetAccessContext(context);
+    if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
+    {
+        if (!string.Equals(user.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+    }
     await educationStore.CreateUserAsync(user, cancellationToken);
     return Results.Ok(user);
 });
@@ -1903,7 +2010,10 @@ static async Task<VerifierAccessContext?> TryAuthenticatePersistedApiKeyAsync(
     }
 }
 
-// Reviewer keys are deliberately narrow: read-only verifier evidence queries, scoped to one institution.
+// RBAC policy for non-Operator roles.
+// Operator → always authorized (checked before calling this).
+// InstitutionAdmin → institution-scoped writes on education, read on packages/sessions/reports, audit scoped.
+// InstructorReviewer → read-only, institution-scoped, no auth/audit/diagnostics.
 static async Task<bool> IsAuthorizedAsync(
     HttpContext context,
     VerifierAccessContext access,
@@ -1914,10 +2024,8 @@ static async Task<bool> IsAuthorizedAsync(
         return true;
     }
 
-    if (!HttpMethods.IsGet(context.Request.Method))
-    {
-        return false;
-    }
+    var isAdmin = IsInstitutionAdminRole(access.Role);
+    var isReviewer = IsInstructorReviewerRole(access.Role);
 
     var segments = context.Request.Path.Value?
                        .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -1927,18 +2035,41 @@ static async Task<bool> IsAuthorizedAsync(
         return false;
     }
 
-    if (segments is ["auth", "api-keys"] or ["auth", "api-keys", _, "revoke"])
+    // Auth management: InstitutionAdmin can POST /auth/api-keys (delegation enforced inside handler).
+    // Neither role can list all keys, revoke, or access diagnostics.
+    if (segments is ["auth", "api-keys"])
     {
-        return IsOperatorRole(access.Role);
+        // GET list: operator only.
+        if (HttpMethods.IsGet(context.Request.Method)) return false;
+        // POST create: InstitutionAdmin allowed (delegation policy enforced in handler).
+        return isAdmin;
     }
 
-    if (segments is ["audit", "events"] or ["diagnostics", "summary"])
+    if (segments is ["auth", "api-keys", _, "revoke"])
     {
-        return IsOperatorRole(access.Role);
+        return false; // operator only
     }
 
+    // Audit events: InstitutionAdmin can read (institution filter forced in endpoint handler).
+    if (segments is ["audit", "events"])
+    {
+        return isAdmin && HttpMethods.IsGet(context.Request.Method);
+    }
+
+    // Diagnostics: operator only.
+    if (segments is ["diagnostics", "summary"])
+    {
+        return false;
+    }
+
+    // All remaining paths require GET or are education writes for InstitutionAdmin.
+    var isGet = HttpMethods.IsGet(context.Request.Method);
+    var isWrite = !isGet;
+
+    // Package resources: read for both institution-scoped roles.
     if (segments is ["packages", _] or ["packages", _, "verification"] or ["packages", _, "report"])
     {
+        if (isWrite) return false;
         var packageStore = context.RequestServices.GetRequiredService<IPackageSubmissionStore>();
         var submission = await packageStore.GetAsync(segments[1], cancellationToken);
         return submission is not null && await MatchesInstitutionScopeAsync(
@@ -1949,8 +2080,10 @@ static async Task<bool> IsAuthorizedAsync(
             cancellationToken);
     }
 
+    // Session resources.
     if (segments is ["sessions", _, "packages"] or ["sessions", _, "receipts"] or ["sessions", _, "head"])
     {
+        if (isWrite) return false;
         return await MatchesInstitutionScopeAsync(
             null,
             segments[1],
@@ -1959,12 +2092,42 @@ static async Task<bool> IsAuthorizedAsync(
             cancellationToken);
     }
 
+    // POST /sessions: InstitutionAdmin may create sessions (institution validated in handler).
+    if (segments is ["sessions"] && !isGet)
+    {
+        return isAdmin;
+    }
+
+    // Education endpoints.
     if (segments.Length >= 2 && string.Equals(segments[0], "education", StringComparison.OrdinalIgnoreCase))
     {
         var educationStore = context.RequestServices.GetRequiredService<IEducationStore>();
-        var institutionId = await ResolveEducationInstitutionIdAsync(segments, educationStore, cancellationToken);
-        return !string.IsNullOrWhiteSpace(institutionId) &&
-               string.Equals(institutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase);
+
+        if (isWrite)
+        {
+            // Only InstitutionAdmin can write education data (for their own institution).
+            if (!isAdmin) return false;
+
+            // For POST (create) operations on collection endpoints, we enforce institution
+            // matching at request body level; trust that the endpoint validates InstitutionId.
+            // For reads on specific resources, resolve from the store.
+            // Collection-level POSTs (no ID segment): allow; body validation enforces scope.
+            if (segments.Length == 2)
+            {
+                return true; // endpoint body-validation enforces institution scope
+            }
+
+            // Write to a specific resource: resolve institution from store.
+            var institutionId = await ResolveEducationInstitutionIdAsync(segments, educationStore, cancellationToken);
+            return !string.IsNullOrWhiteSpace(institutionId) &&
+                   string.Equals(institutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // GET: both InstitutionAdmin and InstructorReviewer can read own institution.
+        if (!isAdmin && !isReviewer) return false;
+        var resolvedInstitutionId = await ResolveEducationInstitutionIdAsync(segments, educationStore, cancellationToken);
+        return !string.IsNullOrWhiteSpace(resolvedInstitutionId) &&
+               string.Equals(resolvedInstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase);
     }
 
     return false;
@@ -2041,6 +2204,9 @@ static bool IsSupportedVerifierRole(string role) =>
 
 static bool IsOperatorRole(string role) =>
     VerifierRolePolicy.IsOperatorRole(role);
+
+static bool IsInstitutionAdminRole(string role) =>
+    VerifierRolePolicy.IsInstitutionAdminRole(role);
 
 static bool IsInstructorReviewerRole(string role) =>
     VerifierRolePolicy.IsInstructorReviewerRole(role);
