@@ -17,6 +17,17 @@ docker compose -f docker-compose.local.yml up -d
 .\scripts\status-local-verifier.ps1
 ```
 
+Fastest validated rehearsal:
+
+```powershell
+$env:VerifierSecurity__ApiKey = "pilot-operator-key-12345"
+$env:OWS_VERIFIER_API_KEY = "pilot-operator-key-12345"
+$env:VerifierStorage__ReceiptSigningKey = "pilot-signing-key-12345"
+.\scripts\run-live-pilot-dry-run.ps1
+```
+
+This script starts the verifier, creates a unique fixture, runs the student CLI flow, waits for heartbeats, uploads a package, waits for worker verification, checks reviewer/operator flows, writes `artifacts/pilot-demo/live-dry-run-summary.json`, and then stops the verifier.
+
 ## 1. Operator Fixture Setup
 
 Create the minimal pilot fixture:
@@ -60,6 +71,8 @@ Edit `.ows/config.json` with the fixture values:
   "uploadEnabled": true
 }
 ```
+
+The documented config shape is camelCase. `ows session start` now reads that shape directly.
 
 Store the student key only in the shell environment:
 
@@ -143,7 +156,7 @@ curl -H "X-OWS-Verifier-Key: $env:REVIEWER_KEY" http://127.0.0.1:5078/packages/<
 Confirm:
 
 - report includes `Assessment Context`
-- trust status is visible
+- report includes a top-level `Status:` line
 - report is scoped to the reviewer institution
 - reviewer cannot mutate education metadata
 
@@ -198,3 +211,30 @@ Validate or document evidence for:
 - VS Code status bar and commands work in a trusted workspace
 - reviewer can read the report and cannot mutate education state
 - diagnostics and audit evidence are available without leaking raw keys
+
+## Live Dry Run Result
+
+Validated on 2026-06-20 against the local PostgreSQL-backed verifier flow with:
+
+- `scripts/run-live-pilot-dry-run.ps1`
+- `BaseUrl=http://127.0.0.1:5078`
+- verifier storage provider `postgres`
+
+Observed result from `artifacts/pilot-demo/live-dry-run-summary.json`:
+
+- verifier `/health` = `Healthy`
+- verifier `/ready` = `Ready`
+- fixture creation succeeded with institution, course, class group, course offering, assessment, student user, and delegated student/reviewer keys
+- student CLI flow reached `SessionActive`
+- heartbeat advanced while the watcher process stayed alive
+- checkpoint issuance succeeded
+- package upload succeeded
+- worker verification completed with `trustStatus = Verified`
+- reviewer report read succeeded and reviewer write attempts were rejected with `403`
+- diagnostics showed `packageBlobCount` increase after upload
+- audit events included package upload, verification queue/start/complete, and report read entries
+- verifier logs included request ids and did not leak raw API keys
+
+Known environment caveat from the dry run:
+
+- `start-local-verifier.ps1` may print Docker client access-denied warnings in restricted shells. If PostgreSQL is already reachable on `localhost:5432`, the verifier can still start and the dry run can still pass.

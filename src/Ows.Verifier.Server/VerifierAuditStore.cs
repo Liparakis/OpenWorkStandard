@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace Ows.Verifier.Server;
 
@@ -379,11 +380,26 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
                               order by created_at desc, id desc
                               limit @limit;
                               """;
-        command.Parameters.AddWithValue("institution_id", (object?)NormalizeFilter(query.InstitutionId) ?? DBNull.Value);
-        command.Parameters.AddWithValue("session_id", (object?)NormalizeFilter(query.SessionId) ?? DBNull.Value);
-        command.Parameters.AddWithValue("package_id", (object?)NormalizeFilter(query.PackageId) ?? DBNull.Value);
-        command.Parameters.AddWithValue("event_type", (object?)NormalizeFilter(query.EventType) ?? DBNull.Value);
-        command.Parameters.AddWithValue("since", (object?)query.Since ?? DBNull.Value);
+        command.Parameters.Add(new NpgsqlParameter("institution_id", NpgsqlDbType.Text)
+        {
+            Value = (object?)NormalizeFilter(query.InstitutionId) ?? DBNull.Value
+        });
+        command.Parameters.Add(new NpgsqlParameter("session_id", NpgsqlDbType.Text)
+        {
+            Value = (object?)NormalizeFilter(query.SessionId) ?? DBNull.Value
+        });
+        command.Parameters.Add(new NpgsqlParameter("package_id", NpgsqlDbType.Text)
+        {
+            Value = (object?)NormalizeFilter(query.PackageId) ?? DBNull.Value
+        });
+        command.Parameters.Add(new NpgsqlParameter("event_type", NpgsqlDbType.Text)
+        {
+            Value = (object?)NormalizeFilter(query.EventType) ?? DBNull.Value
+        });
+        command.Parameters.Add(new NpgsqlParameter("since", NpgsqlDbType.TimestampTz)
+        {
+            Value = (object?)query.Since ?? DBNull.Value
+        });
         command.Parameters.AddWithValue("limit", Math.Clamp(query.Limit <= 0 ? 100 : query.Limit, 1, 200));
 
         var result = new List<VerifierAuditEvent>();

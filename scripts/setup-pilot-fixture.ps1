@@ -1,7 +1,8 @@
 param(
     [string]$BaseUrl = $(if ($env:OWS_VERIFIER_BASE_URL) { $env:OWS_VERIFIER_BASE_URL } else { "http://127.0.0.1:5078" }),
     [string]$OperatorKey = $env:OWS_VERIFIER_API_KEY,
-    [string]$Prefix = "pilot"
+    [string]$Prefix = "pilot",
+    [switch]$AsJson
 )
 
 $ErrorActionPreference = "Stop"
@@ -124,11 +125,33 @@ New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
 $metadataPath = Join-Path $artifactDir "fixture-metadata.json"
 $metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $metadataPath -Encoding UTF8
 
+$result = [ordered]@{
+    metadataFile = $metadataPath
+    baseUrl = $BaseUrl
+    institutionId = $institutionId
+    courseId = $courseId
+    classGroupId = $classGroupId
+    courseOfferingId = $courseOfferingId
+    enrollmentId = $enrollmentId
+    assessmentId = $assessmentId
+    studentUserId = $studentUserId
+    studentClientKey = $studentKeyResult.apiKey
+    studentClientKeyPrefix = $studentKeyResult.metadata.keyPrefix
+    instructorReviewerKey = $reviewerKeyResult.apiKey
+    instructorReviewerKeyPrefix = $reviewerKeyResult.metadata.keyPrefix
+}
+
+if ($AsJson) {
+    $result | ConvertTo-Json -Depth 5
+    return
+}
+
 Write-Host "Pilot fixture created."
 Write-Host "Metadata file: $metadataPath"
 Write-Host ""
 Write-Host "institutionId=$institutionId"
 Write-Host "courseId=$courseId"
+Write-Host "classGroupId=$classGroupId"
 Write-Host "courseOfferingId=$courseOfferingId"
 Write-Host "assessmentId=$assessmentId"
 Write-Host "studentUserId=$studentUserId"

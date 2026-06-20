@@ -30,6 +30,7 @@ What works today:
 - machine-readable CLI commands with global `--json` option and API key redaction
 - minimal VS Code extension supporting full student watch/session/package lifecycle and secure key storage
 - documented pilot demo path covering operator setup, student workflow, reviewer report access, diagnostics, audit, and negative-path checks
+- repo-owned live pilot dry run script that validates the full local PostgreSQL-backed pilot path and writes a machine-readable summary artifact
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -343,6 +344,11 @@ Recent uncommitted/working-tree progress:
 - operational runbooks, backup/restore order, recovery failure modes, and restore drills are fully documented
 - `docs/PILOT_DEMO.md` now provides the main pilot walkthrough for professors and sysadmins
 - `scripts/setup-pilot-fixture.ps1` creates a minimal institution/course/student/assessment fixture and delegated student/reviewer keys
+- `scripts/run-live-pilot-dry-run.ps1` now executes the verified end-to-end pilot rehearsal and writes `artifacts/pilot-demo/live-dry-run-summary.json`
+- camelCase `.ows/config.json` fields are now honored by `ows session start` and related config-backed flows
+- PostgreSQL audit-event queries now bind nullable filters safely
+- receipt timestamps are normalized before hashing so PostgreSQL round-trips preserve valid verifier receipt chains
+- the live pilot dry run completed on 2026-06-20 with `trustStatus = Verified`, reviewer write rejection `403`, package blob count growth, audit coverage, and no raw API key leakage in logs
 
 Net result:
 
@@ -389,7 +395,7 @@ The weakest assumption to avoid: thinking durable local blobs plus PostgreSQL ar
 Best next steps, in order:
 
 1. Run a full live pilot dry run against a fresh Compose stack and archive the evidence.
-2. Fix any workflow seams found during that dry run.
+2. Keep the dry run script green whenever verifier/session/package behavior changes.
 3. Defer Rider, desktop polish, and LMS integration until the pilot path is boring.
 
 ## Bottom Line

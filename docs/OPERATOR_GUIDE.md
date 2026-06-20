@@ -74,7 +74,29 @@ curl -X POST -H "X-OWS-Verifier-Key: <operator-key>" \
 
 ---
 
-## 3. Scrape Metrics
+## 3. Run The Full Pilot Dry Run
+
+Use the repo-owned rehearsal script before demos or pilot support sessions:
+
+```powershell
+$env:VerifierSecurity__ApiKey = "pilot-operator-key-12345"
+$env:OWS_VERIFIER_API_KEY = "pilot-operator-key-12345"
+$env:VerifierStorage__ReceiptSigningKey = "pilot-signing-key-12345"
+.\scripts\run-live-pilot-dry-run.ps1
+```
+
+What it does:
+
+- starts the local verifier helper path
+- creates a unique institution/course/student/assessment fixture
+- runs the student CLI watch, heartbeat, checkpoint, package, and upload path
+- waits for package verification to complete
+- validates reviewer read-only access and operator diagnostics/audit access
+- writes `artifacts/pilot-demo/live-dry-run-summary.json`
+
+---
+
+## 4. Scrape Metrics
 
 The metrics endpoint is designed for integration with Prometheus. It bypasses authentication so monitoring agents can scrape it without API keys.
 

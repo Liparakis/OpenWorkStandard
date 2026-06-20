@@ -4,9 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Validate the complete pilot workflow end-to-end before adding more UI surfaces.
+Keep the live pilot dry run green as a regression gate before adding new UI surfaces or integrations.
 
-**Next milestone:** Pilot End-to-End Validation v0.1.
+**Current milestone status:** Live Pilot Dry Run v0.1 completed.
 
 ## 1. Current MVP Status
 
@@ -256,4 +256,4 @@ Validate the complete pilot workflow end-to-end before adding more UI surfaces.
 - [x] Audit and diagnostics workflow validation documented
 - [x] Heartbeat lifecycle validation documented
 - [x] Negative-path validation checklist documented
-- [ ] Full live pilot dry run against a fresh Compose stack
+- [x] Full live pilot dry run against the local PostgreSQL-backed verifier path

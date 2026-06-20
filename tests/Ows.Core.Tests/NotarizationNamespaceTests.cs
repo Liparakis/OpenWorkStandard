@@ -90,6 +90,21 @@ public sealed class NotarizationNamespaceTests
     }
 
     /// <summary>
+    /// Verifies that issued receipt timestamps are normalized to PostgreSQL-safe precision.
+    /// </summary>
+    [Fact]
+    public void IssueReceipt_ShouldNormalizeTimestampPrecision()
+    {
+        var sessionId = AssessmentSessionId.Create();
+        var receipt = ReceiptChainVerifier.IssueReceipt(
+            new Checkpoint { SessionId = sessionId, SequenceNumber = 1, TimelineHeadHash = "head-1" },
+            ReceiptChainVerifier.GenesisPreviousReceiptHash,
+            signingKey: "test-signing-key");
+
+        (receipt.ServerTimestamp.IssuedAtUtc.Ticks % 10).Should().Be(0);
+    }
+
+    /// <summary>
     /// Verifies that tampered receipts fail chain validation.
     /// </summary>
     [Fact]

@@ -131,6 +131,72 @@ public sealed class OwsSessionCommandTests
     }
 
     /// <summary>
+    /// Verifies that session start honors the documented camelCase config file fields.
+    /// </summary>
+    [Fact]
+    public async Task SessionStart_WithCamelCaseConfig_ShouldUseConfiguredVerifierAndContext()
+    {
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-camel-config-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(projectRoot);
+        var originalDirectory = Directory.GetCurrentDirectory();
+        var originalApiKey = Environment.GetEnvironmentVariable("OWS_VERIFIER_API_KEY");
+        using var verifierServer = new StubVerifierServer((method, path) => path switch
+        {
+            "sessions" when method == "POST" => new StartSessionResponse { SessionId = RemoteSessionId.Value },
+            _ => null
+        });
+
+        try
+        {
+            Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", "test-api-key");
+            Directory.SetCurrentDirectory(projectRoot);
+            (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
+
+            var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
+            var configPath = Path.Combine(localFolder, "config.json");
+            await File.WriteAllTextAsync(
+                configPath,
+                """
+                {
+                  "owsVersion": "0.1",
+                  "projectRoot": ".",
+                  "initializedAtUtc": "2026-06-20T00:00:00Z",
+                  "verifierUrl": "__VERIFIER_URL__",
+                  "institutionId": "institution-1",
+                  "assessmentId": "assessment-1",
+                  "studentUserId": "student-1",
+                  "courseOfferingId": "offering-1",
+                  "uploadEnabled": true
+                }
+                """.Replace("__VERIFIER_URL__", verifierServer.BaseUrl, StringComparison.Ordinal));
+
+            var exitCode = await OwsCommandFactory.BuildRootCommand()
+                .Parse(["session", "start"])
+                .InvokeAsync();
+
+            var sessionState = JsonDocument.Parse(File.ReadAllText(Path.Combine(projectRoot, ".ows", "session.json")));
+
+            exitCode.Should().Be(0);
+            sessionState.RootElement.GetProperty("SessionId").GetString().Should().Be(RemoteSessionId.Value);
+            sessionState.RootElement.GetProperty("VerifierUrl").GetString().Should().Be(verifierServer.BaseUrl);
+            sessionState.RootElement.GetProperty("InstitutionId").GetString().Should().Be("institution-1");
+            sessionState.RootElement.GetProperty("AssessmentId").GetString().Should().Be("assessment-1");
+            sessionState.RootElement.GetProperty("StudentUserId").GetString().Should().Be("student-1");
+            sessionState.RootElement.GetProperty("CourseOfferingId").GetString().Should().Be("offering-1");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", originalApiKey);
+            Directory.SetCurrentDirectory(originalDirectory);
+
+            if (Directory.Exists(projectRoot))
+            {
+                Directory.Delete(projectRoot, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that remote session start sends the configured verifier API key header.
     /// </summary>
     [Fact]

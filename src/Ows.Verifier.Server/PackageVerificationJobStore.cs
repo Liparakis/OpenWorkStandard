@@ -459,14 +459,15 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
                               """;
         command.Parameters.AddWithValue("started_at", DateTimeOffset.UtcNow);
 
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
+        PackageVerificationJobRecord? job = null;
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
         {
-            await transaction.CommitAsync(cancellationToken);
-            return null;
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                job = ReadJob(reader);
+            }
         }
 
-        var job = ReadJob(reader);
         await transaction.CommitAsync(cancellationToken);
         return job;
     }

@@ -20,6 +20,11 @@ namespace Ows.Core.Agent;
 public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions ConfigSerializerOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true
+    };
     
     private ITrackingAgent? _activeAgent;
     private CancellationTokenSource? _activeCts;
@@ -523,7 +528,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
 
         try
         {
-            return JsonSerializer.Deserialize<OwsProjectConfig>(File.ReadAllText(configPath));
+            return JsonSerializer.Deserialize<OwsProjectConfig>(File.ReadAllText(configPath), ConfigSerializerOptions);
         }
         catch
         {
@@ -538,7 +543,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         Directory.CreateDirectory(localFolder);
         var configPath = Path.Combine(localFolder, "config.json");
-        File.WriteAllText(configPath, JsonSerializer.Serialize(config, SerializerOptions));
+        File.WriteAllText(configPath, JsonSerializer.Serialize(config, ConfigSerializerOptions));
     }
 
     /// <inheritdoc />

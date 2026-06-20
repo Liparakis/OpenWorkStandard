@@ -26,12 +26,17 @@ public static class ReceiptChainVerifier
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
 
+        var issuedAtUtc = NormalizeIssuedAtUtc(DateTimeOffset.UtcNow);
         var receiptWithoutHash = new CheckpointReceipt
         {
             SessionId = checkpoint.SessionId,
             SequenceNumber = checkpoint.SequenceNumber,
             TimelineHeadHash = checkpoint.TimelineHeadHash,
             PreviousReceiptHash = previousReceiptHash,
+            ServerTimestamp = new ServerTimestamp
+            {
+                IssuedAtUtc = issuedAtUtc
+            },
             SigningKeyFingerprint = ComputeFingerprint(signingKey)
         };
 
@@ -41,6 +46,14 @@ public static class ReceiptChainVerifier
             ReceiptHash = receiptHash,
             ServerSignature = ComputeServerSignature(receiptHash, signingKey)
         };
+    }
+
+    private static DateTimeOffset NormalizeIssuedAtUtc(DateTimeOffset value)
+    {
+        const long ticksPerMicrosecond = 10;
+        var utcValue = value.ToUniversalTime();
+        var normalizedTicks = utcValue.Ticks - (utcValue.Ticks % ticksPerMicrosecond);
+        return new DateTimeOffset(normalizedTicks, TimeSpan.Zero);
     }
 
     /// <summary>
