@@ -23,7 +23,8 @@ What works today:
 - local PostgreSQL-backed verifier startup, smoke testing, and helper-script generation
 - optional verifier receipt signing with a configured server key
 - config-backed verifier API guard with operator and reviewer scopes
-- structured verifier request logging for method, path, status, and duration
+- structured verifier request logging with request ids, actor scope, and safe resource metadata
+- persistent verifier audit events plus operator diagnostics endpoints
 
 The codebase is still MVP-grade, but it is no longer only a local packaging toy. It now has a thin remote trust-boundary slice.
 
@@ -208,7 +209,11 @@ PostgreSQL setup model today:
 - requests require `X-OWS-Verifier-Key` when verifier API keys are configured
 - the current auth slice supports full-access `Operator` keys and institution-scoped read-only `InstructorReviewer` keys
 - the legacy shared bootstrap key remains supported through `VerifierSecurity:ApiKey`
-- request logs include method, path, status code, and elapsed time, but not bodies or headers
+- request logs include `X-Request-Id`, method, path, status code, elapsed time, role, institution scope, and key prefix
+- `GET /audit/events` exposes operator-only audit queries with simple filters for institution, session, package, event type, and time
+- `GET /diagnostics/summary` exposes lightweight safe counters instead of a full monitoring stack
+- `/ready` now reports safe dependency state for storage, education store reachability, package storage, signing configuration, and auth mode
+- audit events cover API key lifecycle, auth failures, access denials, session creation, checkpoint/heartbeat acceptance, lease-gap detection, package submission, package verification, and report reads
 - package submissions register object storage provider, bucket, key, package SHA-256, and package size
 - package submission retries can use `Idempotency-Key`
 - duplicate package object registrations reject metadata drift
@@ -266,6 +271,7 @@ Important implemented pieces:
 - package assembly
 - package verification and trust grading
 - package object metadata registration
+- lightweight verifier observability foundation
 
 ## Testing Status
 
@@ -329,6 +335,7 @@ The main missing pieces are:
 - multi-instance verifier deployment model
 - desktop UI beyond placeholder state
 - fuller institutional auth (InstitutionAdmin, StudentClient, SSO)
+- full monitoring stack and external metrics pipeline
 
 ## Reality Check
 
@@ -355,9 +362,9 @@ The weakest assumption to avoid: thinking the current verifier server is already
 
 Best next steps, in order:
 
-1. Define the multi-tenant education domain models (institutions, courses, classes).
-2. Build production-grade deployment packaging (Docker Compose or Helm charts) for self-hosting.
-3. Defer IDE plugins and background hosts until the education models and watcher lifecycle are clear.
+1. Add durable package blob intake and a server-side verification worker.
+2. Add stronger operator deployment/runbook guidance around storage, backups, and receipt-key custody.
+3. Defer full monitoring stack integration until pilots need external scraping and dashboards.
 
 ## Bottom Line
 

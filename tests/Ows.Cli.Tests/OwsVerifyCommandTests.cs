@@ -63,20 +63,19 @@ public sealed class OwsVerifyCommandTests
             SessionId = sessionId,
             Receipts = [CreateReceipt(sessionId, "stub-head")]
         };
-        var chain = remoteReceiptChain;
         using var verifierServer = new StubVerifierServer((method, path) => path switch
         {
             "sessions" when method == "POST" => new StartSessionResponse { SessionId = sessionId.Value },
             _ when path == $"sessions/{sessionId}/checkpoints" && method == "POST" => CreateReceipt(sessionId,
                 "stub-head"),
-            _ when path == $"sessions/{sessionId}/receipts" && method == "GET" => chain,
+            _ when path == $"sessions/{sessionId}/receipts" && method == "GET" => remoteReceiptChain,
             _ when path == $"sessions/{sessionId}/head" && method == "GET" => new SessionHeadResponse
             {
                 SessionId = sessionId.Value,
-                LastSequenceNumber = chain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
-                LastTimelineHeadHash = chain.Receipts.LastOrDefault()?.TimelineHeadHash ??
+                LastSequenceNumber = remoteReceiptChain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
+                LastTimelineHeadHash = remoteReceiptChain.Receipts.LastOrDefault()?.TimelineHeadHash ??
                                        OwsEventChain.GenesisPreviousEventHash,
-                LastReceiptHash = chain.Receipts.LastOrDefault()?.ReceiptHash ??
+                LastReceiptHash = remoteReceiptChain.Receipts.LastOrDefault()?.ReceiptHash ??
                                   ReceiptChainVerifier.GenesisPreviousReceiptHash
             },
             _ => null

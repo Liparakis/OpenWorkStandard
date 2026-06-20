@@ -293,6 +293,149 @@ public sealed class VerifierServerTests
     }
 
     /// <summary>
+    /// Verifies that the server always returns a request identifier and preserves a supplied one.
+    /// </summary>
+    [Fact]
+    public async Task Requests_ShouldReturnRequestIdHeader()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKey", "" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                using var generatedRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                var generatedResponse = await client.SendAsync(generatedRequest);
+                generatedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                generatedResponse.Headers.TryGetValues("X-Request-Id", out var generatedValues).Should().BeTrue();
+                generatedValues.Should().NotBeNull();
+                generatedValues!.Single().Should().NotBeNullOrWhiteSpace();
+
+                using var suppliedRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                suppliedRequest.Headers.Add("X-Request-Id", "req-test-123");
+                var suppliedResponse = await client.SendAsync(suppliedRequest);
+                suppliedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                suppliedResponse.Headers.GetValues("X-Request-Id").Single().Should().Be("req-test-123");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that auth failures are audited and raw API keys never land in audit storage.
+    /// </summary>
+    [Fact]
+    public async Task AuditEvents_ShouldRecordAuthFailuresWithoutRawKeys()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        const string operatorKey = "bootstrap-operator-key-1234";
+        const string badKey = "definitely-wrong-key-9999";
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKey", operatorKey }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                using var badRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
+                badRequest.Headers.Add("X-OWS-Verifier-Key", badKey);
+                var badResponse = await client.SendAsync(badRequest);
+                badResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+                using var auditRequest = new HttpRequestMessage(HttpMethod.Get, "/audit/events?eventType=auth.failed");
+                auditRequest.Headers.Add("X-OWS-Verifier-Key", operatorKey);
+                var auditResponse = await client.SendAsync(auditRequest);
+                auditResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var events = await auditResponse.Content.ReadFromJsonAsync<List<VerifierAuditEvent>>();
+                events.Should().NotBeNull();
+                events.Should().ContainSingle(e => e.EventType == "auth.failed" && e.Result == "InvalidKey");
+                events!.Single().ActorKeyPrefix.Should().Be(badKey[..12]);
+
+                var auditJson = await File.ReadAllTextAsync(Path.Combine(tempDbDir, "audit_events.json"));
+                auditJson.Should().NotContain(badKey);
+                auditJson.Should().NotContain(operatorKey);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that reviewer-denied requests are audited and reviewer keys cannot query the global audit feed.
+    /// </summary>
+    [Fact]
+    public async Task AuditEvents_ShouldRecordAccessDeniedAndBlockReviewerAuditQuery()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKeys__0__Key", "operator-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__0__Role", "operator" },
+                { "VerifierSecurity__ApiKeys__1__Key", "reviewer-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__1__Role", "reviewer" },
+                { "VerifierSecurity__ApiKeys__1__InstitutionId", "inst-1" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                using var deniedRequest = new HttpRequestMessage(HttpMethod.Get, "/audit/events");
+                deniedRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
+                var deniedResponse = await client.SendAsync(deniedRequest);
+                deniedResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+                using var auditRequest = new HttpRequestMessage(HttpMethod.Get, "/audit/events?eventType=access.denied");
+                auditRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
+                var auditResponse = await client.SendAsync(auditRequest);
+                auditResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var events = await auditResponse.Content.ReadFromJsonAsync<List<VerifierAuditEvent>>();
+                events.Should().NotBeNull();
+                events.Should().Contain(e => e.EventType == "access.denied" && e.ActorRole == "InstructorReviewer");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that persisted API keys can be created, listed, used, and revoked without storing raw secrets.
     /// </summary>
     [Fact]
@@ -354,6 +497,23 @@ public sealed class VerifierServerTests
                 var revokeResponse = await client.SendAsync(revokeRequest);
                 revokeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
+                using var auditRequest = new HttpRequestMessage(HttpMethod.Get, "/audit/events");
+                auditRequest.Headers.Add("X-OWS-Verifier-Key", "bootstrap-operator-key-1234");
+                var auditResponse = await client.SendAsync(auditRequest);
+                auditResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var auditEvents = await auditResponse.Content.ReadFromJsonAsync<List<VerifierAuditEvent>>();
+                auditEvents.Should().NotBeNull();
+                auditEvents!.Any(e =>
+                        e.EventType == "api_key.created" &&
+                        e.Metadata.TryGetValue("createdKeyPrefix", out var createdPrefix) &&
+                        createdPrefix == keyPrefix)
+                    .Should().BeTrue();
+                auditEvents.Any(e =>
+                        e.EventType == "api_key.revoked" &&
+                        e.Metadata.TryGetValue("revokedKeyId", out var revokedKeyId) &&
+                        revokedKeyId == keyId)
+                    .Should().BeTrue();
+
                 using var revokedHealthRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
                 revokedHealthRequest.Headers.Add("X-OWS-Verifier-Key", rawApiKey);
                 var revokedHealthResponse = await client.SendAsync(revokedHealthRequest);
@@ -363,6 +523,8 @@ public sealed class VerifierServerTests
                 var storedJson = await File.ReadAllTextAsync(apiKeyStorePath);
                 storedJson.Should().NotContain(rawApiKey);
                 storedJson.Should().Contain(keyPrefix);
+                var auditJson = await File.ReadAllTextAsync(Path.Combine(tempDbDir, "audit_events.json"));
+                auditJson.Should().NotContain(rawApiKey);
             }
         }
         finally
@@ -1015,6 +1177,15 @@ public sealed class VerifierServerTests
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 reportResult.Should().NotBeNull();
                 reportResult.TrustStatus.Should().Be(TrustStatus.Unverified);
+
+                var auditResponse = await client.GetAsync($"/audit/events?packageId={submissionId}&eventType=package.verified");
+                auditResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var auditEvents = await auditResponse.Content.ReadFromJsonAsync<List<VerifierAuditEvent>>();
+                auditEvents.Should().NotBeNull();
+                auditEvents.Should().ContainSingle(e =>
+                    e.EventType == "package.verified" &&
+                    e.PackageId == submissionId &&
+                    e.Result == TrustStatus.Unverified.ToString());
             }
         }
         finally
@@ -1097,6 +1268,55 @@ public sealed class VerifierServerTests
         {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
             if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies that diagnostics remain secret-safe while exposing lightweight operator summary data.
+    /// </summary>
+    [Fact]
+    public async Task DiagnosticsSummary_ShouldBeSecretSafe()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        const string operatorKey = "bootstrap-operator-key-1234";
+        const string signingKey = "very-strong-signing-key-1234";
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierStorage__ReceiptSigningKey", signingKey },
+                { "VerifierSecurity__ApiKey", operatorKey }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                using var startRequest = new HttpRequestMessage(HttpMethod.Post, "/sessions");
+                startRequest.Headers.Add("X-OWS-Verifier-Key", operatorKey);
+                var startResponse = await client.SendAsync(startRequest);
+                startResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                using var diagnosticsRequest = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
+                diagnosticsRequest.Headers.Add("X-OWS-Verifier-Key", operatorKey);
+                var diagnosticsResponse = await client.SendAsync(diagnosticsRequest);
+                diagnosticsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var diagnosticsJson = await diagnosticsResponse.Content.ReadAsStringAsync();
+                diagnosticsJson.Should().Contain("storageProvider");
+                diagnosticsJson.Should().Contain("metrics");
+                diagnosticsJson.Should().NotContain(operatorKey);
+                diagnosticsJson.Should().NotContain(signingKey);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
         }
     }
 

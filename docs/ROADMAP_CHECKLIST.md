@@ -4,9 +4,9 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Harden Auth/RBAC v0.1 by completing API key lifecycle controls, role-policy tests, institution scoping checks, and operator documentation.
+Stabilize package submission operations with durable blob upload flow and server-side verification worker execution.
 
-**Next milestone:** Auth/RBAC Hardening v0.1.
+**Next milestone:** Package Intake Operations v0.1.
 
 ## 1. Current MVP Status
 
@@ -81,7 +81,7 @@ Harden Auth/RBAC v0.1 by completing API key lifecycle controls, role-policy test
 - [x] API key last-used tracking
 - [x] Legacy shared-key compatibility
 - [ ] Full SSO/OIDC/SAML - Deferred
-- [ ] Observability - Status: Partial (Endpoints /health and /ready, and structured startup logs implemented)
+- [x] Observability v0.1
 
 ## 6A. Auth and RBAC v0.1
 
@@ -94,6 +94,17 @@ Harden Auth/RBAC v0.1 by completing API key lifecycle controls, role-policy test
 - [x] Reviewer read-only policy enforced
 - [x] Operator API key lifecycle endpoints
 - [x] Operator documentation for pilot key management
+
+## 6B. Observability v0.1
+
+- [x] Structured verifier request logs
+- [x] `X-Request-Id` correlation id propagation
+- [x] Safe audit event store
+- [x] Operator-only `GET /audit/events`
+- [x] `GET /diagnostics/summary`
+- [x] `/ready` dependency detail response
+- [x] Secret-safe audit and diagnostics output
+- [ ] Prometheus/Grafana/Loki - Deferred
 
 ## 7. Package Submission and Server-Side Verification
 
@@ -167,3 +178,4 @@ Harden Auth/RBAC v0.1 by completing API key lifecycle controls, role-policy test
 - [ ] NATS
 - [ ] QUIC
 - [ ] Broad infrastructure expansion before the verifier workflow is stable
+- [ ] Actual package blob upload and server-side package verification worker. Add when object storage credentials/upload flow is defined.

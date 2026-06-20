@@ -316,8 +316,12 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
 
             _records[record.KeyId] = record with { LastUsedAtUtc = now };
             SaveToDisk();
-            return Task.FromResult<VerifierAccessContext?>(new VerifierAccessContext(record.Role, record.InstitutionId,
-                rawApiKey));
+            return Task.FromResult<VerifierAccessContext?>(new VerifierAccessContext(
+                record.Role,
+                record.InstitutionId,
+                rawApiKey,
+                record.KeyId,
+                record.KeyPrefix));
         }
     }
 
@@ -559,7 +563,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         updateCommand.Parameters.AddWithValue("id", record.KeyId);
         updateCommand.Parameters.AddWithValue("last_used_at", DateTimeOffset.UtcNow);
         await updateCommand.ExecuteNonQueryAsync(cancellationToken);
-        return new VerifierAccessContext(record.Role, record.InstitutionId, rawApiKey);
+        return new VerifierAccessContext(record.Role, record.InstitutionId, rawApiKey, record.KeyId, record.KeyPrefix);
     }
 
     /// <inheritdoc />

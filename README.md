@@ -101,6 +101,13 @@ Then smoke-test the verifier directly with:
 
 The repo also includes a verifier server Dockerfile at `src/Ows.Verifier.Server/Dockerfile`.
 
+Verifier observability now includes:
+
+- `X-Request-Id` request correlation on every response
+- operator-only `GET /audit/events`
+- operator-only `GET /diagnostics/summary`
+- secret-safe readiness dependency details from `GET /ready`
+
 For background local lifecycle on Windows:
 
 ```powershell

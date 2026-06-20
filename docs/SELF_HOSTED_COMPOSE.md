@@ -72,17 +72,32 @@ curl -f http://localhost:5078/health
 ```
 
 ### 2. `/ready` Endpoint
-Checks DB reachability and receipt signing key validation:
+Checks safe dependency state for storage, education store reachability, package storage, signing configuration, and auth mode:
 ```bash
 curl -f http://localhost:5078/ready
-# Returns: { "status": "Healthy" } (or HTTP 503 if DB is unreachable)
+# Returns: { "status": "Ready", "storage": "postgres", ... } (or HTTP 503 if dependencies are unhealthy)
 ```
 
-### 3. Read Container Logs
+### 3. `/diagnostics/summary` Endpoint
+Returns lightweight safe counters for pilot operations:
+```bash
+curl -H "X-OWS-Verifier-Key: <operator-key>" http://localhost:5078/diagnostics/summary
+```
+
+### 4. `/audit/events` Endpoint
+Returns operator-only audit events with simple filters:
+```bash
+curl -H "X-OWS-Verifier-Key: <operator-key>" \
+  "http://localhost:5078/audit/events?eventType=package.verified&limit=20"
+```
+
+### 5. Read Container Logs
 To inspect verifier logs in real time:
 ```bash
 docker compose logs -f ows-verifier
 ```
+
+Each response also includes `X-Request-Id`. Use that id to correlate container logs with `/audit/events`.
 
 ---
 
@@ -94,6 +109,7 @@ docker compose logs -f ows-verifier
 > 2. **Secret Privacy**: Never commit the `.env` file to version control.
 > 3. **API Key Guard limits**: The bootstrap key (`VerifierSecurity__ApiKey`) is compatibility/bootstrap-only. Persisted operator/reviewer keys are preferred for pilots, and they still do not replace full OAuth/OIDC authentication or fine-grained institutional RBAC.
 > 4. **No Dev Keys**: Double-check that dev-mode default signing keys are not active in production environments.
+> 5. **Observability scope**: `GET /diagnostics/summary` and `GET /audit/events` are pilot-grade operator tools. Prometheus/Grafana/Loki integration is intentionally deferred.
 
 ---
 

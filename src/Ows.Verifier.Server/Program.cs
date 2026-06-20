@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Ows.Core.Education;
 using Ows.Core.Notarization;
 using Ows.Core.Verification;
@@ -175,6 +176,18 @@ builder.Services.AddSingleton<IPackageSubmissionStore>(_ =>
         : new JsonFilePackageSubmissionStore(Path.Combine(
             Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath,
             "package_submissions.json")));
+builder.Services.AddSingleton<IVerifierAuditStore>(_ =>
+{
+    var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ??
+                    builder.Environment.ContentRootPath;
+    return string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
+        ? new PostgresVerifierAuditStore(
+            !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
+                ? normalizedStorageOptions.PostgresConnectionString
+                : throw new InvalidOperationException(
+                    "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."))
+        : new JsonFileVerifierAuditStore(Path.Combine(storeRoot, "audit_events.json"));
+});
 builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
 {
     "json" => new JsonFileVerifierStorage(
@@ -202,6 +215,7 @@ builder.Services.AddSingleton<IEducationStore>(_ =>
 var app = builder.Build();
 var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Requests");
 var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+var auditLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit");
 
 startupLogger.LogInformation("OWS Verifier starting up...");
 startupLogger.LogInformation("Environment Mode: {EnvironmentMode}", envMode);
@@ -283,6 +297,35 @@ catch (Exception ex)
     }
 }
 
+var auditStore = app.Services.GetRequiredService<IVerifierAuditStore>();
+try
+{
+    startupLogger.LogInformation("Initializing verifier audit store...");
+    await auditStore.InitializeAsync(CancellationToken.None);
+    startupLogger.LogInformation("Verifier audit store initialized successfully.");
+}
+catch (Exception ex)
+{
+    startupLogger.LogError(ex, "Failed to initialize verifier audit store.");
+    if (isProduction)
+    {
+        throw;
+    }
+}
+
+app.Use(async (context, next) =>
+{
+    var requestId = context.Request.Headers["X-Request-Id"].FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(requestId))
+    {
+        requestId = Guid.NewGuid().ToString("N");
+    }
+
+    context.Items["RequestId"] = requestId;
+    context.Response.Headers["X-Request-Id"] = requestId;
+    await next(context);
+});
+
 app.Use(async (context, next) =>
 {
     var stopwatch = Stopwatch.StartNew();
@@ -294,16 +337,21 @@ app.Use(async (context, next) =>
     {
         stopwatch.Stop();
         requestLogger.LogInformation(
-            "Verifier request {Method} {Path} returned {StatusCode} in {ElapsedMilliseconds} ms.",
+            "Verifier request {RequestId} {Method} {Path} returned {StatusCode} in {ElapsedMilliseconds} ms. role={Role} institutionId={InstitutionId} keyPrefix={KeyPrefix}",
+            GetRequestId(context),
             context.Request.Method,
             context.Request.Path.Value,
             context.Response.StatusCode,
-            stopwatch.ElapsedMilliseconds);
+            stopwatch.ElapsedMilliseconds,
+            TryGetAccessContext(context)?.Role ?? "Anonymous",
+            TryGetAccessContext(context)?.InstitutionId,
+            TryGetAccessContext(context)?.KeyPrefix);
     }
 });
 
 app.Use(async (context, next) =>
 {
+    var auditStore = context.RequestServices.GetRequiredService<IVerifierAuditStore>();
     var persistentApiKeyStore = context.RequestServices.GetRequiredService<IVerifierApiKeyStore>();
     var hasBootstrapKeys = configuredApiKeys.Count > 0;
     var hasPersistedKeys = false;
@@ -336,6 +384,17 @@ app.Use(async (context, next) =>
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         var hasHeader = context.Request.Headers.ContainsKey(securityOptions.HeaderName);
         var message = hasHeader ? "Invalid verifier API key." : "Verifier API key is required.";
+        await WriteAuditEventAsync(
+            auditStore,
+            auditLogger,
+            context,
+            eventType: "auth.failed",
+            result: hasHeader ? "InvalidKey" : "MissingKey",
+            metadata: CreateMetadata(
+                ("endpoint", context.Request.Path.Value),
+                ("method", context.Request.Method)),
+            actorKeyPrefix: hasHeader ? CreateSafeKeyPrefix(suppliedKey) : null,
+            cancellationToken: context.RequestAborted);
         await context.Response.WriteAsync(message);
         return;
     }
@@ -343,6 +402,20 @@ app.Use(async (context, next) =>
     if (!await IsAuthorizedAsync(context, access, context.RequestAborted))
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await WriteAuditEventAsync(
+            auditStore,
+            auditLogger,
+            context,
+            eventType: "access.denied",
+            result: "Forbidden",
+            access: access,
+            institutionId: access.InstitutionId,
+            sessionId: TryGetRouteValue(context, "id"),
+            packageId: TryGetPackageRouteId(context),
+            metadata: CreateMetadata(
+                ("endpoint", context.Request.Path.Value),
+                ("method", context.Request.Method)),
+            cancellationToken: context.RequestAborted);
         await context.Response.WriteAsync("Verifier API key is not authorized for this resource.");
         return;
     }
@@ -354,39 +427,128 @@ app.Use(async (context, next) =>
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 
 app.MapGet("/ready",
-    async (IVerifierStorage storage, VerifierStorageOptions options, CancellationToken cancellationToken) =>
+    async (HttpContext context, IVerifierStorage storage, IEducationStore educationStore, IVerifierApiKeyStore apiKeyStore,
+        VerifierStorageOptions options, CancellationToken cancellationToken) =>
     {
+        var packageStorageReady = CheckPackageStorageReady(options.LocalStoragePath);
+        var signingConfigured = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey);
         try
         {
+            var authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken);
             var healthy = await storage.CheckHealthAsync(cancellationToken);
-            if (!healthy)
+            var educationReady = await CheckEducationStoreReadyAsync(educationStore, cancellationToken);
+            if (!healthy || !educationReady || !packageStorageReady)
             {
-                return Results.Json(new { status = "Unhealthy", error = "Storage health check failed." },
-                    statusCode: StatusCodes.Status503ServiceUnavailable);
+                await WriteAuditEventAsync(
+                    app.Services.GetRequiredService<IVerifierAuditStore>(),
+                    auditLogger,
+                    context,
+                    eventType: "readiness.failed",
+                    result: "Unhealthy",
+                    metadata: CreateMetadata(
+                        ("storageProvider", options.Provider),
+                        ("storageReady", healthy.ToString()),
+                        ("educationStoreReady", educationReady.ToString()),
+                        ("packageStorageReady", packageStorageReady.ToString()),
+                        ("signingConfigured", signingConfigured.ToString()),
+                        ("authMode", authMode)),
+                    cancellationToken: cancellationToken);
+                return Results.Json(new
+                {
+                    status = "Unhealthy",
+                    storage = options.Provider,
+                    signing = signingConfigured ? "Enabled" : "Disabled",
+                    dependencies = new
+                    {
+                        storageProvider = options.Provider,
+                        storageReady = healthy,
+                        educationStoreReady = educationReady,
+                        packageStorageReady,
+                        signingConfigured,
+                        authMode
+                    }
+                }, statusCode: StatusCodes.Status503ServiceUnavailable);
             }
-
-            var signingStatus = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey) ? "Enabled" : "Disabled";
 
             return Results.Ok(new
             {
                 status = "Ready",
                 storage = options.Provider,
-                signing = signingStatus
+                signing = signingConfigured ? "Enabled" : "Disabled",
+                dependencies = new
+                {
+                    storageProvider = options.Provider,
+                    storageReady = true,
+                    educationStoreReady = true,
+                    packageStorageReady = true,
+                    signingConfigured,
+                    authMode
+                }
             });
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            return Results.Json(new { status = "Unhealthy", error = ex.Message },
+            var authMode = "unknown";
+            try
+            {
+                authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken);
+            }
+            catch
+            {
+                // Keep the readiness response secret-safe even when auth storage is unavailable.
+            }
+
+            await WriteAuditEventAsync(
+                app.Services.GetRequiredService<IVerifierAuditStore>(),
+                auditLogger,
+                context,
+                eventType: "readiness.failed",
+                result: "Exception",
+                metadata: CreateMetadata(
+                    ("storageProvider", options.Provider),
+                    ("packageStorageReady", packageStorageReady.ToString()),
+                    ("signingConfigured", signingConfigured.ToString()),
+                    ("authMode", authMode),
+                    ("exceptionType", exception.GetType().Name)),
+                cancellationToken: cancellationToken);
+            return Results.Json(new
+            {
+                status = "Unhealthy",
+                dependencies = new
+                {
+                    storageProvider = options.Provider,
+                    storageReady = false,
+                    educationStoreReady = false,
+                    packageStorageReady,
+                    signingConfigured,
+                    authMode
+                }
+            },
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
     });
 
-app.MapPost("/auth/api-keys", async (VerifierApiKeyCreateRequest request, IVerifierApiKeyStore apiKeyStore,
-    CancellationToken cancellationToken) =>
+app.MapPost("/auth/api-keys", async (HttpContext context, VerifierApiKeyCreateRequest request,
+    IVerifierApiKeyStore apiKeyStore, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
 {
     try
     {
-        return Results.Ok(await apiKeyStore.CreateAsync(request, cancellationToken));
+        var result = await apiKeyStore.CreateAsync(request, cancellationToken);
+        await WriteAuditEventAsync(
+            auditStore,
+            auditLogger,
+            context,
+            eventType: "api_key.created",
+            result: "Created",
+            access: TryGetAccessContext(context),
+            institutionId: result.Metadata.InstitutionId,
+            metadata: CreateMetadata(
+                ("createdKeyId", result.Metadata.KeyId),
+                ("createdKeyPrefix", result.Metadata.KeyPrefix),
+                ("createdRole", result.Metadata.Role),
+                ("expiresAtUtc", result.Metadata.ExpiresAtUtc?.ToString("o"))),
+            cancellationToken: cancellationToken);
+        return Results.Ok(result);
     }
     catch (InvalidOperationException exception)
     {
@@ -397,14 +559,29 @@ app.MapPost("/auth/api-keys", async (VerifierApiKeyCreateRequest request, IVerif
 app.MapGet("/auth/api-keys", async (IVerifierApiKeyStore apiKeyStore, CancellationToken cancellationToken) =>
     Results.Ok(await apiKeyStore.ListAsync(cancellationToken)));
 
-app.MapPost("/auth/api-keys/{id}/revoke", async (string id, IVerifierApiKeyStore apiKeyStore,
-        CancellationToken cancellationToken) =>
-    await apiKeyStore.RevokeAsync(id, cancellationToken)
-        ? Results.Ok(new { keyId = id, revoked = true })
-        : Results.NotFound("Unknown verifier API key."));
+app.MapPost("/auth/api-keys/{id}/revoke", async (HttpContext context, string id, IVerifierApiKeyStore apiKeyStore,
+    IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
+{
+    var revoked = await apiKeyStore.RevokeAsync(id, cancellationToken);
+    if (!revoked)
+    {
+        return Results.NotFound("Unknown verifier API key.");
+    }
 
-app.MapPost("/sessions", async (StartSessionRequest? body, IVerifierStorage storage,
-    IEducationStore educationStore, CancellationToken cancellationToken) =>
+    await WriteAuditEventAsync(
+        auditStore,
+        auditLogger,
+        context,
+        eventType: "api_key.revoked",
+        result: "Revoked",
+        access: TryGetAccessContext(context),
+        metadata: CreateMetadata(("revokedKeyId", id)),
+        cancellationToken: cancellationToken);
+    return Results.Ok(new { keyId = id, revoked = true });
+});
+
+app.MapPost("/sessions", async (HttpContext context, StartSessionRequest? body, IVerifierStorage storage,
+    IEducationStore educationStore, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
 {
     string? clientId = body?.StudentUserId;
     string? assessmentId = body?.AssessmentId;
@@ -467,11 +644,23 @@ app.MapPost("/sessions", async (StartSessionRequest? body, IVerifierStorage stor
     }
 
     var session = await storage.CreateSessionAsync(clientId, assessmentId, metadataJson, cancellationToken);
+    await WriteAuditEventAsync(
+        auditStore,
+        auditLogger,
+        context,
+        eventType: "session.created",
+        result: "Created",
+        access: TryGetAccessContext(context),
+        institutionId: body?.InstitutionId,
+        sessionId: session.Id.Value,
+        assessmentId: assessmentId,
+        metadata: CreateMetadata(("clientId", clientId)),
+        cancellationToken: cancellationToken);
     return Results.Ok(new StartSessionResponse { SessionId = session.Id.Value });
 });
 
 app.MapPost("/sessions/{id}/heartbeat", async (string id, SessionHeartbeatRequest request,
-    IVerifierStorage storage, CancellationToken cancellationToken) =>
+    HttpContext context, IVerifierStorage storage, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
 {
     var sessionId = new AssessmentSessionId(id);
     try
@@ -499,6 +688,39 @@ app.MapPost("/sessions/{id}/heartbeat", async (string id, SessionHeartbeatReques
             SessionHead = headResponse
         };
 
+        var institutionId = NormalizeInstitutionIdValue(TryGetInstitutionIdFromMetadata(session.MetadataJson));
+        await WriteAuditEventAsync(
+            auditStore,
+            auditLogger,
+            context,
+            eventType: "heartbeat.accepted",
+            result: session.HasLeaseGap ? "Degraded" : "Accepted",
+            access: TryGetAccessContext(context),
+            institutionId: institutionId,
+            sessionId: session.Id.Value,
+            assessmentId: session.AssessmentId,
+            metadata: CreateMetadata(
+                ("lastKnownEventHash", request.LastKnownEventHash),
+                ("leaseExpiresAt", response.LeaseExpiresAt.ToString("o"))),
+            cancellationToken: cancellationToken);
+        if (session.HasLeaseGap)
+        {
+            await WriteAuditEventAsync(
+                auditStore,
+                auditLogger,
+                context,
+                eventType: "lease.gap.detected",
+                result: "Degraded",
+                access: TryGetAccessContext(context),
+                institutionId: institutionId,
+                sessionId: session.Id.Value,
+                assessmentId: session.AssessmentId,
+                metadata: CreateMetadata(
+                    ("maxLeaseGapSeconds", session.MaxLeaseGapSeconds.ToString()),
+                    ("firstLeaseGapAt", session.FirstLeaseGapAt?.ToString("o"))),
+                cancellationToken: cancellationToken);
+        }
+
         return Results.Ok(response);
     }
     catch (InvalidOperationException)
@@ -508,7 +730,7 @@ app.MapPost("/sessions/{id}/heartbeat", async (string id, SessionHeartbeatReques
 });
 
 app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest request, HttpRequest httpRequest,
-    IVerifierStorage storage, CancellationToken cancellationToken) =>
+    HttpContext context, IVerifierStorage storage, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
 {
     var idempotencyKey = httpRequest.Headers["Idempotency-Key"].FirstOrDefault();
     var validationError = request.GetValidationError(id, idempotencyKey);
@@ -526,6 +748,41 @@ app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest re
             TimelineHeadHash = request.TimelineHeadHash,
             IdempotencyKey = idempotencyKey
         }, cancellationToken);
+        var session = await storage.GetSessionAsync(new AssessmentSessionId(request.SessionId), cancellationToken);
+        var institutionId = NormalizeInstitutionIdValue(TryGetInstitutionIdFromMetadata(session.MetadataJson));
+        await WriteAuditEventAsync(
+            auditStore,
+            auditLogger,
+            context,
+            eventType: "checkpoint.accepted",
+            result: session.HasLeaseGap ? "Degraded" : "Accepted",
+            access: TryGetAccessContext(context),
+            institutionId: institutionId,
+            sessionId: request.SessionId,
+            assessmentId: session.AssessmentId,
+            metadata: CreateMetadata(
+                ("sequenceNumber", request.SequenceNumber.ToString()),
+                ("timelineHeadHash", request.TimelineHeadHash),
+                ("receiptHash", receipt.ReceiptHash),
+                ("idempotencyKey", idempotencyKey)),
+            cancellationToken: cancellationToken);
+        if (session.HasLeaseGap)
+        {
+            await WriteAuditEventAsync(
+                auditStore,
+                auditLogger,
+                context,
+                eventType: "lease.gap.detected",
+                result: "Degraded",
+                access: TryGetAccessContext(context),
+                institutionId: institutionId,
+                sessionId: request.SessionId,
+                assessmentId: session.AssessmentId,
+                metadata: CreateMetadata(
+                    ("maxLeaseGapSeconds", session.MaxLeaseGapSeconds.ToString()),
+                    ("firstLeaseGapAt", session.FirstLeaseGapAt?.ToString("o"))),
+                cancellationToken: cancellationToken);
+        }
         return Results.Ok(receipt);
     }
     catch (InvalidOperationException exception)
@@ -535,8 +792,8 @@ app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest re
 });
 
 app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore packageStore,
-    IVerifierStorage storage, IPackageVerifier verifier, IEducationStore educationStore,
-    VerifierStorageOptions options, CancellationToken cancellationToken) =>
+    HttpContext context, IVerifierStorage storage, IPackageVerifier verifier, IEducationStore educationStore,
+    IVerifierAuditStore auditStore, VerifierStorageOptions options, CancellationToken cancellationToken) =>
 {
     var idempotencyKey = request.Headers["Idempotency-Key"].FirstOrDefault();
 
@@ -649,6 +906,37 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
                 verificationResult.TrustStatus.ToString(),
                 resultJson,
                 cancellationToken);
+            await WriteAuditEventAsync(
+                auditStore,
+                auditLogger,
+                context,
+                eventType: "package.submitted",
+                result: "Stored",
+                access: TryGetAccessContext(context),
+                institutionId: submissionResponse.InstitutionId,
+                sessionId: submissionResponse.SessionId,
+                packageId: submissionResponse.SubmissionId,
+                assessmentId: submissionResponse.AssessmentId,
+                metadata: CreateMetadata(
+                    ("storageProvider", submissionResponse.ObjectStorageProvider),
+                    ("objectBucket", submissionResponse.ObjectBucket),
+                    ("objectKey", submissionResponse.ObjectKey)),
+                cancellationToken: cancellationToken);
+            await WriteAuditEventAsync(
+                auditStore,
+                auditLogger,
+                context,
+                eventType: "package.verified",
+                result: verificationResult.TrustStatus.ToString(),
+                access: TryGetAccessContext(context),
+                institutionId: submissionResponse.InstitutionId,
+                sessionId: submissionResponse.SessionId,
+                packageId: submissionResponse.SubmissionId,
+                assessmentId: submissionResponse.AssessmentId,
+                metadata: CreateMetadata(
+                    ("verificationStatus", "Completed"),
+                    ("trustStatus", verificationResult.TrustStatus.ToString())),
+                cancellationToken: cancellationToken);
 
             return Results.Ok(new
             {
@@ -691,6 +979,23 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
         try
         {
             var response = await packageStore.SubmitAsync(jsonRequest, cancellationToken);
+            await WriteAuditEventAsync(
+                auditStore,
+                auditLogger,
+                context,
+                eventType: "package.submitted",
+                result: "Registered",
+                access: TryGetAccessContext(context),
+                institutionId: response.InstitutionId,
+                sessionId: response.SessionId,
+                packageId: response.SubmissionId,
+                assessmentId: response.AssessmentId,
+                metadata: CreateMetadata(
+                    ("storageProvider", response.ObjectStorageProvider),
+                    ("objectBucket", response.ObjectBucket),
+                    ("objectKey", response.ObjectKey),
+                    ("idempotencyKey", response.IdempotencyKey)),
+                cancellationToken: cancellationToken);
             return Results.Ok(response);
         }
         catch (NotSupportedException exception)
@@ -711,9 +1016,10 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
     }
 });
 
-app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubmissionStore packageStore,
-    IVerifierStorage storage, IPackageVerifier verifier, IEducationStore educationStore,
-    VerifierStorageOptions options, CancellationToken cancellationToken) =>
+app.MapPut("/packages/{id}", async (string id, HttpRequest request, HttpContext context,
+    IPackageSubmissionStore packageStore, IVerifierStorage storage, IPackageVerifier verifier,
+    IEducationStore educationStore, IVerifierAuditStore auditStore, VerifierStorageOptions options,
+    CancellationToken cancellationToken) =>
 {
     var submission = await packageStore.GetAsync(id, cancellationToken);
     if (submission is null)
@@ -803,6 +1109,21 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubm
             verificationResult.TrustStatus.ToString(),
             resultJson,
             cancellationToken);
+        await WriteAuditEventAsync(
+            auditStore,
+            auditLogger,
+            context,
+            eventType: "package.verified",
+            result: verificationResult.TrustStatus.ToString(),
+            access: TryGetAccessContext(context),
+            institutionId: submission.InstitutionId,
+            sessionId: submission.SessionId,
+            packageId: id,
+            assessmentId: submission.AssessmentId,
+            metadata: CreateMetadata(
+                ("verificationStatus", "Completed"),
+                ("trustStatus", verificationResult.TrustStatus.ToString())),
+            cancellationToken: cancellationToken);
 
         return Results.Ok(new
         {
@@ -821,9 +1142,9 @@ app.MapPut("/packages/{id}", async (string id, HttpRequest request, IPackageSubm
     }
 });
 
-app.MapPost("/packages/{id}/verify", async (string id, IPackageSubmissionStore packageStore,
+app.MapPost("/packages/{id}/verify", async (string id, HttpContext context, IPackageSubmissionStore packageStore,
     IVerifierStorage storage, IPackageVerifier verifier, IEducationStore educationStore,
-    VerifierStorageOptions options, CancellationToken cancellationToken) =>
+    IVerifierAuditStore auditStore, VerifierStorageOptions options, CancellationToken cancellationToken) =>
 {
     var submission = await packageStore.GetAsync(id, cancellationToken);
     if (submission is null)
@@ -885,6 +1206,21 @@ app.MapPost("/packages/{id}/verify", async (string id, IPackageSubmissionStore p
         verificationResult.TrustStatus.ToString(),
         resultJson,
         cancellationToken);
+    await WriteAuditEventAsync(
+        auditStore,
+        auditLogger,
+        context,
+        eventType: "package.verified",
+        result: verificationResult.TrustStatus.ToString(),
+        access: TryGetAccessContext(context),
+        institutionId: submission.InstitutionId,
+        sessionId: submission.SessionId,
+        packageId: id,
+        assessmentId: submission.AssessmentId,
+        metadata: CreateMetadata(
+            ("verificationStatus", "Completed"),
+            ("trustStatus", verificationResult.TrustStatus.ToString())),
+        cancellationToken: cancellationToken);
 
     return Results.Ok(verificationResult);
 });
@@ -916,8 +1252,8 @@ app.MapGet("/sessions/{id}/packages", async (string id, IPackageSubmissionStore 
     }
 });
 
-app.MapGet("/packages/{id}/verification", async (string id, IPackageSubmissionStore packageStore,
-    CancellationToken cancellationToken) =>
+app.MapGet("/packages/{id}/verification", async (string id, HttpContext context, IPackageSubmissionStore packageStore,
+    IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
 {
     var submission = await packageStore.GetAsync(id, cancellationToken);
     if (submission is null)
@@ -930,7 +1266,49 @@ app.MapGet("/packages/{id}/verification", async (string id, IPackageSubmissionSt
         return Results.NotFound("Verification result not found or package has not been verified yet.");
     }
 
+    await WriteAuditEventAsync(
+        auditStore,
+        auditLogger,
+        context,
+        eventType: "report.read",
+        result: "Returned",
+        access: TryGetAccessContext(context),
+        institutionId: submission.InstitutionId,
+        sessionId: submission.SessionId,
+        packageId: submission.SubmissionId,
+        assessmentId: submission.AssessmentId,
+        metadata: CreateMetadata(("contentType", "application/json")),
+        cancellationToken: cancellationToken);
+
     return Results.Content(submission.VerificationResultJson, "application/json");
+});
+
+app.MapGet("/audit/events", async (string? institutionId, string? sessionId, string? packageId, string? eventType,
+    DateTimeOffset? since, int? limit, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
+{
+    var query = new VerifierAuditQuery
+    {
+        InstitutionId = institutionId,
+        SessionId = sessionId,
+        PackageId = packageId,
+        EventType = eventType,
+        Since = since,
+        Limit = limit ?? 100
+    };
+    return Results.Ok(await auditStore.QueryAsync(query, cancellationToken));
+});
+
+app.MapGet("/diagnostics/summary", async (IVerifierAuditStore auditStore, IVerifierApiKeyStore apiKeyStore,
+    CancellationToken cancellationToken) =>
+{
+    var summary = await auditStore.GetSummaryAsync(cancellationToken);
+    return Results.Ok(new
+    {
+        environment = envMode.ToString(),
+        storageProvider = normalizedStorageOptions.Provider,
+        authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken),
+        metrics = summary
+    });
 });
 
 app.MapGet("/sessions/{id}/receipts",
@@ -1077,10 +1455,7 @@ app.MapGet("/education/users/{id}", async (string id, IEducationStore educationS
 
 app.Run();
 
-/// <summary>
-/// Resolves a <see cref="ReportEducationContext"/> from the education store using the supplied identifiers.
-/// Returns <see langword="null"/> when no education identifiers are provided.
-/// </summary>
+// Resolves a report education context from the store and returns null when no education ids were supplied.
 static async Task<ReportEducationContext?> ResolveEducationContextAsync(
     string? institutionId,
     string? assessmentId,
@@ -1138,6 +1513,160 @@ static async Task<ReportEducationContext?> ResolveEducationContextAsync(
     };
 }
 
+// Returns the current request id, creating a fallback only if middleware was bypassed.
+static string GetRequestId(HttpContext context)
+{
+    if (context.Items.TryGetValue("RequestId", out var value) && value is string requestId &&
+        !string.IsNullOrWhiteSpace(requestId))
+    {
+        return requestId;
+    }
+
+    var generated = Guid.NewGuid().ToString("N");
+    context.Items["RequestId"] = generated;
+    context.Response.Headers["X-Request-Id"] = generated;
+    return generated;
+}
+
+// Returns the attached verifier access context when authentication already ran.
+static VerifierAccessContext? TryGetAccessContext(HttpContext context) =>
+    context.Items.TryGetValue("VerifierAccessContext", out var value) ? value as VerifierAccessContext : null;
+
+// Returns a route value string when present.
+static string? TryGetRouteValue(HttpContext context, string key) =>
+    context.Request.RouteValues.TryGetValue(key, out var value) ? value?.ToString() : null;
+
+// Returns the package route id only for package endpoints.
+static string? TryGetPackageRouteId(HttpContext context)
+{
+    var path = context.Request.Path.Value ?? string.Empty;
+    return path.StartsWith("/packages/", StringComparison.OrdinalIgnoreCase) ? TryGetRouteValue(context, "id") : null;
+}
+
+// Builds a compact safe metadata dictionary and drops null/blank values.
+static IReadOnlyDictionary<string, string?> CreateMetadata(params (string Key, string? Value)[] pairs)
+{
+    var metadata = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+    foreach (var (key, value) in pairs)
+    {
+        if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+        {
+            metadata[key] = value;
+        }
+    }
+
+    return metadata;
+}
+
+// Appends one safe audit event and emits a matching structured log line without secrets.
+static async Task WriteAuditEventAsync(
+    IVerifierAuditStore auditStore,
+    ILogger logger,
+    HttpContext context,
+    string eventType,
+    string result,
+    VerifierAccessContext? access = null,
+    string? institutionId = null,
+    string? sessionId = null,
+    string? packageId = null,
+    string? assessmentId = null,
+    IReadOnlyDictionary<string, string?>? metadata = null,
+    string? actorKeyPrefix = null,
+    CancellationToken cancellationToken = default)
+{
+    var auditEvent = new VerifierAuditEvent
+    {
+        Id = Guid.NewGuid().ToString("N"),
+        CreatedAtUtc = DateTimeOffset.UtcNow,
+        EventType = eventType,
+        ActorKeyId = access?.KeyId,
+        ActorKeyPrefix = actorKeyPrefix ?? access?.KeyPrefix,
+        ActorRole = access?.Role,
+        InstitutionId = institutionId ?? access?.InstitutionId,
+        SessionId = sessionId,
+        PackageId = packageId,
+        AssessmentId = assessmentId,
+        Result = result,
+        Metadata = metadata ?? CreateMetadata()
+    };
+
+    try
+    {
+        await auditStore.AppendAsync(auditEvent, cancellationToken);
+    }
+    catch (Exception exception)
+    {
+        logger.LogWarning(
+            exception,
+            "Verifier audit persistence failed for eventType={EventType} requestId={RequestId}.",
+            auditEvent.EventType,
+            GetRequestId(context));
+    }
+
+    logger.LogInformation(
+        "Verifier audit {EventType} result={Result} requestId={RequestId} role={Role} institutionId={InstitutionId} sessionId={SessionId} packageId={PackageId} assessmentId={AssessmentId} keyPrefix={KeyPrefix}",
+        auditEvent.EventType,
+        auditEvent.Result,
+        GetRequestId(context),
+        auditEvent.ActorRole ?? "Anonymous",
+        auditEvent.InstitutionId,
+        auditEvent.SessionId,
+        auditEvent.PackageId,
+        auditEvent.AssessmentId,
+        auditEvent.ActorKeyPrefix);
+}
+
+// Returns a non-secret display prefix from raw API key material.
+static string? CreateSafeKeyPrefix(string? rawApiKey) =>
+    string.IsNullOrWhiteSpace(rawApiKey) ? null : rawApiKey[..Math.Min(12, rawApiKey.Length)];
+
+// Resolves the current auth mode without exposing key material.
+static async Task<string> ResolveAuthModeAsync(
+    IVerifierApiKeyStore apiKeyStore,
+    bool hasBootstrapKeys,
+    CancellationToken cancellationToken)
+{
+    var hasPersistedKeys = await apiKeyStore.HasActiveKeysAsync(cancellationToken);
+    return (hasBootstrapKeys, hasPersistedKeys) switch
+    {
+        (true, true) => "bootstrap+persistent",
+        (true, false) => "bootstrap",
+        (false, true) => "persistent",
+        _ => "disabled"
+    };
+}
+
+// Verifies that the local package storage path is creatable and writable.
+static bool CheckPackageStorageReady(string path)
+{
+    try
+    {
+        Directory.CreateDirectory(path);
+        var probePath = Path.Combine(path, ".ows-ready");
+        File.WriteAllText(probePath, "ready");
+        File.Delete(probePath);
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+// Verifies that the education store can serve a minimal read without exposing details.
+static async Task<bool> CheckEducationStoreReadyAsync(IEducationStore educationStore, CancellationToken cancellationToken)
+{
+    try
+    {
+        _ = await educationStore.GetInstitutionAsync(new InstitutionId("__ready_probe__"), cancellationToken);
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 static async Task<string> ComputeSha256HashAsync(string filePath, CancellationToken cancellationToken)
 {
     using var stream = File.OpenRead(filePath);
@@ -1152,7 +1681,12 @@ static List<VerifierAccessContext> BuildConfiguredApiKeys(VerifierSecurityOption
     var configuredKeys = new List<VerifierAccessContext>();
     if (!string.IsNullOrWhiteSpace(options.ApiKey))
     {
-        configuredKeys.Add(new VerifierAccessContext(VerifierRolePolicy.Operator, null, options.ApiKey));
+        configuredKeys.Add(new VerifierAccessContext(
+            VerifierRolePolicy.Operator,
+            null,
+            options.ApiKey,
+            null,
+            CreateSafeKeyPrefix(options.ApiKey)));
     }
 
     foreach (var apiKey in options.ApiKeys)
@@ -1165,7 +1699,9 @@ static List<VerifierAccessContext> BuildConfiguredApiKeys(VerifierSecurityOption
         configuredKeys.Add(new VerifierAccessContext(
             NormalizeVerifierRoleName(apiKey.Role),
             apiKey.InstitutionId,
-            apiKey.Key));
+            apiKey.Key,
+            null,
+            CreateSafeKeyPrefix(apiKey.Key)));
     }
 
     return configuredKeys;
@@ -1247,6 +1783,11 @@ static async Task<bool> IsAuthorizedAsync(
     }
 
     if (segments is ["auth", "api-keys"] or ["auth", "api-keys", _, "revoke"])
+    {
+        return IsOperatorRole(access.Role);
+    }
+
+    if (segments is ["audit", "events"] or ["diagnostics", "summary"])
     {
         return IsOperatorRole(access.Role);
     }
@@ -1410,10 +1951,16 @@ static bool IsWeakSecret(string secret)
     return unsafeDefaults.Contains(normalized);
 }
 
+/// <summary>
+/// Distinguishes the verifier's intended deployment posture.
+/// </summary>
 public enum VerifierEnvironmentMode
 {
+    /// <summary>Development workstation mode.</summary>
     Development,
+    /// <summary>Local pilot mode.</summary>
     Local,
+    /// <summary>Production deployment mode.</summary>
     Production
 }
 
@@ -1437,11 +1984,16 @@ public sealed record StartSessionRequest
 
 sealed record VerifierAccessContext
 {
-    public VerifierAccessContext(string role, string? institutionId, string key)
+    public VerifierAccessContext(string role, string? institutionId, string key, string? keyId = null,
+        string? keyPrefix = null)
     {
-        Role = string.IsNullOrWhiteSpace(role) ? "operator" : role.Trim().ToLowerInvariant();
+        Role = string.IsNullOrWhiteSpace(role) ? VerifierRolePolicy.Operator : VerifierRolePolicy.NormalizeRoleName(role);
         InstitutionId = string.IsNullOrWhiteSpace(institutionId) ? null : institutionId.Trim();
         Key = key;
+        KeyId = string.IsNullOrWhiteSpace(keyId) ? null : keyId.Trim();
+        KeyPrefix = string.IsNullOrWhiteSpace(keyPrefix)
+            ? (string.IsNullOrWhiteSpace(key) ? null : key[..Math.Min(12, key.Length)])
+            : keyPrefix.Trim();
     }
 
     public string Role { get; init; }
@@ -1449,8 +2001,15 @@ sealed record VerifierAccessContext
     public string? InstitutionId { get; init; }
 
     public string Key { get; init; }
+
+    public string? KeyId { get; init; }
+
+    public string? KeyPrefix { get; init; }
 }
 
+/// <summary>
+/// Exposes the ASP.NET Core entry point for integration testing.
+/// </summary>
 public partial class Program
 {
 }
