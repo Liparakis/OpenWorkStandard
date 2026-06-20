@@ -22,12 +22,15 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     /// Initializes a PostgreSQL-backed package submission store.
     /// </summary>
     /// <param name="connectionString">The PostgreSQL connection string.</param>
-    public PostgresPackageSubmissionStore(string connectionString)
+    /// <param name="applyMigrationsOnStartup">Whether the verifier should apply schema migrations during initialization.</param>
+    public PostgresPackageSubmissionStore(string connectionString, bool applyMigrationsOnStartup = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         _dataSource = NpgsqlDataSource.Create(connectionString);
-        _initializationTask = PostgresVerifierMigrator.MigrateAsync(_dataSource);
+        _initializationTask = applyMigrationsOnStartup
+            ? PostgresVerifierMigrator.MigrateAsync(_dataSource)
+            : Task.CompletedTask;
     }
 
     /// <summary>

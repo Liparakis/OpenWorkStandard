@@ -1322,6 +1322,76 @@ public sealed class VerifierServerTests
     }
 
     /// <summary>
+    /// Verifies that API-only mode accepts uploads but leaves verification queued.
+    /// </summary>
+    [Fact]
+    public async Task PackageVerificationWorker_DisabledMode_ShouldLeaveJobsPending()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-test-pkg-{Guid.NewGuid():N}");
+        const string operatorKey = "bootstrap-operator-key-1234";
+
+        try
+        {
+            var packagePath = await CreateTestPackageAsync(projectRoot);
+            var fileBytes = await File.ReadAllBytesAsync(packagePath);
+
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierStorage__LocalStoragePath", Path.Combine(tempDbDir, "packages") },
+                { "VerifierSecurity__ApiKey", operatorKey },
+                { "PackageVerificationWorker__Enabled", "false" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                using var content = new MultipartFormDataContent();
+                var fileContent = new ByteArrayContent(fileBytes);
+                fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
+                content.Add(fileContent, "file", "test.owspkg");
+
+                using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/packages/upload")
+                {
+                    Content = content
+                };
+                uploadRequest.Headers.Add("X-OWS-Verifier-Key", operatorKey);
+                var response = await client.SendAsync(uploadRequest);
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+                using var responseDoc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                var submissionId = responseDoc.RootElement.GetProperty("submissionId").GetString();
+                submissionId.Should().NotBeNullOrWhiteSpace();
+
+                await Task.Delay(750);
+
+                using var packageRequest = new HttpRequestMessage(HttpMethod.Get, $"/packages/{submissionId}");
+                packageRequest.Headers.Add("X-OWS-Verifier-Key", operatorKey);
+                var packageResponse = await client.SendAsync(packageRequest);
+                packageResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var packageState = JsonDocument.Parse(await packageResponse.Content.ReadAsStringAsync()).RootElement;
+                packageState.GetProperty("verificationStatus").GetString().Should().Be("Pending");
+
+                using var diagnosticsRequest = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
+                diagnosticsRequest.Headers.Add("X-OWS-Verifier-Key", operatorKey);
+                var diagnosticsResponse = await client.SendAsync(diagnosticsRequest);
+                diagnosticsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var diagnostics = JsonDocument.Parse(await diagnosticsResponse.Content.ReadAsStringAsync()).RootElement;
+                diagnostics.GetProperty("workerEnabled").GetBoolean().Should().BeFalse();
+                diagnostics.GetProperty("instanceMode").GetString().Should().Be("api-only");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
+            if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// Verifies that package upload rejects non-package payloads before job creation.
     /// </summary>
     [Fact]
@@ -1462,6 +1532,64 @@ public sealed class VerifierServerTests
                 diagnosticsJson.Should().Contain("metrics");
                 diagnosticsJson.Should().NotContain(operatorKey);
                 diagnosticsJson.Should().NotContain(signingKey);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that readiness and diagnostics expose worker/storage deployment mode without leaking local paths.
+    /// </summary>
+    [Fact]
+    public async Task DeploymentDiagnostics_ShouldExposeWorkerModeSafely()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        const string operatorKey = "bootstrap-operator-key-1234";
+        const string signingKey = "very-strong-signing-key-1234";
+
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierStorage__ReceiptSigningKey", signingKey },
+                { "VerifierSecurity__ApiKey", operatorKey },
+                { "PackageVerificationWorker__Enabled", "false" },
+                { "VerifierStorage__ApplyMigrationsOnStartup", "false" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                var readyResponse = await client.GetAsync("/ready");
+                readyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var readyJson = JsonDocument.Parse(await readyResponse.Content.ReadAsStringAsync()).RootElement;
+                readyJson.GetProperty("instanceMode").GetString().Should().Be("api-only");
+                readyJson.GetProperty("workerEnabled").GetBoolean().Should().BeFalse();
+                readyJson.GetProperty("storageProvider").GetString().Should().Be("json");
+                readyJson.GetRawText().Should().NotContain(tempDbDir);
+
+                using var diagnosticsRequest = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
+                diagnosticsRequest.Headers.Add("X-OWS-Verifier-Key", operatorKey);
+                var diagnosticsResponse = await client.SendAsync(diagnosticsRequest);
+                diagnosticsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var diagnosticsText = await diagnosticsResponse.Content.ReadAsStringAsync();
+                diagnosticsText.Should().NotContain(tempDbDir);
+
+                var diagnosticsJson = JsonDocument.Parse(diagnosticsText).RootElement;
+                diagnosticsJson.GetProperty("instanceMode").GetString().Should().Be("api-only");
+                diagnosticsJson.GetProperty("workerEnabled").GetBoolean().Should().BeFalse();
+                diagnosticsJson.GetProperty("packageStorageProvider").GetString().Should().Be("local-file");
+                diagnosticsJson.GetProperty("applyMigrationsOnStartup").GetBoolean().Should().BeFalse();
             }
         }
         finally

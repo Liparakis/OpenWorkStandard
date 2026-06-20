@@ -26,6 +26,7 @@ What works today:
 - structured verifier request logging with request ids, actor scope, and safe resource metadata
 - persistent verifier audit events plus operator diagnostics endpoints
 - durable `.owspkg` blob intake with worker-backed server-side verification
+- documented multi-instance verifier pilot model with API-only vs worker deployment modes
 - unified OwsWatchSessionManager lifecycle foundation library for host integrations
 - machine-readable CLI commands with global `--json` option and API key redaction
 - minimal VS Code extension supporting full student watch/session/package lifecycle and secure key storage
@@ -214,6 +215,8 @@ PostgreSQL setup model today:
 - migration tracking in `ows_verifier_schema_version`
 - explicit `migrate` bootstrap mode for self-hosting
 - normal PostgreSQL server startup also applies missing migrations
+- `PackageVerificationWorker:Enabled` cleanly separates API-only instances from the worker instance
+- `VerifierStorage:ApplyMigrationsOnStartup` can disable startup migrations for production-like multi-instance rollouts
 - persistent verifier API keys are stored as hash-only durable records
 - persisted keys expose creation, listing, revocation, optional expiry, key prefix display, and last-used timestamps
 - checkpoint requests are validated before storage append
@@ -226,6 +229,7 @@ PostgreSQL setup model today:
 - `GET /audit/events` exposes operator-only audit queries with simple filters for institution, session, package, event type, and time
 - `GET /diagnostics/summary` exposes lightweight safe counters instead of a full monitoring stack
 - `/ready` now reports safe dependency state for storage, education store reachability, package storage, signing configuration, and auth mode
+- `/ready` and `GET /diagnostics/summary` now also report instance mode, worker enablement, package storage provider, migration mode, and safe deployment warnings
 - audit events cover API key lifecycle, auth failures, access denials, session creation, checkpoint/heartbeat acceptance, lease-gap detection, package submission, package verification, and report reads
 - package uploads stream into local durable blob storage with server-side content-addressed object keys
 - package submissions persist package SHA-256, package size, verification job id, and latest verification error
@@ -372,7 +376,7 @@ Net result:
 The main missing pieces are:
 
 - platform-specific hosts for VS Code, Rider, and desktop
-- multi-instance verifier deployment model
+- Kubernetes/queue/object-storage-grade distributed verifier deployment
 - desktop UI beyond placeholder state
 - Single Sign-On (SSO) integration for dashboards (OIDC/SAML)
 - external Grafana/Loki visualization integration
@@ -393,7 +397,7 @@ What is still weak:
 
 - capture fidelity
 - long-running tracking
-- operational trust guarantees beyond a single-node local blob store
+- operational trust guarantees beyond the current shared-path pilot multi-instance model
 - production verifier hosting and user identity dashboard integration
 
 The weakest assumption to avoid: thinking durable local blobs plus PostgreSQL are already a finished institutional trust boundary. They are not. This is a better foundation, not the finished boundary.

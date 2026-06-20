@@ -6,9 +6,11 @@ This guide explains how to deploy the Open Work Standard (OWS) verifier server i
 
 ## Architecture Overview
 
-The Compose stack packages two core components:
+The default Compose stack packages two core components:
 1. **`postgres`**: A PostgreSQL 17 database service using a persistent named volume (`ows-postgres-data-prod`) for durable notarization storage.
 2. **`ows-verifier`**: The ASP.NET Core OWS Verifier Web API service, running on port `8080` internally and mounting a named volume (`ows-verifier-package-data`) for durable `.owspkg` blob storage.
+
+For the supported multi-instance pilot pattern, also see `deploy/compose/docker-compose.multi-instance.yml` and `docs/MULTI_INSTANCE_DEPLOYMENT.md`.
 
 ---
 
@@ -58,6 +60,8 @@ On the initial start, execute the database migration tool inside the verifier co
 docker compose exec ows-verifier dotnet Ows.Verifier.Server.dll migrate
 ```
 
+For multi-instance deployments, run `migrate` once before starting all steady-state instances, then set `VerifierStorage__ApplyMigrationsOnStartup=false`.
+
 ---
 
 ## 4. Health and Observability Checks
@@ -72,7 +76,7 @@ curl -f http://localhost:5078/health
 ```
 
 ### 2. `/ready` Endpoint
-Checks safe dependency state for storage, education store reachability, package storage, signing configuration, and auth mode:
+Checks safe dependency state for storage, education store reachability, package storage, signing configuration, auth mode, worker mode, and migration mode:
 ```bash
 curl -f http://localhost:5078/ready
 # Returns: { "status": "Ready", "storage": "postgres", ... } (or HTTP 503 if dependencies are unhealthy)
@@ -84,7 +88,7 @@ Returns lightweight safe counters for pilot operations:
 curl -H "X-OWS-Verifier-Key: <operator-key>" http://localhost:5078/diagnostics/summary
 ```
 
-The response includes package-storage readiness and verification-job counters so operators can tell whether uploads are only accepted, actively processing, or piling up.
+The response includes package-storage readiness, worker mode (`api+worker` vs `api-only`), migration mode, warnings, and verification-job counters so operators can tell whether uploads are only accepted, actively processing, or piling up.
 
 ### 4. `/audit/events` Endpoint
 Returns operator-only audit events with simple filters:
@@ -135,12 +139,33 @@ Submitted student `.owspkg` package archives are stored in the named volume conf
 
 For MVP self-hosting, this is enough. External object storage, Redis queues, and separate workers are still deferred.
 
+Worker configuration for pilots:
+
+- `PackageVerificationWorker__Enabled=true` for the single-node baseline
+- `PackageVerificationWorker__Enabled=true` on exactly one worker instance in multi-instance mode
+- `PackageVerificationWorker__Enabled=false` on API-only instances
+
+Multi-instance mode also requires one shared package storage path mounted into every instance.
+
 ### Upgrades
 To upgrade to a new release:
 1. Pull or build the latest `ows-verifier` image.
 2. Stop the current stack: `docker compose down`.
 3. Restart the stack: `docker compose up -d`.
 4. Rerun migrations: `docker compose exec ows-verifier dotnet Ows.Verifier.Server.dll migrate`.
+
+### Multi-instance pattern
+
+The supported pilot pattern today is deliberately boring:
+
+- multiple API instances against one PostgreSQL database
+- one worker-enabled instance
+- one shared package blob volume/path
+- no Kubernetes
+- no Redis
+- no NATS
+
+Use `deploy/compose/docker-compose.multi-instance.yml` as the reference pattern.
 
 ---
 
@@ -158,4 +183,3 @@ Run the ops readiness check at any time:
 ```powershell
 .\scripts\verify-ops-readiness.ps1 -BaseUrl http://localhost:5078 -ApiKey "<operator-key>"
 ```
-

@@ -72,6 +72,8 @@ dotnet run --project src/Ows.Verifier.Server -- migrate
 
 Normal PostgreSQL-backed verifier startup also applies missing ordered migrations automatically. DevOps still owns the database instance, credentials, backups, and deployment policy; OWS owns the verifier schema shape.
 
+For multi-instance pilots, do not leave that on by habit. Run `migrate` once, then set `VerifierStorage__ApplyMigrationsOnStartup=false` on steady-state instances.
+
 Set `VerifierStorage__ReceiptSigningKey` to sign issued receipts. Keep that key outside the repository and deployment image.
 
 Set `VerifierSecurity__ApiKey` for bootstrap/shared-key compatibility, or use persisted operator/reviewer API keys for pilot deployments. CLI calls send `X-OWS-Verifier-Key` from `OWS_VERIFIER_API_KEY` when the environment variable is present.
@@ -113,8 +115,10 @@ Verifier package intake now includes:
 
 - `POST /packages/upload` for real `.owspkg` bytes
 - local durable blob storage outside PostgreSQL
-- a durable in-process verification job worker
+- a durable in-process verification job worker with `PackageVerificationWorker__Enabled` for API-only vs worker instances
 - `GET /packages/{id}/verification` and `GET /packages/{id}/report`
+
+Multi-instance pilot guidance now lives in [MULTI_INSTANCE_DEPLOYMENT.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/MULTI_INSTANCE_DEPLOYMENT.md).
 
 For background local lifecycle on Windows:
 

@@ -269,3 +269,21 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Fixture repeatability/reset guidance documented
 - [x] Latest live dry run passed and remains checked
 - [x] Latest release gate passed
+
+## Multi-Instance Verifier Deployment v0.1
+
+- [x] deployment model documented
+- [x] API-only vs worker mode documented
+- [x] worker enable/disable config
+- [x] DB-safe job claiming
+- [x] migration startup guidance
+- [x] multi-instance readiness diagnostics
+- [x] shared package blob storage guidance
+- [x] Compose pattern documented
+- [ ] Kubernetes
+- [ ] Redis
+- [ ] NATS
+- [ ] QUIC
+- [ ] full SSO/OIDC/SAML
+- [ ] Grafana/Loki stack
+- [ ] billing/SaaS features

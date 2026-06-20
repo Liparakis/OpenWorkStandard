@@ -317,11 +317,13 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
     /// <summary>
     /// Initializes a PostgreSQL-backed job store.
     /// </summary>
-    public PostgresPackageVerificationJobStore(string connectionString)
+    public PostgresPackageVerificationJobStore(string connectionString, bool applyMigrationsOnStartup = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
-        _initializationTask = Ows.Core.Notarization.PostgresVerifierMigrator.MigrateAsync(_dataSource);
+        _initializationTask = applyMigrationsOnStartup
+            ? Ows.Core.Notarization.PostgresVerifierMigrator.MigrateAsync(_dataSource)
+            : Task.CompletedTask;
     }
 
     /// <inheritdoc />

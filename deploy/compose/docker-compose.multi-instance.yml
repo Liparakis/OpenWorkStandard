@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: ows-postgres-multi
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ows_verifier}
+      POSTGRES_USER: ${POSTGRES_USER:-ows}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ows-verifier-api-1:
+    image: ${OWS_VERIFIER_IMAGE:-ows-verifier:latest}
+    container_name: ows-verifier-api-1
+    restart: always
+    ports:
+      - "${VERIFIER_API1_PORT:-5078}:8080"
+    environment:
+      - VerifierEnvironment=${VerifierEnvironment:-Production}
+      - VerifierStorage__Provider=${VerifierStorage__Provider:-postgres}
+      - VerifierStorage__PostgresConnectionString=${VerifierStorage__PostgresConnectionString}
+      - VerifierStorage__LocalStoragePath=${VerifierStorage__LocalStoragePath:-/app/packages}
+      - VerifierStorage__ApplyMigrationsOnStartup=false
+      - PackageVerificationWorker__Enabled=false
+      - VerifierStorage__PackageWorkerPollIntervalMilliseconds=${VerifierStorage__PackageWorkerPollIntervalMilliseconds:-250}
+      - VerifierStorage__PackageWorkerStaleRunningTimeoutSeconds=${VerifierStorage__PackageWorkerStaleRunningTimeoutSeconds:-300}
+      - VerifierSecurity__ApiKey=${VerifierSecurity__ApiKey}
+      - VerifierStorage__ReceiptSigningKey=${VerifierStorage__ReceiptSigningKey}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - verifier-packages:${VerifierStorage__LocalStoragePath:-/app/packages}
+
+  ows-verifier-api-2:
+    image: ${OWS_VERIFIER_IMAGE:-ows-verifier:latest}
+    container_name: ows-verifier-api-2
+    restart: always
+    ports:
+      - "${VERIFIER_API2_PORT:-5079}:8080"
+    environment:
+      - VerifierEnvironment=${VerifierEnvironment:-Production}
+      - VerifierStorage__Provider=${VerifierStorage__Provider:-postgres}
+      - VerifierStorage__PostgresConnectionString=${VerifierStorage__PostgresConnectionString}
+      - VerifierStorage__LocalStoragePath=${VerifierStorage__LocalStoragePath:-/app/packages}
+      - VerifierStorage__ApplyMigrationsOnStartup=false
+      - PackageVerificationWorker__Enabled=false
+      - VerifierStorage__PackageWorkerPollIntervalMilliseconds=${VerifierStorage__PackageWorkerPollIntervalMilliseconds:-250}
+      - VerifierStorage__PackageWorkerStaleRunningTimeoutSeconds=${VerifierStorage__PackageWorkerStaleRunningTimeoutSeconds:-300}
+      - VerifierSecurity__ApiKey=${VerifierSecurity__ApiKey}
+      - VerifierStorage__ReceiptSigningKey=${VerifierStorage__ReceiptSigningKey}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - verifier-packages:${VerifierStorage__LocalStoragePath:-/app/packages}
+
+  ows-verifier-worker:
+    image: ${OWS_VERIFIER_IMAGE:-ows-verifier:latest}
+    container_name: ows-verifier-worker
+    restart: always
+    environment:
+      - VerifierEnvironment=${VerifierEnvironment:-Production}
+      - VerifierStorage__Provider=${VerifierStorage__Provider:-postgres}
+      - VerifierStorage__PostgresConnectionString=${VerifierStorage__PostgresConnectionString}
+      - VerifierStorage__LocalStoragePath=${VerifierStorage__LocalStoragePath:-/app/packages}
+      - VerifierStorage__ApplyMigrationsOnStartup=false
+      - PackageVerificationWorker__Enabled=true
+      - VerifierStorage__PackageWorkerPollIntervalMilliseconds=${VerifierStorage__PackageWorkerPollIntervalMilliseconds:-250}
+      - VerifierStorage__PackageWorkerStaleRunningTimeoutSeconds=${VerifierStorage__PackageWorkerStaleRunningTimeoutSeconds:-300}
+      - VerifierSecurity__ApiKey=${VerifierSecurity__ApiKey}
+      - VerifierStorage__ReceiptSigningKey=${VerifierStorage__ReceiptSigningKey}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - verifier-packages:${VerifierStorage__LocalStoragePath:-/app/packages}
+
+volumes:
+  postgres-data:
+    name: ows-postgres-data-multi
+  verifier-packages:
+    name: ows-verifier-package-data-multi

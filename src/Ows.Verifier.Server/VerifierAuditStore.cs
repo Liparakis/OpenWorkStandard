@@ -331,11 +331,13 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
     /// <summary>
     /// Initializes a new instance of the <see cref="PostgresVerifierAuditStore"/> class.
     /// </summary>
-    public PostgresVerifierAuditStore(string connectionString)
+    public PostgresVerifierAuditStore(string connectionString, bool applyMigrationsOnStartup = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
-        _initializationTask = Ows.Core.Notarization.PostgresVerifierMigrator.MigrateAsync(_dataSource);
+        _initializationTask = applyMigrationsOnStartup
+            ? Ows.Core.Notarization.PostgresVerifierMigrator.MigrateAsync(_dataSource)
+            : Task.CompletedTask;
     }
 
     /// <inheritdoc />

@@ -1,24 +1,15 @@
 # OWS Verifier Operations Runbook
 
-This runbook covers day-to-day and emergency procedures for operating a self-hosted OWS verifier during a pilot program. It is a companion to `BACKUP_RESTORE.md`, `SECURITY_HARDENING.md`, and `SELF_HOSTED_COMPOSE.md`.
-
----
+This runbook covers day-to-day and emergency procedures for operating a self-hosted Open Work Standard verifier during a pilot program.
 
 ## 1. Quick-Start Checks
 
 Run these every time you start or restart the stack:
 
 ```bash
-# 1. Verify containers are up
 docker compose -f deploy/compose/docker-compose.yml ps
-
-# 2. Confirm health
 curl -f http://localhost:5078/health
-
-# 3. Confirm readiness (storage + signing + auth mode)
 curl -f http://localhost:5078/ready
-
-# 4. Read diagnostics summary (requires operator key)
 curl -H "X-OWS-Verifier-Key: <operator-key>" http://localhost:5078/diagnostics/summary
 ```
 
@@ -28,89 +19,96 @@ Expected `/ready` response shape:
 {
   "status": "Ready",
   "storage": "postgres",
+  "storageProvider": "postgres",
+  "packageStorageProvider": "local-file",
+  "workerEnabled": true,
+  "instanceMode": "api+worker",
+  "applyMigrationsOnStartup": true,
   "signing": "Enabled",
+  "warnings": [],
   "dependencies": {
     "storageProvider": "postgres",
     "storageReady": true,
     "educationStoreReady": true,
+    "packageStorageConfigured": true,
     "packageStorageReady": true,
+    "workerEnabled": true,
+    "instanceMode": "api+worker",
     "signingConfigured": true,
     "authMode": "persisted"
   }
 }
 ```
 
-If `/ready` returns 503, stop and fix before accepting student packages.
+If `/ready` returns 503, stop and fix the deployment before accepting packages.
 
----
+## 2. Startup Checklist
 
-## 2. Startup Checklist (After Deploy or Restart)
-
-1. `docker compose up -d` (or equivalent restart)
-2. Wait for `ows-postgres-prod` to be healthy (`docker compose ps`)
-3. Run migrations if this is an upgrade: `docker compose exec ows-verifier dotnet Ows.Verifier.Server.dll migrate`
-4. Call `/health` — confirm 200
-5. Call `/ready` — confirm 200 and all dependencies true
-6. Call `/diagnostics/summary` — confirm `packageStorageReady: true` and `signingKeyFingerprintPresent: true`
-7. Log the signing key fingerprint from startup logs: `docker compose logs ows-verifier | grep Fingerprint`
-
----
+1. Start the stack: `docker compose up -d`
+2. Wait for PostgreSQL to become healthy: `docker compose ps`
+3. If this is a new deployment or upgrade, run migrations once: `docker compose exec ows-verifier dotnet Ows.Verifier.Server.dll migrate`
+4. In multi-instance mode, confirm every steady-state instance has `VerifierStorage__ApplyMigrationsOnStartup=false`
+5. Confirm `/health` returns HTTP 200
+6. Confirm `/ready` returns HTTP 200 and the expected `instanceMode`
+7. Confirm `/diagnostics/summary` reports `packageStorageReady: true`, correct `workerEnabled`, and `signingKeyFingerprintPresent: true`
+8. Record the signing key fingerprint from startup logs
 
 ## 3. Signing Key Fingerprint
 
 The verifier logs the signing key fingerprint at startup:
 
-```
+```text
 OWS Verifier starting up...
 Signing Key Fingerprint: sha256:<hex>
 ```
 
-To retrieve it after start:
+Retrieve it later with:
 
 ```bash
 docker compose logs ows-verifier | grep "Signing Key Fingerprint"
 ```
 
-The fingerprint is a safe, non-secret identifier for the key material in use. Record it in your operator notes and compare it after any config change or restore. A mismatch indicates the signing key changed.
-
-> [!IMPORTANT]
-> If the fingerprint changes between deployments, receipts signed under the old key will still verify correctly only against that old fingerprint. Document the old fingerprint alongside the date range it was active.
-
----
+Record the fingerprint in operator notes. A changed fingerprint means the signing key changed.
 
 ## 4. Package Blob Storage
 
-Package blobs (`.owspkg` files) are stored in the named Docker volume `ows-verifier-package-data`, mounted at `/app/packages` by default.
+Package blobs are stored outside PostgreSQL. PostgreSQL holds metadata and job state; blob storage holds the actual `.owspkg` bytes. Back up both together.
 
-The PostgreSQL database holds submission metadata and verification results. The blob volume holds the actual package bytes. **Both must be backed up together.** Restoring only the database leaves metadata without the package bytes needed for re-verification.
+Current provider:
 
-Blob naming convention: `<sha256-hash>.owspkg` — content-addressed, so deduplication is implicit.
+- `local-file`
 
-### Check blob count
+Current rule:
 
-```bash
-# List blob count inside the container
-docker compose exec ows-verifier sh -c 'ls /app/packages/*.owspkg 2>/dev/null | wc -l'
-```
+- single-node mode may use one local verifier volume
+- multi-instance mode must mount one shared package storage path into every instance that needs package reads or verification
 
-Or via the diagnostics summary:
+Blob count check:
 
 ```bash
 curl -H "X-OWS-Verifier-Key: <operator-key>" http://localhost:5078/diagnostics/summary
-# packageBlobCount field (if non-zero)
 ```
 
----
+Look at `packageBlobCount`.
 
 ## 5. Package Verification Worker
 
-The in-process worker picks up `Pending` jobs and runs them against stored blobs. Worker state is controlled by:
+The in-process worker claims `Pending` jobs and processes them against stored blobs.
 
-- `VerifierStorage__PackageWorkerEnabled` (true/false)
+Worker configuration:
+
+- `PackageVerificationWorker__Enabled`
 - `VerifierStorage__PackageWorkerPollIntervalMilliseconds`
 - `VerifierStorage__PackageWorkerStaleRunningTimeoutSeconds`
 
-On restart, any jobs that were `Running` and have not timed out are reset to `Pending` automatically. This is startup recovery — it is expected behavior and not an error.
+Multi-instance pilot rule:
+
+- exactly one instance should have `PackageVerificationWorker__Enabled=true`
+- API-only instances should report `instanceMode: api-only`
+- the worker instance should report `instanceMode: api+worker`
+- all instances must see the same shared package storage
+
+PostgreSQL job claiming already uses row locking with `FOR UPDATE SKIP LOCKED`, so accidental double workers should not normally claim the same pending job.
 
 Check job state via diagnostics:
 
@@ -118,135 +116,107 @@ Check job state via diagnostics:
 curl -H "X-OWS-Verifier-Key: <operator-key>" http://localhost:5078/diagnostics/summary
 ```
 
-Look for `packageVerificationJobs.pending`, `.running`, `.completed`, `.failed`.
+Look for:
 
-If jobs accumulate in `pending` and nothing moves to `completed`, check:
+- `workerEnabled`
+- `instanceMode`
+- `warnings`
+- `packageVerificationJobs.pending`
+- `packageVerificationJobs.running`
+- `packageVerificationJobs.succeeded`
+- `packageVerificationJobs.failed`
 
-1. Worker is enabled (`PackageWorkerEnabled: true` in logs)
-2. Package blob volume is accessible (`packageStorageReady: true` in `/ready`)
-3. No unhandled exception in container logs
+If jobs accumulate in `pending`, check:
 
----
+1. One instance really has `workerEnabled: true`
+2. `packageStorageReady: true` everywhere
+3. Worker logs do not show `package.verification.*` failures
 
-## 6. API Key Management
+## 6. Migration Safety
 
-See `SECURITY_HARDENING.md` for full key lifecycle documentation.
+Single-node local/dev deployments may leave automatic migrations enabled.
+
+Multi-instance pilot deployments should not.
+
+Recommended sequence:
+
+1. Stop or hold new traffic.
+2. Run `dotnet Ows.Verifier.Server.dll migrate` once against the shared PostgreSQL database.
+3. Start API and worker instances with `VerifierStorage__ApplyMigrationsOnStartup=false`.
+4. Verify `/ready` and `/diagnostics/summary` on each instance.
+
+Do not try to invent a migration coordinator at this stage.
+
+## 7. API Key Management
 
 Daily operations summary:
 
-| Action | Endpoint | Scoping & Delegation |
+| Action | Endpoint | Scope |
 |---|---|---|
-| Create operator key | `POST /auth/api-keys` with `{"role":"Operator"}` | Operator only |
-| Create institution admin key | `POST /auth/api-keys` with `{"role":"InstitutionAdmin", "institutionId":"<id>"}` | Operator only |
-| Create reviewer key | `POST /auth/api-keys` with `{"role":"InstructorReviewer", "institutionId":"<id>"}` | Operator, or InstitutionAdmin (own institution only) |
+| Create operator key | `POST /auth/api-keys` | Operator only |
+| Create institution admin key | `POST /auth/api-keys` | Operator only |
+| Create reviewer key | `POST /auth/api-keys` | Operator or institution admin |
 | List keys | `GET /auth/api-keys` | Operator only |
 | Revoke key | `POST /auth/api-keys/{id}/revoke` | Operator only |
 
-Raw key secrets are returned once on creation and never stored. Store them in a password manager immediately.
+Raw key secrets are returned once and never stored.
 
----
+## 8. Audit Events
 
-## 7. Audit Events
-
-Query recent audit events to understand what the verifier has been doing:
+Useful audit queries:
 
 ```bash
-# All recent events
 curl -H "X-OWS-Verifier-Key: <key>" http://localhost:5078/audit/events?limit=50
-
-# Filter by type
 curl -H "X-OWS-Verifier-Key: <key>" "http://localhost:5078/audit/events?eventType=package.verified&limit=20"
-
-# Filter by package
 curl -H "X-OWS-Verifier-Key: <key>" "http://localhost:5078/audit/events?packageId=<submissionId>"
-
-# Filter by institution
-curl -H "X-OWS-Verifier-Key: <key>" "http://localhost:5078/audit/events?institutionId=<id>"
 ```
 
 Key event types:
 
 | Event | Meaning |
 |---|---|
-| `session.created` | New student assessment session started |
-| `checkpoint.accepted` | Timeline checkpoint recorded |
-| `heartbeat.accepted` | Session heartbeat received |
-| `lease.gap.detected` | Heartbeat gap — may affect trust grade |
 | `package.submitted` | Package blob uploaded |
-| `package.verified` | Verification job completed |
-| `package.blob.missing` | Blob was missing at verification time |
-| `api_key.created` | New API key created |
-| `api_key.revoked` | Key revoked |
-| `auth.failed` | Invalid or missing key |
+| `package.verification.queued` | Verification job queued |
+| `package.verification.started` | Worker claimed the job |
+| `package.verification.completed` | Verification job finished |
+| `package.verification.failed` | Verification job failed |
+| `package.blob.missing` | Blob missing at verification time |
 | `readiness.failed` | `/ready` returned unhealthy |
-
----
-
-## 8. Requesting Correlation
-
-Every request to the verifier includes an `X-Request-Id` response header. Use it to:
-
-1. Match the request in container logs
-2. Query `GET /audit/events` filtered to that request
-3. Pinpoint which operation triggered an error
-
-Example:
-
-```bash
-# After an upload, note the X-Request-Id header
-curl -v -H "X-OWS-Verifier-Key: <key>" -F file=@mypackage.owspkg http://localhost:5078/packages/upload
-# < X-Request-Id: abc123
-
-# Find related audit events
-curl -H "X-OWS-Verifier-Key: <key>" "http://localhost:5078/audit/events?requestId=abc123"
-```
-
----
 
 ## 9. Emergency Procedures
 
-### Signing key warning at startup
+### All jobs stuck in pending
 
-If startup logs show `CONFIGURATION WARNING: VerifierStorage:ReceiptSigningKey is weak`, the verifier is running without production-grade signing. In production mode this is fatal. In development mode it degrades trust in all receipts. Rotate the key before accepting real student submissions.
+1. Check `workerEnabled` and `instanceMode` in `/diagnostics/summary`
+2. Check `/ready` for `packageStorageReady: true`
+3. Check `warnings` for package-storage problems
+4. Restart the worker instance
+
+### Worker enabled but package storage unavailable
+
+1. Check the `warnings` array in `/ready` or `/diagnostics/summary`
+2. Verify the shared package volume/path is mounted on that instance
+3. Do not accept new uploads until storage is fixed
 
 ### Package blob missing
 
-If verification returns `package.blob.missing`, the blob was accepted but later lost. Actions:
-
-1. Ask the student or operator to re-upload the package
-2. Or restore the blob volume from backup
-3. After restoring, rerun verification: `POST /packages/{id}/verify`
-4. Do not forge or substitute blobs — hash mismatch will produce `Invalid`
-
-### Stale running jobs after restore
-
-After a restore, jobs that were `Running` at backup time will be found in `Running` state. The startup recovery mechanism resets them to `Pending` after `PackageWorkerStaleRunningTimeoutSeconds`. If you need them reset immediately, restart the verifier service.
-
-### All jobs stuck in pending
-
-1. Check `VerifierStorage__PackageWorkerEnabled` is `true`
-2. Check `/ready` for `packageStorageReady: true`
-3. Check container logs for exceptions from the worker
-4. Restart the verifier container
+1. Re-upload the package or restore the blob volume from backup
+2. Rerun verification: `POST /packages/{id}/verify`
 
 ### Database unreachable
 
-1. Check PostgreSQL container is running: `docker compose ps`
-2. Check connectivity: `docker compose exec ows-verifier sh -c 'pg_isready -h postgres -U ows'`
-3. Restart PostgreSQL if healthy data is present: `docker compose restart postgres`
-4. If data may be corrupt, follow restore procedures in `BACKUP_RESTORE.md`
+1. Check `docker compose ps`
+2. Check PostgreSQL connectivity from the verifier container
+3. Restart PostgreSQL if the data is healthy
+4. If the data may be corrupt, follow `BACKUP_RESTORE.md`
 
----
-
-## 10. Scheduled Operator Tasks
+## 10. Scheduled Tasks
 
 | Frequency | Task |
 |---|---|
 | Daily | Check `/ready` and `/diagnostics/summary` |
 | Daily | Scan audit events for `auth.failed` spikes |
 | Weekly | Back up PostgreSQL database |
-| Weekly | Back up package blob volume |
-| Before each pilot | Record signing key fingerprint |
-| Before each pilot | Verify API keys for reviewers are valid and scoped correctly |
-| After each pilot | Archive audit events and diagnostics summary |
-| After upgrades | Re-run migrations, verify `/ready`, check signing key fingerprint |
+| Weekly | Back up package blob storage |
+| Before each pilot | Record the signing key fingerprint |
+| After upgrades | Run `migrate`, then verify `/ready` and `/diagnostics/summary` |

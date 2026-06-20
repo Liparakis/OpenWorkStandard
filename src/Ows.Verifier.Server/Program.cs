@@ -14,10 +14,14 @@ builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole();
 var storageOptions = builder.Configuration.GetSection("VerifierStorage").Get<VerifierStorageOptions>()
                      ?? new VerifierStorageOptions();
+var packageWorkerEnabled = ResolvePackageWorkerEnabled(builder.Configuration, storageOptions.PackageWorkerEnabled);
+var applyMigrationsOnStartup = ResolveApplyMigrationsOnStartup(builder.Configuration, storageOptions.ApplyMigrationsOnStartup);
 var securityOptions = builder.Configuration.GetSection("VerifierSecurity").Get<VerifierSecurityOptions>()
                       ?? new VerifierSecurityOptions();
 var normalizedStorageOptions = storageOptions with
 {
+    PackageWorkerEnabled = packageWorkerEnabled,
+    ApplyMigrationsOnStartup = applyMigrationsOnStartup,
     JsonStorePath = string.IsNullOrWhiteSpace(storageOptions.JsonStorePath)
         ? Path.Combine(builder.Environment.ContentRootPath, ".ows-verifier", "receipts.json")
         : storageOptions.JsonStorePath,
@@ -125,6 +129,13 @@ if (string.Equals(normalizedStorageOptions.Provider, "json", StringComparison.Or
     }
 }
 
+if (string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase) &&
+    normalizedStorageOptions.ApplyMigrationsOnStartup)
+{
+    startupWarnings.Add(
+        "VerifierStorage:ApplyMigrationsOnStartup is enabled. Multi-instance deployments should run 'migrate' once, then set it to false on steady-state instances.");
+}
+
 if (startupErrors.Count > 0)
 {
     foreach (var error in startupErrors)
@@ -169,12 +180,15 @@ builder.Services.AddSingleton<IVerifierApiKeyStore>(_ =>
             !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
                 ? normalizedStorageOptions.PostgresConnectionString
                 : throw new InvalidOperationException(
-                    "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."))
+                    "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."),
+            normalizedStorageOptions.ApplyMigrationsOnStartup)
         : new JsonFileVerifierApiKeyStore(Path.Combine(storeRoot, "api_keys.json"));
 });
 builder.Services.AddSingleton<IPackageSubmissionStore>(_ =>
     string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
-        ? new PostgresPackageSubmissionStore(normalizedStorageOptions.PostgresConnectionString)
+        ? new PostgresPackageSubmissionStore(
+            normalizedStorageOptions.PostgresConnectionString,
+            normalizedStorageOptions.ApplyMigrationsOnStartup)
         : new JsonFilePackageSubmissionStore(Path.Combine(
             Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath,
             "package_submissions.json")));
@@ -189,7 +203,8 @@ builder.Services.AddSingleton<IPackageVerificationJobStore>(_ =>
             !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
                 ? normalizedStorageOptions.PostgresConnectionString
                 : throw new InvalidOperationException(
-                    "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."))
+                    "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."),
+            normalizedStorageOptions.ApplyMigrationsOnStartup)
         : new JsonFilePackageVerificationJobStore(Path.Combine(storeRoot, "package_verification_jobs.json"));
 });
 if (normalizedStorageOptions.PackageWorkerEnabled)
@@ -205,7 +220,8 @@ builder.Services.AddSingleton<IVerifierAuditStore>(_ =>
             !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
                 ? normalizedStorageOptions.PostgresConnectionString
                 : throw new InvalidOperationException(
-                    "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."))
+                    "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."),
+            normalizedStorageOptions.ApplyMigrationsOnStartup)
         : new JsonFileVerifierAuditStore(Path.Combine(storeRoot, "audit_events.json"));
 });
 builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
@@ -218,7 +234,8 @@ builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Pr
             ? normalizedStorageOptions.PostgresConnectionString
             : throw new InvalidOperationException(
                 "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."),
-        normalizedStorageOptions.ReceiptSigningKey),
+        normalizedStorageOptions.ReceiptSigningKey,
+        normalizedStorageOptions.ApplyMigrationsOnStartup),
     _ => throw new NotSupportedException($"Unsupported verifier storage provider: {normalizedStorageOptions.Provider}")
 });
 builder.Services.AddSingleton<IEducationStore>(_ =>
@@ -240,6 +257,9 @@ var auditLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger
 startupLogger.LogInformation("OWS Verifier starting up...");
 startupLogger.LogInformation("Environment Mode: {EnvironmentMode}", envMode);
 startupLogger.LogInformation("Storage Provider: {Provider}", normalizedStorageOptions.Provider);
+startupLogger.LogInformation("Instance Mode: {InstanceMode}", DescribeInstanceMode(normalizedStorageOptions.PackageWorkerEnabled));
+startupLogger.LogInformation("Package Verification Worker Enabled: {WorkerEnabled}", normalizedStorageOptions.PackageWorkerEnabled);
+startupLogger.LogInformation("Apply Migrations On Startup: {ApplyMigrationsOnStartup}", normalizedStorageOptions.ApplyMigrationsOnStartup);
 startupLogger.LogInformation("API Guard: {ApiGuardStatus}", configuredApiKeys.Count == 0 ? "Disabled" : "Enabled");
 if (configuredApiKeys.Count > 0)
 {
@@ -263,7 +283,9 @@ if (app.Services.GetService<IVerifierStorage>() is { } storage)
     {
         startupLogger.LogInformation("Initializing verifier storage...");
         await storage.InitializeAsync(CancellationToken.None);
-        startupLogger.LogInformation("Verifier storage initialized successfully (database/migrations ready).");
+        startupLogger.LogInformation(
+            "Verifier storage initialized successfully ({InitializationMode}).",
+            normalizedStorageOptions.ApplyMigrationsOnStartup ? "database/migrations ready" : "database access ready");
     }
     catch (Exception ex)
     {
@@ -560,12 +582,16 @@ app.MapGet("/ready",
         IPackageBlobStore blobStore, VerifierStorageOptions options, CancellationToken cancellationToken) =>
     {
         var signingConfigured = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey);
+        var packageStorageConfigured = !string.IsNullOrWhiteSpace(options.LocalStoragePath);
+        var packageStorageProvider = DescribePackageStorageProvider(options);
+        var instanceMode = DescribeInstanceMode(options.PackageWorkerEnabled);
         try
         {
             var authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken);
             var healthy = await storage.CheckHealthAsync(cancellationToken);
             var educationReady = await CheckEducationStoreReadyAsync(educationStore, cancellationToken);
             var packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken);
+            var warnings = BuildDeploymentWarnings(options, packageStorageReady);
             if (!healthy || !educationReady || !packageStorageReady)
             {
                 await WriteAuditEventAsync(
@@ -579,6 +605,8 @@ app.MapGet("/ready",
                         ("storageReady", healthy.ToString()),
                         ("educationStoreReady", educationReady.ToString()),
                         ("packageStorageReady", packageStorageReady.ToString()),
+                        ("workerEnabled", options.PackageWorkerEnabled.ToString()),
+                        ("instanceMode", instanceMode),
                         ("signingConfigured", signingConfigured.ToString()),
                         ("authMode", authMode)),
                     cancellationToken: cancellationToken);
@@ -586,13 +614,23 @@ app.MapGet("/ready",
                 {
                     status = "Unhealthy",
                     storage = options.Provider,
+                    storageProvider = options.Provider,
+                    packageStorageProvider,
+                    packageStorageConfigured,
+                    workerEnabled = options.PackageWorkerEnabled,
+                    instanceMode,
+                    applyMigrationsOnStartup = options.ApplyMigrationsOnStartup,
                     signing = signingConfigured ? "Enabled" : "Disabled",
+                    warnings,
                     dependencies = new
                     {
                         storageProvider = options.Provider,
                         storageReady = healthy,
                         educationStoreReady = educationReady,
+                        packageStorageConfigured,
                         packageStorageReady,
+                        workerEnabled = options.PackageWorkerEnabled,
+                        instanceMode,
                         signingConfigured,
                         authMode
                     }
@@ -603,13 +641,23 @@ app.MapGet("/ready",
             {
                 status = "Ready",
                 storage = options.Provider,
+                storageProvider = options.Provider,
+                packageStorageProvider,
+                packageStorageConfigured,
+                workerEnabled = options.PackageWorkerEnabled,
+                instanceMode,
+                applyMigrationsOnStartup = options.ApplyMigrationsOnStartup,
                 signing = signingConfigured ? "Enabled" : "Disabled",
+                warnings,
                 dependencies = new
                 {
                     storageProvider = options.Provider,
                     storageReady = true,
                     educationStoreReady = true,
+                    packageStorageConfigured,
                     packageStorageReady = true,
+                    workerEnabled = options.PackageWorkerEnabled,
+                    instanceMode,
                     signingConfigured,
                     authMode
                 }
@@ -645,12 +693,24 @@ app.MapGet("/ready",
             return Results.Json(new
             {
                 status = "Unhealthy",
+                storage = options.Provider,
+                storageProvider = options.Provider,
+                packageStorageProvider,
+                packageStorageConfigured,
+                workerEnabled = options.PackageWorkerEnabled,
+                instanceMode,
+                applyMigrationsOnStartup = options.ApplyMigrationsOnStartup,
+                signing = signingConfigured ? "Enabled" : "Disabled",
+                warnings = BuildDeploymentWarnings(options, packageStorageReady),
                 dependencies = new
                 {
                     storageProvider = options.Provider,
                     storageReady = false,
                     educationStoreReady = false,
+                    packageStorageConfigured,
                     packageStorageReady,
+                    workerEnabled = options.PackageWorkerEnabled,
+                    instanceMode,
                     signingConfigured,
                     authMode
                 }
@@ -1425,6 +1485,10 @@ app.MapGet("/diagnostics/summary", async (IVerifierAuditStore auditStore, IVerif
     var summary = await auditStore.GetSummaryAsync(cancellationToken);
     var jobSummary = await jobStore.GetSummaryAsync(cancellationToken);
     var packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken);
+    var packageStorageConfigured = !string.IsNullOrWhiteSpace(normalizedStorageOptions.LocalStoragePath);
+    var packageStorageProvider = DescribePackageStorageProvider(normalizedStorageOptions);
+    var instanceMode = DescribeInstanceMode(normalizedStorageOptions.PackageWorkerEnabled);
+    var warnings = BuildDeploymentWarnings(normalizedStorageOptions, packageStorageReady);
 
     // Count blobs in the package storage directory (cheap: directory listing, no file reads).
     // Returns null when the storage root is not configured or not accessible.
@@ -1448,10 +1512,15 @@ app.MapGet("/diagnostics/summary", async (IVerifierAuditStore auditStore, IVerif
     return Results.Ok(new
     {
         environment = envMode.ToString(),
+        instanceMode,
+        workerEnabled = normalizedStorageOptions.PackageWorkerEnabled,
         storageProvider = normalizedStorageOptions.Provider,
-        packageStorageConfigured = !string.IsNullOrWhiteSpace(normalizedStorageOptions.LocalStoragePath),
+        packageStorageProvider,
+        packageStorageConfigured,
         packageStorageReady,
         packageBlobCount,
+        applyMigrationsOnStartup = normalizedStorageOptions.ApplyMigrationsOnStartup,
+        warnings,
         signingKeyFingerprintPresent,
         authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken),
         metrics = summary,
@@ -2092,6 +2161,46 @@ static async Task<bool> CheckEducationStoreReadyAsync(IEducationStore educationS
     {
         return false;
     }
+}
+
+static bool ResolvePackageWorkerEnabled(IConfiguration configuration, bool legacyDefault)
+{
+    var configuredValue = configuration["PackageVerificationWorker:Enabled"];
+    if (bool.TryParse(configuredValue, out var enabled))
+    {
+        return enabled;
+    }
+
+    var legacyValue = configuration["VerifierStorage:PackageWorkerEnabled"];
+    return bool.TryParse(legacyValue, out enabled) ? enabled : legacyDefault;
+}
+
+static bool ResolveApplyMigrationsOnStartup(IConfiguration configuration, bool defaultValue)
+{
+    var configuredValue = configuration["VerifierStorage:ApplyMigrationsOnStartup"];
+    return bool.TryParse(configuredValue, out var enabled) ? enabled : defaultValue;
+}
+
+static string DescribeInstanceMode(bool workerEnabled) => workerEnabled ? "api+worker" : "api-only";
+
+static string DescribePackageStorageProvider(VerifierStorageOptions options) =>
+    string.IsNullOrWhiteSpace(options.LocalStoragePath) ? "unconfigured" : "local-file";
+
+static string[] BuildDeploymentWarnings(VerifierStorageOptions options, bool packageStorageReady)
+{
+    var warnings = new List<string>();
+    if (options.PackageWorkerEnabled && !packageStorageReady)
+    {
+        warnings.Add("Package verification worker is enabled but package storage is unavailable.");
+    }
+
+    if (!options.ApplyMigrationsOnStartup &&
+        string.Equals(options.Provider, "postgres", StringComparison.OrdinalIgnoreCase))
+    {
+        warnings.Add("Automatic PostgreSQL migrations are disabled; run 'migrate' before starting all instances.");
+    }
+
+    return warnings.ToArray();
 }
 
 // ponytail: config-backed keys are enough for v0.1; add a real identity provider only when external operators need user-level auth.

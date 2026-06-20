@@ -36,9 +36,14 @@ public sealed record VerifierStorageOptions
     public long MaxPackageSizeBytes { get; init; } = 52428800; // 50 MB
 
     /// <summary>
-    /// Gets a value indicating whether the in-process package verification worker is enabled.
+    /// Gets a value indicating whether the legacy verifier-storage worker flag is enabled.
     /// </summary>
     public bool PackageWorkerEnabled { get; init; } = true;
+
+    /// <summary>
+    /// Gets a value indicating whether PostgreSQL migrations are applied automatically during startup.
+    /// </summary>
+    public bool ApplyMigrationsOnStartup { get; init; } = true;
 
     /// <summary>
     /// Gets the worker polling interval in milliseconds.

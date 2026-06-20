@@ -16,13 +16,16 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     /// </summary>
     /// <param name="connectionString">The PostgreSQL connection string.</param>
     /// <param name="signingKey">The optional server signing key used to sign issued receipts.</param>
-    public PostgresVerifierStorage(string connectionString, string? signingKey = null)
+    /// <param name="applyMigrationsOnStartup">Whether the verifier should apply schema migrations during initialization.</param>
+    public PostgresVerifierStorage(string connectionString, string? signingKey = null, bool applyMigrationsOnStartup = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         _signingKey = signingKey;
         _dataSource = NpgsqlDataSource.Create(connectionString);
-        _initializationTask = PostgresVerifierMigrator.MigrateAsync(_dataSource);
+        _initializationTask = applyMigrationsOnStartup
+            ? PostgresVerifierMigrator.MigrateAsync(_dataSource)
+            : Task.CompletedTask;
     }
 
     /// <inheritdoc />

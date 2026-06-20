@@ -402,11 +402,13 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
     /// <summary>
     /// Initializes a new instance of the <see cref="PostgresVerifierApiKeyStore"/> class.
     /// </summary>
-    public PostgresVerifierApiKeyStore(string connectionString)
+    public PostgresVerifierApiKeyStore(string connectionString, bool applyMigrationsOnStartup = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
-        _initializationTask = Ows.Core.Notarization.PostgresVerifierMigrator.MigrateAsync(_dataSource);
+        _initializationTask = applyMigrationsOnStartup
+            ? Ows.Core.Notarization.PostgresVerifierMigrator.MigrateAsync(_dataSource)
+            : Task.CompletedTask;
     }
 
     /// <inheritdoc />
