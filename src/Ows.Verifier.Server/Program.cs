@@ -36,28 +36,55 @@ if (!Enum.TryParse<VerifierEnvironmentMode>(envString, true, out var envMode))
 var isProduction = envMode == VerifierEnvironmentMode.Production;
 var startupWarnings = new List<string>();
 var startupErrors = new List<string>();
+var configuredApiKeys = BuildConfiguredApiKeys(securityOptions);
 
-// Check API Key
-if (string.IsNullOrWhiteSpace(securityOptions.ApiKey))
+// Check API Keys
+if (configuredApiKeys.Count == 0)
 {
     if (isProduction)
     {
-        startupErrors.Add("VerifierSecurity:ApiKey must be configured in Production mode.");
+        startupErrors.Add("VerifierSecurity:ApiKey or VerifierSecurity:ApiKeys must be configured in Production mode.");
     }
     else
     {
-        startupWarnings.Add("VerifierSecurity:ApiKey is not configured. Request guard is disabled.");
+        startupWarnings.Add("VerifierSecurity API keys are not configured. Request guard is disabled.");
     }
 }
-else if (IsWeakSecret(securityOptions.ApiKey))
+else
 {
-    if (isProduction)
+    var duplicateKeys = configuredApiKeys
+        .GroupBy(static key => key.Key, StringComparer.Ordinal)
+        .Where(static group => group.Count() > 1)
+        .Select(static group => group.Key)
+        .ToArray();
+    foreach (var duplicateKey in duplicateKeys)
     {
-        startupErrors.Add("VerifierSecurity:ApiKey is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
+        startupErrors.Add($"VerifierSecurity contains duplicate API key material for fingerprint {ReceiptChainVerifier.ComputeFingerprint(duplicateKey)}.");
     }
-    else
+
+    foreach (var apiKey in configuredApiKeys)
     {
-        startupWarnings.Add("VerifierSecurity:ApiKey is weak or using a dev default.");
+        if (IsWeakSecret(apiKey.Key))
+        {
+            if (isProduction)
+            {
+                startupErrors.Add($"VerifierSecurity key for role '{apiKey.Role}' is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
+            }
+            else
+            {
+                startupWarnings.Add($"VerifierSecurity key for role '{apiKey.Role}' is weak or using a dev default.");
+            }
+        }
+
+        if (!IsSupportedVerifierRole(apiKey.Role))
+        {
+            startupErrors.Add($"VerifierSecurity role '{apiKey.Role}' is not supported. Use 'operator' or 'reviewer'.");
+        }
+
+        if (IsReviewerRole(apiKey.Role) && string.IsNullOrWhiteSpace(apiKey.InstitutionId))
+        {
+            startupErrors.Add("VerifierSecurity reviewer keys must set InstitutionId.");
+        }
     }
 }
 
@@ -165,10 +192,11 @@ var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
 startupLogger.LogInformation("OWS Verifier starting up...");
 startupLogger.LogInformation("Environment Mode: {EnvironmentMode}", envMode);
 startupLogger.LogInformation("Storage Provider: {Provider}", normalizedStorageOptions.Provider);
-startupLogger.LogInformation("API Guard: {ApiGuardStatus}", string.IsNullOrWhiteSpace(securityOptions.ApiKey) ? "Disabled" : "Enabled");
-if (!string.IsNullOrWhiteSpace(securityOptions.ApiKey))
+startupLogger.LogInformation("API Guard: {ApiGuardStatus}", configuredApiKeys.Count == 0 ? "Disabled" : "Enabled");
+if (configuredApiKeys.Count > 0)
 {
     startupLogger.LogInformation("API Header Name: {HeaderName}", securityOptions.HeaderName);
+    startupLogger.LogInformation("Configured API Keys: {ApiKeyCount}", configuredApiKeys.Count);
 }
 var keyFingerprint = ReceiptChainVerifier.ComputeFingerprint(normalizedStorageOptions.ReceiptSigningKey);
 startupLogger.LogInformation("Signing Key Fingerprint: {Fingerprint}", string.IsNullOrWhiteSpace(keyFingerprint) ? "None (Unsigned)" : keyFingerprint);
@@ -234,16 +262,24 @@ app.Use(async (context, next) =>
     }
 });
 
-if (!string.IsNullOrWhiteSpace(securityOptions.ApiKey))
+if (configuredApiKeys.Count > 0)
 {
     app.Use(async (context, next) =>
     {
-        if (!HasValidApiKey(context.Request, securityOptions))
+        var access = TryAuthenticateApiKey(context.Request, securityOptions.HeaderName, configuredApiKeys);
+        if (access is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             var hasHeader = context.Request.Headers.ContainsKey(securityOptions.HeaderName);
             var message = hasHeader ? "Invalid verifier API key." : "Verifier API key is required.";
             await context.Response.WriteAsync(message);
+            return;
+        }
+
+        if (!await IsAuthorizedAsync(context, access, CancellationToken.None))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync("Verifier API key is not authorized for this resource.");
             return;
         }
 
@@ -1016,26 +1052,173 @@ static async Task<string> ComputeSha256HashAsync(string filePath, CancellationTo
     return Convert.ToHexString(bytes).ToLowerInvariant();
 }
 
-// Checks the optional shared verifier API key without leaking timing differences for equal-length values.
-static bool HasValidApiKey(HttpRequest request, VerifierSecurityOptions options)
+// ponytail: config-backed keys are enough for v0.1; add a real identity provider only when external operators need user-level auth.
+static List<VerifierAccessContext> BuildConfiguredApiKeys(VerifierSecurityOptions options)
 {
-    if (string.IsNullOrWhiteSpace(options.HeaderName) ||
-        !request.Headers.TryGetValue(options.HeaderName, out var suppliedValues))
+    var configuredKeys = new List<VerifierAccessContext>();
+    if (!string.IsNullOrWhiteSpace(options.ApiKey))
     {
-        return false;
+        configuredKeys.Add(new VerifierAccessContext("operator", null, options.ApiKey));
+    }
+
+    foreach (var apiKey in options.ApiKeys)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey.Key))
+        {
+            continue;
+        }
+
+        configuredKeys.Add(new VerifierAccessContext(
+            NormalizeVerifierRole(apiKey.Role),
+            apiKey.InstitutionId,
+            apiKey.Key));
+    }
+
+    return configuredKeys;
+}
+
+// Checks configured verifier API keys without leaking timing differences for equal-length values.
+static VerifierAccessContext? TryAuthenticateApiKey(
+    HttpRequest request,
+    string headerName,
+    IReadOnlyList<VerifierAccessContext> configuredApiKeys)
+{
+    if (string.IsNullOrWhiteSpace(headerName) ||
+        !request.Headers.TryGetValue(headerName, out var suppliedValues))
+    {
+        return null;
     }
 
     var suppliedKey = suppliedValues.FirstOrDefault();
     if (string.IsNullOrWhiteSpace(suppliedKey))
     {
+        return null;
+    }
+
+    var suppliedBytes = Encoding.UTF8.GetBytes(suppliedKey);
+    foreach (var configuredApiKey in configuredApiKeys)
+    {
+        var expectedBytes = Encoding.UTF8.GetBytes(configuredApiKey.Key);
+        if (suppliedBytes.Length == expectedBytes.Length &&
+            CryptographicOperations.FixedTimeEquals(suppliedBytes, expectedBytes))
+        {
+            return configuredApiKey;
+        }
+    }
+
+    return null;
+}
+
+// Reviewer keys are deliberately narrow: read-only verifier evidence queries, scoped to one institution.
+static async Task<bool> IsAuthorizedAsync(
+    HttpContext context,
+    VerifierAccessContext access,
+    CancellationToken cancellationToken)
+{
+    if (IsOperatorRole(access.Role))
+    {
+        return true;
+    }
+
+    if (!HttpMethods.IsGet(context.Request.Method))
+    {
         return false;
     }
 
-    var expectedBytes = Encoding.UTF8.GetBytes(options.ApiKey);
-    var suppliedBytes = Encoding.UTF8.GetBytes(suppliedKey);
-    return suppliedBytes.Length == expectedBytes.Length &&
-           CryptographicOperations.FixedTimeEquals(suppliedBytes, expectedBytes);
+    var segments = context.Request.Path.Value?
+        .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        ?? [];
+    if (segments.Length == 0)
+    {
+        return false;
+    }
+
+    if (segments is ["packages", _] or ["packages", _, "verification"])
+    {
+        var packageStore = context.RequestServices.GetRequiredService<IPackageSubmissionStore>();
+        var submission = await packageStore.GetAsync(segments[1], cancellationToken);
+        return submission is not null && await MatchesInstitutionScopeAsync(
+            submission.InstitutionId,
+            submission.SessionId,
+            access,
+            context.RequestServices.GetRequiredService<IVerifierStorage>(),
+            cancellationToken);
+    }
+
+    if (segments is ["sessions", _, "packages"] or ["sessions", _, "receipts"] or ["sessions", _, "head"])
+    {
+        return await MatchesInstitutionScopeAsync(
+            null,
+            segments[1],
+            access,
+            context.RequestServices.GetRequiredService<IVerifierStorage>(),
+            cancellationToken);
+    }
+
+    return false;
 }
+
+// Session metadata already carries institution scope, so reuse it instead of adding a second auth store.
+static async Task<bool> MatchesInstitutionScopeAsync(
+    string? institutionId,
+    string? sessionId,
+    VerifierAccessContext access,
+    IVerifierStorage storage,
+    CancellationToken cancellationToken)
+{
+    var resolvedInstitutionId = NormalizeInstitutionId(institutionId);
+    if (string.IsNullOrWhiteSpace(resolvedInstitutionId) && !string.IsNullOrWhiteSpace(sessionId))
+    {
+        try
+        {
+            var session = await storage.GetSessionAsync(new AssessmentSessionId(sessionId), cancellationToken);
+            resolvedInstitutionId = NormalizeInstitutionId(TryGetInstitutionIdFromMetadata(session.MetadataJson));
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    return !string.IsNullOrWhiteSpace(resolvedInstitutionId) &&
+           string.Equals(resolvedInstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase);
+}
+
+// Session metadata is already a tiny JSON blob; pull only the institution id we need for reviewer scoping.
+static string? TryGetInstitutionIdFromMetadata(string? metadataJson)
+{
+    if (string.IsNullOrWhiteSpace(metadataJson))
+    {
+        return null;
+    }
+
+    try
+    {
+        using var document = JsonDocument.Parse(metadataJson);
+        return document.RootElement.TryGetProperty("institutionId", out var institutionIdElement)
+            ? institutionIdElement.GetString()
+            : null;
+    }
+    catch (JsonException)
+    {
+        return null;
+    }
+}
+
+static bool IsSupportedVerifierRole(string role) =>
+    IsOperatorRole(role) || IsReviewerRole(role);
+
+static bool IsOperatorRole(string role) =>
+    string.Equals(NormalizeVerifierRole(role), "operator", StringComparison.Ordinal);
+
+static bool IsReviewerRole(string role) =>
+    string.Equals(NormalizeVerifierRole(role), "reviewer", StringComparison.Ordinal);
+
+static string NormalizeVerifierRole(string role) =>
+    string.IsNullOrWhiteSpace(role) ? "operator" : role.Trim().ToLowerInvariant();
+
+static string? NormalizeInstitutionId(string? institutionId) =>
+    string.IsNullOrWhiteSpace(institutionId) ? null : institutionId.Trim();
 
 static bool IsWeakSecret(string secret)
 {
@@ -1070,6 +1253,22 @@ public sealed record StartSessionRequest
 
     /// <summary>Gets the optional student user identifier.</summary>
     public string? StudentUserId { get; init; }
+}
+
+sealed record VerifierAccessContext
+{
+    public VerifierAccessContext(string role, string? institutionId, string key)
+    {
+        Role = string.IsNullOrWhiteSpace(role) ? "operator" : role.Trim().ToLowerInvariant();
+        InstitutionId = string.IsNullOrWhiteSpace(institutionId) ? null : institutionId.Trim();
+        Key = key;
+    }
+
+    public string Role { get; init; }
+
+    public string? InstitutionId { get; init; }
+
+    public string Key { get; init; }
 }
 
 public partial class Program { }

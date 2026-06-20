@@ -288,6 +288,176 @@ public sealed class VerifierServerTests
     }
 
     /// <summary>
+    /// Verifies that reviewer keys can read package metadata within their institution scope.
+    /// </summary>
+    [Fact]
+    public async Task ReviewerApiKey_ShouldAllowScopedPackageReads()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKeys__0__Key", "operator-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__0__Role", "operator" },
+                { "VerifierSecurity__ApiKeys__1__Key", "reviewer-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__1__Role", "reviewer" },
+                { "VerifierSecurity__ApiKeys__1__InstitutionId", "inst-1" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            using (factory)
+            {
+                var payload = new VerifierPackageSubmissionRequest
+                {
+                    InstitutionId = "inst-1",
+                    ObjectStorageProvider = "aws",
+                    ObjectBucket = "test-bucket",
+                    ObjectKey = "reviewable.owspkg",
+                    PackageSha256 = new string('a', 64),
+                    PackageSizeBytes = 1024
+                };
+
+                using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/packages");
+                createRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
+                createRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                var createResponse = await client.SendAsync(createRequest);
+                createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var submission = JsonSerializer.Deserialize<VerifierPackageSubmissionResponse>(
+                    await createResponse.Content.ReadAsStringAsync(),
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                using var readRequest = new HttpRequestMessage(HttpMethod.Get, $"/packages/{submission!.SubmissionId}");
+                readRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
+                var readResponse = await client.SendAsync(readRequest);
+
+                readResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that reviewer keys cannot read package metadata outside their institution scope.
+    /// </summary>
+    [Fact]
+    public async Task ReviewerApiKey_ShouldRejectCrossInstitutionPackageReads()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKeys__0__Key", "operator-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__0__Role", "operator" },
+                { "VerifierSecurity__ApiKeys__1__Key", "reviewer-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__1__Role", "reviewer" },
+                { "VerifierSecurity__ApiKeys__1__InstitutionId", "inst-1" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            using (factory)
+            {
+                var payload = new VerifierPackageSubmissionRequest
+                {
+                    InstitutionId = "inst-2",
+                    ObjectStorageProvider = "aws",
+                    ObjectBucket = "test-bucket",
+                    ObjectKey = "hidden.owspkg",
+                    PackageSha256 = new string('b', 64),
+                    PackageSizeBytes = 1024
+                };
+
+                using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/packages");
+                createRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
+                createRequest.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                var createResponse = await client.SendAsync(createRequest);
+                createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                var submission = JsonSerializer.Deserialize<VerifierPackageSubmissionResponse>(
+                    await createResponse.Content.ReadAsStringAsync(),
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                using var readRequest = new HttpRequestMessage(HttpMethod.Get, $"/packages/{submission!.SubmissionId}");
+                readRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
+                var readResponse = await client.SendAsync(readRequest);
+
+                readResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifies that reviewer keys are read-only and cannot create package metadata.
+    /// </summary>
+    [Fact]
+    public async Task ReviewerApiKey_ShouldRejectWrites()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKeys__0__Key", "reviewer-test-api-key-1234" },
+                { "VerifierSecurity__ApiKeys__0__Role", "reviewer" },
+                { "VerifierSecurity__ApiKeys__0__InstitutionId", "inst-1" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            using (factory)
+            {
+                var payload = new VerifierPackageSubmissionRequest
+                {
+                    InstitutionId = "inst-1",
+                    ObjectStorageProvider = "aws",
+                    ObjectBucket = "test-bucket",
+                    ObjectKey = "blocked-write.owspkg",
+                    PackageSha256 = new string('c', 64),
+                    PackageSizeBytes = 1024
+                };
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, "/packages");
+                request.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
+                request.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+                var response = await client.SendAsync(request);
+                response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that the verifier server fails to start in Production mode when weak/default keys are configured.
     /// </summary>
     [Fact]
@@ -299,6 +469,33 @@ public sealed class VerifierServerTests
             { "VerifierStorage__Provider", "json" },
             { "VerifierStorage__ReceiptSigningKey", "dev-key" },
             { "VerifierSecurity__ApiKey", "weak" }
+        };
+
+        var act = () =>
+        {
+            using var client = CreateClientWithEnv(config, out var factory);
+            using (factory)
+            {
+                _ = factory.Server;
+            }
+        };
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("Fatal configuration errors detected in Production mode. See console output.");
+    }
+
+    /// <summary>
+    /// Verifies that reviewer API keys must declare an institution scope.
+    /// </summary>
+    [Fact]
+    public void Startup_ShouldThrowException_WhenReviewerKeyHasNoInstitutionScope()
+    {
+        var config = new Dictionary<string, string?>
+        {
+            { "VerifierEnvironment", "Local" },
+            { "VerifierStorage__Provider", "json" },
+            { "VerifierSecurity__ApiKeys__0__Key", "reviewer-test-api-key-1234" },
+            { "VerifierSecurity__ApiKeys__0__Role", "reviewer" }
         };
 
         var act = () =>

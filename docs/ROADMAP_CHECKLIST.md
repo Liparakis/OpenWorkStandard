@@ -71,6 +71,9 @@ Connect the education domain (Institutions, Courses, Classes, Assessments, Users
 - [ ] Production-grade verifier hosting
 - [x] Server signing key management hardening
 - [ ] Auth and RBAC - Status: Partial
+- [x] Operator API keys
+- [x] Institution-scoped reviewer API keys
+- [x] Read-only reviewer access to verification resources
 - [ ] Observability - Status: Partial (Endpoints /health and /ready, and structured startup logs implemented)
 
 ## 7. Package Submission and Server-Side Verification

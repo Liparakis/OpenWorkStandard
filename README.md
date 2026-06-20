@@ -73,7 +73,7 @@ Normal PostgreSQL-backed verifier startup also applies missing ordered migration
 
 Set `VerifierStorage__ReceiptSigningKey` to sign issued receipts. Keep that key outside the repository and deployment image.
 
-Set `VerifierSecurity__ApiKey` to require `X-OWS-Verifier-Key` on verifier requests. CLI calls send that header from `OWS_VERIFIER_API_KEY` when the environment variable is present.
+Set `VerifierSecurity__ApiKey` for one full-access operator key, or configure `VerifierSecurity__ApiKeys__0__Key`, `Role`, and optional `InstitutionId` entries for scoped verifier access. CLI calls send `X-OWS-Verifier-Key` from `OWS_VERIFIER_API_KEY` when the environment variable is present.
 
 ## Local durable verifier
 

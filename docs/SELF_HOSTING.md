@@ -58,7 +58,7 @@ Required verifier settings:
 - `VerifierStorage__Provider=postgres`
 - `VerifierStorage__PostgresConnectionString=<your-postgres-connection-string>`
 - `VerifierStorage__ReceiptSigningKey=<secret-outside-the-repo>`
-- `VerifierSecurity__ApiKey=<shared-api-key>`
+- `VerifierSecurity__ApiKey=<operator-api-key>` or `VerifierSecurity__ApiKeys__<n>__*`
 
 Example:
 
@@ -66,8 +66,11 @@ Example:
 $env:VerifierStorage__Provider = "postgres"
 $env:VerifierStorage__PostgresConnectionString = "Host=db.example;Port=5432;Database=ows_verifier;Username=ows;Password=change-me"
 $env:VerifierStorage__ReceiptSigningKey = "<long-random-secret>"
-$env:VerifierSecurity__ApiKey = "<shared-api-key>"
-$env:OWS_VERIFIER_API_KEY = "<shared-api-key>"
+$env:VerifierSecurity__ApiKey = "<operator-api-key>"
+$env:VerifierSecurity__ApiKeys__0__Key = "<reviewer-api-key>"
+$env:VerifierSecurity__ApiKeys__0__Role = "reviewer"
+$env:VerifierSecurity__ApiKeys__0__InstitutionId = "institution-1"
+$env:OWS_VERIFIER_API_KEY = "<operator-api-key>"
 ```
 
 ## First Bootstrap
@@ -110,7 +113,7 @@ See `docs/DEFERRED_NOTES.md` for that explicit deferral.
 
 Receipts are HMAC-signed when `VerifierStorage__ReceiptSigningKey` is configured. Keep that key outside the repository and deployment images. Public-key signatures, key IDs, and rotation are still deferred.
 
-Requests require `X-OWS-Verifier-Key` when `VerifierSecurity__ApiKey` is configured. This is an MVP access guard, not user identity or RBAC.
+Requests require `X-OWS-Verifier-Key` when verifier API keys are configured. The current v0.1 model supports full-access `operator` keys and read-only institution-scoped `reviewer` keys. It is still config-backed API-key auth, not user identity or full institutional RBAC.
 
 ## What To Check After Startup
 

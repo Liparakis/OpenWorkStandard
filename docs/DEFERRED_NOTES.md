@@ -28,9 +28,9 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 
 ## Verifier Auth
 
-- Do not add users, roles, JWT/OIDC, or institution RBAC yet.
-- The current `VerifierSecurity:ApiKey` guard is only a shared-secret MVP barrier.
-- Add real identity and RBAC before exposing a verifier to broad institutional users.
+- Do not add users, JWT/OIDC, or directory sync yet.
+- The current verifier auth path is config-backed API keys with `operator` and institution-scoped `reviewer` roles.
+- Add real user identity, managed key lifecycle, and fuller institutional RBAC before exposing a verifier to broad institutional users.
 
 ## Package Submission
 
