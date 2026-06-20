@@ -18,7 +18,8 @@ builder.Logging.AddSimpleConsole();
 var storageOptions = builder.Configuration.GetSection("VerifierStorage").Get<VerifierStorageOptions>()
                      ?? new VerifierStorageOptions();
 var packageWorkerEnabled = ResolvePackageWorkerEnabled(builder.Configuration, storageOptions.PackageWorkerEnabled);
-var applyMigrationsOnStartup = ResolveApplyMigrationsOnStartup(builder.Configuration, storageOptions.ApplyMigrationsOnStartup);
+var applyMigrationsOnStartup =
+    ResolveApplyMigrationsOnStartup(builder.Configuration, storageOptions.ApplyMigrationsOnStartup);
 var securityOptions = builder.Configuration.GetSection("VerifierSecurity").Get<VerifierSecurityOptions>()
                       ?? new VerifierSecurityOptions();
 var authOptions = builder.Configuration.GetSection("VerifierAuth").Get<VerifierAuthOptions>()
@@ -222,7 +223,8 @@ builder.Services.AddSingleton<IPackageSubmissionStore>(_ =>
             Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath,
             "package_submissions.json")));
 builder.Services.AddSingleton<IPackageBlobStore>(_ =>
-    new LocalFilePackageBlobStore(normalizedStorageOptions.LocalStoragePath, normalizedStorageOptions.MaxPackageSizeBytes));
+    new LocalFilePackageBlobStore(normalizedStorageOptions.LocalStoragePath,
+        normalizedStorageOptions.MaxPackageSizeBytes));
 builder.Services.AddSingleton<IPackageVerificationJobStore>(_ =>
 {
     var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ??
@@ -240,6 +242,7 @@ if (normalizedStorageOptions.PackageWorkerEnabled)
 {
     builder.Services.AddHostedService<PackageVerificationWorker>();
 }
+
 builder.Services.AddSingleton<IVerifierAuditStore>(_ =>
 {
     var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ??
@@ -286,9 +289,12 @@ var auditLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger
 startupLogger.LogInformation("OWS Verifier starting up...");
 startupLogger.LogInformation("Environment Mode: {EnvironmentMode}", envMode);
 startupLogger.LogInformation("Storage Provider: {Provider}", normalizedStorageOptions.Provider);
-startupLogger.LogInformation("Instance Mode: {InstanceMode}", DescribeInstanceMode(normalizedStorageOptions.PackageWorkerEnabled));
-startupLogger.LogInformation("Package Verification Worker Enabled: {WorkerEnabled}", normalizedStorageOptions.PackageWorkerEnabled);
-startupLogger.LogInformation("Apply Migrations On Startup: {ApplyMigrationsOnStartup}", normalizedStorageOptions.ApplyMigrationsOnStartup);
+startupLogger.LogInformation("Instance Mode: {InstanceMode}",
+    DescribeInstanceMode(normalizedStorageOptions.PackageWorkerEnabled));
+startupLogger.LogInformation("Package Verification Worker Enabled: {WorkerEnabled}",
+    normalizedStorageOptions.PackageWorkerEnabled);
+startupLogger.LogInformation("Apply Migrations On Startup: {ApplyMigrationsOnStartup}",
+    normalizedStorageOptions.ApplyMigrationsOnStartup);
 startupLogger.LogInformation("API Guard: {ApiGuardStatus}", configuredApiKeys.Count == 0 ? "Disabled" : "Enabled");
 startupLogger.LogInformation(
     "OIDC/JWT Bearer Foundation: enabled={Enabled} authorityConfigured={AuthorityConfigured} audienceConfigured={AudienceConfigured} roleClaimConfigured={RoleClaimConfigured}",
@@ -473,9 +479,9 @@ app.Use(async (context, next) =>
 
     var path = context.Request.Path.Value ?? string.Empty;
     var isBypassPath = HttpMethods.IsGet(context.Request.Method) &&
-        (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase) ||
-         string.Equals(path, "/ready", StringComparison.OrdinalIgnoreCase) ||
-         string.Equals(path, "/metrics", StringComparison.OrdinalIgnoreCase));
+                       (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(path, "/ready", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(path, "/metrics", StringComparison.OrdinalIgnoreCase));
     if (isBypassPath)
     {
         await next(context);
@@ -541,7 +547,8 @@ app.Use(async (context, next) =>
     if (suppliedKey is not null)
     {
         access = TryAuthenticateConfiguredApiKey(suppliedKey, configuredApiKeys)
-                 ?? await TryAuthenticatePersistedApiKeyAsync(persistentApiKeyStore, suppliedKey, context.RequestAborted);
+                 ?? await TryAuthenticatePersistedApiKeyAsync(persistentApiKeyStore, suppliedKey,
+                     context.RequestAborted);
         authFailureResult = "InvalidKey";
         authFailureMessage = "Invalid verifier API key.";
         authFailureActorKeyPrefix = CreateSafeKeyPrefix(suppliedKey);
@@ -651,24 +658,42 @@ app.MapGet("/metrics",
         var jobSummary = await jobStore.GetSummaryAsync(cancellationToken);
 
         bool storageReady = false;
-        try { storageReady = await storage.CheckHealthAsync(cancellationToken); } catch { }
+        try
+        {
+            storageReady = await storage.CheckHealthAsync(cancellationToken);
+        }
+        catch
+        {
+        }
 
         bool educationReady = false;
-        try { educationReady = await CheckEducationStoreReadyAsync(educationStore, cancellationToken); } catch { }
+        try
+        {
+            educationReady = await CheckEducationStoreReadyAsync(educationStore, cancellationToken);
+        }
+        catch
+        {
+        }
 
         bool packageStorageReady = false;
-        try { packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken); } catch { }
+        try
+        {
+            packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken);
+        }
+        catch
+        {
+        }
 
         var signingConfigured = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey);
 
         var auditTotalSum = summary.SessionsCreated +
-                             summary.CheckpointsAccepted +
-                             summary.HeartbeatsAccepted +
-                             summary.PackagesSubmitted +
-                             summary.PackagesVerified +
-                             summary.ReportsRead +
-                             summary.AuthFailures +
-                             summary.AccessDenied;
+                            summary.CheckpointsAccepted +
+                            summary.HeartbeatsAccepted +
+                            summary.PackagesSubmitted +
+                            summary.PackagesVerified +
+                            summary.ReportsRead +
+                            summary.AuthFailures +
+                            summary.AccessDenied;
 
         var sb = new StringBuilder();
         sb.AppendLine("# HELP ows_sessions_created_total Total number of OWS assessment sessions created.");
@@ -691,17 +716,20 @@ app.MapGet("/metrics",
         sb.AppendLine($"ows_package_uploads_total {summary.PackagesSubmitted}");
         sb.AppendLine();
 
-        sb.AppendLine("# HELP ows_package_verification_successes_total Total number of successful package verification completions.");
+        sb.AppendLine(
+            "# HELP ows_package_verification_successes_total Total number of successful package verification completions.");
         sb.AppendLine("# TYPE ows_package_verification_successes_total counter");
         sb.AppendLine($"ows_package_verification_successes_total {summary.PackagesVerified}");
         sb.AppendLine();
 
-        sb.AppendLine("# HELP ows_package_verification_failures_total Total number of failed package verification attempts.");
+        sb.AppendLine(
+            "# HELP ows_package_verification_failures_total Total number of failed package verification attempts.");
         sb.AppendLine("# TYPE ows_package_verification_failures_total counter");
         sb.AppendLine($"ows_package_verification_failures_total {summary.PackageVerificationFailures}");
         sb.AppendLine();
 
-        sb.AppendLine("# HELP ows_package_verification_jobs_total Total number of package verification jobs by status.");
+        sb.AppendLine(
+            "# HELP ows_package_verification_jobs_total Total number of package verification jobs by status.");
         sb.AppendLine("# TYPE ows_package_verification_jobs_total gauge");
         sb.AppendLine($"ows_package_verification_jobs_total{{status=\"pending\"}} {jobSummary.Pending}");
         sb.AppendLine($"ows_package_verification_jobs_total{{status=\"running\"}} {jobSummary.Running}");
@@ -724,7 +752,8 @@ app.MapGet("/metrics",
         sb.AppendLine($"ows_audit_events_total {auditTotalSum}");
         sb.AppendLine();
 
-        sb.AppendLine("# HELP ows_ready_dependency_status Health readiness status of OWS verifier dependencies (1 = healthy, 0 = unhealthy).");
+        sb.AppendLine(
+            "# HELP ows_ready_dependency_status Health readiness status of OWS verifier dependencies (1 = healthy, 0 = unhealthy).");
         sb.AppendLine("# TYPE ows_ready_dependency_status gauge");
         sb.AppendLine($"ows_ready_dependency_status{{dependency=\"storage\"}} {(storageReady ? 1 : 0)}");
         sb.AppendLine($"ows_ready_dependency_status{{dependency=\"education\"}} {(educationReady ? 1 : 0)}");
@@ -732,7 +761,8 @@ app.MapGet("/metrics",
         sb.AppendLine($"ows_ready_dependency_status{{dependency=\"signing\"}} {(signingConfigured ? 1 : 0)}");
         sb.AppendLine();
 
-        sb.AppendLine("# HELP ows_package_verification_worker_enabled Whether this verifier instance runs the in-process package verification worker (1 = enabled, 0 = disabled).");
+        sb.AppendLine(
+            "# HELP ows_package_verification_worker_enabled Whether this verifier instance runs the in-process package verification worker (1 = enabled, 0 = disabled).");
         sb.AppendLine("# TYPE ows_package_verification_worker_enabled gauge");
         sb.AppendLine($"ows_package_verification_worker_enabled {(options.PackageWorkerEnabled ? 1 : 0)}");
         sb.AppendLine();
@@ -745,7 +775,8 @@ app.MapGet("/metrics",
     });
 
 app.MapGet("/ready",
-    async (HttpContext context, IVerifierStorage storage, IEducationStore educationStore, IVerifierApiKeyStore apiKeyStore,
+    async (HttpContext context, IVerifierStorage storage, IEducationStore educationStore,
+        IVerifierApiKeyStore apiKeyStore,
         IPackageBlobStore blobStore, VerifierStorageOptions options, CancellationToken cancellationToken) =>
     {
         var signingConfigured = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey);
@@ -862,31 +893,31 @@ app.MapGet("/ready",
                     ("exceptionType", exception.GetType().Name)),
                 cancellationToken: cancellationToken);
             return Results.Json(new
-            {
-                status = "Unhealthy",
-                storage = options.Provider,
-                storageProvider = options.Provider,
-                packageStorageProvider,
-                packageStorageConfigured,
-                workerEnabled = options.PackageWorkerEnabled,
-                instanceMode,
-                applyMigrationsOnStartup = options.ApplyMigrationsOnStartup,
-                signing = signingConfigured ? "Enabled" : "Disabled",
-                warnings = BuildDeploymentWarnings(options, packageStorageReady),
-                dependencies = new
                 {
+                    status = "Unhealthy",
+                    storage = options.Provider,
                     storageProvider = options.Provider,
-                    storageReady = false,
-                    educationStoreReady = false,
+                    packageStorageProvider,
                     packageStorageConfigured,
-                    packageStorageReady,
                     workerEnabled = options.PackageWorkerEnabled,
                     instanceMode,
-                    signingConfigured,
-                    authMode,
-                    oidc
-                }
-            },
+                    applyMigrationsOnStartup = options.ApplyMigrationsOnStartup,
+                    signing = signingConfigured ? "Enabled" : "Disabled",
+                    warnings = BuildDeploymentWarnings(options, packageStorageReady),
+                    dependencies = new
+                    {
+                        storageProvider = options.Provider,
+                        storageReady = false,
+                        educationStoreReady = false,
+                        packageStorageConfigured,
+                        packageStorageReady,
+                        workerEnabled = options.PackageWorkerEnabled,
+                        instanceMode,
+                        signingConfigured,
+                        authMode,
+                        oidc
+                    }
+                },
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
     });
@@ -908,8 +939,9 @@ app.MapPost("/auth/api-keys", async (HttpContext context, VerifierApiKeyCreateRe
 
         // InstitutionAdmin can only create InstructorReviewer or StudentClient keys for their own institution.
         var targetRole = NormalizeVerifierRoleName(request.Role);
-        var isAllowedTargetRole = string.Equals(targetRole, VerifierRolePolicy.InstructorReviewer, StringComparison.Ordinal) ||
-                                  string.Equals(targetRole, VerifierRolePolicy.StudentClient, StringComparison.Ordinal);
+        var isAllowedTargetRole =
+            string.Equals(targetRole, VerifierRolePolicy.InstructorReviewer, StringComparison.Ordinal) ||
+            string.Equals(targetRole, VerifierRolePolicy.StudentClient, StringComparison.Ordinal);
         if (!isAllowedTargetRole)
         {
             return Results.Json(
@@ -1077,7 +1109,8 @@ app.MapPost("/sessions", async (HttpContext context, StartSessionRequest? body, 
 });
 
 app.MapPost("/sessions/{id}/heartbeat", async (string id, SessionHeartbeatRequest request,
-    HttpContext context, IVerifierStorage storage, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
+    HttpContext context, IVerifierStorage storage, IVerifierAuditStore auditStore,
+    CancellationToken cancellationToken) =>
 {
     var sessionId = new AssessmentSessionId(id);
     try
@@ -1147,7 +1180,8 @@ app.MapPost("/sessions/{id}/heartbeat", async (string id, SessionHeartbeatReques
 });
 
 app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest request, HttpRequest httpRequest,
-    HttpContext context, IVerifierStorage storage, IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
+    HttpContext context, IVerifierStorage storage, IVerifierAuditStore auditStore,
+    CancellationToken cancellationToken) =>
 {
     var idempotencyKey = httpRequest.Headers["Idempotency-Key"].FirstOrDefault();
     var validationError = request.GetValidationError(id, idempotencyKey);
@@ -1200,6 +1234,7 @@ app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest re
                     ("firstLeaseGapAt", session.FirstLeaseGapAt?.ToString("o"))),
                 cancellationToken: cancellationToken);
         }
+
         return Results.Ok(receipt);
     }
     catch (InvalidOperationException exception)
@@ -1311,7 +1346,8 @@ app.MapPost("/packages", async (HttpRequest request, HttpContext context, IPacka
     catch (InvalidOperationException exception)
     {
         if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
-            exception.Message.Contains("already registered with different metadata", StringComparison.OrdinalIgnoreCase))
+            exception.Message.Contains("already registered with different metadata",
+                StringComparison.OrdinalIgnoreCase))
         {
             return Results.Conflict(exception.Message);
         }
@@ -1321,8 +1357,8 @@ app.MapPost("/packages", async (HttpRequest request, HttpContext context, IPacka
 });
 
 app.MapPost("/packages/upload", async (HttpRequest request, HttpContext context, IPackageSubmissionStore packageStore,
-    IVerifierStorage storage, IVerifierAuditStore auditStore, IPackageBlobStore blobStore,
-    IPackageVerificationJobStore jobStore, CancellationToken cancellationToken) =>
+        IVerifierStorage storage, IVerifierAuditStore auditStore, IPackageBlobStore blobStore,
+        IPackageVerificationJobStore jobStore, CancellationToken cancellationToken) =>
     await HandlePackageUploadAsync(
         request,
         context,
@@ -1666,7 +1702,7 @@ app.MapGet("/diagnostics/summary", async (IVerifierAuditStore auditStore, IVerif
     // Returns null when the storage root is not configured or not accessible.
     int? packageBlobCount = null;
     if (packageStorageReady && !string.IsNullOrWhiteSpace(normalizedStorageOptions.LocalStoragePath)
-        && Directory.Exists(normalizedStorageOptions.LocalStoragePath))
+                            && Directory.Exists(normalizedStorageOptions.LocalStoragePath))
     {
         try
         {
@@ -1726,10 +1762,9 @@ app.MapGet("/sessions/{id}/head", async (string id, IVerifierStorage storage, Ca
     }
 });
 
-// ── Education endpoints ───────────────────────────────────────────────────
-
 // Institutions
-app.MapPost("/education/institutions", async (HttpContext context, Institution institution, IEducationStore educationStore,
+app.MapPost("/education/institutions", async (HttpContext context, Institution institution,
+    IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
     var callerAccess = TryGetAccessContext(context);
@@ -1740,6 +1775,7 @@ app.MapPost("/education/institutions", async (HttpContext context, Institution i
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
     }
+
     await educationStore.CreateInstitutionAsync(institution, cancellationToken);
     return Results.Ok(institution);
 });
@@ -1763,6 +1799,7 @@ app.MapPost("/education/courses", async (HttpContext context, Course course, IEd
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
     }
+
     await educationStore.CreateCourseAsync(course, cancellationToken);
     return Results.Ok(course);
 });
@@ -1775,17 +1812,20 @@ app.MapGet("/education/courses/{id}", async (string id, IEducationStore educatio
 });
 
 // Class groups
-app.MapPost("/education/class-groups", async (HttpContext context, ClassGroup classGroup, IEducationStore educationStore,
+app.MapPost("/education/class-groups", async (HttpContext context, ClassGroup classGroup,
+    IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
     var callerAccess = TryGetAccessContext(context);
     if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
     {
-        if (!string.Equals(classGroup.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(classGroup.InstitutionId.Value, callerAccess.InstitutionId,
+                StringComparison.OrdinalIgnoreCase))
         {
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
     }
+
     await educationStore.CreateClassGroupAsync(classGroup, cancellationToken);
     return Results.Ok(classGroup);
 });
@@ -1798,17 +1838,20 @@ app.MapGet("/education/class-groups/{id}", async (string id, IEducationStore edu
 });
 
 // Course offerings
-app.MapPost("/education/course-offerings", async (HttpContext context, CourseOffering offering, IEducationStore educationStore,
+app.MapPost("/education/course-offerings", async (HttpContext context, CourseOffering offering,
+    IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
     var callerAccess = TryGetAccessContext(context);
     if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
     {
-        if (!string.Equals(offering.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(offering.InstitutionId.Value, callerAccess.InstitutionId,
+                StringComparison.OrdinalIgnoreCase))
         {
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
     }
+
     await educationStore.CreateCourseOfferingAsync(offering, cancellationToken);
     return Results.Ok(offering);
 });
@@ -1828,11 +1871,13 @@ app.MapPost("/education/enrollments", async (HttpContext context, Enrollment enr
     if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
     {
         var offering = await educationStore.GetCourseOfferingAsync(enrollment.CourseOfferingId, cancellationToken);
-        if (offering is null || !string.Equals(offering.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        if (offering is null || !string.Equals(offering.InstitutionId.Value, callerAccess.InstitutionId,
+                StringComparison.OrdinalIgnoreCase))
         {
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
     }
+
     await educationStore.CreateEnrollmentAsync(enrollment, cancellationToken);
     return Results.Ok(enrollment);
 });
@@ -1859,11 +1904,13 @@ app.MapPost("/education/assessments", async (HttpContext context, Assessment ass
     var callerAccess = TryGetAccessContext(context);
     if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
     {
-        if (!string.Equals(assessment.InstitutionId.Value, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(assessment.InstitutionId.Value, callerAccess.InstitutionId,
+                StringComparison.OrdinalIgnoreCase))
         {
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
     }
+
     await educationStore.CreateAssessmentAsync(assessment, cancellationToken);
     return Results.Ok(assessment);
 });
@@ -1887,6 +1934,7 @@ app.MapPost("/education/users", async (HttpContext context, User user, IEducatio
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
     }
+
     await educationStore.CreateUserAsync(user, cancellationToken);
     return Results.Ok(user);
 });
@@ -1897,8 +1945,6 @@ app.MapGet("/education/users/{id}", async (string id, IEducationStore educationS
     var user = await educationStore.GetUserAsync(new UserId(id), cancellationToken);
     return user is null ? Results.NotFound($"User '{id}' not found.") : Results.Ok(user);
 });
-
-// ── End education endpoints ───────────────────────────────────────────────
 
 app.Run();
 
@@ -1974,7 +2020,8 @@ static async Task<IResult> HandlePackageUploadAsync(
             if (IsStudentClientRole(access.Role) && !string.IsNullOrWhiteSpace(access.StudentUserId))
             {
                 if (string.IsNullOrWhiteSpace(derivedContext.StudentUserId) ||
-                    !string.Equals(derivedContext.StudentUserId, access.StudentUserId, StringComparison.OrdinalIgnoreCase))
+                    !string.Equals(derivedContext.StudentUserId, access.StudentUserId,
+                        StringComparison.OrdinalIgnoreCase))
                 {
                     return Results.Json(
                         new { error = "StudentClient bound key must match the student user ID of the package." },
@@ -2005,7 +2052,8 @@ static async Task<IResult> HandlePackageUploadAsync(
         catch (InvalidOperationException exception)
         {
             if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
-                exception.Message.Contains("already registered with different metadata", StringComparison.OrdinalIgnoreCase))
+                exception.Message.Contains("already registered with different metadata",
+                    StringComparison.OrdinalIgnoreCase))
             {
                 await WriteAuditEventAsync(
                     auditStore,
@@ -2172,13 +2220,14 @@ static async Task<PackageVerificationJobRecord> QueuePackageVerificationAsync(
 }
 
 // Reuses session metadata as the source of truth when upload callers omit institution or student context.
-static async Task<(string? InstitutionId, string? AssessmentId, string? StudentUserId)> ResolvePackageContextFromSessionAsync(
-    IVerifierStorage storage,
-    string? sessionId,
-    string? institutionId,
-    string? assessmentId,
-    string? studentUserId,
-    CancellationToken cancellationToken)
+static async Task<(string? InstitutionId, string? AssessmentId, string? StudentUserId)>
+    ResolvePackageContextFromSessionAsync(
+        IVerifierStorage storage,
+        string? sessionId,
+        string? institutionId,
+        string? assessmentId,
+        string? studentUserId,
+        CancellationToken cancellationToken)
 {
     if (string.IsNullOrWhiteSpace(sessionId))
     {
@@ -2392,7 +2441,8 @@ static async Task WriteAuthErrorAsync(HttpContext context, int statusCode, strin
 }
 
 // Verifies that the education store can serve a minimal read without exposing details.
-static async Task<bool> CheckEducationStoreReadyAsync(IEducationStore educationStore, CancellationToken cancellationToken)
+static async Task<bool> CheckEducationStoreReadyAsync(IEducationStore educationStore,
+    CancellationToken cancellationToken)
 {
     try
     {
@@ -2591,6 +2641,7 @@ static async Task<bool> IsAuthorizedAsync(
         {
             return isAdmin || isStudent;
         }
+
         return false;
     }
 
@@ -2606,10 +2657,12 @@ static async Task<bool> IsAuthorizedAsync(
                 context.RequestServices.GetRequiredService<IVerifierStorage>(),
                 cancellationToken);
         }
+
         return false;
     }
 
-    if (segments is ["sessions", _, "packages"] || segments is ["sessions", _, "receipts"] || segments is ["sessions", _, "head"])
+    if (segments is ["sessions", _, "packages"] || segments is ["sessions", _, "receipts"] ||
+        segments is ["sessions", _, "head"])
     {
         var sessionId = segments[1];
         if (isWrite) return false;
@@ -2621,6 +2674,7 @@ static async Task<bool> IsAuthorizedAsync(
                 context.RequestServices.GetRequiredService<IVerifierStorage>(),
                 cancellationToken);
         }
+
         return (isAdmin || isReviewer) && await MatchesInstitutionScopeAsync(
             null,
             sessionId,
@@ -2636,6 +2690,7 @@ static async Task<bool> IsAuthorizedAsync(
         {
             return isStudent;
         }
+
         return false;
     }
 
@@ -2650,11 +2705,13 @@ static async Task<bool> IsAuthorizedAsync(
                 context.RequestServices.GetRequiredService<IPackageSubmissionStore>(),
                 cancellationToken);
         }
+
         return false;
     }
 
     // Package resources: read/write package itself or its report/verification.
-    if (segments is ["packages", _] || segments is ["packages", _, "verification"] || segments is ["packages", _, "report"])
+    if (segments is ["packages", _] || segments is ["packages", _, "verification"] ||
+        segments is ["packages", _, "report"])
     {
         var packageId = segments[1];
         if (isWrite)
@@ -2668,6 +2725,7 @@ static async Task<bool> IsAuthorizedAsync(
                     context.RequestServices.GetRequiredService<IPackageSubmissionStore>(),
                     cancellationToken);
             }
+
             return false;
         }
 
@@ -2707,7 +2765,7 @@ static async Task<bool> IsAuthorizedAsync(
             // Collection-level POSTs (no ID segment): allow; body validation enforces scope.
             if (segments.Length == 2)
             {
-                return true; 
+                return true;
             }
 
             // Write to a specific resource: resolve institution from store.
@@ -2718,7 +2776,8 @@ static async Task<bool> IsAuthorizedAsync(
 
         // GET: both InstitutionAdmin and InstructorReviewer can read own institution.
         if (!isAdmin && !isReviewer) return false;
-        var resolvedInstitutionId = await ResolveEducationInstitutionIdAsync(segments, educationStore, cancellationToken);
+        var resolvedInstitutionId =
+            await ResolveEducationInstitutionIdAsync(segments, educationStore, cancellationToken);
         return !string.IsNullOrWhiteSpace(resolvedInstitutionId) &&
                string.Equals(resolvedInstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase);
     }
@@ -2962,8 +3021,10 @@ public enum VerifierEnvironmentMode
 {
     /// <summary>Development workstation mode.</summary>
     Development,
+
     /// <summary>Local pilot mode.</summary>
     Local,
+
     /// <summary>Production deployment mode.</summary>
     Production
 }

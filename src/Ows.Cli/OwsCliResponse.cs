@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Ows.Cli;
 
 /// <summary>
@@ -54,8 +51,32 @@ public sealed class OwsCliResponse
     public string? Message { get; set; }
 
     /// <summary>Gets the list of errors encountered during execution.</summary>
-    public List<string> Errors { get; set; } = [];
+    public List<string> Errors { get; } = [];
 
     /// <summary>Gets the list of warnings encountered during execution.</summary>
-    public List<string> Warnings { get; set; } = [];
+    private List<string> Warnings { get; } = [];
+
+    /// <summary>
+    /// Returns a serializer-friendly snapshot so JSON output reads the full response shape explicitly.
+    /// </summary>
+    public object ToSerializableModel() => new
+    {
+        Success,
+        Status,
+        ProjectRoot,
+        SessionId,
+        PackageId,
+        VerifierUrl,
+        InstitutionId,
+        AssessmentId,
+        StudentUserId,
+        CourseOfferingId,
+        LastCheckpointAt,
+        LastHeartbeatAt,
+        TrustStatus,
+        WatcherRunning,
+        Message,
+        Errors,
+        Warnings
+    };
 }

@@ -34,8 +34,6 @@ public sealed class EducationWiringTests : IDisposable
         }
     }
 
-    // ── Institution round-trip ────────────────────────────────────────────
-
     /// <summary>
     /// Verifies that a created institution can be retrieved by ID.
     /// </summary>
@@ -64,8 +62,6 @@ public sealed class EducationWiringTests : IDisposable
         result.Should().BeNull();
     }
 
-    // ── Course round-trip ─────────────────────────────────────────────────
-
     /// <summary>
     /// Verifies that a created course can be retrieved by ID.
     /// </summary>
@@ -83,8 +79,6 @@ public sealed class EducationWiringTests : IDisposable
         retrieved!.Code.Should().Be("CS101");
         retrieved.Title.Should().Be("Intro to CS");
     }
-
-    // ── User / student round-trip ─────────────────────────────────────────
 
     /// <summary>
     /// Verifies that a created user can be retrieved by ID.
@@ -104,8 +98,6 @@ public sealed class EducationWiringTests : IDisposable
         retrieved.ExternalId.Should().Be("S12345");
         retrieved.Email.Should().Be("jane@university.edu");
     }
-
-    // ── Assessment round-trip ─────────────────────────────────────────────
 
     /// <summary>
     /// Verifies that a created assessment can be retrieved by ID.
@@ -134,8 +126,6 @@ public sealed class EducationWiringTests : IDisposable
         retrieved.InstitutionId.Should().Be(institutionId);
         retrieved.CourseOfferingId.Should().Be(offeringId);
     }
-
-    // ── Session start validation logic ────────────────────────────────────
 
     /// <summary>
     /// Verifies that session validation accepts a valid institution + assessment + student.
@@ -212,8 +202,6 @@ public sealed class EducationWiringTests : IDisposable
         error.Should().Contain("not found");
     }
 
-    // ── ReportEducationContext assembly ───────────────────────────────────
-
     /// <summary>
     /// Verifies that ReportEducationContext is fully populated from store lookups.
     /// </summary>
@@ -265,8 +253,7 @@ public sealed class EducationWiringTests : IDisposable
         var context = await ResolveContextAsync(null, null, null);
         context.Should().BeNull();
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────
+    
 
     // Mirrors the validation logic in Program.cs POST /sessions
     private async Task<(string? error, string? metadata)> ValidateEducationContextAsync(

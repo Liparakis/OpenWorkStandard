@@ -152,7 +152,7 @@ public sealed class OwsFileWatcher : IAsyncDisposable
             var toEmit = new List<FileWatchEvent>(pending.Count);
             foreach (var kv in pending)
             {
-                toEmit.Add(new FileWatchEvent(kv.Key, kv.Value.Kind, kv.Value.At));
+                toEmit.Add(new FileWatchEvent(kv.Key, kv.Value.Kind));
             }
 
             pending.Clear();
@@ -171,8 +171,6 @@ public sealed class OwsFileWatcher : IAsyncDisposable
 
     /// <inheritdoc />
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-
-    // ── Native watcher producer ────────────────────────────────────────────────
 
     private async Task RunNativeWatcherAsync(
         ChannelWriter<(string, FileChangeKind, DateTimeOffset)> writer,
@@ -224,8 +222,6 @@ public sealed class OwsFileWatcher : IAsyncDisposable
             // back to the polling loop which is always running alongside.
         }
     }
-
-    // ── Polling fallback producer ──────────────────────────────────────────────
 
     private async Task RunPollingLoopAsync(
         ChannelWriter<(string, FileChangeKind, DateTimeOffset)> writer,

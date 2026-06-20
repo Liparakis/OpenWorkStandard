@@ -14,9 +14,4 @@ public sealed record TrackingAgentOperationResult
     /// Gets the agent status after the operation.
     /// </summary>
     public TrackingAgentStatus Status { get; init; }
-
-    /// <summary>
-    /// Gets the descriptive message for the operation outcome.
-    /// </summary>
-    public string Message { get; init; } = string.Empty;
 }

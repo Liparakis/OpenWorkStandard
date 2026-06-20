@@ -1,5 +1,3 @@
-using Ows.Core.Verification;
-
 namespace Ows.Core.Verification;
 
 /// <summary>

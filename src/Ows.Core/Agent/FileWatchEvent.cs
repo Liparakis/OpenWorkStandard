@@ -24,5 +24,4 @@ public enum FileChangeKind
 /// </summary>
 /// <param name="RelativePath">The project-relative path of the affected file.</param>
 /// <param name="ChangeKind">The kind of change detected.</param>
-/// <param name="DetectedAtUtc">The UTC time the notification was first observed.</param>
-public sealed record FileWatchEvent(string RelativePath, FileChangeKind ChangeKind, DateTimeOffset DetectedAtUtc);
+public sealed record FileWatchEvent(string RelativePath, FileChangeKind ChangeKind);

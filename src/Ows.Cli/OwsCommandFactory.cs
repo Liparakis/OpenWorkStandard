@@ -924,7 +924,7 @@ public static class OwsCommandFactory
     {
         if (useJson)
         {
-            var json = JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(response.ToSerializableModel(), new JsonSerializerOptions { WriteIndented = true });
             Console.WriteLine(RedactApiKey(json));
         }
         else

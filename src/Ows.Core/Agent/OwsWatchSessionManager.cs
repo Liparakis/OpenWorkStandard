@@ -1,11 +1,6 @@
-using System;
-using System.IO;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core.Init;
 using Ows.Core.Notarization;
@@ -20,12 +15,14 @@ namespace Ows.Core.Agent;
 public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
+    private static readonly string[] KnownWatcherProcessNames = ["ows", "dotnet", "testhost"];
+
     private static readonly JsonSerializerOptions ConfigSerializerOptions = new()
     {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
     };
-    
+
     private ITrackingAgent? _activeAgent;
     private CancellationTokenSource? _activeCts;
 
@@ -62,7 +59,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
 
         if (File.Exists(stopFilePath))
         {
-            try { File.Delete(stopFilePath); } catch { }
+            TryDeleteFile(stopFilePath);
         }
 
         var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
@@ -71,7 +68,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             Pid = currentProcess.Id,
             StartedAt = DateTimeOffset.UtcNow
         };
-        File.WriteAllText(watcherJsonPath, JsonSerializer.Serialize(state, SerializerOptions));
+        await File.WriteAllTextAsync(watcherJsonPath, JsonSerializer.Serialize(state, SerializerOptions));
 
         _activeCts = new CancellationTokenSource();
         var token = _activeCts.Token;
@@ -83,9 +80,10 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             {
                 if (File.Exists(stopFilePath))
                 {
-                    _activeCts.Cancel();
+                    await _activeCts.CancelAsync();
                     break;
                 }
+
                 try
                 {
                     await Task.Delay(500, token);
@@ -121,14 +119,20 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
                 {
                     try
                     {
-                        var content = File.ReadAllText(sessionPath);
+                        var content = await File.ReadAllTextAsync(sessionPath, token);
                         var sessionState = JsonSerializer.Deserialize<SessionState>(content);
                         if (sessionState != null && !string.IsNullOrWhiteSpace(sessionState.VerifierUrl))
                         {
                             await SendHeartbeatAsync(projectRoot);
                         }
                     }
-                    catch
+                    catch (IOException)
+                    {
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+                    catch (JsonException)
                     {
                         // Swallow background heartbeat loop errors to keep the watcher alive.
                         // SendHeartbeatAsync automatically writes the error flags to session.json.
@@ -155,8 +159,9 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         }
         finally
         {
-            try { File.Delete(watcherJsonPath); } catch { }
-            try { File.Delete(stopFilePath); } catch { }
+            TryDeleteFile(watcherJsonPath);
+            TryDeleteFile(stopFilePath);
+
             _activeCts = null;
             _activeAgent = null;
         }
@@ -174,17 +179,23 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
 
         try
         {
-            File.WriteAllText(stopFilePath, "stop");
+            await File.WriteAllTextAsync(stopFilePath, "stop");
         }
-        catch { }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
 
         // Wait up to 3 seconds for clean exit
-        for (int i = 0; i < 30; i++)
+        for (var i = 0; i < 30; i++)
         {
             if (!File.Exists(watcherJsonPath))
             {
                 break;
             }
+
             await Task.Delay(100);
         }
 
@@ -192,25 +203,36 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         {
             try
             {
-                var content = File.ReadAllText(watcherJsonPath);
+                var content = await File.ReadAllTextAsync(watcherJsonPath);
                 var state = JsonSerializer.Deserialize<WatcherProcessState>(content);
                 if (state != null)
                 {
                     var proc = System.Diagnostics.Process.GetProcessById(state.Pid);
-                    if (proc != null && !proc.HasExited)
+                    if (!proc.HasExited)
                     {
                         proc.Kill(entireProcessTree: true);
                     }
                 }
             }
-            catch { }
+            catch (ArgumentException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
 
-            try { File.Delete(watcherJsonPath); } catch { }
+            TryDeleteFile(watcherJsonPath);
         }
 
         if (File.Exists(stopFilePath))
         {
-            try { File.Delete(stopFilePath); } catch { }
+            TryDeleteFile(stopFilePath);
         }
     }
 
@@ -229,12 +251,28 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             if (state == null) return false;
 
             var proc = System.Diagnostics.Process.GetProcessById(state.Pid);
-            if (proc == null || proc.HasExited) return false;
+            if (proc.HasExited) return false;
 
             var procName = proc.ProcessName.ToLowerInvariant();
-            return procName.Contains("ows") || procName.Contains("dotnet") || procName.Contains("testhost");
+            return KnownWatcherProcessNames.Any(procName.Contains);
         }
-        catch
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+        catch (JsonException)
         {
             return false;
         }
@@ -278,13 +316,15 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         else
         {
             using var httpClient = CreateHttpClient(verifierUrl);
-            var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint());
-            transport.StartSessionRequest = new StartSessionRequest
+            var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint())
             {
-                InstitutionId = config.InstitutionId,
-                AssessmentId = config.AssessmentId,
-                StudentUserId = config.StudentUserId,
-                CourseOfferingId = config.CourseOfferingId
+                StartSessionRequest = new StartSessionRequest
+                {
+                    InstitutionId = config.InstitutionId,
+                    AssessmentId = config.AssessmentId,
+                    StudentUserId = config.StudentUserId,
+                    CourseOfferingId = config.CourseOfferingId
+                }
             };
             var sessId = await transport.StartSessionAsync(CancellationToken.None);
             sessionIdVal = sessId.Value;
@@ -300,13 +340,15 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             CourseOfferingId = config.CourseOfferingId
         };
 
-        File.WriteAllText(
+        await File.WriteAllTextAsync(
             Path.Combine(localFolder, OwsConstants.SessionFileName),
             JsonSerializer.Serialize(sessionState, SerializerOptions));
 
-        File.WriteAllText(
+        await File.WriteAllTextAsync(
             Path.Combine(localFolder, OwsConstants.ReceiptsFileName),
-            JsonSerializer.Serialize(new ReceiptChain { SessionId = new AssessmentSessionId(sessionIdVal), Receipts = [] }, SerializerOptions));
+            JsonSerializer.Serialize(
+                new ReceiptChain { SessionId = new AssessmentSessionId(sessionIdVal), Receipts = [] },
+                SerializerOptions));
 
         return sessionIdVal;
     }
@@ -322,8 +364,8 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             throw new InvalidOperationException("No active OWS session. Start a session first.");
         }
 
-        var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath))
-            ?? throw new JsonException("Session state is corrupt.");
+        var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath))
+                    ?? throw new JsonException("Session state is corrupt.");
 
         var verifierUrl = verifierUrlOverride ?? state.VerifierUrl;
         if (string.IsNullOrWhiteSpace(verifierUrl))
@@ -348,7 +390,8 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
 
             using var response = await httpClient.PostAsJsonAsync($"sessions/{state.SessionId}/heartbeat", payload);
 
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+                response.StatusCode == System.Net.HttpStatusCode.Forbidden)
             {
                 throw new UnauthorizedAccessException("Verifier returned unauthorized or forbidden status code.");
             }
@@ -356,9 +399,10 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             response.EnsureSuccessStatusCode();
 
             var heartbeatResponse = await response.Content.ReadFromJsonAsync<SessionHeartbeatResponse>()
-                ?? throw new InvalidOperationException("Verifier returned an invalid heartbeat response.");
+                                    ?? throw new InvalidOperationException(
+                                        "Verifier returned an invalid heartbeat response.");
 
-            bool isDegraded = heartbeatResponse.SessionTrustState == "Degraded";
+            var isDegraded = heartbeatResponse.SessionTrustState == "Degraded";
 
             var updatedState = state with
             {
@@ -368,7 +412,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
                 IsDegraded = isDegraded,
                 LastHeartbeatError = null
             };
-            File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+            await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
         }
         catch (HttpRequestException ex)
         {
@@ -378,7 +422,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
                 IsHeartbeatFailing = false,
                 LastHeartbeatError = ex.Message
             };
-            File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+            await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
             throw;
         }
         catch (Exception ex)
@@ -387,10 +431,10 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             {
                 IsVerifierOffline = false,
                 IsHeartbeatFailing = true,
-                IsDegraded = ex is UnauthorizedAccessException ? false : state.IsDegraded,
+                IsDegraded = ex is not UnauthorizedAccessException && state.IsDegraded,
                 LastHeartbeatError = ex.Message
             };
-            File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+            await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
             throw;
         }
     }
@@ -409,12 +453,12 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             throw new InvalidOperationException("No active OWS session. Start a session first.");
         }
 
-        var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath))
-            ?? throw new JsonException("Session state is corrupt.");
+        var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath))
+                    ?? throw new JsonException("Session state is corrupt.");
 
         var sessionId = new AssessmentSessionId(state.SessionId);
         var receiptChain = File.Exists(receiptsPath)
-            ? JsonSerializer.Deserialize<ReceiptChain>(File.ReadAllText(receiptsPath))
+            ? JsonSerializer.Deserialize<ReceiptChain>(await File.ReadAllTextAsync(receiptsPath))
               ?? throw new JsonException("Receipt chain is corrupt.")
             : new ReceiptChain { SessionId = sessionId, Receipts = [] };
 
@@ -450,7 +494,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
                     IsHeartbeatFailing = false,
                     LastHeartbeatError = ex.Message
                 };
-                File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+                await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
                 throw;
             }
             catch (Exception ex)
@@ -461,12 +505,12 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
                     IsHeartbeatFailing = true,
                     LastHeartbeatError = ex.Message
                 };
-                File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+                await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
                 throw;
             }
         }
 
-        File.WriteAllText(receiptsPath, JsonSerializer.Serialize(updatedReceiptChain, SerializerOptions));
+        await File.WriteAllTextAsync(receiptsPath, JsonSerializer.Serialize(updatedReceiptChain, SerializerOptions));
 
         var finalState = state with
         {
@@ -475,7 +519,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             IsHeartbeatFailing = false,
             LastHeartbeatError = null
         };
-        File.WriteAllText(sessionPath, JsonSerializer.Serialize(finalState, SerializerOptions));
+        await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(finalState, SerializerOptions));
 
         return receipt.ReceiptHash;
     }
@@ -492,7 +536,15 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
             return state?.SessionId;
         }
-        catch
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+        catch (JsonException)
         {
             return null;
         }
@@ -511,7 +563,15 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
                 var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
                 if (!string.IsNullOrWhiteSpace(state?.VerifierUrl)) return state.VerifierUrl;
             }
-            catch { }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (JsonException)
+            {
+            }
         }
 
         var config = GetProjectConfig(projectRoot);
@@ -530,7 +590,15 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         {
             return JsonSerializer.Deserialize<OwsProjectConfig>(File.ReadAllText(configPath), ConfigSerializerOptions);
         }
-        catch
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+        catch (JsonException)
         {
             return null;
         }
@@ -558,7 +626,16 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
             return state?.LastCheckpointAt;
         }
-        catch { }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        catch (JsonException)
+        {
+        }
+
         return null;
     }
 
@@ -574,7 +651,16 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
             var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
             return state?.LastHeartbeatAt;
         }
-        catch { }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        catch (JsonException)
+        {
+        }
+
         return null;
     }
 
@@ -582,7 +668,8 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
     public async Task<string> PackageProjectAsync(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
-        var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
+        var packagePath = Path.Combine(projectRoot,
+            $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
         var builder = new OwsPackageBuilder();
         var result = await builder.CreatePackageAsync(new PackageCreationRequest
         {
@@ -592,19 +679,20 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
 
         if (!result.Created)
         {
-            throw new InvalidOperationException($"Packaging failed: {result.Message}");
+            throw new InvalidOperationException("Packaging failed.");
         }
 
         return packagePath;
     }
 
     /// <inheritdoc />
-    public async Task<string> UploadPackageAsync(string projectRoot, string packagePath, string? verifierUrlOverride = null)
+    public async Task<string> UploadPackageAsync(string projectRoot, string packagePath,
+        string? verifierUrlOverride = null)
     {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-        
+
         string? verifierUrl = verifierUrlOverride;
         string? sessionId = null;
         string? institutionId = null;
@@ -615,8 +703,8 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         {
             try
             {
-                var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
-                if (state != null)
+                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
+                if (state is not null)
                 {
                     verifierUrl ??= state.VerifierUrl;
                     sessionId = state.SessionId;
@@ -625,7 +713,15 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
                     studentUserId = state.StudentUserId;
                 }
             }
-            catch { }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (JsonException)
+            {
+            }
         }
 
         var config = GetProjectConfig(projectRoot);
@@ -663,10 +759,13 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         {
             throw new InvalidOperationException("Package is too large for the verifier server.");
         }
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+            response.StatusCode == System.Net.HttpStatusCode.Forbidden)
         {
             throw new UnauthorizedAccessException("Upload unauthorized: Invalid or expired API key.");
         }
+
         if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
         {
             var errorBody = await response.Content.ReadAsStringAsync();
@@ -676,27 +775,37 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         response.EnsureSuccessStatusCode();
 
         var body = await response.Content.ReadFromJsonAsync<VerifierPackageSubmissionResponse>()
-            ?? throw new InvalidOperationException("Verifier returned an invalid upload response.");
+                   ?? throw new InvalidOperationException("Verifier returned an invalid upload response.");
 
         if (File.Exists(sessionPath))
         {
             try
             {
-                var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
-                if (state != null)
+                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
+                if (state is not null)
                 {
                     var updatedState = state with { LastPackageId = body.SubmissionId };
-                    File.WriteAllText(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
+                    await File.WriteAllTextAsync(sessionPath,
+                        JsonSerializer.Serialize(updatedState, SerializerOptions));
                 }
             }
-            catch { }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (JsonException)
+            {
+            }
         }
 
         return body.SubmissionId;
     }
 
     /// <inheritdoc />
-    public async Task<string> QueryPackageStatusAsync(string projectRoot, string packageId, string? verifierUrlOverride = null)
+    public async Task<string> QueryPackageStatusAsync(string projectRoot, string packageId,
+        string? verifierUrlOverride = null)
     {
         EnsureProjectDirectoryExists(projectRoot);
         var verifierUrl = verifierUrlOverride ?? GetVerifierUrl(projectRoot);
@@ -708,7 +817,8 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         using var httpClient = CreateHttpClient(verifierUrl);
         var response = await httpClient.GetAsync($"packages/{packageId}");
 
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+            response.StatusCode == System.Net.HttpStatusCode.Forbidden)
         {
             throw new UnauthorizedAccessException("Query unauthorized: Invalid or expired API key.");
         }
@@ -726,7 +836,22 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
         {
             client.DefaultRequestHeaders.Add("X-OWS-Verifier-Key", apiKey);
         }
+
         return client;
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }
 
@@ -736,8 +861,8 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager
 public sealed class WatcherProcessState
 {
     /// <summary>Gets or sets the Process Identifier.</summary>
-    public int Pid { get; set; }
+    public int Pid { get; init; }
 
     /// <summary>Gets or sets the process start timestamp.</summary>
-    public DateTimeOffset StartedAt { get; set; }
+    public DateTimeOffset StartedAt { get; init; }
 }

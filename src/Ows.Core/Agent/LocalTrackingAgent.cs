@@ -35,8 +35,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         return Task.FromResult(new TrackingAgentOperationResult
         {
             Succeeded = true,
-            Status = Status,
-            Message = "OWS tracking agent prepared."
+            Status = Status
         });
     }
 
@@ -72,12 +71,9 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         var timelinePath = Path.Combine(_options.ProjectRootPath, OwsConstants.LocalFolderName,
             OwsConstants.TimelineFileName);
         var projectId = Path.GetFileName(_options.ProjectRootPath);
-
-        // ── Phase 1: initial scan ──────────────────────────────────────────────
+        
         var scanned = await PerformInitialScanAsync(timelinePath, projectId, cancellationToken);
         logger.LogInformation("Initial scan complete — {FileCount} file(s) recorded.", scanned);
-
-        // ── Phase 2: continuous watch ──────────────────────────────────────────
         Status = TrackingAgentStatus.Watching;
 
         var watcher = new OwsFileWatcher(
@@ -98,12 +94,9 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         return new TrackingAgentOperationResult
         {
             Succeeded = true,
-            Status = Status,
-            Message = "OWS watch stopped."
+            Status = Status
         };
     }
-
-    // ── Private helpers ────────────────────────────────────────────────────────
 
     /// <summary>
     /// Performs a one-shot scan of the project tree, appending <see cref="OwsEventType.FileCreated"/>
