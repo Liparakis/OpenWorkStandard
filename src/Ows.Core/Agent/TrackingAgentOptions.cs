@@ -20,4 +20,14 @@ public sealed record TrackingAgentOptions
     /// debounce timing and whether to use the polling fallback instead of native OS signals.
     /// </summary>
     public FileWatcherOptions WatcherOptions { get; init; } = new();
+
+    /// <summary>
+    /// Gets whether the watcher was interrupted (e.g. crashed, stale PID).
+    /// </summary>
+    public bool WasInterrupted { get; init; }
+
+    /// <summary>
+    /// Gets the process state of the interrupted watcher.
+    /// </summary>
+    public WatcherProcessState? InterruptedState { get; init; }
 }

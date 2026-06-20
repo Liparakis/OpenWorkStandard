@@ -39,4 +39,9 @@ public static class OwsConstants
     /// Gets the session-state file name used locally and optionally stored inside a package.
     /// </summary>
     public const string SessionFileName = "session.json";
+
+    /// <summary>
+    /// Gets the last-observed file snapshot file name.
+    /// </summary>
+    public const string ObservedSnapshotFileName = "observed_snapshot.json";
 }

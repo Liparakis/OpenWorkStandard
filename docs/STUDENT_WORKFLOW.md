@@ -134,7 +134,7 @@ For the full pilot validation sequence, use [PILOT_DEMO.md](PILOT_DEMO.md).
 - **Watching**: Watcher is active locally, recording file events, but no remote session has been started.
 - **Session active**: A remote session is registered on the verifier, but the file watcher is not active.
 - **Watching & Session active**: Full active tracking (recommended state during assignments).
-- **Degraded**: Heartbeats missed or timeline gaps detected by the verifier.
+- **Degraded**: Heartbeats missed, timeline gaps, observation gaps, or large unobserved changes detected.
 - **Offline / Error**: Verifier server is unreachable or an authentication/authorization error occurred.
 
 ---

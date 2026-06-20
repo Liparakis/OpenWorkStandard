@@ -23,6 +23,13 @@ This document defines the Open Work Standard (OWS) event vocabulary, detailing w
 | `TestExecuted` | **Active** | `ows event test-executed` CLI / hooks | Yes (`timeline.jsonl`) | Yes | Yes | Emitted explicitly on test run. |
 | `LargeInsert` | **Reserved** | None | No | No | No | Reserved for future copy-paste detection logic. |
 | `PackageCreated` | **Active** | `ows package` | Yes (`timeline.jsonl`) | Yes | Yes | Emitted locally AFTER the package zip is successfully written. |
+| `WatcherStarted` | **Active** | `ows watch` | Yes (`timeline.jsonl`) | Yes | Yes | Emitted when the file watcher starts scanning/watching. |
+| `WatcherStopped` | **Active** | `ows watch stop` | Yes (`timeline.jsonl`) | Yes | Yes | Emitted when the file watcher is cleanly stopped by the user. |
+| `WatcherInterrupted` | **Active** | `ows watch` (startup/recovery) | Yes (`timeline.jsonl`) | Yes | Yes | Emitted when a crashed or stale PID is detected and cleaned up. |
+| `WatcherRecovered` | **Active** | `ows watch` (recovery) | Yes (`timeline.jsonl`) | Yes | Yes | Emitted when the watcher successfully recovers and restarts after an interruption. |
+| `ObservationGapDetected` | **Active** | `ows watch` (recovery) | Yes (`timeline.jsonl`) | Yes | Yes (Continuity) | Emitted when an interval of unobserved time is detected on watcher startup. |
+| `UnobservedChangeDetected` | **Active** | `ows watch` (recovery) | Yes (`timeline.jsonl`) | Yes | Yes (Continuity) | Emitted when a file change occurs during an unobserved gap. |
+| `LargeUnobservedChangeDetected` | **Active** | `ows watch` (recovery) | Yes (`timeline.jsonl`) | Yes | Yes (Continuity) | Emitted when a change exceeding delta thresholds occurs during an unobserved gap. |
 
 ---
 
@@ -127,3 +134,59 @@ This document defines the Open Work Standard (OWS) event vocabulary, detailing w
 - **Included in Timeline Hash Chain**: Yes
 - **Used in Current Trust Decisions**: Yes
 - **Notes**: Written locally so that the created package itself does not include the PackageCreated event for itself. This maintains correct receipt-matching invariants for the generated package while still logging the local packaging event for the next timeline state.
+
+### WatcherStarted
+- **Description**: The OWS file watcher process has started.
+- **Status**: `Active`
+- **Current Emitter**: `ows watch` (emitted when starting a new watch session).
+- **Persistence Status**: Appended to `.ows/timeline.jsonl`.
+- **Included in Timeline Hash Chain**: Yes
+- **Used in Current Trust Decisions**: Yes
+
+### WatcherStopped
+- **Description**: The OWS file watcher process was stopped cleanly.
+- **Status**: `Active`
+- **Current Emitter**: `ows watch stop` (emitted on explicit user stop request).
+- **Persistence Status**: Appended to `.ows/timeline.jsonl`.
+- **Included in Timeline Hash Chain**: Yes
+- **Used in Current Trust Decisions**: Yes
+
+### WatcherInterrupted
+- **Description**: The OWS file watcher process was interrupted or exited abnormally.
+- **Status**: `Active`
+- **Current Emitter**: `ows watch` (detected via stale PID or crash on startup/stop).
+- **Persistence Status**: Appended to `.ows/timeline.jsonl`.
+- **Included in Timeline Hash Chain**: Yes
+- **Used in Current Trust Decisions**: Yes
+
+### WatcherRecovered
+- **Description**: The OWS file watcher process was recovered after an abnormal exit.
+- **Status**: `Active`
+- **Current Emitter**: `ows watch` (emitted on recovery scan after interruption).
+- **Persistence Status**: Appended to `.ows/timeline.jsonl`.
+- **Included in Timeline Hash Chain**: Yes
+- **Used in Current Trust Decisions**: Yes
+
+### ObservationGapDetected
+- **Description**: An observation gap was detected during which the watcher was not observing.
+- **Status**: `Active`
+- **Current Emitter**: `ows watch` (during recovery scan on startup if a prior snapshot exists).
+- **Persistence Status**: Appended to `.ows/timeline.jsonl`.
+- **Included in Timeline Hash Chain**: Yes
+- **Used in Current Trust Decisions**: Yes (used to degrade trust level to Degraded, indicating evidence gap).
+
+### UnobservedChangeDetected
+- **Description**: A file change was detected during an unobserved gap.
+- **Status**: `Active`
+- **Current Emitter**: `ows watch` (during recovery scan comparing snapshot to current files).
+- **Persistence Status**: Appended to `.ows/timeline.jsonl`.
+- **Included in Timeline Hash Chain**: Yes
+- **Used in Current Trust Decisions**: Yes
+
+### LargeUnobservedChangeDetected
+- **Description**: A large file change was detected during an unobserved gap.
+- **Status**: `Active`
+- **Current Emitter**: `ows watch` (during recovery scan if absolute delta exceeds configured byte or line thresholds).
+- **Persistence Status**: Appended to `.ows/timeline.jsonl`.
+- **Included in Timeline Hash Chain**: Yes
+- **Used in Current Trust Decisions**: Yes (used to degrade trust level to Degraded, indicating major unobserved changes).

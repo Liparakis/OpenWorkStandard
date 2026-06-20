@@ -349,6 +349,8 @@ Recent milestones:
 
 Recent uncommitted/working-tree progress:
 
+- implemented OWS Event Emitters v0.1: PackageCreated event logging, ProjectOpened/Closed lifecycle updates, and explicit build/test/run timeline events
+- implemented Observation Gap and Recovery Scan v0.1: atomic snapshot persistence, recovery gap duration computation, CleanStopped vs Interrupted metadata preservation, configurable exclusions, absolute creation/deletion deltas, trust degradation, and dynamic verifier report findings
 - PostgreSQL-backed verifier was validated in a live local Docker run
 - session creation bug for `jsonb` metadata insert was fixed
 - verifier host logging was simplified to console-only to avoid Windows Event Log permission failures

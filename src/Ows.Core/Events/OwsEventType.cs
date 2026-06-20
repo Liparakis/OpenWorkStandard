@@ -20,8 +20,6 @@ public enum OwsEventType
     /// </summary>
     FileDeleted,
 
-    // TODO: Wire these categories into real event emitters, persistence, and tests before relying on them.
-
     /// <summary>
     /// A tracked project was opened.
     /// </summary>
@@ -65,5 +63,40 @@ public enum OwsEventType
     /// <summary>
     /// An OWS package was created.
     /// </summary>
-    PackageCreated
+    PackageCreated,
+
+    /// <summary>
+    /// The OWS file watcher process has started.
+    /// </summary>
+    WatcherStarted,
+
+    /// <summary>
+    /// The OWS file watcher process was stopped cleanly.
+    /// </summary>
+    WatcherStopped,
+
+    /// <summary>
+    /// The OWS file watcher process was interrupted or exited abnormally.
+    /// </summary>
+    WatcherInterrupted,
+
+    /// <summary>
+    /// The OWS file watcher process was recovered after an abnormal exit.
+    /// </summary>
+    WatcherRecovered,
+
+    /// <summary>
+    /// An observation gap was detected during which the watcher was not observing.
+    /// </summary>
+    ObservationGapDetected,
+
+    /// <summary>
+    /// A file change was detected during an unobserved gap.
+    /// </summary>
+    UnobservedChangeDetected,
+
+    /// <summary>
+    /// A large file change was detected during an unobserved gap.
+    /// </summary>
+    LargeUnobservedChangeDetected
 }

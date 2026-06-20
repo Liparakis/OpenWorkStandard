@@ -107,6 +107,7 @@ public sealed class OwsReportGenerator : IReportGenerator
     {
         var builder = new StringBuilder();
         builder.AppendLine("OWS Verification Report");
+        builder.AppendLine("Event presence is evidence of recorded activity. Event absence is not proof of misconduct.");
         builder.AppendLine($"Status: {res.TrustStatus}");
         builder.AppendLine($"Recommendation: {res.Recommendation}");
         builder.AppendLine();

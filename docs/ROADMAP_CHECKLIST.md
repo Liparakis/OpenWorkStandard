@@ -51,7 +51,7 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] File-system event capture implemented
 - [x] Event hash-chain timeline implemented
 - [x] Build/test/program execution event emitters
-- [x] Project open/close lifecycle event emitters
+- [x] Watcher start/stop/interruption/recovery lifecycle event emitters
 - [ ] Large insertion detection
 - [x] PackageCreated event emission
 - [x] Manifest packaging
@@ -73,7 +73,8 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Persistent file-system watcher capture
 - [x] Event hash-chain timeline
 - [x] Explicit build/test/program event commands
-- [x] Project open/close lifecycle event emitters
+- [x] Watcher started/stopped/interrupted/recovered lifecycle event emitters
+- [x] Observation Gap and Recovery Scan (gap duration, previous state tracking, exclusions, atomic snapshots, absolute deltas, trust degradation)
 - [ ] IDE-native build/test/run capture
 - [ ] Large insertion detection
 - [ ] IDE or host-managed long-running watcher lifecycle

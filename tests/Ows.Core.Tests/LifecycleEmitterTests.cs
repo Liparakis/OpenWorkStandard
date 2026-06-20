@@ -71,14 +71,14 @@ public sealed class LifecycleEmitterTests
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line);
-                if (owsEvent?.EventType == OwsEventType.ProjectOpened)
+                if (owsEvent?.EventType == OwsEventType.WatcherStarted)
                 {
                     openedEventsCount++;
                 }
             }
 
             openedEventsCount.Should()
-                .Be(1, "there should be exactly one ProjectOpened event recorded and no duplicates.");
+                .Be(1, "there should be exactly one WatcherStarted event recorded and no duplicates.");
         }
         finally
         {
@@ -113,17 +113,17 @@ public sealed class LifecycleEmitterTests
             var localOws = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             var timelinePath = Path.Combine(localOws, OwsConstants.TimelineFileName);
 
-            // If timeline exists, check that it contains no ProjectClosed events
-            if (File.Exists(timelinePath))
-            {
-                var lines = await File.ReadAllLinesAsync(timelinePath);
-                foreach (var line in lines)
-                {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-                    var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line);
-                    owsEvent?.EventType.Should().NotBe(OwsEventType.ProjectClosed);
-                }
-            }
+             // If timeline exists, check that it contains no WatcherStopped events
+             if (File.Exists(timelinePath))
+             {
+                 var lines = await File.ReadAllLinesAsync(timelinePath);
+                 foreach (var line in lines)
+                 {
+                     if (string.IsNullOrWhiteSpace(line)) continue;
+                     var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line);
+                     owsEvent?.EventType.Should().NotBe(OwsEventType.WatcherStopped);
+                 }
+             }
         }
         finally
         {
@@ -170,18 +170,18 @@ public sealed class LifecycleEmitterTests
             // watcher.json should be cleaned up
             File.Exists(watcherJsonPath).Should().BeFalse();
 
-            // Timeline (if exists) should not contain ProjectClosed
-            var timelinePath = Path.Combine(localOws, OwsConstants.TimelineFileName);
-            if (File.Exists(timelinePath))
-            {
-                var lines = await File.ReadAllLinesAsync(timelinePath);
-                foreach (var line in lines)
-                {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-                    var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line);
-                    owsEvent?.EventType.Should().NotBe(OwsEventType.ProjectClosed);
-                }
-            }
+             // Timeline (if exists) should not contain WatcherStopped
+             var timelinePath = Path.Combine(localOws, OwsConstants.TimelineFileName);
+             if (File.Exists(timelinePath))
+             {
+                 var lines = await File.ReadAllLinesAsync(timelinePath);
+                 foreach (var line in lines)
+                 {
+                     if (string.IsNullOrWhiteSpace(line)) continue;
+                     var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line);
+                     owsEvent?.EventType.Should().NotBe(OwsEventType.WatcherStopped);
+                 }
+             }
         }
         finally
         {

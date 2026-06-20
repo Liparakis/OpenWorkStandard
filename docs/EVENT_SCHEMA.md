@@ -31,6 +31,13 @@ Each `OwsEvent` should be serializable with these core fields:
 - `TestExecuted`
 - `LargeInsert`
 - `PackageCreated`
+- `WatcherStarted`
+- `WatcherStopped`
+- `WatcherInterrupted`
+- `WatcherRecovered`
+- `ObservationGapDetected`
+- `UnobservedChangeDetected`
+- `LargeUnobservedChangeDetected`
 
 ## Required fields
 

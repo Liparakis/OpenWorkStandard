@@ -80,15 +80,14 @@ OWS does not aim to make a student-owned machine tamper-proof.
 - packaged receipt-chain verification
 - live verifier cross-checking
 - trust grading with `Verified`, `Unverified`, and `Invalid`
+- `Degraded` trust state for session continuity and observation gaps
+- observation gap and large unobserved change detection during watcher recovery
 - durable PostgreSQL-backed verifier storage
 - idempotent checkpoint retry handling
 - app-owned verifier migrations
 
 ## Known Gaps
 
-- `ows watch` is still one-shot only
-- there is no persistent always-on watcher yet
-- `Degraded` exists in the model but not as a meaningful policy state
 - the verifier is not yet production-grade
 - auth and RBAC are not implemented
 - signing-key hardening is not implemented

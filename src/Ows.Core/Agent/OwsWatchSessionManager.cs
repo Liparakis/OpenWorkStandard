@@ -60,6 +60,20 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             throw new InvalidOperationException("Watcher is already running for this project.");
         }
 
+        bool wasInterrupted = false;
+        WatcherProcessState? interruptedState = null;
+        if (File.Exists(watcherJsonPath))
+        {
+            try
+            {
+                var content = await File.ReadAllTextAsync(watcherJsonPath);
+                interruptedState = JsonSerializer.Deserialize<WatcherProcessState>(content);
+                wasInterrupted = true;
+            }
+            catch {}
+            TryDeleteFile(watcherJsonPath);
+        }
+
         if (File.Exists(stopFilePath))
         {
             TryDeleteFile(stopFilePath);
@@ -72,16 +86,6 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             StartedAt = DateTimeOffset.UtcNow
         };
         await File.WriteAllTextAsync(watcherJsonPath, JsonSerializer.Serialize(state, SerializerOptions));
-
-        var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
-        try
-        {
-            await EmitProjectOpenedAsync(projectRoot, host, "user_start");
-        }
-        catch
-        {
-            // Do not crash watcher startup if event logging fails
-        }
 
         _activeCts = new CancellationTokenSource();
         var token = _activeCts.Token;
@@ -154,6 +158,9 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             }
         }, token);
 
+        var projectConfig = GetProjectConfig(projectRoot);
+        var excludeDirs = projectConfig?.WatcherSettings?.ExcludeDirectories;
+
         _activeAgent = new LocalTrackingAgent(new NullLogger<LocalTrackingAgent>());
         await _activeAgent.PrepareAsync(new TrackingAgentOptions
         {
@@ -162,8 +169,11 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             WatcherOptions = new FileWatcherOptions
             {
                 UsePollingFallback = usePolling,
-                DebounceIntervalMs = debounceMs
-            }
+                DebounceIntervalMs = debounceMs,
+                ExcludeDirectories = excludeDirs
+            },
+            WasInterrupted = wasInterrupted,
+            InterruptedState = interruptedState
         }, token);
 
         try
@@ -196,12 +206,36 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
             try
             {
-                await EmitProjectClosedAsync(projectRoot, host, "user_stop");
+                await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherStopped, null, host, null, new Dictionary<string, string>
+                {
+                    { "reason", "user_requested" }
+                });
             }
             catch
             {
                 // Do not fail watcher stop if event logging fails
             }
+        }
+        else
+        {
+            // stale PID / crash recovery: emit WatcherInterrupted
+            try
+            {
+                var content = await File.ReadAllTextAsync(watcherJsonPath);
+                var prevState = JsonSerializer.Deserialize<WatcherProcessState>(content);
+                var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
+                var metadata = new Dictionary<string, string>
+                {
+                    { "reason", "stale_pid_cleanup" }
+                };
+                if (prevState != null)
+                {
+                    metadata["previousPid"] = prevState.Pid.ToString();
+                    metadata["previousStartedAt"] = prevState.StartedAt.ToString("o");
+                }
+                await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherInterrupted, null, host, null, metadata);
+            }
+            catch {}
         }
 
         try

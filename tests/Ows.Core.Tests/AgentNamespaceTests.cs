@@ -64,13 +64,19 @@ public sealed class AgentNamespaceTests
 
             result.Succeeded.Should().BeTrue();
             result.Status.Should().Be(TrackingAgentStatus.Stopped);
-            lines.Should().ContainSingle();
+            lines.Length.Should().Be(2);
             lines[0].Should().Contain(nameof(OwsEventType.FileCreated));
             lines[0].Should().Contain("notes.txt");
+            lines[1].Should().Contain(nameof(OwsEventType.WatcherStarted));
+            
             var trackedEvent = JsonSerializer.Deserialize<OwsEvent>(lines[0]);
             trackedEvent.Should().NotBeNull();
             trackedEvent!.PreviousEventHash.Should().Be(OwsEventChain.GenesisPreviousEventHash);
             trackedEvent.EventHash.Should().NotBeNullOrWhiteSpace();
+
+            var startedEvent = JsonSerializer.Deserialize<OwsEvent>(lines[1]);
+            startedEvent.Should().NotBeNull();
+            startedEvent!.PreviousEventHash.Should().Be(trackedEvent.EventHash);
         }
         finally
         {

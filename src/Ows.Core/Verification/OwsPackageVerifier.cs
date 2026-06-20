@@ -123,6 +123,26 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         ReviewerAction = "Examine work recorded after lease expiration. Session continuity could not be verified."
     };
 
+    private static readonly VerificationFinding ObservationGapFinding = new()
+    {
+        Code = "observation.gap",
+        Severity = "Low",
+        Title = "Observation gap detected",
+        Detail = "OWS was not observing the project for an interval of time.",
+        TechnicalDetail = "Timeline contains an ObservationGapDetected event indicating the watcher was not running.",
+        ReviewerAction = "Manual review recommended. Event presence is evidence of recorded activity. Event absence is not proof of misconduct."
+    };
+
+    private static readonly VerificationFinding LargeUnobservedChangeFinding = new()
+    {
+        Code = "observation.large_unobserved_change",
+        Severity = "High",
+        Title = "Large unobserved change",
+        Detail = "A large file change appeared while OWS was not observing this project.",
+        TechnicalDetail = "Timeline contains a LargeUnobservedChangeDetected event exceeding byte or line thresholds during an unobserved gap.",
+        ReviewerAction = "OWS was not observing this project during the interval below. During that interval, a large file change appeared. OWS cannot determine the cause. This is not proof of misconduct. Reviewers should ask the student to explain this interval."
+    };
+
     /// <inheritdoc />
     public Task<VerificationResult> VerifyAsync(PackageVerificationRequest request, CancellationToken cancellationToken)
     {
@@ -180,6 +200,9 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         string? timelineHeadHash = null;
         var eventTimestamps = new List<DateTimeOffset>();
 
+        bool sawObservationGap = false;
+        bool sawLargeUnobservedChange = false;
+
         if (archive.GetEntry(OwsConstants.ManifestFileName) is not null)
         {
             manifest = ValidateManifest(archive, errors);
@@ -188,6 +211,64 @@ public sealed class OwsPackageVerifier : IPackageVerifier
         if (archive.GetEntry(OwsConstants.TimelineFileName) is not null)
         {
             timelineHeadHash = ValidateTimeline(archive, errors, out eventTimestamps);
+
+            try
+            {
+                using var entryStream = archive.GetEntry(OwsConstants.TimelineFileName)!.Open();
+                using var reader = new StreamReader(entryStream);
+                while (reader.ReadLine() is { } line)
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line);
+                    if (owsEvent != null)
+                    {
+                        if (owsEvent.EventType == OwsEventType.ObservationGapDetected)
+                        {
+                            sawObservationGap = true;
+                            owsEvent.Metadata.TryGetValue("gapStartedAt", out var startStr);
+                            owsEvent.Metadata.TryGetValue("gapEndedAt", out var endStr);
+                            owsEvent.Metadata.TryGetValue("gapDurationMs", out var gapMsStr);
+                            owsEvent.Metadata.TryGetValue("previousState", out var prevState);
+
+                            long.TryParse(gapMsStr, out var gapMs);
+                            var gapDurationText = gapMs > 0 ? $"{gapMs / 1000.0:F1} seconds" : "unknown duration";
+
+                            findings.Add(new VerificationFinding
+                            {
+                                Code = "observation.gap",
+                                Severity = "Low",
+                                Title = "Observation gap detected",
+                                Detail = $"OWS was not observing the project for an interval of {gapDurationText} (Previous state: {prevState ?? "Unknown"}).",
+                                TechnicalDetail = $"Gap Started: {startStr}, Gap Ended: {endStr}, Duration: {gapDurationText}, Previous state: {prevState}.",
+                                ReviewerAction = "Manual review recommended. Event presence is evidence of recorded activity. Event absence is not proof of misconduct."
+                            });
+                        }
+                        else if (owsEvent.EventType == OwsEventType.LargeUnobservedChangeDetected)
+                        {
+                            sawLargeUnobservedChange = true;
+                            owsEvent.Metadata.TryGetValue("relativePath", out var relPath);
+                            owsEvent.Metadata.TryGetValue("gapDurationMs", out var gapMsStr);
+                            owsEvent.Metadata.TryGetValue("bytesDelta", out var bytesDeltaStr);
+                            owsEvent.Metadata.TryGetValue("lineDeltaEstimate", out var linesStr);
+                            owsEvent.Metadata.TryGetValue("changeKind", out var kind);
+
+                            long.TryParse(gapMsStr, out var gapMs);
+                            var gapDurationText = gapMs > 0 ? $"{gapMs / 1000.0:F1} seconds" : "unknown duration";
+
+                            findings.Add(new VerificationFinding
+                            {
+                                Code = "observation.large_unobserved_change",
+                                Severity = "High",
+                                Title = $"Large unobserved change in {relPath ?? "unknown file"}",
+                                Detail = $"A large file change ({kind ?? "Modified"}: {bytesDeltaStr ?? "0"} bytes, {linesStr ?? "0"} lines) appeared while OWS was not observing this project.",
+                                TechnicalDetail = $"File: {relPath}, Change Kind: {kind}, Bytes Delta: {bytesDeltaStr}, Line Delta Estimate: {linesStr}, Gap Duration: {gapDurationText}.",
+                                ReviewerAction = "OWS was not observing this project during the interval below. During that interval, a large file change appeared. OWS cannot determine the cause. This is not proof of misconduct. Reviewers should ask the student to explain this interval."
+                            });
+                        }
+                    }
+                }
+            }
+            catch {}
         }
 
         if (archive.GetEntry(OwsConstants.VersionGraphFileName) is not null)
@@ -332,6 +413,24 @@ public sealed class OwsPackageVerifier : IPackageVerifier
             {
                 findings.Add(PackageAnchorMissingFinding);
                 anchorStatus = "Missing";
+            }
+        }
+
+        if (errors.Count == 0 && trustStatus != TrustStatus.Invalid)
+        {
+            if (sawLargeUnobservedChange)
+            {
+                if (trustStatus == TrustStatus.Verified)
+                {
+                    trustStatus = TrustStatus.Degraded;
+                }
+            }
+            else if (sawObservationGap)
+            {
+                if (trustStatus == TrustStatus.Verified)
+                {
+                    trustStatus = TrustStatus.Degraded;
+                }
             }
         }
 

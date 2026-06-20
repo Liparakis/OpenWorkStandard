@@ -25,4 +25,9 @@ public sealed record FileWatcherOptions
     /// Useful on file systems where native OS signals are unreliable.
     /// </summary>
     public bool UsePollingFallback { get; init; }
+
+    /// <summary>
+    /// Gets custom directories to exclude from watching and scanning.
+    /// </summary>
+    public string[]? ExcludeDirectories { get; init; }
 }

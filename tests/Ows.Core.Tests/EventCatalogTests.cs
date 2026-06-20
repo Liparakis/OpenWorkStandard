@@ -56,7 +56,14 @@ public sealed class EventCatalogTests
                 or OwsEventType.BuildSucceeded
                 or OwsEventType.BuildFailed
                 or OwsEventType.ProgramExecuted
-                or OwsEventType.TestExecuted;
+                or OwsEventType.TestExecuted
+                or OwsEventType.WatcherStarted
+                or OwsEventType.WatcherStopped
+                or OwsEventType.WatcherInterrupted
+                or OwsEventType.WatcherRecovered
+                or OwsEventType.ObservationGapDetected
+                or OwsEventType.UnobservedChangeDetected
+                or OwsEventType.LargeUnobservedChangeDetected;
             if (isActive)
             {
                 // Should be documented as Active
