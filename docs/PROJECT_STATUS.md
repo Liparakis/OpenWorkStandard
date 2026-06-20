@@ -27,6 +27,8 @@ What works today:
 - persistent verifier audit events plus operator diagnostics endpoints
 - durable `.owspkg` blob intake with worker-backed server-side verification
 - documented multi-instance verifier pilot model with API-only vs worker deployment modes
+- optional external Prometheus, Grafana, Loki, and Promtail observability overlay for self-hosted pilots
+- optional OIDC/JWT bearer foundation for future human-facing verifier access, without removing API keys
 - unified OwsWatchSessionManager lifecycle foundation library for host integrations
 - machine-readable CLI commands with global `--json` option and API key redaction
 - minimal VS Code extension supporting full student watch/session/package lifecycle and secure key storage
@@ -222,14 +224,16 @@ PostgreSQL setup model today:
 - checkpoint requests are validated before storage append
 - idempotent checkpoint retries are enforced in both JSON and PostgreSQL storage
 - receipts include an HMAC server signature when `VerifierStorage:ReceiptSigningKey` is configured
-- requests require `X-OWS-Verifier-Key` when verifier API keys are configured
-- the current auth slice supports full-access `Operator` keys and institution-scoped read-only `InstructorReviewer` keys
+- requests require `X-OWS-Verifier-Key` when verifier API keys are configured, unless optional OIDC/JWT bearer is enabled and a valid bearer token is supplied instead
+- the current auth slice supports `Operator`, `InstitutionAdmin`, `InstructorReviewer`, and `StudentClient`
 - the legacy shared bootstrap key remains supported through `VerifierSecurity:ApiKey`
+- optional `VerifierAuth:Oidc:*` settings enable JWT bearer validation and claim-to-role/institution mapping without changing endpoint RBAC rules
 - request logs include `X-Request-Id`, method, path, status code, elapsed time, role, institution scope, and key prefix
 - `GET /audit/events` exposes operator-only audit queries with simple filters for institution, session, package, event type, and time
 - `GET /diagnostics/summary` exposes lightweight safe counters instead of a full monitoring stack
-- `/ready` now reports safe dependency state for storage, education store reachability, package storage, signing configuration, and auth mode
+- `/ready` now reports safe dependency state for storage, education store reachability, package storage, signing configuration, auth mode, and OIDC/JWT bearer status
 - `/ready` and `GET /diagnostics/summary` now also report instance mode, worker enablement, package storage provider, migration mode, and safe deployment warnings
+- `/metrics` now also exposes verification success/failure totals plus worker-enabled and instance-mode metrics for external dashboards
 - audit events cover API key lifecycle, auth failures, access denials, session creation, checkpoint/heartbeat acceptance, lease-gap detection, package submission, package verification, and report reads
 - package uploads stream into local durable blob storage with server-side content-addressed object keys
 - package submissions persist package SHA-256, package size, verification job id, and latest verification error
@@ -256,6 +260,7 @@ Local verifier dev flow today:
 - verifier status and smoke-test helpers send `X-OWS-Verifier-Key` from `OWS_VERIFIER_API_KEY` when present
 - `dotnet build` emits platform-specific launcher copies to `artifacts/generated-scripts/`
 - verifier logs now include per-request method, path, status, and duration
+- `deploy/compose/docker-compose.observability.yml` adds an optional overlay for Prometheus, Grafana, Loki, and Promtail without changing the base self-hosting path
 - local verifier smoke tests cover package upload, asynchronous verification completion, idempotent retry, lookup by ID and session, and report retrieval
 
 This is enough for architectural validation and the first durable-backend pass. It is still not enough for institutional trust claims until the PostgreSQL path is exercised in a real deployed environment.
@@ -294,6 +299,7 @@ Important implemented pieces:
 - durable package blob intake
 - worker-backed package verification jobs
 - lightweight verifier observability foundation
+- optional OIDC/JWT bearer auth foundation
 
 ## Testing Status
 
@@ -377,9 +383,10 @@ The main missing pieces are:
 
 - platform-specific hosts for VS Code, Rider, and desktop
 - Kubernetes/queue/object-storage-grade distributed verifier deployment
+- hardened institutional monitoring, alerting, and hosted observability integrations
 - desktop UI beyond placeholder state
-- Single Sign-On (SSO) integration for dashboards (OIDC/SAML)
-- external Grafana/Loki visualization integration
+- browser login/session flows and dashboard UI on top of the current OIDC/JWT bearer foundation
+- SAML federation
 
 ## Reality Check
 
@@ -398,7 +405,8 @@ What is still weak:
 - capture fidelity
 - long-running tracking
 - operational trust guarantees beyond the current shared-path pilot multi-instance model
-- production verifier hosting and user identity dashboard integration
+- hardened observability beyond the current optional pilot overlay
+- production verifier hosting and full human identity/dashboard integration
 
 The weakest assumption to avoid: thinking durable local blobs plus PostgreSQL are already a finished institutional trust boundary. They are not. This is a better foundation, not the finished boundary.
 

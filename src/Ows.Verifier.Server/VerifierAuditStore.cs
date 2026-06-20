@@ -152,6 +152,9 @@ public sealed record VerifierAuditSummary
     /// <summary>Gets the count of package-verified events.</summary>
     public int PackagesVerified { get; init; }
 
+    /// <summary>Gets the count of package-verification-failed events.</summary>
+    public int PackageVerificationFailures { get; init; }
+
     /// <summary>Gets the count of report-read events.</summary>
     public int ReportsRead { get; init; }
 
@@ -311,6 +314,7 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
             HeartbeatsAccepted = counts.GetValueOrDefault("heartbeat.accepted"),
             PackagesSubmitted = counts.GetValueOrDefault("package.submitted"),
             PackagesVerified = counts.GetValueOrDefault("package.verified"),
+            PackageVerificationFailures = counts.GetValueOrDefault("package.verification.failed"),
             ReportsRead = counts.GetValueOrDefault("report.read"),
             AuthFailures = counts.GetValueOrDefault("auth.failed"),
             AccessDenied = counts.GetValueOrDefault("access.denied")
@@ -440,6 +444,7 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
             HeartbeatsAccepted = counts.GetValueOrDefault("heartbeat.accepted"),
             PackagesSubmitted = counts.GetValueOrDefault("package.submitted"),
             PackagesVerified = counts.GetValueOrDefault("package.verified"),
+            PackageVerificationFailures = counts.GetValueOrDefault("package.verification.failed"),
             ReportsRead = counts.GetValueOrDefault("report.read"),
             AuthFailures = counts.GetValueOrDefault("auth.failed"),
             AccessDenied = counts.GetValueOrDefault("access.denied")

@@ -36,12 +36,13 @@ public sealed record VerifierApiKeyOptions
     public string Key { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the role granted by the key. Supported values are <c>Operator</c>, <c>InstitutionAdmin</c>, and <c>InstructorReviewer</c>.
+    /// Gets the role granted by the key. Supported values are <c>Operator</c>, <c>InstitutionAdmin</c>,
+    /// <c>InstructorReviewer</c>, and <c>StudentClient</c>.
     /// </summary>
     public string Role { get; init; } = "operator";
 
     /// <summary>
-    /// Gets the optional institution scope. InstitutionAdmin and InstructorReviewer keys must set this.
+    /// Gets the optional institution scope. InstitutionAdmin, InstructorReviewer, and StudentClient keys must set this.
     /// </summary>
     public string? InstitutionId { get; init; }
 }

@@ -35,12 +35,20 @@ Expected `/ready` response shape:
     "workerEnabled": true,
     "instanceMode": "api+worker",
     "signingConfigured": true,
-    "authMode": "persisted"
+    "authMode": "persisted",
+    "oidc": {
+      "enabled": false,
+      "authorityConfigured": false,
+      "audienceConfigured": false,
+      "roleClaimConfigured": true
+    }
   }
 }
 ```
 
 If `/ready` returns 503, stop and fix the deployment before accepting packages.
+
+Optional external observability is layered on top and is not required for these checks.
 
 ## 2. Startup Checklist
 
@@ -51,7 +59,14 @@ If `/ready` returns 503, stop and fix the deployment before accepting packages.
 5. Confirm `/health` returns HTTP 200
 6. Confirm `/ready` returns HTTP 200 and the expected `instanceMode`
 7. Confirm `/diagnostics/summary` reports `packageStorageReady: true`, correct `workerEnabled`, and `signingKeyFingerprintPresent: true`
-8. Record the signing key fingerprint from startup logs
+8. If OIDC/JWT bearer is enabled, confirm `/ready` or `/diagnostics/summary` shows the expected safe OIDC status and that no secrets are exposed
+9. Record the signing key fingerprint from startup logs
+
+If you want external dashboards and log search during a pilot, start the overlay separately:
+
+```bash
+docker compose -f deploy/compose/docker-compose.yml -f deploy/compose/docker-compose.observability.yml up -d
+```
 
 ## 3. Signing Key Fingerprint
 
@@ -145,9 +160,39 @@ Recommended sequence:
 3. Start API and worker instances with `VerifierStorage__ApplyMigrationsOnStartup=false`.
 4. Verify `/ready` and `/diagnostics/summary` on each instance.
 
+## 7. Optional External Observability
+
+Optional stack:
+
+- Prometheus
+- Grafana
+- Loki
+- Promtail
+
+It is not required for base self-hosting.
+
+Use it when operators want:
+
+- a dashboard instead of raw metrics text
+- longer-lived pilot log search
+- easier review of readiness and verification-job trends
+
+See `docs/OBSERVABILITY.md` for startup and troubleshooting details.
+
 Do not try to invent a migration coordinator at this stage.
 
-## 7. API Key Management
+## 7. Auth Operations
+
+API keys remain the primary pilot mechanism for CLI, VS Code, watchers, and automation.
+
+Optional OIDC/JWT bearer notes:
+
+- enable it only when you need future human-facing API access patterns
+- do not call it full SSO
+- do not send both API key and bearer token on one request
+- dual-auth requests are rejected with `400` and audited as `auth.ambiguous`
+
+## 8. API Key Management
 
 Daily operations summary:
 
@@ -161,7 +206,7 @@ Daily operations summary:
 
 Raw key secrets are returned once and never stored.
 
-## 8. Audit Events
+## 9. Audit Events
 
 Useful audit queries:
 
@@ -182,8 +227,9 @@ Key event types:
 | `package.verification.failed` | Verification job failed |
 | `package.blob.missing` | Blob missing at verification time |
 | `readiness.failed` | `/ready` returned unhealthy |
+| `auth.ambiguous` | Request sent both API key and bearer token |
 
-## 9. Emergency Procedures
+## 10. Emergency Procedures
 
 ### All jobs stuck in pending
 
@@ -197,6 +243,12 @@ Key event types:
 1. Check the `warnings` array in `/ready` or `/diagnostics/summary`
 2. Verify the shared package volume/path is mounted on that instance
 3. Do not accept new uploads until storage is fixed
+
+### Grafana or Loki exposed too broadly
+
+1. Stop treating the overlay as internal-only
+2. Put Grafana and Loki behind operator-managed auth and a reverse proxy
+3. Review logs and dashboards for overshared operational context
 
 ### Package blob missing
 

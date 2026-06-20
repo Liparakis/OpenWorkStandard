@@ -2,7 +2,10 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.IdentityModel.Tokens;
 using Ows.Core.Education;
 using Ows.Core.Notarization;
 using Ows.Core.Reporting;
@@ -18,6 +21,8 @@ var packageWorkerEnabled = ResolvePackageWorkerEnabled(builder.Configuration, st
 var applyMigrationsOnStartup = ResolveApplyMigrationsOnStartup(builder.Configuration, storageOptions.ApplyMigrationsOnStartup);
 var securityOptions = builder.Configuration.GetSection("VerifierSecurity").Get<VerifierSecurityOptions>()
                       ?? new VerifierSecurityOptions();
+var authOptions = builder.Configuration.GetSection("VerifierAuth").Get<VerifierAuthOptions>()
+                  ?? new VerifierAuthOptions();
 var normalizedStorageOptions = storageOptions with
 {
     PackageWorkerEnabled = packageWorkerEnabled,
@@ -43,6 +48,7 @@ var isProduction = envMode == VerifierEnvironmentMode.Production;
 var startupWarnings = new List<string>();
 var startupErrors = new List<string>();
 var configuredApiKeys = BuildConfiguredApiKeys(securityOptions);
+var oidcStatus = DescribeOidcStatus(authOptions.Oidc);
 
 // Check API Keys
 if (configuredApiKeys.Count == 0)
@@ -116,6 +122,24 @@ else if (IsWeakSecret(normalizedStorageOptions.ReceiptSigningKey))
     }
 }
 
+if (authOptions.Oidc.Enabled)
+{
+    if (!oidcStatus.AuthorityConfigured)
+    {
+        startupErrors.Add("VerifierAuth:Oidc:Authority must be configured when OIDC/JWT bearer auth is enabled.");
+    }
+
+    if (!oidcStatus.AudienceConfigured)
+    {
+        startupErrors.Add("VerifierAuth:Oidc:Audience must be configured when OIDC/JWT bearer auth is enabled.");
+    }
+
+    if (!oidcStatus.RoleClaimConfigured)
+    {
+        startupErrors.Add("VerifierAuth:Oidc:RoleClaim must be configured when OIDC/JWT bearer auth is enabled.");
+    }
+}
+
 // Check Storage Provider
 if (string.Equals(normalizedStorageOptions.Provider, "json", StringComparison.OrdinalIgnoreCase))
 {
@@ -169,6 +193,11 @@ if (args.Any(static arg => string.Equals(arg, "migrate", StringComparison.Ordina
 
 builder.Services.AddSingleton(normalizedStorageOptions);
 builder.Services.AddSingleton(securityOptions);
+builder.Services.AddSingleton(authOptions);
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options => ConfigureOidcJwtBearer(options, authOptions.Oidc));
+builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IPackageVerifier, OwsPackageVerifier>();
 builder.Services.AddSingleton<IReportGenerator, OwsReportGenerator>();
 builder.Services.AddSingleton<IVerifierApiKeyStore>(_ =>
@@ -261,6 +290,12 @@ startupLogger.LogInformation("Instance Mode: {InstanceMode}", DescribeInstanceMo
 startupLogger.LogInformation("Package Verification Worker Enabled: {WorkerEnabled}", normalizedStorageOptions.PackageWorkerEnabled);
 startupLogger.LogInformation("Apply Migrations On Startup: {ApplyMigrationsOnStartup}", normalizedStorageOptions.ApplyMigrationsOnStartup);
 startupLogger.LogInformation("API Guard: {ApiGuardStatus}", configuredApiKeys.Count == 0 ? "Disabled" : "Enabled");
+startupLogger.LogInformation(
+    "OIDC/JWT Bearer Foundation: enabled={Enabled} authorityConfigured={AuthorityConfigured} audienceConfigured={AudienceConfigured} roleClaimConfigured={RoleClaimConfigured}",
+    oidcStatus.Enabled,
+    oidcStatus.AuthorityConfigured,
+    oidcStatus.AudienceConfigured,
+    oidcStatus.RoleClaimConfigured);
 if (configuredApiKeys.Count > 0)
 {
     startupLogger.LogInformation("API Header Name: {HeaderName}", securityOptions.HeaderName);
@@ -395,20 +430,47 @@ app.Use(async (context, next) =>
     {
         stopwatch.Stop();
         requestLogger.LogInformation(
-            "Verifier request {RequestId} {Method} {Path} returned {StatusCode} in {ElapsedMilliseconds} ms. role={Role} institutionId={InstitutionId} keyPrefix={KeyPrefix}",
+            "Verifier request {RequestId} {Method} {Path} returned {StatusCode} in {ElapsedMilliseconds} ms. authType={AuthType} role={Role} institutionId={InstitutionId} keyPrefix={KeyPrefix}",
             GetRequestId(context),
             context.Request.Method,
             context.Request.Path.Value,
             context.Response.StatusCode,
             stopwatch.ElapsedMilliseconds,
+            TryGetAccessContext(context)?.AuthenticationType ?? "Anonymous",
             TryGetAccessContext(context)?.Role ?? "Anonymous",
             TryGetAccessContext(context)?.InstitutionId,
             TryGetAccessContext(context)?.KeyPrefix);
     }
 });
 
+app.UseAuthentication();
+
 app.Use(async (context, next) =>
 {
+    var suppliedKey = TryGetSuppliedApiKey(context.Request, securityOptions.HeaderName);
+    var suppliedBearerToken = TryGetSuppliedBearerToken(context.Request);
+    if (suppliedKey is not null && suppliedBearerToken is not null)
+    {
+        await WriteAuditEventAsync(
+            context.RequestServices.GetRequiredService<IVerifierAuditStore>(),
+            auditLogger,
+            context,
+            eventType: "auth.ambiguous",
+            result: "DualCredentialsRejected",
+            metadata: CreateMetadata(
+                ("endpoint", context.Request.Path.Value),
+                ("method", context.Request.Method),
+                ("authenticationType", "Dual")),
+            actorKeyPrefix: CreateSafeKeyPrefix(suppliedKey),
+            cancellationToken: context.RequestAborted);
+        await WriteAuthErrorAsync(
+            context,
+            StatusCodes.Status400BadRequest,
+            "ambiguous_authentication",
+            "Send either X-OWS-Verifier-Key or Authorization: Bearer, not both.");
+        return;
+    }
+
     var path = context.Request.Path.Value ?? string.Empty;
     var isBypassPath = HttpMethods.IsGet(context.Request.Method) &&
         (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase) ||
@@ -417,6 +479,27 @@ app.Use(async (context, next) =>
     if (isBypassPath)
     {
         await next(context);
+        return;
+    }
+
+    if (suppliedBearerToken is not null && !authOptions.Oidc.Enabled)
+    {
+        await WriteAuditEventAsync(
+            context.RequestServices.GetRequiredService<IVerifierAuditStore>(),
+            auditLogger,
+            context,
+            eventType: "auth.failed",
+            result: "OidcDisabled",
+            metadata: CreateMetadata(
+                ("endpoint", context.Request.Path.Value),
+                ("method", context.Request.Method),
+                ("authenticationType", "Bearer")),
+            cancellationToken: context.RequestAborted);
+        await WriteAuthErrorAsync(
+            context,
+            StatusCodes.Status401Unauthorized,
+            "oidc_disabled",
+            "OIDC/JWT bearer auth is not enabled on this verifier.");
         return;
     }
 
@@ -430,41 +513,105 @@ app.Use(async (context, next) =>
     }
     catch when (!isProduction)
     {
-        if (!hasBootstrapKeys)
+        if (!hasBootstrapKeys && !authOptions.Oidc.Enabled)
         {
             await next(context);
             return;
         }
     }
 
-    if (!hasBootstrapKeys && !hasPersistedKeys)
+    if (!hasBootstrapKeys && !hasPersistedKeys && !authOptions.Oidc.Enabled)
     {
         await next(context);
         return;
     }
 
-    var suppliedKey = TryGetSuppliedApiKey(context.Request, securityOptions.HeaderName);
-    var access = suppliedKey is null
-        ? null
-        : TryAuthenticateConfiguredApiKey(suppliedKey, configuredApiKeys)
-          ?? await TryAuthenticatePersistedApiKeyAsync(persistentApiKeyStore, suppliedKey, context.RequestAborted);
+    VerifierAccessContext? access = null;
+    var authFailureResult = authOptions.Oidc.Enabled ? "MissingCredentials" : "MissingKey";
+    var authFailureMessage = authOptions.Oidc.Enabled
+        ? "Send either X-OWS-Verifier-Key or Authorization: Bearer."
+        : "Verifier API key is required.";
+    var authFailureStatusCode = StatusCodes.Status401Unauthorized;
+    var authFailureCode = authOptions.Oidc.Enabled ? "authentication_required" : null;
+    string? authFailureActorKeyPrefix = null;
+    var authFailureMetadata = CreateMetadata(
+        ("endpoint", context.Request.Path.Value),
+        ("method", context.Request.Method));
+
+    if (suppliedKey is not null)
+    {
+        access = TryAuthenticateConfiguredApiKey(suppliedKey, configuredApiKeys)
+                 ?? await TryAuthenticatePersistedApiKeyAsync(persistentApiKeyStore, suppliedKey, context.RequestAborted);
+        authFailureResult = "InvalidKey";
+        authFailureMessage = "Invalid verifier API key.";
+        authFailureActorKeyPrefix = CreateSafeKeyPrefix(suppliedKey);
+        authFailureMetadata = CreateMetadata(
+            ("endpoint", context.Request.Path.Value),
+            ("method", context.Request.Method),
+            ("authenticationType", "ApiKey"));
+    }
+    else if (suppliedBearerToken is not null)
+    {
+        authFailureMetadata = CreateMetadata(
+            ("endpoint", context.Request.Path.Value),
+            ("method", context.Request.Method),
+            ("authenticationType", "Bearer"));
+
+        if (!authOptions.Oidc.Enabled)
+        {
+            authFailureResult = "OidcDisabled";
+            authFailureMessage = "OIDC/JWT bearer auth is not enabled on this verifier.";
+            authFailureCode = "oidc_disabled";
+        }
+        else
+        {
+            var authenticateResult = await context.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
+            if (authenticateResult.Succeeded && authenticateResult.Principal is not null)
+            {
+                var mappingResult = OidcPrincipalMapper.TryMap(authenticateResult.Principal, authOptions.Oidc);
+                if (mappingResult.Succeeded)
+                {
+                    access = mappingResult.AccessContext;
+                }
+                else
+                {
+                    authFailureResult = mappingResult.FailureResult ?? "InvalidBearerClaims";
+                    authFailureMessage = mappingResult.FailureMessage ?? "Bearer token claims were not accepted.";
+                    authFailureStatusCode = mappingResult.StatusCode;
+                    authFailureCode = "invalid_oidc_claims";
+                }
+            }
+            else
+            {
+                authFailureResult = "InvalidBearerToken";
+                authFailureMessage = "Bearer token validation failed.";
+                authFailureCode = "invalid_bearer_token";
+            }
+        }
+    }
+
     if (access is null)
     {
-        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        var hasHeader = context.Request.Headers.ContainsKey(securityOptions.HeaderName);
-        var message = hasHeader ? "Invalid verifier API key." : "Verifier API key is required.";
         await WriteAuditEventAsync(
             auditStore,
             auditLogger,
             context,
             eventType: "auth.failed",
-            result: hasHeader ? "InvalidKey" : "MissingKey",
-            metadata: CreateMetadata(
-                ("endpoint", context.Request.Path.Value),
-                ("method", context.Request.Method)),
-            actorKeyPrefix: hasHeader ? CreateSafeKeyPrefix(suppliedKey) : null,
+            result: authFailureResult,
+            metadata: authFailureMetadata,
+            actorKeyPrefix: authFailureActorKeyPrefix,
             cancellationToken: context.RequestAborted);
-        await context.Response.WriteAsync(message);
+
+        if (authFailureCode is null)
+        {
+            context.Response.StatusCode = authFailureStatusCode;
+            await context.Response.WriteAsync(authFailureMessage);
+        }
+        else
+        {
+            await WriteAuthErrorAsync(context, authFailureStatusCode, authFailureCode, authFailureMessage);
+        }
+
         return;
     }
 
@@ -544,6 +691,16 @@ app.MapGet("/metrics",
         sb.AppendLine($"ows_package_uploads_total {summary.PackagesSubmitted}");
         sb.AppendLine();
 
+        sb.AppendLine("# HELP ows_package_verification_successes_total Total number of successful package verification completions.");
+        sb.AppendLine("# TYPE ows_package_verification_successes_total counter");
+        sb.AppendLine($"ows_package_verification_successes_total {summary.PackagesVerified}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_package_verification_failures_total Total number of failed package verification attempts.");
+        sb.AppendLine("# TYPE ows_package_verification_failures_total counter");
+        sb.AppendLine($"ows_package_verification_failures_total {summary.PackageVerificationFailures}");
+        sb.AppendLine();
+
         sb.AppendLine("# HELP ows_package_verification_jobs_total Total number of package verification jobs by status.");
         sb.AppendLine("# TYPE ows_package_verification_jobs_total gauge");
         sb.AppendLine($"ows_package_verification_jobs_total{{status=\"pending\"}} {jobSummary.Pending}");
@@ -573,6 +730,16 @@ app.MapGet("/metrics",
         sb.AppendLine($"ows_ready_dependency_status{{dependency=\"education\"}} {(educationReady ? 1 : 0)}");
         sb.AppendLine($"ows_ready_dependency_status{{dependency=\"packages\"}} {(packageStorageReady ? 1 : 0)}");
         sb.AppendLine($"ows_ready_dependency_status{{dependency=\"signing\"}} {(signingConfigured ? 1 : 0)}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_package_verification_worker_enabled Whether this verifier instance runs the in-process package verification worker (1 = enabled, 0 = disabled).");
+        sb.AppendLine("# TYPE ows_package_verification_worker_enabled gauge");
+        sb.AppendLine($"ows_package_verification_worker_enabled {(options.PackageWorkerEnabled ? 1 : 0)}");
+        sb.AppendLine();
+
+        sb.AppendLine("# HELP ows_instance_mode Verifier instance mode (1 = current mode label).");
+        sb.AppendLine("# TYPE ows_instance_mode gauge");
+        sb.AppendLine($"ows_instance_mode{{mode=\"{DescribeInstanceMode(options.PackageWorkerEnabled)}\"}} 1");
 
         return Results.Content(sb.ToString(), "text/plain; version=0.0.4; charset=utf-8");
     });
@@ -588,6 +755,7 @@ app.MapGet("/ready",
         try
         {
             var authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken);
+            var oidc = DescribeOidcStatus(authOptions.Oidc);
             var healthy = await storage.CheckHealthAsync(cancellationToken);
             var educationReady = await CheckEducationStoreReadyAsync(educationStore, cancellationToken);
             var packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken);
@@ -632,7 +800,8 @@ app.MapGet("/ready",
                         workerEnabled = options.PackageWorkerEnabled,
                         instanceMode,
                         signingConfigured,
-                        authMode
+                        authMode,
+                        oidc
                     }
                 }, statusCode: StatusCodes.Status503ServiceUnavailable);
             }
@@ -659,7 +828,8 @@ app.MapGet("/ready",
                     workerEnabled = options.PackageWorkerEnabled,
                     instanceMode,
                     signingConfigured,
-                    authMode
+                    authMode,
+                    oidc
                 }
             });
         }
@@ -667,6 +837,7 @@ app.MapGet("/ready",
         {
             var authMode = "unknown";
             var packageStorageReady = false;
+            var oidc = DescribeOidcStatus(authOptions.Oidc);
             try
             {
                 authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken);
@@ -712,7 +883,8 @@ app.MapGet("/ready",
                     workerEnabled = options.PackageWorkerEnabled,
                     instanceMode,
                     signingConfigured,
-                    authMode
+                    authMode,
+                    oidc
                 }
             },
                 statusCode: StatusCodes.Status503ServiceUnavailable);
@@ -1523,6 +1695,7 @@ app.MapGet("/diagnostics/summary", async (IVerifierAuditStore auditStore, IVerif
         warnings,
         signingKeyFingerprintPresent,
         authMode = await ResolveAuthModeAsync(apiKeyStore, configuredApiKeys.Count > 0, cancellationToken),
+        oidc = DescribeOidcStatus(authOptions.Oidc),
         metrics = summary,
         packageVerificationJobs = jobSummary
     });
@@ -2056,6 +2229,24 @@ static string? TryGetPackageRouteId(HttpContext context)
     return path.StartsWith("/packages/", StringComparison.OrdinalIgnoreCase) ? TryGetRouteValue(context, "id") : null;
 }
 
+static string? TryGetSuppliedBearerToken(HttpRequest request)
+{
+    if (!request.Headers.TryGetValue("Authorization", out var values))
+    {
+        return null;
+    }
+
+    var headerValue = values.FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(headerValue) ||
+        !headerValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+    {
+        return null;
+    }
+
+    var token = headerValue["Bearer ".Length..].Trim();
+    return string.IsNullOrWhiteSpace(token) ? null : token;
+}
+
 // Builds a compact safe metadata dictionary and drops null/blank values.
 static IReadOnlyDictionary<string, string?> CreateMetadata(params (string Key, string? Value)[] pairs)
 {
@@ -2117,10 +2308,11 @@ static async Task WriteAuditEventAsync(
     }
 
     logger.LogInformation(
-        "Verifier audit {EventType} result={Result} requestId={RequestId} role={Role} institutionId={InstitutionId} sessionId={SessionId} packageId={PackageId} assessmentId={AssessmentId} keyPrefix={KeyPrefix}",
+        "Verifier audit {EventType} result={Result} requestId={RequestId} authType={AuthType} role={Role} institutionId={InstitutionId} sessionId={SessionId} packageId={PackageId} assessmentId={AssessmentId} keyPrefix={KeyPrefix}",
         auditEvent.EventType,
         auditEvent.Result,
         GetRequestId(context),
+        access?.AuthenticationType ?? "Anonymous",
         auditEvent.ActorRole ?? "Anonymous",
         auditEvent.InstitutionId,
         auditEvent.SessionId,
@@ -2147,6 +2339,56 @@ static async Task<string> ResolveAuthModeAsync(
         (false, true) => "persistent",
         _ => "disabled"
     };
+}
+
+static VerifierOidcStatus DescribeOidcStatus(VerifierOidcOptions options) =>
+    new()
+    {
+        Enabled = options.Enabled,
+        AuthorityConfigured = !string.IsNullOrWhiteSpace(options.Authority),
+        AudienceConfigured = !string.IsNullOrWhiteSpace(options.Audience),
+        RoleClaimConfigured = !string.IsNullOrWhiteSpace(options.RoleClaim)
+    };
+
+static void ConfigureOidcJwtBearer(JwtBearerOptions options, VerifierOidcOptions oidcOptions)
+{
+    options.RequireHttpsMetadata = oidcOptions.RequireHttpsMetadata;
+    options.SaveToken = false;
+    options.MapInboundClaims = false;
+
+    if (!oidcOptions.Enabled)
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = false,
+            ValidateIssuerSigningKey = false
+        };
+        return;
+    }
+
+    options.Authority = oidcOptions.Authority;
+    options.Audience = oidcOptions.Audience;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        NameClaimType = oidcOptions.DisplayNameClaim,
+        RoleClaimType = oidcOptions.RoleClaim,
+        ValidateIssuer = true,
+        ValidAudience = oidcOptions.Audience,
+        ValidateAudience = !string.IsNullOrWhiteSpace(oidcOptions.Audience)
+    };
+}
+
+static async Task WriteAuthErrorAsync(HttpContext context, int statusCode, string error, string message)
+{
+    context.Response.StatusCode = statusCode;
+    await context.Response.WriteAsJsonAsync(new
+    {
+        error,
+        message,
+        requestId = GetRequestId(context)
+    });
 }
 
 // Verifies that the education store can serve a minimal read without exposing details.
@@ -2741,34 +2983,6 @@ public sealed record StartSessionRequest
     public string? AssessmentId { get; init; }
 
     /// <summary>Gets the optional student user identifier.</summary>
-    public string? StudentUserId { get; init; }
-}
-
-sealed record VerifierAccessContext
-{
-    public VerifierAccessContext(string role, string? institutionId, string key, string? keyId = null,
-        string? keyPrefix = null, string? studentUserId = null)
-    {
-        Role = string.IsNullOrWhiteSpace(role) ? VerifierRolePolicy.Operator : VerifierRolePolicy.NormalizeRoleName(role);
-        InstitutionId = string.IsNullOrWhiteSpace(institutionId) ? null : institutionId.Trim();
-        Key = key;
-        KeyId = string.IsNullOrWhiteSpace(keyId) ? null : keyId.Trim();
-        KeyPrefix = string.IsNullOrWhiteSpace(keyPrefix)
-            ? (string.IsNullOrWhiteSpace(key) ? null : key[..Math.Min(12, key.Length)])
-            : keyPrefix.Trim();
-        StudentUserId = string.IsNullOrWhiteSpace(studentUserId) ? null : studentUserId.Trim();
-    }
-
-    public string Role { get; init; }
-
-    public string? InstitutionId { get; init; }
-
-    public string Key { get; init; }
-
-    public string? KeyId { get; init; }
-
-    public string? KeyPrefix { get; init; }
-
     public string? StudentUserId { get; init; }
 }
 

@@ -140,6 +140,45 @@ public sealed class VerifierServerTests
     }
 
     /// <summary>
+    /// Verifies that /metrics exposes worker mode and verification failure counters for external dashboards.
+    /// </summary>
+    [Fact]
+    public async Task GetMetrics_ShouldExposeWorkerModeAndVerificationFailureCounters()
+    {
+        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
+        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
+        try
+        {
+            var config = new Dictionary<string, string?>
+            {
+                { "VerifierEnvironment", "Local" },
+                { "VerifierStorage__Provider", "json" },
+                { "VerifierStorage__JsonStorePath", tempDbPath },
+                { "VerifierSecurity__ApiKey", "" },
+                { "PackageVerificationWorker__Enabled", "false" }
+            };
+
+            using var client = CreateClientWithEnv(config, out var factory);
+            await using (factory)
+            {
+                var response = await client.GetAsync("/metrics");
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+                var content = await response.Content.ReadAsStringAsync();
+                content.Should().Contain("ows_package_verification_failures_total");
+                content.Should().Contain("ows_package_verification_worker_enabled");
+                content.Should().Contain("ows_instance_mode");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDbDir))
+            {
+                Directory.Delete(tempDbDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Verifies that GET /ready returns 200 OK when JSON storage is valid and writable.
     /// </summary>
     [Fact]

@@ -76,7 +76,7 @@ curl -f http://localhost:5078/health
 ```
 
 ### 2. `/ready` Endpoint
-Checks safe dependency state for storage, education store reachability, package storage, signing configuration, auth mode, worker mode, and migration mode:
+Checks safe dependency state for storage, education store reachability, package storage, signing configuration, auth mode, OIDC/JWT bearer status, worker mode, and migration mode:
 ```bash
 curl -f http://localhost:5078/ready
 # Returns: { "status": "Ready", "storage": "postgres", ... } (or HTTP 503 if dependencies are unhealthy)
@@ -88,7 +88,7 @@ Returns lightweight safe counters for pilot operations:
 curl -H "X-OWS-Verifier-Key: <operator-key>" http://localhost:5078/diagnostics/summary
 ```
 
-The response includes package-storage readiness, worker mode (`api+worker` vs `api-only`), migration mode, warnings, and verification-job counters so operators can tell whether uploads are only accepted, actively processing, or piling up.
+The response includes package-storage readiness, worker mode (`api+worker` vs `api-only`), migration mode, OIDC/JWT bearer status, warnings, and verification-job counters so operators can tell whether uploads are only accepted, actively processing, or piling up.
 
 ### 4. `/audit/events` Endpoint
 Returns operator-only audit events with simple filters:
@@ -105,6 +105,24 @@ docker compose logs -f ows-verifier
 
 Each response also includes `X-Request-Id`. Use that id to correlate container logs with `/audit/events`.
 
+### 6. Optional External Observability
+
+The base self-hosted stack does not require Prometheus, Grafana, Loki, or Promtail.
+
+Normal self-hosting:
+
+```bash
+docker compose -f deploy/compose/docker-compose.yml up
+```
+
+Optional observability overlay:
+
+```bash
+docker compose -f deploy/compose/docker-compose.yml -f deploy/compose/docker-compose.observability.yml up
+```
+
+See [OBSERVABILITY.md](OBSERVABILITY.md) for the optional stack.
+
 ---
 
 ## 5. Security Warnings and Best Practices
@@ -114,8 +132,24 @@ Each response also includes `X-Request-Id`. Use that id to correlate container l
 > 1. **TLS / HTTPS Termination**: The OWS Verifier does NOT handle TLS termination natively in the container. **You must run a reverse proxy (e.g. Nginx, Traefik, Caddy, or an AWS ALB) in front of the Compose stack to enforce HTTPS.**
 > 2. **Secret Privacy**: Never commit the `.env` file to version control.
 > 3. **API Key Guard limits**: The bootstrap key (`VerifierSecurity__ApiKey`) is compatibility/bootstrap-only. Persisted operator/reviewer keys are preferred for pilots, and they still do not replace full OAuth/OIDC authentication or fine-grained institutional RBAC.
+> 4. **OIDC/JWT bearer is optional**: `VerifierAuth__Oidc__Enabled=false` remains the default. API keys stay the primary pilot path for CLI, VS Code, watchers, and automation.
+> 5. **No dual-auth requests**: Requests that send both `X-OWS-Verifier-Key` and `Authorization: Bearer` are rejected with `400 Bad Request` and a safe audit event.
 > 4. **No Dev Keys**: Double-check that dev-mode default signing keys are not active in production environments.
-> 5. **Observability scope**: `GET /diagnostics/summary` and `GET /audit/events` are pilot-grade operator tools. Prometheus/Grafana/Loki integration is intentionally deferred.
+> 5. **Observability scope**: `GET /diagnostics/summary` and `GET /audit/events` remain built-in pilot-grade operator tools. Prometheus/Grafana/Loki/Promtail are optional external helpers, not required infrastructure.
+> 6. **Grafana/Loki protection**: If you enable the optional overlay, protect Grafana and Loki with your own auth, reverse proxy, and network controls.
+
+Optional OIDC/JWT bearer example:
+
+```text
+VerifierAuth__Oidc__Enabled=true
+VerifierAuth__Oidc__Authority=https://idp.example
+VerifierAuth__Oidc__Audience=ows-verifier
+VerifierAuth__Oidc__RoleClaim=role
+VerifierAuth__Oidc__InstitutionClaim=institution
+VerifierAuth__Oidc__UserIdClaim=sub
+```
+
+This is a backend auth foundation only. Browser login flows, dashboard UI, and SAML are still deferred.
 
 ---
 
@@ -177,6 +211,7 @@ Use `deploy/compose/docker-compose.multi-instance.yml` as the reference pattern.
 | [BACKUP_RESTORE.md](BACKUP_RESTORE.md) | What to back up, restore order, recovery failure modes, recovery drill |
 | [SECURITY_HARDENING.md](SECURITY_HARDENING.md) | Signing key custody, API key management, diagnostics fields reference |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common symptoms, causes, and fixes |
+| [OBSERVABILITY.md](OBSERVABILITY.md) | Optional Prometheus, Grafana, Loki, and Promtail overlay |
 
 Run the ops readiness check at any time:
 

@@ -78,6 +78,8 @@ Set `VerifierStorage__ReceiptSigningKey` to sign issued receipts. Keep that key 
 
 Set `VerifierSecurity__ApiKey` for bootstrap/shared-key compatibility, or use persisted operator/reviewer API keys for pilot deployments. CLI calls send `X-OWS-Verifier-Key` from `OWS_VERIFIER_API_KEY` when the environment variable is present.
 
+The verifier also now has an optional OIDC/JWT bearer foundation for future human-facing dashboard/API access. It is disabled by default, keeps API keys working unchanged, reuses the same RBAC rules, and rejects dual-auth requests that send both `X-OWS-Verifier-Key` and `Authorization: Bearer`. This is not full SSO. See [OIDC_INTEGRATION.md](/C:/Users/Liparakis/Desktop/Open%20Work%20Standard/docs/OIDC_INTEGRATION.md).
+
 ## Local durable verifier
 
 For the smallest real PostgreSQL-backed local flow:

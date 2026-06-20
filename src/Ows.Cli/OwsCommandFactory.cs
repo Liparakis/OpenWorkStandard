@@ -1,17 +1,10 @@
-using System;
 using System.CommandLine;
-using System.IO;
 using System.IO.Compression;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core;
 using Ows.Core.Agent;
 using Ows.Core.Notarization;
-using Ows.Core.Init;
-using Ows.Core.Packaging;
 using Ows.Core.Reporting;
 using Ows.Core.Verification;
 
@@ -62,7 +55,7 @@ public static class OwsCommandFactory
                 var projectRoot = Directory.GetCurrentDirectory();
                 var manager = new OwsWatchSessionManager();
                 manager.InitializeProject(projectRoot);
-                
+
                 response.Success = true;
                 response.Status = "Ready";
                 response.ProjectRoot = projectRoot;
@@ -92,7 +85,7 @@ public static class OwsCommandFactory
             {
                 var projectRoot = Directory.GetCurrentDirectory();
                 var manager = new OwsWatchSessionManager();
-                
+
                 response.ProjectRoot = projectRoot;
                 if (!manager.IsProjectInitialized(projectRoot))
                 {
@@ -144,7 +137,10 @@ public static class OwsCommandFactory
                                 lastErr = state.LastHeartbeatError;
                             }
                         }
-                        catch { }
+                        catch
+                        {
+                            /* ignored */
+                        }
                     }
 
                     if (watcherCrashed)
@@ -251,6 +247,7 @@ public static class OwsCommandFactory
                     response.StudentUserId = config.StudentUserId;
                     response.CourseOfferingId = config.CourseOfferingId;
                 }
+
                 response.Status = "Session active";
                 response.Message = $"OWS session started: {sessionId}";
             }
@@ -302,6 +299,7 @@ public static class OwsCommandFactory
                     response.StudentUserId = config.StudentUserId;
                     response.CourseOfferingId = config.CourseOfferingId;
                 }
+
                 response.LastCheckpointAt = manager.GetLastCheckpointAt(projectRoot);
                 response.LastHeartbeatAt = manager.GetLastHeartbeatAt(projectRoot);
                 response.Status = "Session active";
@@ -508,7 +506,7 @@ public static class OwsCommandFactory
     private static Command BuildPackageCommand()
     {
         var command = new Command("package", "Create an OWS submission package.");
-        
+
         var uploadCommand = new Command("upload", "Upload the package to a live verifier.");
         var packagePathOption = new Option<string?>("--package-path")
         {
@@ -578,7 +576,8 @@ public static class OwsCommandFactory
 
                 if (string.IsNullOrWhiteSpace(pkgPath))
                 {
-                    pkgPath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
+                    pkgPath = Path.Combine(projectRoot,
+                        $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
                 }
 
                 if (!File.Exists(pkgPath))
@@ -619,28 +618,31 @@ public static class OwsCommandFactory
 
                 if (string.IsNullOrWhiteSpace(pkgId))
                 {
-                    var sessionPath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, OwsConstants.SessionFileName);
+                    var sessionPath = Path.Combine(projectRoot, OwsConstants.LocalFolderName,
+                        OwsConstants.SessionFileName);
                     if (File.Exists(sessionPath))
                     {
-                        var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
+                        var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
                         pkgId = state?.LastPackageId;
                     }
                 }
 
                 if (string.IsNullOrWhiteSpace(pkgId))
                 {
-                    throw new InvalidOperationException("Package submission ID is required (no last package ID found in session).");
+                    throw new InvalidOperationException(
+                        "Package submission ID is required (no last package ID found in session).");
                 }
 
                 var jsonStatus = await manager.QueryPackageStatusAsync(projectRoot, pkgId, serverUrl);
                 using var doc = JsonDocument.Parse(jsonStatus);
                 var root = doc.RootElement;
-                
+
                 response.Success = true;
                 response.PackageId = pkgId;
                 response.Status = root.GetProperty("verificationStatus").GetString();
                 response.TrustStatus = root.TryGetProperty("trustStatus", out var ts) ? ts.GetString() : null;
-                response.Message = $"Package verification status: {response.Status}. Trust status: {response.TrustStatus ?? "None"}";
+                response.Message =
+                    $"Package verification status: {response.Status}. Trust status: {response.TrustStatus ?? "None"}";
             }
             catch (Exception ex)
             {
@@ -859,18 +861,22 @@ public static class OwsCommandFactory
         }
 
         if (msg.Contains("Assessment context is missing", StringComparison.OrdinalIgnoreCase) ||
-            (msg.Contains("institutionId", StringComparison.OrdinalIgnoreCase) && msg.Contains("required", StringComparison.OrdinalIgnoreCase)))
+            (msg.Contains("institutionId", StringComparison.OrdinalIgnoreCase) &&
+             msg.Contains("required", StringComparison.OrdinalIgnoreCase)))
         {
-            return "Assessment context is missing (Institution ID, Assessment ID, or Student User ID). Please configure the project context.";
+            return
+                "Assessment context is missing (Institution ID, Assessment ID, or Student User ID). Please configure the project context.";
         }
 
-        if (msg.Contains("OWS_VERIFIER_API_KEY", StringComparison.OrdinalIgnoreCase) || msg.Contains("API Key is missing", StringComparison.OrdinalIgnoreCase))
+        if (msg.Contains("OWS_VERIFIER_API_KEY", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("API Key is missing", StringComparison.OrdinalIgnoreCase))
         {
             return "No API key configured for remote verifier. Please set OWS_VERIFIER_API_KEY.";
         }
 
         if (ex is UnauthorizedAccessException || msg.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) ||
-            msg.Contains("forbidden", StringComparison.OrdinalIgnoreCase) || msg.Contains("401") || msg.Contains("403") ||
+            msg.Contains("forbidden", StringComparison.OrdinalIgnoreCase) || msg.Contains("401") ||
+            msg.Contains("403") ||
             msg.Contains("rejected", StringComparison.OrdinalIgnoreCase))
         {
             return "API key was rejected by the verifier. Please check your credentials.";
@@ -886,13 +892,16 @@ public static class OwsCommandFactory
             return "Watcher has crashed or is not running.";
         }
 
-        if (ex is System.Net.Http.HttpRequestException || msg.Contains("connection refused", StringComparison.OrdinalIgnoreCase) ||
-            msg.Contains("unreachable", StringComparison.OrdinalIgnoreCase) || msg.Contains("503") || msg.Contains("offline", StringComparison.OrdinalIgnoreCase))
+        if (ex is HttpRequestException ||
+            msg.Contains("connection refused", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("unreachable", StringComparison.OrdinalIgnoreCase) || msg.Contains("503") ||
+            msg.Contains("offline", StringComparison.OrdinalIgnoreCase))
         {
             return "Verifier server is offline or unreachable.";
         }
 
-        if (msg.Contains("database is locked", StringComparison.OrdinalIgnoreCase) || msg.Contains("SQLite Error 5", StringComparison.OrdinalIgnoreCase))
+        if (msg.Contains("database is locked", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("SQLite Error 5", StringComparison.OrdinalIgnoreCase))
         {
             return "Local OWS database is locked by another process.";
         }
@@ -902,7 +911,8 @@ public static class OwsCommandFactory
             return msg;
         }
 
-        if (msg.Contains("Upload failed", StringComparison.OrdinalIgnoreCase) || msg.Contains("upload", StringComparison.OrdinalIgnoreCase))
+        if (msg.Contains("Upload failed", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("upload", StringComparison.OrdinalIgnoreCase))
         {
             return $"Package upload failed: {msg}";
         }
@@ -943,6 +953,7 @@ public static class OwsCommandFactory
         {
             return input;
         }
+
         return input.Replace(apiKey, "[REDACTED_API_KEY]");
     }
 }

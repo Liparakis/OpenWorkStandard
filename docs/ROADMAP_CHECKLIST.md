@@ -287,3 +287,46 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [ ] full SSO/OIDC/SAML
 - [ ] Grafana/Loki stack
 - [ ] billing/SaaS features
+
+## External Observability Integration v0.1
+
+- [x] Prometheus scrape config
+- [x] Grafana dashboard JSON
+- [x] Grafana provisioning
+- [x] optional Loki/Promtail config
+- [x] optional Compose observability overlay
+- [x] observability docs
+- [x] privacy/security warnings
+- [x] compose config validation
+- [ ] mandatory monitoring stack
+- [ ] production alerting/Alertmanager
+- [ ] Kubernetes monitoring
+- [ ] hosted Grafana Cloud integration
+- [ ] SSO/OIDC/SAML
+- [ ] Redis
+- [ ] NATS
+- [ ] QUIC
+- [ ] S3/external object storage
+- [ ] billing/SaaS features
+
+## OIDC/JWT Bearer Foundation v0.1
+
+- [x] optional OIDC config model
+- [x] claims-to-principal mapper
+- [x] role claim mapping
+- [x] institution claim mapping
+- [x] API key compatibility
+- [x] diagnostics/readiness OIDC status
+- [x] OIDC/JWT bearer docs
+- [x] dual-auth rejection and safe audit event
+- [ ] SAML
+- [ ] dashboard UI
+- [ ] cookie/browser login flow
+- [ ] user provisioning UI
+- [ ] full LMS integration
+- [ ] Kubernetes
+- [ ] Redis
+- [ ] NATS
+- [ ] QUIC
+- [ ] S3/external object storage
+- [ ] billing/SaaS features

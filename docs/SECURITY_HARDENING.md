@@ -69,7 +69,7 @@ Key rotation is deferred in v0.1. The verifier uses a single active signing key.
 
 ## Auth/RBAC v0.2
 
-Current pilot-grade verifier auth uses API keys, not user login.
+Current pilot-grade verifier auth uses API keys first, with an optional OIDC/JWT bearer foundation for future human-facing access.
 
 Implemented:
 
@@ -80,7 +80,16 @@ Implemented:
 
 Deferred:
 
-- SSO/OIDC/SAML
+- browser login/session flows
+- SAML
+
+OIDC/JWT bearer foundation notes:
+
+- disabled by default
+- configured through `VerifierAuth__Oidc__*`
+- validated bearer claims are mapped into the same internal verifier access context used by API keys
+- existing endpoint RBAC is reused; there is no second role system
+- requests that send both API key and bearer credentials are rejected with `400` and audited as `auth.ambiguous`
 
 Persisted verifier API keys are stored as:
 
@@ -102,6 +111,7 @@ The verifier now records safe audit events for:
 - `api_key.created`
 - `api_key.revoked`
 - `auth.failed`
+- `auth.ambiguous`
 - `access.denied`
 - `session.created`
 - `checkpoint.accepted`
@@ -143,6 +153,7 @@ The diagnostics summary now includes:
 | `packageBlobCount` | Count of `.owspkg` blobs in storage (null if not accessible) |
 | `signingKeyFingerprintPresent` | Whether a non-empty signing key fingerprint is computed |
 | `authMode` | Active auth mode (none/bootstrap/persisted) |
+| `oidc` | Safe OIDC/JWT bearer status (`enabled`, `authorityConfigured`, `audienceConfigured`, `roleClaimConfigured`) |
 | `metrics` | Audit event aggregate counts |
 | `packageVerificationJobs` | Job counts by status (pending/running/succeeded/failed) |
 
