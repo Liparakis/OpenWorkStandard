@@ -24,8 +24,8 @@ var normalizedStorageOptions = storageOptions with
         : storageOptions.LocalStoragePath
 };
 
-var envString = builder.Configuration["VerifierEnvironment"] 
-                ?? builder.Environment.EnvironmentName 
+var envString = builder.Configuration["VerifierEnvironment"]
+                ?? builder.Environment.EnvironmentName
                 ?? "Development";
 
 if (!Enum.TryParse<VerifierEnvironmentMode>(envString, true, out var envMode))
@@ -41,7 +41,8 @@ var configuredApiKeys = BuildConfiguredApiKeys(securityOptions);
 // Check API Keys
 if (configuredApiKeys.Count == 0)
 {
-    startupWarnings.Add("VerifierSecurity bootstrap API keys are not configured. Persisted API keys or unguarded local bootstrap mode will be used.");
+    startupWarnings.Add(
+        "VerifierSecurity bootstrap API keys are not configured. Persisted API keys or unguarded local bootstrap mode will be used.");
 }
 else
 {
@@ -52,7 +53,8 @@ else
         .ToArray();
     foreach (var duplicateKey in duplicateKeys)
     {
-        startupErrors.Add($"VerifierSecurity contains duplicate API key material for fingerprint {ReceiptChainVerifier.ComputeFingerprint(duplicateKey)}.");
+        startupErrors.Add(
+            $"VerifierSecurity contains duplicate API key material for fingerprint {ReceiptChainVerifier.ComputeFingerprint(duplicateKey)}.");
     }
 
     foreach (var apiKey in configuredApiKeys)
@@ -61,7 +63,8 @@ else
         {
             if (isProduction)
             {
-                startupErrors.Add($"VerifierSecurity key for role '{apiKey.Role}' is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
+                startupErrors.Add(
+                    $"VerifierSecurity key for role '{apiKey.Role}' is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
             }
             else
             {
@@ -71,7 +74,8 @@ else
 
         if (!IsSupportedVerifierRole(apiKey.Role))
         {
-            startupErrors.Add($"VerifierSecurity role '{apiKey.Role}' is not supported. Use 'Operator' or 'InstructorReviewer'.");
+            startupErrors.Add(
+                $"VerifierSecurity role '{apiKey.Role}' is not supported. Use 'Operator' or 'InstructorReviewer'.");
         }
 
         if (IsInstructorReviewerRole(apiKey.Role) && string.IsNullOrWhiteSpace(apiKey.InstitutionId))
@@ -97,7 +101,8 @@ else if (IsWeakSecret(normalizedStorageOptions.ReceiptSigningKey))
 {
     if (isProduction)
     {
-        startupErrors.Add("VerifierStorage:ReceiptSigningKey is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
+        startupErrors.Add(
+            "VerifierStorage:ReceiptSigningKey is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
     }
     else
     {
@@ -124,6 +129,7 @@ if (startupErrors.Count > 0)
     {
         Console.Error.WriteLine($"FATAL CONFIGURATION ERROR: {error}");
     }
+
     throw new InvalidOperationException("Fatal configuration errors detected in Production mode. See console output.");
 }
 
@@ -153,7 +159,8 @@ builder.Services.AddSingleton(securityOptions);
 builder.Services.AddSingleton<IPackageVerifier, OwsPackageVerifier>();
 builder.Services.AddSingleton<IVerifierApiKeyStore>(_ =>
 {
-    var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath;
+    var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ??
+                    builder.Environment.ContentRootPath;
     return string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
         ? new PostgresVerifierApiKeyStore(
             !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
@@ -162,9 +169,12 @@ builder.Services.AddSingleton<IVerifierApiKeyStore>(_ =>
                     "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres."))
         : new JsonFileVerifierApiKeyStore(Path.Combine(storeRoot, "api_keys.json"));
 });
-builder.Services.AddSingleton<IPackageSubmissionStore>(_ => string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
-    ? new PostgresPackageSubmissionStore(normalizedStorageOptions.PostgresConnectionString)
-    : new JsonFilePackageSubmissionStore(Path.Combine(Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath, "package_submissions.json")));
+builder.Services.AddSingleton<IPackageSubmissionStore>(_ =>
+    string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
+        ? new PostgresPackageSubmissionStore(normalizedStorageOptions.PostgresConnectionString)
+        : new JsonFilePackageSubmissionStore(Path.Combine(
+            Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath,
+            "package_submissions.json")));
 builder.Services.AddSingleton<IVerifierStorage>(_ => normalizedStorageOptions.Provider switch
 {
     "json" => new JsonFileVerifierStorage(
@@ -184,7 +194,7 @@ builder.Services.AddSingleton<IEducationStore>(_ =>
         Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? builder.Environment.ContentRootPath,
         "education.json");
     return string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
-        && !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
+           && !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
         ? new PostgresEducationStore(normalizedStorageOptions.PostgresConnectionString)
         : new JsonFileEducationStore(storePath);
 });
@@ -202,8 +212,10 @@ if (configuredApiKeys.Count > 0)
     startupLogger.LogInformation("API Header Name: {HeaderName}", securityOptions.HeaderName);
     startupLogger.LogInformation("Configured API Keys: {ApiKeyCount}", configuredApiKeys.Count);
 }
+
 var keyFingerprint = ReceiptChainVerifier.ComputeFingerprint(normalizedStorageOptions.ReceiptSigningKey);
-startupLogger.LogInformation("Signing Key Fingerprint: {Fingerprint}", string.IsNullOrWhiteSpace(keyFingerprint) ? "None (Unsigned)" : keyFingerprint);
+startupLogger.LogInformation("Signing Key Fingerprint: {Fingerprint}",
+    string.IsNullOrWhiteSpace(keyFingerprint) ? "None (Unsigned)" : keyFingerprint);
 
 foreach (var warning in startupWarnings)
 {
@@ -253,10 +265,13 @@ try
     startupLogger.LogInformation("Initializing verifier API key store...");
     await apiKeyStore.InitializeAsync(CancellationToken.None);
     var hasPersistedKeys = await apiKeyStore.HasActiveKeysAsync(CancellationToken.None);
-    startupLogger.LogInformation("Verifier API key store initialized successfully. Persisted Keys Present: {HasPersistedKeys}", hasPersistedKeys);
+    startupLogger.LogInformation(
+        "Verifier API key store initialized successfully. Persisted Keys Present: {HasPersistedKeys}",
+        hasPersistedKeys);
     if (isProduction && configuredApiKeys.Count == 0 && !hasPersistedKeys)
     {
-        throw new InvalidOperationException("Production mode requires either bootstrap API keys or persisted verifier API keys.");
+        throw new InvalidOperationException(
+            "Production mode requires either bootstrap API keys or persisted verifier API keys.");
     }
 }
 catch (Exception ex)
@@ -338,30 +353,33 @@ app.Use(async (context, next) =>
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 
-app.MapGet("/ready", async (IVerifierStorage storage, VerifierStorageOptions options, CancellationToken cancellationToken) =>
-{
-    try
+app.MapGet("/ready",
+    async (IVerifierStorage storage, VerifierStorageOptions options, CancellationToken cancellationToken) =>
     {
-        var healthy = await storage.CheckHealthAsync(cancellationToken);
-        if (!healthy)
+        try
         {
-            return Results.Json(new { status = "Unhealthy", error = "Storage health check failed." }, statusCode: StatusCodes.Status503ServiceUnavailable);
+            var healthy = await storage.CheckHealthAsync(cancellationToken);
+            if (!healthy)
+            {
+                return Results.Json(new { status = "Unhealthy", error = "Storage health check failed." },
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+
+            var signingStatus = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey) ? "Enabled" : "Disabled";
+
+            return Results.Ok(new
+            {
+                status = "Ready",
+                storage = options.Provider,
+                signing = signingStatus
+            });
         }
-
-        var signingStatus = !string.IsNullOrWhiteSpace(options.ReceiptSigningKey) ? "Enabled" : "Disabled";
-
-        return Results.Ok(new
+        catch (Exception ex)
         {
-            status = "Ready",
-            storage = options.Provider,
-            signing = signingStatus
-        });
-    }
-    catch (Exception ex)
-    {
-        return Results.Json(new { status = "Unhealthy", error = ex.Message }, statusCode: StatusCodes.Status503ServiceUnavailable);
-    }
-});
+            return Results.Json(new { status = "Unhealthy", error = ex.Message },
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+    });
 
 app.MapPost("/auth/api-keys", async (VerifierApiKeyCreateRequest request, IVerifierApiKeyStore apiKeyStore,
     CancellationToken cancellationToken) =>
@@ -380,7 +398,7 @@ app.MapGet("/auth/api-keys", async (IVerifierApiKeyStore apiKeyStore, Cancellati
     Results.Ok(await apiKeyStore.ListAsync(cancellationToken)));
 
 app.MapPost("/auth/api-keys/{id}/revoke", async (string id, IVerifierApiKeyStore apiKeyStore,
-    CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken) =>
     await apiKeyStore.RevokeAsync(id, cancellationToken)
         ? Results.Ok(new { keyId = id, revoked = true })
         : Results.NotFound("Unknown verifier API key."));
@@ -419,6 +437,7 @@ app.MapPost("/sessions", async (StartSessionRequest? body, IVerifierStorage stor
             {
                 return Results.BadRequest($"Assessment '{body.AssessmentId}' not found.");
             }
+
             if (!string.Equals(assessment.InstitutionId.Value, body.InstitutionId,
                     StringComparison.OrdinalIgnoreCase))
             {
@@ -570,10 +589,12 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
             catch (InvalidOperationException exception)
             {
                 if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
-                    exception.Message.Contains("already registered with different metadata", StringComparison.OrdinalIgnoreCase))
+                    exception.Message.Contains("already registered with different metadata",
+                        StringComparison.OrdinalIgnoreCase))
                 {
                     return Results.Conflict(exception.Message);
                 }
+
                 return Results.BadRequest(exception.Message);
             }
 
@@ -679,10 +700,12 @@ app.MapPost("/packages", async (HttpRequest request, IPackageSubmissionStore pac
         catch (InvalidOperationException exception)
         {
             if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
-                exception.Message.Contains("already registered with different metadata", StringComparison.OrdinalIgnoreCase))
+                exception.Message.Contains("already registered with different metadata",
+                    StringComparison.OrdinalIgnoreCase))
             {
                 return Results.Conflict(exception.Message);
             }
+
             return Results.BadRequest(exception.Message);
         }
     }
@@ -1216,8 +1239,8 @@ static async Task<bool> IsAuthorizedAsync(
     }
 
     var segments = context.Request.Path.Value?
-        .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-        ?? [];
+                       .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                   ?? [];
     if (segments.Length == 0)
     {
         return false;
@@ -1340,17 +1363,20 @@ static async Task<string?> ResolveEducationInstitutionIdAsync(
 
     if (segments is ["education", "class-groups", var classGroupId])
     {
-        return (await educationStore.GetClassGroupAsync(new ClassGroupId(classGroupId), cancellationToken))?.InstitutionId.Value;
+        return (await educationStore.GetClassGroupAsync(new ClassGroupId(classGroupId), cancellationToken))
+            ?.InstitutionId.Value;
     }
 
     if (segments is ["education", "course-offerings", var offeringId])
     {
-        return (await educationStore.GetCourseOfferingAsync(new CourseOfferingId(offeringId), cancellationToken))?.InstitutionId.Value;
+        return (await educationStore.GetCourseOfferingAsync(new CourseOfferingId(offeringId), cancellationToken))
+            ?.InstitutionId.Value;
     }
 
     if (segments is ["education", "assessments", var assessmentId])
     {
-        return (await educationStore.GetAssessmentAsync(new AssessmentId(assessmentId), cancellationToken))?.InstitutionId.Value;
+        return (await educationStore.GetAssessmentAsync(new AssessmentId(assessmentId), cancellationToken))
+            ?.InstitutionId.Value;
     }
 
     if (segments is ["education", "users", var userId])
@@ -1360,12 +1386,14 @@ static async Task<string?> ResolveEducationInstitutionIdAsync(
 
     if (segments is ["education", "enrollments", "user", var enrollmentUserId])
     {
-        return (await educationStore.GetUserAsync(new UserId(enrollmentUserId), cancellationToken))?.InstitutionId.Value;
+        return (await educationStore.GetUserAsync(new UserId(enrollmentUserId), cancellationToken))?.InstitutionId
+            .Value;
     }
 
     if (segments is ["education", "enrollments", "offering", var enrollmentOfferingId])
     {
-        return (await educationStore.GetCourseOfferingAsync(new CourseOfferingId(enrollmentOfferingId), cancellationToken))?.InstitutionId.Value;
+        return (await educationStore.GetCourseOfferingAsync(new CourseOfferingId(enrollmentOfferingId),
+            cancellationToken))?.InstitutionId.Value;
     }
 
     return null;
@@ -1376,8 +1404,9 @@ static bool IsWeakSecret(string secret)
     if (string.IsNullOrWhiteSpace(secret)) return true;
     var normalized = secret.Trim().ToLowerInvariant();
     if (normalized.Length < 16) return true;
-    
-    string[] unsafeDefaults = ["dev-key", "change-me", "change_me", "default", "placeholder", "development", "ows-dev", "ows_dev"];
+
+    string[] unsafeDefaults =
+        ["dev-key", "change-me", "change_me", "default", "placeholder", "development", "ows-dev", "ows_dev"];
     return unsafeDefaults.Contains(normalized);
 }
 
@@ -1422,4 +1451,6 @@ sealed record VerifierAccessContext
     public string Key { get; init; }
 }
 
-public partial class Program { }
+public partial class Program
+{
+}

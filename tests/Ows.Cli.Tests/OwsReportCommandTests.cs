@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Ows.Cli;
 using System.Text.Json;
 
 namespace Ows.Cli.Tests;
@@ -18,7 +17,7 @@ public sealed class OwsReportCommandTests
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-report-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
-        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "draft");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft");
         var originalDirectory = Directory.GetCurrentDirectory();
 
         try
@@ -34,8 +33,8 @@ public sealed class OwsReportCommandTests
 
             reportResult.Should().Be(0);
             File.Exists(reportPath).Should().BeTrue();
-            File.ReadAllText(reportPath).Should().Contain("Status: Unverified");
-            File.ReadAllText(reportPath).Should().Contain("Findings:");
+            (await File.ReadAllTextAsync(reportPath)).Should().Contain("Status: Unverified");
+            (await File.ReadAllTextAsync(reportPath)).Should().Contain("Findings:");
         }
         finally
         {
@@ -56,7 +55,7 @@ public sealed class OwsReportCommandTests
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-report-json-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
-        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "draft");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft");
         var originalDirectory = Directory.GetCurrentDirectory();
 
         try
@@ -67,12 +66,13 @@ public sealed class OwsReportCommandTests
             await OwsTestHelpers.RunInitialScanAsync(projectRoot);
             (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
 
-            var reportResult = await OwsCommandFactory.BuildRootCommand().Parse(["report", "--format", "json"]).InvokeAsync();
+            var reportResult = await OwsCommandFactory.BuildRootCommand().Parse(["report", "--format", "json"])
+                .InvokeAsync();
             var reportPath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}.report.json");
 
             reportResult.Should().Be(0);
             File.Exists(reportPath).Should().BeTrue();
-            using var document = JsonDocument.Parse(File.ReadAllText(reportPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(reportPath));
             document.RootElement.GetProperty("status").GetString().Should().Be("Unverified");
             document.RootElement.GetProperty("findings").EnumerateArray().Should().NotBeEmpty();
         }

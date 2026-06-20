@@ -2,8 +2,6 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
-using Ows.Core.Notarization;
-
 namespace Ows.Cli.Tests;
 
 /// <summary>
@@ -11,10 +9,10 @@ namespace Ows.Cli.Tests;
 /// </summary>
 internal sealed class StubVerifierServer : IDisposable
 {
-    private readonly CancellationTokenSource cancellationTokenSource = new();
-    private readonly HttpListener listener = new();
-    private readonly Task listenerTask;
-    private readonly Func<string, string, object?> responder;
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private readonly HttpListener _listener = new();
+    private readonly Task _listenerTask;
+    private readonly Func<string, string, object?> _responder;
 
     /// <summary>
     /// Initializes a new stub verifier server.
@@ -22,12 +20,12 @@ internal sealed class StubVerifierServer : IDisposable
     /// <param name="responder">Maps HTTP method and path to a JSON response payload, or <see langword="null"/> for 404.</param>
     public StubVerifierServer(Func<string, string, object?> responder)
     {
-        this.responder = responder;
+        this._responder = responder;
         var port = GetAvailablePort();
         BaseUrl = $"http://127.0.0.1:{port}/";
-        listener.Prefixes.Add(BaseUrl);
-        listener.Start();
-        listenerTask = Task.Run(Listen);
+        _listener.Prefixes.Add(BaseUrl);
+        _listener.Start();
+        _listenerTask = Task.Run(Listen);
     }
 
     /// <summary>
@@ -48,13 +46,13 @@ internal sealed class StubVerifierServer : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        cancellationTokenSource.Cancel();
-        listener.Stop();
-        listener.Close();
+        _cancellationTokenSource.Cancel();
+        _listener.Stop();
+        _listener.Close();
 
         try
         {
-            listenerTask.GetAwaiter().GetResult();
+            _listenerTask.GetAwaiter().GetResult();
         }
         catch (HttpListenerException)
         {
@@ -69,13 +67,13 @@ internal sealed class StubVerifierServer : IDisposable
     /// </summary>
     private void Listen()
     {
-        while (!cancellationTokenSource.IsCancellationRequested)
+        while (!_cancellationTokenSource.IsCancellationRequested)
         {
             HttpListenerContext context;
 
             try
             {
-                context = listener.GetContext();
+                context = _listener.GetContext();
             }
             catch (HttpListenerException)
             {
@@ -110,7 +108,7 @@ internal sealed class StubVerifierServer : IDisposable
     /// <param name="path">The requested path.</param>
     private void WriteResponse(HttpListenerContext context, string path)
     {
-        var payload = responder(context.Request.HttpMethod, path);
+        var payload = _responder(context.Request.HttpMethod, path);
         var statusCode = payload is null ? HttpStatusCode.NotFound : HttpStatusCode.OK;
         var buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload ?? new { Error = "not-found" }));
 
@@ -128,7 +126,7 @@ internal sealed class StubVerifierServer : IDisposable
     {
         var tcpListener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
         tcpListener.Start();
-        var port = ((System.Net.IPEndPoint)tcpListener.LocalEndpoint).Port;
+        var port = ((IPEndPoint)tcpListener.LocalEndpoint).Port;
         tcpListener.Stop();
         return port;
     }

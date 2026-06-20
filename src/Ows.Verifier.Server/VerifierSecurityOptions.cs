@@ -11,8 +11,8 @@ public sealed record VerifierSecurityOptions
     public string ApiKey { get; init; } = string.Empty;
 
     /// <summary>
-     /// Gets the request header name carrying the shared API key.
-     /// </summary>
+    /// Gets the request header name carrying the shared API key.
+    /// </summary>
     public string HeaderName { get; init; } = "X-OWS-Verifier-Key";
 
     /// <summary>
@@ -62,7 +62,8 @@ internal static class VerifierRolePolicy
     /// </summary>
     public static string NormalizeRoleName(string role)
     {
-        var normalized = role?.Trim().Replace("_", string.Empty, StringComparison.Ordinal).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
+        var normalized = role?.Trim().Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
         return normalized switch
         {
             "operator" => Operator,

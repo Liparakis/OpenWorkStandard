@@ -1,6 +1,5 @@
 using FluentAssertions;
 using System.IO.Compression;
-using Ows.Cli;
 
 namespace Ows.Cli.Tests;
 
@@ -18,7 +17,7 @@ public sealed class OwsPackageCommandTests
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-package-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
-        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "draft");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft");
         var originalDirectory = Directory.GetCurrentDirectory();
 
         try
@@ -35,7 +34,8 @@ public sealed class OwsPackageCommandTests
             File.Exists(packagePath).Should().BeTrue();
 
             using var archive = ZipFile.OpenRead(packagePath);
-            archive.Entries.Select(entry => entry.FullName).Should().Contain(["manifest.json", "timeline.jsonl", "artifacts/draft.txt"]);
+            archive.Entries.Select(entry => entry.FullName).Should()
+                .Contain(["manifest.json", "timeline.jsonl", "artifacts/draft.txt"]);
         }
         finally
         {

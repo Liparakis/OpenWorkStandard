@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Ows.Cli;
 
 namespace Ows.Cli.Tests;
 

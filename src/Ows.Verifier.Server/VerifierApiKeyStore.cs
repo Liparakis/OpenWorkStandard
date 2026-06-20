@@ -307,7 +307,8 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
         {
             var now = DateTimeOffset.UtcNow;
             var keyHash = VerifierApiKeyMaterial.ComputeKeyHash(rawApiKey);
-            var record = _records.Values.FirstOrDefault(candidate => string.Equals(candidate.KeyHash, keyHash, StringComparison.Ordinal));
+            var record = _records.Values.FirstOrDefault(candidate =>
+                string.Equals(candidate.KeyHash, keyHash, StringComparison.Ordinal));
             if (record is null || !record.IsActiveAt(now))
             {
                 return Task.FromResult<VerifierAccessContext?>(null);
@@ -315,7 +316,8 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
 
             _records[record.KeyId] = record with { LastUsedAtUtc = now };
             SaveToDisk();
-            return Task.FromResult<VerifierAccessContext?>(new VerifierAccessContext(record.Role, record.InstitutionId, rawApiKey));
+            return Task.FromResult<VerifierAccessContext?>(new VerifierAccessContext(record.Role, record.InstitutionId,
+                rawApiKey));
         }
     }
 

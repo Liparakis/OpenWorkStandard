@@ -1,8 +1,6 @@
 using System.Text.Json;
 using System.Text;
-
 using FluentAssertions;
-
 using Ows.Cli;
 using Ows.Core;
 using Ows.Core.Notarization;
@@ -97,7 +95,8 @@ public sealed class OwsSessionCommandTests
         using var verifierServer = new StubVerifierServer((method, path) => path switch
         {
             "sessions" when method == "POST" => new StartSessionResponse { SessionId = RemoteSessionId.Value },
-            var value when value == $"sessions/{RemoteSessionId}/checkpoints" && method == "POST" => CreateRemoteReceipt(),
+            var value when value == $"sessions/{RemoteSessionId}/checkpoints" && method == "POST" =>
+                CreateRemoteReceipt(),
             var value when value == $"sessions/{RemoteSessionId}/receipts" && method == "GET" => new ReceiptChain
             {
                 SessionId = RemoteSessionId,
@@ -185,7 +184,8 @@ public sealed class OwsSessionCommandTests
         using var verifierServer = new StubVerifierServer((method, path) => path switch
         {
             "sessions" when method == "POST" => new StartSessionResponse { SessionId = RemoteSessionId.Value },
-            var value when value == $"sessions/{RemoteSessionId}/checkpoints" && method == "POST" => CreateRemoteReceipt(),
+            var value when value == $"sessions/{RemoteSessionId}/checkpoints" && method == "POST" =>
+                CreateRemoteReceipt(),
             var value when value == $"sessions/{RemoteSessionId}/receipts" && method == "GET" => new ReceiptChain
             {
                 SessionId = RemoteSessionId,
@@ -241,19 +241,20 @@ public sealed class OwsSessionCommandTests
         using var verifierServer = new StubVerifierServer((method, path) => path switch
         {
             "sessions" when method == "POST" => new StartSessionResponse { SessionId = RemoteSessionId.Value },
-            var p when p == $"sessions/{RemoteSessionId.Value}/heartbeat" && method == "POST" => new SessionHeartbeatResponse
-            {
-                ServerTime = DateTimeOffset.UtcNow,
-                LeaseExpiresAt = DateTimeOffset.UtcNow.AddMinutes(2),
-                SessionTrustState = "Verified",
-                SessionHead = new SessionHeadResponse
+            var p when p == $"sessions/{RemoteSessionId.Value}/heartbeat" && method == "POST" => new
+                SessionHeartbeatResponse
                 {
-                    SessionId = RemoteSessionId.Value,
-                    LastSequenceNumber = 0,
-                    LastTimelineHeadHash = "genesis",
-                    LastReceiptHash = "genesis-receipt"
-                }
-            },
+                    ServerTime = DateTimeOffset.UtcNow,
+                    LeaseExpiresAt = DateTimeOffset.UtcNow.AddMinutes(2),
+                    SessionTrustState = "Verified",
+                    SessionHead = new SessionHeadResponse
+                    {
+                        SessionId = RemoteSessionId.Value,
+                        LastSequenceNumber = 0,
+                        LastTimelineHeadHash = "genesis",
+                        LastReceiptHash = "genesis-receipt"
+                    }
+                },
             _ => null
         });
 

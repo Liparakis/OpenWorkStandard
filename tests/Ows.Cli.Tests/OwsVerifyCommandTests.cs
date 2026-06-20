@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Ows.Cli;
 using Ows.Core;
 using Ows.Core.Events;
 using Ows.Core.Notarization;
@@ -22,7 +21,7 @@ public sealed class OwsVerifyCommandTests
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-verify-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
-        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "draft");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft");
         var originalDirectory = Directory.GetCurrentDirectory();
 
         try
@@ -56,7 +55,7 @@ public sealed class OwsVerifyCommandTests
     {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-verify-remote-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
-        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "draft");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft");
         var originalDirectory = Directory.GetCurrentDirectory();
         var sessionId = new AssessmentSessionId("verify-session-1");
         var remoteReceiptChain = new ReceiptChain
@@ -64,17 +63,21 @@ public sealed class OwsVerifyCommandTests
             SessionId = sessionId,
             Receipts = [CreateReceipt(sessionId, "stub-head")]
         };
+        var chain = remoteReceiptChain;
         using var verifierServer = new StubVerifierServer((method, path) => path switch
         {
             "sessions" when method == "POST" => new StartSessionResponse { SessionId = sessionId.Value },
-            var value when value == $"sessions/{sessionId}/checkpoints" && method == "POST" => CreateReceipt(sessionId, "stub-head"),
-            var value when value == $"sessions/{sessionId}/receipts" && method == "GET" => remoteReceiptChain,
-            var value when value == $"sessions/{sessionId}/head" && method == "GET" => new SessionHeadResponse
+            _ when path == $"sessions/{sessionId}/checkpoints" && method == "POST" => CreateReceipt(sessionId,
+                "stub-head"),
+            _ when path == $"sessions/{sessionId}/receipts" && method == "GET" => chain,
+            _ when path == $"sessions/{sessionId}/head" && method == "GET" => new SessionHeadResponse
             {
                 SessionId = sessionId.Value,
-                LastSequenceNumber = remoteReceiptChain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
-                LastTimelineHeadHash = remoteReceiptChain.Receipts.LastOrDefault()?.TimelineHeadHash ?? OwsEventChain.GenesisPreviousEventHash,
-                LastReceiptHash = remoteReceiptChain.Receipts.LastOrDefault()?.ReceiptHash ?? ReceiptChainVerifier.GenesisPreviousReceiptHash
+                LastSequenceNumber = chain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
+                LastTimelineHeadHash = chain.Receipts.LastOrDefault()?.TimelineHeadHash ??
+                                       OwsEventChain.GenesisPreviousEventHash,
+                LastReceiptHash = chain.Receipts.LastOrDefault()?.ReceiptHash ??
+                                  ReceiptChainVerifier.GenesisPreviousReceiptHash
             },
             _ => null
         });
@@ -85,9 +88,11 @@ public sealed class OwsVerifyCommandTests
 
             (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
             await OwsTestHelpers.RunInitialScanAsync(projectRoot);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["session", "start", "--server", verifierServer.BaseUrl]).InvokeAsync()).Should().Be(0);
+            (await OwsCommandFactory.BuildRootCommand().Parse(["session", "start", "--server", verifierServer.BaseUrl])
+                .InvokeAsync()).Should().Be(0);
             (await OwsCommandFactory.BuildRootCommand().Parse(["session", "checkpoint"]).InvokeAsync()).Should().Be(0);
-            var actualTimelineHeadHash = OwsEventChain.ReadLastEventHash(Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName));
+            var actualTimelineHeadHash =
+                OwsEventChain.ReadLastEventHash(Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName));
             remoteReceiptChain = new ReceiptChain
             {
                 SessionId = sessionId,
@@ -97,7 +102,8 @@ public sealed class OwsVerifyCommandTests
                 Path.Combine(projectRoot, ".ows", OwsConstants.ReceiptsFileName),
                 JsonSerializer.Serialize(remoteReceiptChain));
             (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
-            var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
+            var packagePath = Path.Combine(projectRoot,
+                $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update))
             {
                 archive.GetEntry(OwsConstants.ReceiptsFileName)!.Delete();
@@ -137,17 +143,21 @@ public sealed class OwsVerifyCommandTests
             SessionId = sessionId,
             Receipts = [CreateReceipt(sessionId, "stub-head")]
         };
+        var chain = remoteReceiptChain;
         using var verifierServer = new StubVerifierServer((method, path) => path switch
         {
             "sessions" when method == "POST" => new StartSessionResponse { SessionId = sessionId.Value },
-            var value when value == $"sessions/{sessionId}/checkpoints" && method == "POST" => CreateReceipt(sessionId, "stub-head"),
-            var value when value == $"sessions/{sessionId}/receipts" && method == "GET" => remoteReceiptChain,
-            var value when value == $"sessions/{sessionId}/head" && method == "GET" => new SessionHeadResponse
+            _ when path == $"sessions/{sessionId}/checkpoints" && method == "POST" => CreateReceipt(sessionId,
+                "stub-head"),
+            _ when path == $"sessions/{sessionId}/receipts" && method == "GET" => chain,
+            _ when path == $"sessions/{sessionId}/head" && method == "GET" => new SessionHeadResponse
             {
                 SessionId = sessionId.Value,
-                LastSequenceNumber = remoteReceiptChain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
-                LastTimelineHeadHash = remoteReceiptChain.Receipts.LastOrDefault()?.TimelineHeadHash ?? OwsEventChain.GenesisPreviousEventHash,
-                LastReceiptHash = remoteReceiptChain.Receipts.LastOrDefault()?.ReceiptHash ?? ReceiptChainVerifier.GenesisPreviousReceiptHash
+                LastSequenceNumber = chain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
+                LastTimelineHeadHash = chain.Receipts.LastOrDefault()?.TimelineHeadHash ??
+                                       OwsEventChain.GenesisPreviousEventHash,
+                LastReceiptHash = chain.Receipts.LastOrDefault()?.ReceiptHash ??
+                                  ReceiptChainVerifier.GenesisPreviousReceiptHash
             },
             _ => null
         });
@@ -158,9 +168,11 @@ public sealed class OwsVerifyCommandTests
 
             (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
             await OwsTestHelpers.RunInitialScanAsync(projectRoot);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["session", "start", "--server", verifierServer.BaseUrl]).InvokeAsync()).Should().Be(0);
+            (await OwsCommandFactory.BuildRootCommand().Parse(["session", "start", "--server", verifierServer.BaseUrl])
+                .InvokeAsync()).Should().Be(0);
             (await OwsCommandFactory.BuildRootCommand().Parse(["session", "checkpoint"]).InvokeAsync()).Should().Be(0);
-            var actualTimelineHeadHash = OwsEventChain.ReadLastEventHash(Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName));
+            var actualTimelineHeadHash =
+                OwsEventChain.ReadLastEventHash(Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName));
             remoteReceiptChain = new ReceiptChain
             {
                 SessionId = sessionId,
@@ -171,21 +183,23 @@ public sealed class OwsVerifyCommandTests
                 JsonSerializer.Serialize(remoteReceiptChain));
             (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
 
-            var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
+            var packagePath = Path.Combine(projectRoot,
+                $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update))
             {
                 archive.GetEntry(OwsConstants.ReceiptsFileName)!.Delete();
                 archive.GetEntry(OwsConstants.SessionFileName)!.Delete();
                 var tamperedSessionEntry = archive.CreateEntry(OwsConstants.SessionFileName);
-                using var writer = new StreamWriter(tamperedSessionEntry.Open());
-                writer.Write(JsonSerializer.Serialize(new SessionState
+                await using var writer = new StreamWriter(tamperedSessionEntry.Open());
+                await writer.WriteAsync(JsonSerializer.Serialize(new SessionState
                 {
                     SessionId = "wrong-session",
                     VerifierUrl = verifierServer.BaseUrl
                 }));
             }
 
-            var verifyResult = await OwsCommandFactory.BuildRootCommand().Parse(["verify", "--server", verifierServer.BaseUrl]).InvokeAsync();
+            var verifyResult = await OwsCommandFactory.BuildRootCommand()
+                .Parse(["verify", "--server", verifierServer.BaseUrl]).InvokeAsync();
 
             verifyResult.Should().Be(1);
         }
