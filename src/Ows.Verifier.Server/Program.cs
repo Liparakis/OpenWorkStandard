@@ -1863,14 +1863,14 @@ app.MapGet("/education/course-offerings/{id}", async (string id, IEducationStore
     return offering is null ? Results.NotFound($"Course offering '{id}' not found.") : Results.Ok(offering);
 });
 
-// Enrollments
-app.MapPost("/education/enrollments", async (HttpContext context, Enrollment enrollment, IEducationStore educationStore,
+// Student enrollments
+app.MapPost("/education/enrollments", async (HttpContext context, StudentEnrollment studentEnrollment, IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
     var callerAccess = TryGetAccessContext(context);
     if (callerAccess is not null && !IsOperatorRole(callerAccess.Role))
     {
-        var offering = await educationStore.GetCourseOfferingAsync(enrollment.CourseOfferingId, cancellationToken);
+        var offering = await educationStore.GetCourseOfferingAsync(studentEnrollment.CourseOfferingId, cancellationToken);
         if (offering is null || !string.Equals(offering.InstitutionId.Value, callerAccess.InstitutionId,
                 StringComparison.OrdinalIgnoreCase))
         {
@@ -1878,23 +1878,25 @@ app.MapPost("/education/enrollments", async (HttpContext context, Enrollment enr
         }
     }
 
-    await educationStore.CreateEnrollmentAsync(enrollment, cancellationToken);
-    return Results.Ok(enrollment);
+    await educationStore.CreateStudentEnrollmentAsync(studentEnrollment, cancellationToken);
+    return Results.Ok(studentEnrollment);
 });
 
-app.MapGet("/education/enrollments/user/{userId}", async (string userId, IEducationStore educationStore,
+app.MapGet("/education/enrollments/student/{studentUserId}", async (string studentUserId, IEducationStore educationStore,
     CancellationToken cancellationToken) =>
 {
-    var enrollments = await educationStore.GetEnrollmentsForUserAsync(new UserId(userId), cancellationToken);
-    return Results.Ok(enrollments);
+    var studentEnrollments = await educationStore.GetStudentEnrollmentsForStudentAsync(
+        new UserId(studentUserId),
+        cancellationToken);
+    return Results.Ok(studentEnrollments);
 });
 
 app.MapGet("/education/enrollments/offering/{offeringId}", async (string offeringId,
     IEducationStore educationStore, CancellationToken cancellationToken) =>
 {
-    var enrollments = await educationStore.GetEnrollmentsForOfferingAsync(
+    var studentEnrollments = await educationStore.GetStudentEnrollmentsForOfferingAsync(
         new CourseOfferingId(offeringId), cancellationToken);
-    return Results.Ok(enrollments);
+    return Results.Ok(studentEnrollments);
 });
 
 // Assessments

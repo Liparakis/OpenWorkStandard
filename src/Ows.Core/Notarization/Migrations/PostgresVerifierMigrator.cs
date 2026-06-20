@@ -152,8 +152,7 @@ public static class PostgresVerifierMigrator
                                                      create table if not exists edu_enrollments (
                                                          id text primary key,
                                                          course_offering_id text not null references edu_course_offerings(id) on delete cascade,
-                                                         user_id text not null references edu_users(id) on delete cascade,
-                                                         role text not null,
+                                                         student_user_id text not null references edu_users(id) on delete cascade,
                                                          created_at timestamptz not null
                                                      );
 
@@ -225,6 +224,65 @@ public static class PostgresVerifierMigrator
                                                             add column if not exists student_user_id text null;
                                                         """;
 
+    private const string Migration011StudentEnrollmentModelSql = """
+                                                                 alter table edu_enrollments
+                                                                     add column if not exists student_user_id text null;
+
+                                                                 do $$
+                                                                 begin
+                                                                     if exists (
+                                                                         select 1
+                                                                         from information_schema.columns
+                                                                         where table_schema = current_schema()
+                                                                           and table_name = 'edu_enrollments'
+                                                                           and column_name = 'user_id'
+                                                                     ) then
+                                                                         execute '
+                                                                             update edu_enrollments
+                                                                             set student_user_id = user_id
+                                                                             where student_user_id is null
+                                                                               and user_id is not null;
+                                                                         ';
+                                                                     end if;
+                                                                 end $$;
+
+                                                                 alter table edu_enrollments
+                                                                     alter column student_user_id set not null;
+
+                                                                 do $$
+                                                                 begin
+                                                                     if exists (
+                                                                         select 1
+                                                                         from information_schema.table_constraints
+                                                                         where constraint_schema = current_schema()
+                                                                           and table_name = 'edu_enrollments'
+                                                                           and constraint_name = 'edu_enrollments_user_id_fkey'
+                                                                     ) then
+                                                                         alter table edu_enrollments
+                                                                             drop constraint edu_enrollments_user_id_fkey;
+                                                                     end if;
+                                                                 end $$;
+
+                                                                 do $$
+                                                                 begin
+                                                                     if not exists (
+                                                                         select 1
+                                                                         from information_schema.table_constraints
+                                                                         where constraint_schema = current_schema()
+                                                                           and table_name = 'edu_enrollments'
+                                                                           and constraint_name = 'edu_enrollments_student_user_id_fkey'
+                                                                     ) then
+                                                                         alter table edu_enrollments
+                                                                             add constraint edu_enrollments_student_user_id_fkey
+                                                                                 foreign key (student_user_id) references edu_users(id) on delete cascade;
+                                                                     end if;
+                                                                 end $$;
+
+                                                                 alter table edu_enrollments
+                                                                     drop column if exists role,
+                                                                     drop column if exists user_id;
+                                                                 """;
+
     /// <summary>
     /// Applies any missing ordered verifier schema migrations using a fresh data source.
     /// </summary>
@@ -283,7 +341,8 @@ public static class PostgresVerifierMigrator
         new(7, "education-wiring", Migration007EducationSql),
         new(8, "api-keys", Migration008ApiKeysSql),
         new(9, "package-intake-jobs", Migration009PackageIntakeJobsSql),
-        new(10, "student-client", Migration010StudentClientSql)
+        new(10, "student-client", Migration010StudentClientSql),
+        new(11, "student-enrollment-model", Migration011StudentEnrollmentModelSql)
     ];
 
     /// <summary>

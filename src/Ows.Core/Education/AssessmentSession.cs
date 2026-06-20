@@ -1,4 +1,3 @@
-using System;
 using Ows.Core.Notarization;
 using Ows.Core.Verification;
 
@@ -12,32 +11,32 @@ public sealed record AssessmentSession
     /// <summary>
     /// Gets the unique verifier assessment session identifier.
     /// </summary>
-    public AssessmentSessionId Id { get; init; }
+    public AssessmentSessionId Id { get; }
 
     /// <summary>
     /// Gets the associated educational assessment identifier.
     /// </summary>
-    public AssessmentId AssessmentId { get; init; }
+    public AssessmentId AssessmentId { get; }
 
     /// <summary>
     /// Gets the student user identifier who owns the session.
     /// </summary>
-    public UserId StudentUserId { get; init; }
+    public UserId StudentUserId { get; }
 
     /// <summary>
     /// Gets the optional submission package identifier.
     /// </summary>
-    public string? PackageId { get; init; }
+    public string? PackageId { get; }
 
     /// <summary>
     /// Gets the validation trust status of the session.
     /// </summary>
-    public TrustStatus TrustStatus { get; init; }
+    public TrustStatus TrustStatus { get; }
 
     /// <summary>
     /// Gets the UTC creation timestamp.
     /// </summary>
-    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset CreatedAt { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AssessmentSession"/> class.

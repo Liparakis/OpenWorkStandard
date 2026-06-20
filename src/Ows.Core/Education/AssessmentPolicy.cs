@@ -1,5 +1,3 @@
-using System;
-
 namespace Ows.Core.Education;
 
 /// <summary>
@@ -68,7 +66,7 @@ public sealed record AssessmentPolicy
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(institutionId.Value, nameof(institutionId));
-        ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (heartbeatTargetSeconds < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(heartbeatTargetSeconds), "Target seconds must be non-negative.");

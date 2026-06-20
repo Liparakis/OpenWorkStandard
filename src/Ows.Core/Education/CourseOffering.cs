@@ -1,5 +1,3 @@
-using System;
-
 namespace Ows.Core.Education;
 
 /// <summary>
@@ -10,52 +8,54 @@ public sealed record CourseOffering
     /// <summary>
     /// Gets the unique course offering identifier.
     /// </summary>
-    public CourseOfferingId Id { get; init; }
+    public CourseOfferingId Id { get; }
 
     /// <summary>
     /// Gets the institution identifier.
     /// </summary>
-    public InstitutionId InstitutionId { get; init; }
+    public InstitutionId InstitutionId { get; }
 
     /// <summary>
     /// Gets the course template identifier.
     /// </summary>
-    public CourseId CourseId { get; init; }
+    public CourseId CourseId { get; }
 
     /// <summary>
     /// Gets the class group cohort identifier.
     /// </summary>
-    public ClassGroupId ClassGroupId { get; init; }
+    public ClassGroupId ClassGroupId { get; }
 
     /// <summary>
     /// Gets the academic term (e.g. "Spring", "September Retake").
     /// </summary>
-    public string Term { get; init; }
+    public string Term { get; }
 
     /// <summary>
     /// Gets the offering year.
     /// </summary>
-    public int Year { get; init; }
+    public int Year { get; }
 
     /// <summary>
     /// Gets the UTC creation timestamp.
     /// </summary>
-    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset CreatedAt { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CourseOffering"/> class.
     /// </summary>
-    public CourseOffering(CourseOfferingId id, InstitutionId institutionId, CourseId courseId, ClassGroupId classGroupId, string term, int year, DateTimeOffset createdAt)
+    public CourseOffering(CourseOfferingId id, InstitutionId institutionId, CourseId courseId,
+        ClassGroupId classGroupId, string term, int year, DateTimeOffset createdAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(institutionId.Value, nameof(institutionId));
         ArgumentException.ThrowIfNullOrWhiteSpace(courseId.Value, nameof(courseId));
         ArgumentException.ThrowIfNullOrWhiteSpace(classGroupId.Value, nameof(classGroupId));
-        ArgumentException.ThrowIfNullOrWhiteSpace(term, nameof(term));
+        ArgumentException.ThrowIfNullOrWhiteSpace(term);
         if (year <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(year), "Year must be a positive integer.");
         }
+
         if (createdAt == default)
         {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));

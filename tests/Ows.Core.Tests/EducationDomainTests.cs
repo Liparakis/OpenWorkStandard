@@ -131,24 +131,22 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void Enrollment_ShouldInitializeAndValidateCorrectly()
+    public void StudentEnrollment_ShouldInitializeAndValidateCorrectly()
     {
         var id = EnrollmentId.Create();
         var offeringId = CourseOfferingId.Create();
-        var userId = UserId.Create();
-        var role = EducationRole.Student;
+        var studentUserId = UserId.Create();
 
         // Success Path
-        var enrollment = new Enrollment(id, offeringId, userId, role, _testTime);
-        enrollment.Id.Should().Be(id);
-        enrollment.CourseOfferingId.Should().Be(offeringId);
-        enrollment.UserId.Should().Be(userId);
-        enrollment.Role.Should().Be(role);
-        enrollment.CreatedAt.Should().Be(_testTime);
+        var studentEnrollment = new StudentEnrollment(id, offeringId, studentUserId, _testTime);
+        studentEnrollment.Id.Should().Be(id);
+        studentEnrollment.CourseOfferingId.Should().Be(offeringId);
+        studentEnrollment.StudentUserId.Should().Be(studentUserId);
+        studentEnrollment.CreatedAt.Should().Be(_testTime);
 
         // Validation Failures
-        Assert.Throws<ArgumentException>(() => new Enrollment(new EnrollmentId(""), offeringId, userId, role, _testTime));
-        Assert.Throws<ArgumentException>(() => new Enrollment(id, offeringId, userId, role, default));
+        Assert.Throws<ArgumentException>(() => new StudentEnrollment(new EnrollmentId(""), offeringId, studentUserId, _testTime));
+        Assert.Throws<ArgumentException>(() => new StudentEnrollment(id, offeringId, studentUserId, default));
     }
 
     [Fact]

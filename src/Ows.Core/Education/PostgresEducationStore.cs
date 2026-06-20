@@ -15,7 +15,7 @@ public sealed class PostgresEducationStore : IEducationStore
     /// <param name="connectionString">The PostgreSQL connection string.</param>
     public PostgresEducationStore(string connectionString)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString, nameof(connectionString));
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
     }
 
@@ -61,6 +61,7 @@ public sealed class PostgresEducationStore : IEducationStore
                 reader.GetFieldValue<DateTimeOffset>(3)
             );
         }
+
         return null;
     }
 
@@ -101,6 +102,7 @@ public sealed class PostgresEducationStore : IEducationStore
                 reader.GetFieldValue<DateTimeOffset>(4)
             );
         }
+
         return null;
     }
 
@@ -139,6 +141,7 @@ public sealed class PostgresEducationStore : IEducationStore
                 reader.GetFieldValue<DateTimeOffset>(3)
             );
         }
+
         return null;
     }
 
@@ -167,7 +170,8 @@ public sealed class PostgresEducationStore : IEducationStore
     {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "select id, institution_id, display_name, external_id, email, created_at from edu_users where id = @id;";
+        command.CommandText =
+            "select id, institution_id, display_name, external_id, email, created_at from edu_users where id = @id;";
         command.Parameters.AddWithValue("id", id.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
@@ -181,6 +185,7 @@ public sealed class PostgresEducationStore : IEducationStore
                 reader.GetFieldValue<DateTimeOffset>(5)
             );
         }
+
         return null;
     }
 
@@ -210,7 +215,8 @@ public sealed class PostgresEducationStore : IEducationStore
     {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "select id, institution_id, course_id, class_group_id, term, year, created_at from edu_course_offerings where id = @id;";
+        command.CommandText =
+            "select id, institution_id, course_id, class_group_id, term, year, created_at from edu_course_offerings where id = @id;";
         command.Parameters.AddWithValue("id", id.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
@@ -225,71 +231,77 @@ public sealed class PostgresEducationStore : IEducationStore
                 reader.GetFieldValue<DateTimeOffset>(6)
             );
         }
+
         return null;
     }
 
     /// <inheritdoc />
-    public async Task CreateEnrollmentAsync(Enrollment enrollment, CancellationToken cancellationToken)
+    public async Task CreateStudentEnrollmentAsync(
+        StudentEnrollment studentEnrollment,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(enrollment);
+        ArgumentNullException.ThrowIfNull(studentEnrollment);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-                              insert into edu_enrollments (id, course_offering_id, user_id, role, created_at)
-                              values (@id, @course_offering_id, @user_id, @role, @created_at)
-                              on conflict (id) do update set role = @role;
+                              insert into edu_enrollments (id, course_offering_id, student_user_id, created_at)
+                              values (@id, @course_offering_id, @student_user_id, @created_at)
+                              on conflict (id) do update set course_offering_id = @course_offering_id, student_user_id = @student_user_id;
                               """;
-        command.Parameters.AddWithValue("id", enrollment.Id.Value);
-        command.Parameters.AddWithValue("course_offering_id", enrollment.CourseOfferingId.Value);
-        command.Parameters.AddWithValue("user_id", enrollment.UserId.Value);
-        command.Parameters.AddWithValue("role", enrollment.Role.ToString());
-        command.Parameters.AddWithValue("created_at", enrollment.CreatedAt);
+        command.Parameters.AddWithValue("id", studentEnrollment.Id.Value);
+        command.Parameters.AddWithValue("course_offering_id", studentEnrollment.CourseOfferingId.Value);
+        command.Parameters.AddWithValue("student_user_id", studentEnrollment.StudentUserId.Value);
+        command.Parameters.AddWithValue("created_at", studentEnrollment.CreatedAt);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Enrollment>> GetEnrollmentsForUserAsync(UserId userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<StudentEnrollment>> GetStudentEnrollmentsForStudentAsync(
+        UserId studentUserId,
+        CancellationToken cancellationToken)
     {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "select id, course_offering_id, user_id, role, created_at from edu_enrollments where user_id = @user_id;";
-        command.Parameters.AddWithValue("user_id", userId.Value);
-        var list = new List<Enrollment>();
+        command.CommandText =
+            "select id, course_offering_id, student_user_id, created_at from edu_enrollments where student_user_id = @student_user_id;";
+        command.Parameters.AddWithValue("student_user_id", studentUserId.Value);
+        var list = new List<StudentEnrollment>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            Enum.TryParse<EducationRole>(reader.GetString(3), out var role);
-            list.Add(new Enrollment(
+            list.Add(new StudentEnrollment(
                 new EnrollmentId(reader.GetString(0)),
                 new CourseOfferingId(reader.GetString(1)),
                 new UserId(reader.GetString(2)),
-                role,
-                reader.GetFieldValue<DateTimeOffset>(4)
+                reader.GetFieldValue<DateTimeOffset>(3)
             ));
         }
+
         return list;
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Enrollment>> GetEnrollmentsForOfferingAsync(CourseOfferingId offeringId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<StudentEnrollment>> GetStudentEnrollmentsForOfferingAsync(
+        CourseOfferingId offeringId,
+        CancellationToken cancellationToken)
     {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "select id, course_offering_id, user_id, role, created_at from edu_enrollments where course_offering_id = @offering_id;";
+        command.CommandText =
+            "select id, course_offering_id, student_user_id, created_at from edu_enrollments where course_offering_id = @offering_id;";
         command.Parameters.AddWithValue("offering_id", offeringId.Value);
-        var list = new List<Enrollment>();
+        var list = new List<StudentEnrollment>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            Enum.TryParse<EducationRole>(reader.GetString(3), out var role);
-            list.Add(new Enrollment(
+            list.Add(new StudentEnrollment(
                 new EnrollmentId(reader.GetString(0)),
                 new CourseOfferingId(reader.GetString(1)),
                 new UserId(reader.GetString(2)),
-                role,
-                reader.GetFieldValue<DateTimeOffset>(4)
+                reader.GetFieldValue<DateTimeOffset>(3)
             ));
         }
+
         return list;
     }
 
@@ -320,7 +332,8 @@ public sealed class PostgresEducationStore : IEducationStore
     {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "select id, institution_id, course_offering_id, title, starts_at, ends_at, policy_id, created_at from edu_assessments where id = @id;";
+        command.CommandText =
+            "select id, institution_id, course_offering_id, title, starts_at, ends_at, policy_id, created_at from edu_assessments where id = @id;";
         command.Parameters.AddWithValue("id", id.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
@@ -336,6 +349,7 @@ public sealed class PostgresEducationStore : IEducationStore
                 reader.GetFieldValue<DateTimeOffset>(7)
             );
         }
+
         return null;
     }
 }

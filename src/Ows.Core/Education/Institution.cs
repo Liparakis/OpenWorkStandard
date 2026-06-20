@@ -1,5 +1,3 @@
-using System;
-
 namespace Ows.Core.Education;
 
 /// <summary>
@@ -33,8 +31,8 @@ public sealed record Institution
     public Institution(InstitutionId id, string name, string slug, DateTimeOffset createdAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
-        ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
-        ArgumentException.ThrowIfNullOrWhiteSpace(slug, nameof(slug));
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(slug);
         if (createdAt == default)
         {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));

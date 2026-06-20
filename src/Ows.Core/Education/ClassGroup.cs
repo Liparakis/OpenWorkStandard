@@ -10,22 +10,22 @@ public sealed record ClassGroup
     /// <summary>
     /// Gets the class group identifier.
     /// </summary>
-    public ClassGroupId Id { get; init; }
+    public ClassGroupId Id { get; }
 
     /// <summary>
     /// Gets the institution identifier this class group belongs to.
     /// </summary>
-    public InstitutionId InstitutionId { get; init; }
+    public InstitutionId InstitutionId { get; }
 
     /// <summary>
     /// Gets the name of the class cohort (e.g. "Section A", "Informatics 2026").
     /// </summary>
-    public string Name { get; init; }
+    public string Name { get; }
 
     /// <summary>
     /// Gets the UTC creation timestamp.
     /// </summary>
-    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset CreatedAt { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ClassGroup"/> class.
@@ -34,7 +34,7 @@ public sealed record ClassGroup
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(institutionId.Value, nameof(institutionId));
-        ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (createdAt == default)
         {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));

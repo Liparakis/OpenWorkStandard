@@ -21,7 +21,7 @@ public sealed class JsonFileEducationStore : IEducationStore
     private Dictionary<string, ClassGroup> _classes = [];
     private Dictionary<string, User> _users = [];
     private Dictionary<string, CourseOffering> _offerings = [];
-    private Dictionary<string, Enrollment> _enrollments = [];
+    private Dictionary<string, StudentEnrollment> _studentEnrollments = [];
     private Dictionary<string, Assessment> _assessments = [];
 
     /// <summary>
@@ -30,7 +30,7 @@ public sealed class JsonFileEducationStore : IEducationStore
     /// <param name="storePath">The path to the JSON storage file.</param>
     public JsonFileEducationStore(string storePath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storePath, nameof(storePath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(storePath);
         _storePath = storePath;
     }
 
@@ -57,7 +57,7 @@ public sealed class JsonFileEducationStore : IEducationStore
                     _classes = data.Classes ?? [];
                     _users = data.Users ?? [];
                     _offerings = data.Offerings ?? [];
-                    _enrollments = data.Enrollments ?? [];
+                    _studentEnrollments = data.StudentEnrollments ?? data.Enrollments ?? [];
                     _assessments = data.Assessments ?? [];
                 }
             }
@@ -87,7 +87,7 @@ public sealed class JsonFileEducationStore : IEducationStore
                     Classes = _classes,
                     Users = _users,
                     Offerings = _offerings,
-                    Enrollments = _enrollments,
+                    StudentEnrollments = _studentEnrollments,
                     Assessments = _assessments
                 };
 
@@ -111,6 +111,7 @@ public sealed class JsonFileEducationStore : IEducationStore
             _institutions[institution.Id.Value] = institution;
             SaveToDisk();
         }
+
         return Task.CompletedTask;
     }
 
@@ -132,6 +133,7 @@ public sealed class JsonFileEducationStore : IEducationStore
             _courses[course.Id.Value] = course;
             SaveToDisk();
         }
+
         return Task.CompletedTask;
     }
 
@@ -153,6 +155,7 @@ public sealed class JsonFileEducationStore : IEducationStore
             _classes[classGroup.Id.Value] = classGroup;
             SaveToDisk();
         }
+
         return Task.CompletedTask;
     }
 
@@ -174,6 +177,7 @@ public sealed class JsonFileEducationStore : IEducationStore
             _users[user.Id.Value] = user;
             SaveToDisk();
         }
+
         return Task.CompletedTask;
     }
 
@@ -195,6 +199,7 @@ public sealed class JsonFileEducationStore : IEducationStore
             _offerings[offering.Id.Value] = offering;
             SaveToDisk();
         }
+
         return Task.CompletedTask;
     }
 
@@ -208,33 +213,42 @@ public sealed class JsonFileEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public Task CreateEnrollmentAsync(Enrollment enrollment, CancellationToken cancellationToken)
+    public Task CreateStudentEnrollmentAsync(StudentEnrollment studentEnrollment, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(enrollment);
+        ArgumentNullException.ThrowIfNull(studentEnrollment);
         lock (_gate)
         {
-            _enrollments[enrollment.Id.Value] = enrollment;
+            _studentEnrollments[studentEnrollment.Id.Value] = studentEnrollment;
             SaveToDisk();
         }
+
         return Task.CompletedTask;
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<Enrollment>> GetEnrollmentsForUserAsync(UserId userId, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<StudentEnrollment>> GetStudentEnrollmentsForStudentAsync(
+        UserId studentUserId,
+        CancellationToken cancellationToken)
     {
         lock (_gate)
         {
-            IReadOnlyList<Enrollment> result = _enrollments.Values.Where(e => e.UserId == userId).ToList();
+            IReadOnlyList<StudentEnrollment> result = _studentEnrollments.Values
+                .Where(e => e.StudentUserId == studentUserId)
+                .ToList();
             return Task.FromResult(result);
         }
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<Enrollment>> GetEnrollmentsForOfferingAsync(CourseOfferingId offeringId, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<StudentEnrollment>> GetStudentEnrollmentsForOfferingAsync(
+        CourseOfferingId offeringId,
+        CancellationToken cancellationToken)
     {
         lock (_gate)
         {
-            IReadOnlyList<Enrollment> result = _enrollments.Values.Where(e => e.CourseOfferingId == offeringId).ToList();
+            IReadOnlyList<StudentEnrollment> result = _studentEnrollments.Values
+                .Where(e => e.CourseOfferingId == offeringId)
+                .ToList();
             return Task.FromResult(result);
         }
     }
@@ -248,6 +262,7 @@ public sealed class JsonFileEducationStore : IEducationStore
             _assessments[assessment.Id.Value] = assessment;
             SaveToDisk();
         }
+
         return Task.CompletedTask;
     }
 
@@ -262,12 +277,13 @@ public sealed class JsonFileEducationStore : IEducationStore
 
     private sealed class EducationJsonData
     {
-        public Dictionary<string, Institution>? Institutions { get; set; }
-        public Dictionary<string, Course>? Courses { get; set; }
-        public Dictionary<string, ClassGroup>? Classes { get; set; }
-        public Dictionary<string, User>? Users { get; set; }
-        public Dictionary<string, CourseOffering>? Offerings { get; set; }
-        public Dictionary<string, Enrollment>? Enrollments { get; set; }
-        public Dictionary<string, Assessment>? Assessments { get; set; }
+        public Dictionary<string, Institution>? Institutions { get; init; }
+        public Dictionary<string, Course>? Courses { get; init; }
+        public Dictionary<string, ClassGroup>? Classes { get; init; }
+        public Dictionary<string, User>? Users { get; init; }
+        public Dictionary<string, CourseOffering>? Offerings { get; init; }
+        public Dictionary<string, StudentEnrollment>? StudentEnrollments { get; init; }
+        public Dictionary<string, StudentEnrollment>? Enrollments { get; init; }
+        public Dictionary<string, Assessment>? Assessments { get; init; }
     }
 }

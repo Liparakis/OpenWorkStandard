@@ -56,19 +56,23 @@ public interface IEducationStore
     Task<CourseOffering?> GetCourseOfferingAsync(CourseOfferingId id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Creates or updates an enrollment record.
+    /// Creates or updates a student enrollment record.
     /// </summary>
-    Task CreateEnrollmentAsync(Enrollment enrollment, CancellationToken cancellationToken);
+    Task CreateStudentEnrollmentAsync(StudentEnrollment studentEnrollment, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Retrieves all enrollments registered for a specific user/student.
+    /// Retrieves all student enrollments registered for a specific student.
     /// </summary>
-    Task<IReadOnlyList<Enrollment>> GetEnrollmentsForUserAsync(UserId userId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<StudentEnrollment>> GetStudentEnrollmentsForStudentAsync(
+        UserId studentUserId,
+        CancellationToken cancellationToken);
 
     /// <summary>
-    /// Retrieves all enrollments registered for a specific course offering.
+    /// Retrieves all student enrollments registered for a specific course offering.
     /// </summary>
-    Task<IReadOnlyList<Enrollment>> GetEnrollmentsForOfferingAsync(CourseOfferingId offeringId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<StudentEnrollment>> GetStudentEnrollmentsForOfferingAsync(
+        CourseOfferingId offeringId,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates or updates an assessment record.

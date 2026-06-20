@@ -1,5 +1,3 @@
-using System;
-
 namespace Ows.Core.Education;
 
 /// <summary>
