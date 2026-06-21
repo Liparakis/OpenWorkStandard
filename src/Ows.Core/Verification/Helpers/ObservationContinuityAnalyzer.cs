@@ -44,7 +44,7 @@ internal static class ObservationContinuityAnalyzer {
                         owsEvent.Metadata.TryGetValue("previousState", out var prevState);
                         owsEvent.Metadata.TryGetValue("baselineState", out var baselineState);
 
-                        long.TryParse(gapMsStr, out var gapMs);
+                        _ = long.TryParse(gapMsStr, out var gapMs);
                         var gapDurationText = gapMs > 0 ? $"{gapMs / 1000.0:F1} seconds" : "unknown duration";
 
                         findings.Add(new VerificationFinding {
@@ -63,7 +63,7 @@ internal static class ObservationContinuityAnalyzer {
                             findings.Add(VerificationFindingFactory.SnapshotUnboundFinding);
                         } else if (string.Equals(baselineState, "snapshot_hash_mismatch", StringComparison.Ordinal) ||
                                    string.Equals(baselineState, "corrupt_snapshot", StringComparison.Ordinal) ||
-                                    string.Equals(baselineState, "missing_snapshot", StringComparison.Ordinal)) {
+                                     string.Equals(baselineState, "missing_snapshot", StringComparison.Ordinal)) {
                             findings.Add(VerificationFindingFactory.SnapshotMismatchFinding);
                         }
                     } else if (owsEvent.EventType == OwsEventType.UnobservedChangeDetected) {
@@ -74,7 +74,7 @@ internal static class ObservationContinuityAnalyzer {
                         owsEvent.Metadata.TryGetValue("lineDeltaEstimate", out var linesStr);
                         owsEvent.Metadata.TryGetValue("changeKind", out var kind);
 
-                        long.TryParse(gapMsStr, out var gapMs);
+                        _ = long.TryParse(gapMsStr, out var gapMs);
                         var gapDurationText = gapMs > 0 ? $"{gapMs / 1000.0:F1} seconds" : "unknown duration";
 
                         findings.Add(new VerificationFinding {
@@ -96,7 +96,7 @@ internal static class ObservationContinuityAnalyzer {
                         owsEvent.Metadata.TryGetValue("lineDeltaEstimate", out var linesStr);
                         owsEvent.Metadata.TryGetValue("changeKind", out var kind);
 
-                        long.TryParse(gapMsStr, out var gapMs);
+                        _ = long.TryParse(gapMsStr, out var gapMs);
                         var gapDurationText = gapMs > 0 ? $"{gapMs / 1000.0:F1} seconds" : "unknown duration";
 
                         findings.Add(new VerificationFinding {

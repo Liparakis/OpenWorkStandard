@@ -72,7 +72,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager {
             throw new InvalidOperationException("Watcher is already running for this project.");
         }
 
-        bool wasInterrupted = false;
+        var wasInterrupted = false;
         WatcherProcessState? interruptedState = null;
         if (File.Exists(watcherJsonPath)) {
             try {
@@ -235,7 +235,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager {
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <exception cref="DirectoryNotFoundException">Thrown if the path is null, empty, or doesn't refer to an existing directory.</exception>
-    private void EnsureProjectDirectoryExists(string projectRoot) {
+    private static void EnsureProjectDirectoryExists(string projectRoot) {
         if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot)) {
             throw new DirectoryNotFoundException($"Project directory not found at: {projectRoot}");
         }

@@ -24,7 +24,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage {
     public JsonFileVerifierStorage(string storePath, string? signingKey = null) {
         ArgumentException.ThrowIfNullOrWhiteSpace(storePath);
 
-        this._storePath = storePath;
+        _storePath = storePath;
         _receiptService = new InMemoryReceiptService(signingKey);
         LoadFromDisk();
     }
@@ -83,12 +83,10 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage {
 
             if (checkpoint.SequenceNumber <= session.CheckpointCount) {
                 var existingReceipt = _receiptService.GetReceiptChain(checkpoint.SessionId)
-                    .Receipts
-                    .SingleOrDefault(receipt => receipt.SequenceNumber == checkpoint.SequenceNumber);
-                if (existingReceipt is null) {
-                    throw new InvalidOperationException(
-                        $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {session.CheckpointCount + 1}.");
-                }
+                                         .Receipts
+                                         .SingleOrDefault(receipt => receipt.SequenceNumber == checkpoint.SequenceNumber)
+                                     ?? throw new InvalidOperationException(
+                                         $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {session.CheckpointCount + 1}.");
 
                 if (!string.Equals(existingReceipt.TimelineHeadHash, checkpoint.TimelineHeadHash,
                         StringComparison.Ordinal)) {
@@ -102,7 +100,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage {
             var now = DateTimeOffset.UtcNow;
             var leaseDuration = TimeSpan.FromSeconds(120);
 
-            DateTimeOffset? firstLeaseGapAt = session.FirstLeaseGapAt;
+            var firstLeaseGapAt = session.FirstLeaseGapAt;
             var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
             var hasLeaseGap = session.HasLeaseGap;
 
@@ -167,7 +165,7 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage {
             var session = GetRequiredSession(sessionId);
             var now = DateTimeOffset.UtcNow;
 
-            DateTimeOffset? firstLeaseGapAt = session.FirstLeaseGapAt;
+            var firstLeaseGapAt = session.FirstLeaseGapAt;
             var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
             var hasLeaseGap = session.HasLeaseGap;
 
@@ -336,12 +334,11 @@ public sealed class JsonFileVerifierStorage : IVerifierStorage {
     }
 
     private sealed record VerifierStorageSnapshot {
-        public IReadOnlyList<VerifierSessionRecord> Sessions { get; init; } = Array.Empty<VerifierSessionRecord>();
+        public IReadOnlyList<VerifierSessionRecord> Sessions { get; init; } = [];
 
-        public IReadOnlyList<ReceiptChain> ReceiptChains { get; init; } = Array.Empty<ReceiptChain>();
+        public IReadOnlyList<ReceiptChain> ReceiptChains { get; init; } = [];
 
-        public IReadOnlyList<PersistedCheckpointRequest> IdempotencyKeys { get; init; } =
-            Array.Empty<PersistedCheckpointRequest>();
+        public IReadOnlyList<PersistedCheckpointRequest> IdempotencyKeys { get; init; } = [];
     }
 
     private sealed record PersistedCheckpointRequest {

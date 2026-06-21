@@ -7,6 +7,8 @@ namespace Ows.Core.Reporting;
 /// Provides JSON rendering capabilities for verification reports.
 /// </summary>
 internal static class JsonReportRenderer {
+    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
+
     /// <summary>
     /// Serializes a <see cref="VerificationResult"/> instance into a formatted JSON string.
     /// </summary>
@@ -73,6 +75,6 @@ internal static class JsonReportRenderer {
                     }
                     : (object?) null
             },
-            new JsonSerializerOptions { WriteIndented = true });
+            SerializerOptions);
     }
 }

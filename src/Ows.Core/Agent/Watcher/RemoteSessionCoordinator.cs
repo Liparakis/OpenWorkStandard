@@ -258,7 +258,7 @@ internal static class RemoteSessionCoordinator {
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
 
-        string? verifierUrl = verifierUrlOverride;
+        var verifierUrl = verifierUrlOverride;
         string? sessionId = null;
         string? institutionId = null;
         string? assessmentId = null;

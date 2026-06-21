@@ -102,8 +102,8 @@ public sealed class OwsFileWatcher : IAsyncDisposable {
 
         while (!shouldStop) {
             // Try to read the next raw notification within the debounce window.
-            bool readSucceeded = false;
-            bool channelClosed = false;
+            var readSucceeded = false;
+            var channelClosed = false;
             (string AbsolutePath, FileChangeKind Kind, DateTimeOffset At) raw = default;
 
             using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(token);

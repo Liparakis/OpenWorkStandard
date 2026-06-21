@@ -250,9 +250,9 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                     }
 
                     // Modified files
-                    foreach (var file in scanResult.ModifiedFiles) {
-                        var bytesDelta = file.Curr.Size - file.Prev.Size;
-                        var lineDelta = file.Curr.LineCount - file.Prev.LineCount;
+                    foreach (var (prev, curr) in scanResult.ModifiedFiles) {
+                        var bytesDelta = curr.Size - prev.Size;
+                        var lineDelta = curr.LineCount - prev.LineCount;
                         var isLarge = RecoveryScanService.IsLargeChange(bytesDelta, lineDelta);
 
                         var changeEvent = new OwsEvent {
@@ -260,17 +260,17 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                                 ? OwsEventType.LargeUnobservedChangeDetected
                                 : OwsEventType.UnobservedChangeDetected,
                             ProjectId = projectId,
-                            RelativePath = file.Curr.RelativePath,
+                            RelativePath = curr.RelativePath,
                             ToolName = "ows watch",
                             BytesChanged = bytesDelta,
                             Metadata = new Dictionary<string, string>
                             {
                                 { "changeKind", "Modified" },
-                                { "relativePath", file.Curr.RelativePath },
-                                { "previousHash", file.Prev.FileHash },
-                                { "currentHash", file.Curr.FileHash },
-                                { "previousSize", file.Prev.Size.ToString() },
-                                { "currentSize", file.Curr.Size.ToString() },
+                                { "relativePath", curr.RelativePath },
+                                { "previousHash", prev.FileHash },
+                                { "currentHash", curr.FileHash },
+                                { "previousSize", prev.Size.ToString() },
+                                { "currentSize", curr.Size.ToString() },
                                 { "bytesDelta", bytesDelta.ToString() },
                                 { "lineDeltaEstimate", lineDelta.ToString() },
                                 { "gapDurationMs", gapDurationMsVal.ToString() }
@@ -384,7 +384,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         return null;
     }
 
-    private DateTimeOffset? GetLastHeartbeatTime(string projectRoot) {
+    private static DateTimeOffset? GetLastHeartbeatTime(string projectRoot) {
         var sessionPath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, OwsConstants.SessionFileName);
         if (File.Exists(sessionPath)) {
             try {
@@ -486,7 +486,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             _options.WatcherOptions.ExcludeDirectories);
     }
 
-    private string DeterminePreviousWatcherState(string timelinePath, bool wasInterrupted) {
+    private static string DeterminePreviousWatcherState(string timelinePath, bool wasInterrupted) {
         if (wasInterrupted) {
             return "Interrupted";
         }
@@ -497,7 +497,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
 
         try {
             var lines = File.ReadAllLines(timelinePath);
-            for (int i = lines.Length - 1; i >= 0; i--) {
+            for (var i = lines.Length - 1; i >= 0; i--) {
                 if (string.IsNullOrWhiteSpace(lines[i])) continue;
                 var owsEvent = JsonSerializer.Deserialize<OwsEvent>(lines[i]);
                 if (owsEvent != null) {

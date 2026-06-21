@@ -48,9 +48,9 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
         string? timelineHeadHash = null;
         var eventTimestamps = new List<DateTimeOffset>();
 
-        bool sawObservationGap = false;
-        bool sawLargeUnobservedChange = false;
-        bool sawUnobservedChange = false;
+        var sawObservationGap = false;
+        var sawLargeUnobservedChange = false;
+        var sawUnobservedChange = false;
 
         if (archive.GetEntry(OwsConstants.ManifestFileName) is not null) {
             manifest = PackageStructureVerifier.ValidateManifest(archive, errors);
@@ -212,7 +212,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
         };
 
         // Resolve package info
-        var packagedReceiptChain = PackageStructureVerifier.ReadPackagedReceiptChain(archive, new List<string>());
+        var packagedReceiptChain = PackageStructureVerifier.ReadPackagedReceiptChain(archive, []);
         var sessionId = PackageStructureVerifier.ReadSessionId(archive)
                         ?? packagedReceiptChain?.SessionId.Value
                         ?? request.TrustedReceiptChain?.SessionId.Value

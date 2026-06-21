@@ -71,7 +71,7 @@ public sealed class OwsWatchSessionManagerTests {
             var watcherTask = Task.Run(() => manager.StartWatcherAsync(projectRoot, usePolling: true, debounceMs: 100));
 
             // Wait a moment to let watcher start and write watcher.json
-            for (int i = 0; i < 20; i++) {
+            for (var i = 0; i < 20; i++) {
                 if (manager.IsWatcherRunning(projectRoot)) {
                     break;
                 }

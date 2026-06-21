@@ -146,12 +146,14 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         }
 
         if (checkpoint.SequenceNumber <= session.CheckpointCount) {
-            var existingReceipt = await TryGetReceiptBySequenceAsync(connection, checkpoint.SessionId,
-                checkpoint.SequenceNumber, _signingKey, cancellationToken);
-            if (existingReceipt is null) {
-                throw new InvalidOperationException(
-                    $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {expectedSequenceNumber}.");
-            }
+            var existingReceipt = await TryGetReceiptBySequenceAsync(
+                                      connection,
+                                      checkpoint.SessionId,
+                                      checkpoint.SequenceNumber,
+                                      _signingKey,
+                                      cancellationToken)
+                                  ?? throw new InvalidOperationException(
+                                      $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {expectedSequenceNumber}.");
 
             if (!string.Equals(existingReceipt.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal)) {
                 throw new InvalidOperationException(
@@ -170,7 +172,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         var now = DateTimeOffset.UtcNow;
         var leaseDuration = TimeSpan.FromSeconds(120);
 
-        DateTimeOffset? firstLeaseGapAt = session.FirstLeaseGapAt;
+        var firstLeaseGapAt = session.FirstLeaseGapAt;
         var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
         var hasLeaseGap = session.HasLeaseGap;
 
@@ -260,7 +262,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         var session = await GetRequiredSessionAsync(connection, sessionId, lockForUpdate: true, cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
-        DateTimeOffset? firstLeaseGapAt = session.FirstLeaseGapAt;
+        var firstLeaseGapAt = session.FirstLeaseGapAt;
         var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
         var hasLeaseGap = session.HasLeaseGap;
 
