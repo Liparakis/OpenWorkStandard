@@ -1,7 +1,5 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Ows.Core;
-using Ows.Core.Events;
 using Ows.Core.Notarization;
 
 namespace Ows.Cli;
@@ -196,50 +194,4 @@ public static class OwsSessionStore
     /// <param name="receiptChain">The receipt chain to persist.</param>
     private static void WriteReceiptChain(string receiptsPath, ReceiptChain receiptChain) =>
         File.WriteAllText(receiptsPath, JsonSerializer.Serialize(receiptChain, SerializerOptions));
-
-    /// <summary>
-    /// Sends a session heartbeat to the configured remote verifier.
-    /// </summary>
-    /// <param name="projectRoot">The current project root.</param>
-    /// <param name="verifierUrlOverride">An optional override base URL for the verifier server.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    public static async Task SendHeartbeatAsync(
-        string projectRoot,
-        string? verifierUrlOverride,
-        CancellationToken cancellationToken)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
-        var sessionPath = Path.Combine(localFolder, SessionFileName);
-        var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
-
-        if (!File.Exists(sessionPath))
-        {
-            throw new InvalidOperationException("No active OWS session. Run 'ows session start' first.");
-        }
-
-        var sessionState = ReadSessionState(sessionPath);
-        var sessionId = new AssessmentSessionId(sessionState.SessionId);
-        var verifierUrl = verifierUrlOverride ?? sessionState.VerifierUrl;
-
-        if (string.IsNullOrWhiteSpace(verifierUrl))
-        {
-            throw new InvalidOperationException("No remote verifier URL configured for this session.");
-        }
-
-        var lastEventHash = File.Exists(timelinePath)
-            ? OwsEventChain.ReadLastEventHash(timelinePath)
-            : null;
-
-        using var httpClient = CreateHttpClient(verifierUrl);
-        var payload = new SessionHeartbeatRequest
-        {
-            LastKnownEventHash = lastEventHash
-        };
-
-        using var response = await httpClient.PostAsJsonAsync($"sessions/{sessionId.Value}/heartbeat", payload, cancellationToken);
-        response.EnsureSuccessStatusCode();
-    }
 }
