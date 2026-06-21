@@ -156,8 +156,12 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Package verification audit events
 - [x] Package verification diagnostics counters
 - [x] Built-in endpoint rate limiting
+- [x] Dedicated education endpoint rate limiting
 - [x] Scoped upload authorization before blob persistence
 - [x] Archive hardening for entry count, duplicate paths, unsafe paths, and expansion limits
+- [x] Education write audit events
+- [x] Enrollment roster-read audit events
+- [x] Bounded audit query limit (`GET /audit/events` max 500)
 
 ## 8. Reports and Professor Review
 

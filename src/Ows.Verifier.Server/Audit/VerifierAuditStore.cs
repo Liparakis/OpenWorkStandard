@@ -89,6 +89,16 @@ public sealed record VerifierAuditEvent {
 /// </summary>
 public sealed record VerifierAuditQuery {
     /// <summary>
+    /// Gets the default number of audit events returned when no limit is supplied.
+    /// </summary>
+    public const int DefaultLimit = 100;
+
+    /// <summary>
+    /// Gets the hard upper bound for audit event queries.
+    /// </summary>
+    public const int MaxLimit = 500;
+
+    /// <summary>
     /// Gets the optional institution identifier filter.
     /// </summary>
     public string? InstitutionId { get; init; }
@@ -116,7 +126,13 @@ public sealed record VerifierAuditQuery {
     /// <summary>
     /// Gets the maximum number of returned events.
     /// </summary>
-    public int Limit { get; init; } = 100;
+    public int Limit { get; init; } = DefaultLimit;
+
+    /// <summary>
+    /// Normalizes a caller-supplied limit into the supported audit query range.
+    /// </summary>
+    public static int NormalizeLimit(int? limit) =>
+        !limit.HasValue || limit.Value <= 0 ? DefaultLimit : Math.Clamp(limit.Value, 1, MaxLimit);
 }
 
 /// <summary>
@@ -251,7 +267,7 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore {
     private static IEnumerable<VerifierAuditEvent> ApplyQuery(
         IEnumerable<VerifierAuditEvent> events,
         VerifierAuditQuery query) {
-        var limit = Math.Clamp(query.Limit <= 0 ? 100 : query.Limit, 1, 200);
+        var limit = VerifierAuditQuery.NormalizeLimit(query.Limit);
         return events
             .Where(auditEvent => string.IsNullOrWhiteSpace(query.InstitutionId) ||
                                  string.Equals(auditEvent.InstitutionId, query.InstitutionId,
@@ -365,7 +381,7 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
         command.Parameters.Add(new NpgsqlParameter("since", NpgsqlDbType.TimestampTz) {
             Value = (object?) query.Since ?? DBNull.Value
         });
-        command.Parameters.AddWithValue("limit", Math.Clamp(query.Limit <= 0 ? 100 : query.Limit, 1, 200));
+        command.Parameters.AddWithValue("limit", VerifierAuditQuery.NormalizeLimit(query.Limit));
 
         var result = new List<VerifierAuditEvent>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);

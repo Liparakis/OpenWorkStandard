@@ -40,6 +40,16 @@ public sealed record VerifierRateLimitingOptions {
     public int DiagnosticsPermitLimit { get; init; } = 30;
 
     /// <summary>
+    /// Gets the education write requests allowed per minute per client.
+    /// </summary>
+    public int EducationWritePermitLimit { get; init; } = 20;
+
+    /// <summary>
+    /// Gets the education read requests allowed per minute per client.
+    /// </summary>
+    public int EducationReadPermitLimit { get; init; } = 60;
+
+    /// <summary>
     /// Gets the request queue depth for each limiter partition.
     /// </summary>
     public int QueueLimit { get; init; } = 0;

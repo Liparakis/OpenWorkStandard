@@ -93,9 +93,11 @@ OWS does not aim to make a student-owned machine tamper-proof.
 - idempotent checkpoint retry handling
 - app-owned verifier migrations
 - built-in per-endpoint rate limiting for public probes, auth management, package uploads, session writes, and diagnostics reads
+- dedicated rate limiting for education writes and scoped education reads
 - multipart body length enforcement for package uploads
 - upload authorization checks before blob persistence
 - archive entry-count, path, duplicate-entry, expansion-size, and compression-ratio checks before package blobs are accepted
+- audit coverage for education writes and roster-like enrollment reads
 
 ## Known Gaps
 

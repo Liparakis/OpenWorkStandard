@@ -248,8 +248,11 @@ PostgreSQL setup model today:
 - audit events cover API key lifecycle, auth failures, access denials, session creation, checkpoint/heartbeat acceptance, lease-gap detection, package submission, package verification, and report reads
 - package uploads stream into local durable blob storage with server-side content-addressed object keys
 - built-in per-endpoint rate limiting now covers public probes, auth, uploads, writes, and diagnostics
+- education endpoints now have dedicated read/write rate-limit buckets
 - package uploads are authorized against institution/student scope before blob persistence
 - archive admission now rejects unsafe paths, duplicate entries, oversized expansion, and suspicious compression ratios
+- education writes now emit safe audit events, and enrollment roster-like reads are audited
+- `GET /audit/events` now clamps caller limits to a maximum of `500`
 - package submissions persist package SHA-256, package size, verification job id, and latest verification error
 - package submission retries can use `Idempotency-Key`
 - duplicate package object registrations reject metadata drift

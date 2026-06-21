@@ -27,7 +27,7 @@ internal static class VerifierAuditEndpoints {
                     PackageId = packageId,
                     EventType = eventType,
                     Since = since,
-                    Limit = limit ?? 100
+                    Limit = VerifierAuditQuery.NormalizeLimit(limit)
                 };
                 return Results.Ok(await auditStore.QueryAsync(query, cancellationToken));
             })

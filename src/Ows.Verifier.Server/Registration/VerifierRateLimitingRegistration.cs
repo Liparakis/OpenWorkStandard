@@ -11,6 +11,8 @@ internal static class VerifierRateLimitingRegistration {
     public const string SessionWritePolicy = "verifier-session-write";
     public const string ReadPolicy = "verifier-read";
     public const string DiagnosticsPolicy = "verifier-diagnostics";
+    public const string EducationWritePolicy = "verifier-education-write";
+    public const string EducationReadPolicy = "verifier-education-read";
 
     public static void AddVerifierRateLimiting(
         this IServiceCollection services,
@@ -54,6 +56,12 @@ internal static class VerifierRateLimitingRegistration {
                     rateLimitingOptions.QueueLimit));
             options.AddPolicy(DiagnosticsPolicy, httpContext =>
                 CreatePartition(httpContext, DiagnosticsPolicy, rateLimitingOptions.DiagnosticsPermitLimit,
+                    rateLimitingOptions.QueueLimit));
+            options.AddPolicy(EducationWritePolicy, httpContext =>
+                CreatePartition(httpContext, EducationWritePolicy, rateLimitingOptions.EducationWritePermitLimit,
+                    rateLimitingOptions.QueueLimit));
+            options.AddPolicy(EducationReadPolicy, httpContext =>
+                CreatePartition(httpContext, EducationReadPolicy, rateLimitingOptions.EducationReadPermitLimit,
                     rateLimitingOptions.QueueLimit));
         });
     }
