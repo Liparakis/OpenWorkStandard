@@ -66,6 +66,7 @@ Required verifier settings:
 - `VerifierStorage__PostgresConnectionString=<your-postgres-connection-string>`
 - `VerifierStorage__ReceiptSigningKey=<secret-outside-the-repo>`
 - `VerifierSecurity__ApiKey=<operator-api-key>` or `VerifierSecurity__ApiKeys__<n>__*`
+- `VerifierRateLimiting__Enabled=true` (default)
 
 Example:
 
@@ -74,8 +75,18 @@ $env:VerifierStorage__Provider = "postgres"
 $env:VerifierStorage__PostgresConnectionString = "Host=db.example;Port=5432;Database=ows_verifier;Username=ows;Password=change-me"
 $env:VerifierStorage__ReceiptSigningKey = "<long-random-secret>"
 $env:VerifierSecurity__ApiKey = "<bootstrap-operator-key>"
+$env:VerifierRateLimiting__Enabled = "true"
 $env:OWS_VERIFIER_API_KEY = "<bootstrap-operator-key>"
 ```
+
+Recommended hardening knobs:
+
+- `VerifierStorage__MaxPackageSizeBytes`
+- `VerifierStorage__MaxPackageExpandedBytes`
+- `VerifierStorage__MaxPackageEntryCount`
+- `VerifierRateLimiting__AuthPermitLimit`
+- `VerifierRateLimiting__UploadPermitLimit`
+- `VerifierRateLimiting__DiagnosticsPermitLimit`
 
 ## First Bootstrap
 
@@ -117,7 +128,9 @@ See `docs/reference/DEFERRED_NOTES.md` for that explicit deferral.
 
 Receipts are HMAC-signed when `VerifierStorage__ReceiptSigningKey` is configured. Keep that key outside the repository and deployment images. Public-key signatures, key IDs, and rotation are still deferred.
 
-Requests require `X-OWS-Verifier-Key` when verifier API keys are configured. The current v0.1 model supports full-access `Operator` keys and read-only institution-scoped `InstructorReviewer` keys. It is still API-key auth, not user identity or full institutional RBAC.
+Requests require `X-OWS-Verifier-Key` when verifier API keys are configured. The current v0.1 model supports `Operator`, `InstitutionAdmin`, `InstructorReviewer`, and `StudentClient` keys. It is still API-key auth first, not full interactive user identity or dashboard session auth.
+
+Package uploads are now rejected before blob persistence when the caller's institution or student scope does not match the resolved session/package context.
 
 Preferred pilot setup:
 

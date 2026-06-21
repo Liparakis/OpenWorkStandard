@@ -71,7 +71,8 @@ internal static class VerifierAuthEndpoints {
                 } catch (InvalidOperationException exception) {
                     return Results.BadRequest(exception.Message);
                 }
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.AuthPolicy);
 
         app.MapGet("/auth/api-keys", async (IVerifierApiKeyStore apiKeyStore, CancellationToken cancellationToken) => {
             var keys = await apiKeyStore.ListAsync(cancellationToken);
@@ -86,7 +87,8 @@ internal static class VerifierAuthEndpoints {
                 lastUsedAtUtc = m.LastUsedAtUtc,
                 revokedAtUtc = m.RevokedAtUtc
             }));
-        });
+        })
+        .RequireRateLimiting(VerifierRateLimitingRegistration.DiagnosticsPolicy);
 
         app.MapPost("/auth/api-keys/{id}/revoke", async (HttpContext context, string id,
             IVerifierApiKeyStore apiKeyStore,
@@ -106,6 +108,7 @@ internal static class VerifierAuthEndpoints {
                     metadata: VerifierAuditHelpers.CreateMetadata(("revokedKeyId", id)),
                     cancellationToken: cancellationToken);
                 return Results.Ok(new { keyId = id, revoked = true });
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.AuthPolicy);
     }
 }

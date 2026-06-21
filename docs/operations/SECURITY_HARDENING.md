@@ -137,6 +137,41 @@ The verifier intentionally does not log:
 - package contents
 - full student payloads
 
+## HTTP Abuse Controls
+
+Current built-in controls:
+
+- endpoint-scoped fixed-window rate limits are enabled by default through `VerifierRateLimiting__*`
+- auth management endpoints use a stricter limiter than read endpoints
+- package upload endpoints use a separate low-volume limiter
+- `/ready` and `/metrics` stay public for monitoring, but they are still rate-limited
+- multipart request parsing is capped from `VerifierStorage__MaxPackageSizeBytes`
+
+Default minute buckets:
+
+- public probes: `60`
+- auth management: `10`
+- package uploads: `6`
+- session writes: `30`
+- authenticated reads: `120`
+- diagnostics/audit reads: `30`
+
+Current package-admission checks:
+
+- `.owspkg` extension required
+- max compressed upload size from `VerifierStorage__MaxPackageSizeBytes`
+- max expanded archive size from `VerifierStorage__MaxPackageExpandedBytes`
+- max archive entry count from `VerifierStorage__MaxPackageEntryCount`
+- duplicate archive entry rejection
+- unsafe archive path rejection
+- unsafe compression-ratio rejection
+- required `manifest.json`, `timeline.jsonl`, and `version_graph.json` entries required
+
+Known limits:
+
+- JSON endpoint body limits are still the default ASP.NET Core limits; only package multipart uploads have an explicit server-side cap today
+- public probes remain intentionally unauthenticated and should sit behind a reverse proxy if broad internet exposure is expected
+
 Operator diagnostics:
 
 - `GET /audit/events`

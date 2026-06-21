@@ -22,6 +22,9 @@ var securityOptions = builder.Configuration.GetSection("VerifierSecurity").Get<V
                       ?? new VerifierSecurityOptions();
 var authOptions = builder.Configuration.GetSection("VerifierAuth").Get<VerifierAuthOptions>()
                   ?? new VerifierAuthOptions();
+var rateLimitingOptions =
+    builder.Configuration.GetSection("VerifierRateLimiting").Get<VerifierRateLimitingOptions>()
+    ?? new VerifierRateLimitingOptions();
 var normalizedStorageOptions = storageOptions with {
     PackageWorkerEnabled = packageWorkerEnabled,
     ApplyMigrationsOnStartup = applyMigrationsOnStartup,
@@ -73,7 +76,8 @@ if (await RunMigrationIfRequestedAsync()) {
 
 #region Host Build and Service Registration
 
-builder.Services.AddVerifierServices(normalizedStorageOptions, securityOptions, authOptions, builder.Environment);
+builder.Services.AddVerifierServices(normalizedStorageOptions, securityOptions, authOptions, rateLimitingOptions,
+    builder.Environment);
 
 var app = builder.Build();
 var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Requests");
@@ -106,6 +110,9 @@ app.Use(RequestIdMiddleware);
 app.Use(RequestLoggingMiddleware);
 app.UseAuthentication();
 app.Use(VerifierAuthenticationMiddleware);
+if (rateLimitingOptions.Enabled) {
+    app.UseRateLimiter();
+}
 
 app.MapVerifierEndpoints();
 

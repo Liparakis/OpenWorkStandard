@@ -43,7 +43,9 @@ internal static class VerifierStorageRegistration {
 
         services.AddSingleton<IPackageBlobStore>(_ =>
             new LocalFilePackageBlobStore(normalizedStorageOptions.LocalStoragePath,
-                normalizedStorageOptions.MaxPackageSizeBytes));
+                normalizedStorageOptions.MaxPackageSizeBytes,
+                normalizedStorageOptions.MaxPackageExpandedBytes,
+                normalizedStorageOptions.MaxPackageEntryCount));
 
         services.AddSingleton<IPackageVerificationJobStore>(_ => {
             var storeRoot = Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ??

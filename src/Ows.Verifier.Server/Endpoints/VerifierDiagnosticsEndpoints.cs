@@ -152,7 +152,8 @@ internal static class VerifierDiagnosticsEndpoints {
                         },
                             statusCode: StatusCodes.Status503ServiceUnavailable);
                     }
-                });
+                })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.PublicPolicy);
 
         app.MapGet("/diagnostics/summary", async (HttpContext context, IVerifierAuditStore auditStore,
             IVerifierApiKeyStore apiKeyStore,
@@ -204,6 +205,7 @@ internal static class VerifierDiagnosticsEndpoints {
                     metrics = summary,
                     packageVerificationJobs = jobSummary
                 });
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.DiagnosticsPolicy);
     }
 }

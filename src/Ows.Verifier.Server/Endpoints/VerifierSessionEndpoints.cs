@@ -19,6 +19,11 @@ internal static class VerifierSessionEndpoints {
         app.MapPost("/sessions", async (HttpContext context, StartSessionRequest? body, IVerifierStorage storage,
             IEducationStore educationStore, IVerifierAuditStore auditStore, CancellationToken cancellationToken) => {
                 var callerAccess = VerifierAuthorizationHelpers.TryGetAccessContext(context);
+                var requestValidationError = ValidateStartSessionRequest(body);
+                if (requestValidationError is not null) {
+                    return Results.BadRequest(requestValidationError);
+                }
+
                 if (callerAccess is not null && !VerifierRolePolicy.IsOperatorRole(callerAccess.Role)) {
                     if (string.IsNullOrWhiteSpace(body?.InstitutionId) ||
                         !string.Equals(body.InstitutionId, callerAccess.InstitutionId, StringComparison.OrdinalIgnoreCase)) {
@@ -106,7 +111,8 @@ internal static class VerifierSessionEndpoints {
                     metadata: VerifierAuditHelpers.CreateMetadata(("clientId", clientId)),
                     cancellationToken: cancellationToken);
                 return Results.Ok(new StartSessionResponse { SessionId = session.Id.Value });
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.SessionWritePolicy);
 
         app.MapPost("/sessions/{id}/heartbeat", async (string id, SessionHeartbeatRequest request,
             HttpContext context, IVerifierStorage storage, IVerifierAuditStore auditStore,
@@ -172,7 +178,8 @@ internal static class VerifierSessionEndpoints {
                 } catch (InvalidOperationException) {
                     return Results.NotFound($"Unknown assessment session: {id}");
                 }
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.SessionWritePolicy);
 
         app.MapPost("/sessions/{id}/checkpoints", async (string id, CheckpointRequest request, HttpRequest httpRequest,
             HttpContext context, IVerifierStorage storage, IVerifierAuditStore auditStore,
@@ -232,7 +239,8 @@ internal static class VerifierSessionEndpoints {
                 } catch (InvalidOperationException exception) {
                     return Results.BadRequest(exception.Message);
                 }
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.SessionWritePolicy);
 
         app.MapGet("/sessions/{id}/packages", async (string id, IPackageSubmissionStore packageStore,
             CancellationToken cancellationToken) => {
@@ -241,7 +249,8 @@ internal static class VerifierSessionEndpoints {
                 } catch (NotSupportedException exception) {
                     return Results.BadRequest(exception.Message);
                 }
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.ReadPolicy);
 
         app.MapGet("/sessions/{id}/receipts",
             async (string id, IVerifierStorage storage, CancellationToken cancellationToken) => {
@@ -250,7 +259,8 @@ internal static class VerifierSessionEndpoints {
                 } catch (InvalidOperationException exception) {
                     return Results.NotFound(exception.Message);
                 }
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.ReadPolicy);
 
         app.MapGet("/sessions/{id}/head",
             async (string id, IVerifierStorage storage, CancellationToken cancellationToken) => {
@@ -259,6 +269,31 @@ internal static class VerifierSessionEndpoints {
                 } catch (InvalidOperationException exception) {
                     return Results.NotFound(exception.Message);
                 }
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.ReadPolicy);
+
+        static string? ValidateStartSessionRequest(StartSessionRequest? request) {
+            if (request is null) {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.InstitutionId) && request.InstitutionId.Length > 200) {
+                return "InstitutionId is too long.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.CourseOfferingId) && request.CourseOfferingId.Length > 200) {
+                return "CourseOfferingId is too long.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.AssessmentId) && request.AssessmentId.Length > 200) {
+                return "AssessmentId is too long.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.StudentUserId) && request.StudentUserId.Length > 200) {
+                return "StudentUserId is too long.";
+            }
+
+            return null;
+        }
     }
 }

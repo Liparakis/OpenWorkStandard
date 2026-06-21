@@ -114,7 +114,8 @@ internal static class VerifierPackageEndpoints {
 
                     return Results.BadRequest(exception.Message);
                 }
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.UploadPolicy);
 
         app.MapPost("/packages/upload", async (HttpRequest request, HttpContext context,
                 IPackageSubmissionStore packageStore,
@@ -128,7 +129,8 @@ internal static class VerifierPackageEndpoints {
                 auditStore,
                 blobStore,
                 jobStore,
-                cancellationToken));
+                cancellationToken))
+            .RequireRateLimiting(VerifierRateLimitingRegistration.UploadPolicy);
 
         app.MapPut("/packages/{id}", async (string id, HttpRequest request, HttpContext context,
             IPackageSubmissionStore packageStore, IVerifierAuditStore auditStore, IPackageBlobStore blobStore,
@@ -234,7 +236,8 @@ internal static class VerifierPackageEndpoints {
                         cancellationToken: cancellationToken);
                     return Results.BadRequest(exception.Message);
                 }
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.UploadPolicy);
 
         app.MapPost("/packages/{id}/verify", async (string id, HttpContext context,
             IPackageSubmissionStore packageStore,
@@ -264,7 +267,8 @@ internal static class VerifierPackageEndpoints {
                     verificationStatus = "Pending",
                     verificationJobId = job.Id
                 });
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.SessionWritePolicy);
 
         app.MapGet("/packages/{id}", async (string id, IPackageSubmissionStore packageStore,
             IPackageBlobStore blobStore, CancellationToken cancellationToken) => {
@@ -299,7 +303,8 @@ internal static class VerifierPackageEndpoints {
                 } catch (NotSupportedException exception) {
                     return Results.BadRequest(exception.Message);
                 }
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.ReadPolicy);
 
         app.MapGet("/packages/{id}/verification", async (string id, HttpContext context,
             IPackageSubmissionStore packageStore,
@@ -335,7 +340,8 @@ internal static class VerifierPackageEndpoints {
                     cancellationToken: cancellationToken);
 
                 return Results.Content(submission.VerificationResultJson, "application/json");
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.ReadPolicy);
 
         app.MapGet("/packages/{id}/report", async (string id, HttpContext context, IPackageSubmissionStore packageStore,
             IVerifierAuditStore auditStore, IReportGenerator reportGenerator, CancellationToken cancellationToken) => {
@@ -384,7 +390,8 @@ internal static class VerifierPackageEndpoints {
                     cancellationToken: cancellationToken);
 
                 return Results.Text(report.Content, "text/plain");
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.ReadPolicy);
     }
 
     /// <summary>
@@ -419,6 +426,32 @@ internal static class VerifierPackageEndpoints {
         var institutionId = form["institutionId"].FirstOrDefault();
         var assessmentId = form["assessmentId"].FirstOrDefault();
         var studentUserId = form["studentUserId"].FirstOrDefault();
+        var derivedContext = await ResolvePackageContextFromSessionAsync(
+            storage,
+            sessionId,
+            institutionId,
+            assessmentId,
+            studentUserId,
+            cancellationToken);
+
+        if (access is not null && !VerifierRolePolicy.IsOperatorRole(access.Role)) {
+            if (string.IsNullOrWhiteSpace(derivedContext.InstitutionId) ||
+                !string.Equals(derivedContext.InstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase)) {
+                return Results.Json(
+                    new { error = $"{access.Role} may only upload packages for their own institution." },
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            if (VerifierRolePolicy.IsStudentClientRole(access.Role) &&
+                !string.IsNullOrWhiteSpace(access.StudentUserId)) {
+                if (string.IsNullOrWhiteSpace(derivedContext.StudentUserId) ||
+                    !string.Equals(derivedContext.StudentUserId, access.StudentUserId, StringComparison.OrdinalIgnoreCase)) {
+                    return Results.Json(
+                        new { error = "StudentClient bound key must match the student user ID of the package." },
+                        statusCode: StatusCodes.Status403Forbidden);
+                }
+            }
+        }
 
         await VerifierAuditHelpers.WriteAuditEventAsync(
             auditStore,
@@ -427,42 +460,14 @@ internal static class VerifierPackageEndpoints {
             eventType: "package.upload.started",
             result: "Started",
             access: access,
-            institutionId: institutionId,
+            institutionId: derivedContext.InstitutionId,
             sessionId: sessionId,
-            assessmentId: assessmentId,
+            assessmentId: derivedContext.AssessmentId,
             cancellationToken: cancellationToken);
 
         try {
             await using var source = file.OpenReadStream();
             var savedBlob = await blobStore.SaveAsync(source, cancellationToken);
-            var derivedContext = await ResolvePackageContextFromSessionAsync(
-                storage,
-                sessionId,
-                institutionId,
-                assessmentId,
-                studentUserId,
-                cancellationToken);
-
-            if (access is not null && !VerifierRolePolicy.IsOperatorRole(access.Role)) {
-                if (string.IsNullOrWhiteSpace(derivedContext.InstitutionId) ||
-                    !string.Equals(derivedContext.InstitutionId, access.InstitutionId,
-                        StringComparison.OrdinalIgnoreCase)) {
-                    return Results.Json(
-                        new { error = $"{access.Role} may only upload packages for their own institution." },
-                        statusCode: StatusCodes.Status403Forbidden);
-                }
-
-                if (VerifierRolePolicy.IsStudentClientRole(access.Role) &&
-                    !string.IsNullOrWhiteSpace(access.StudentUserId)) {
-                    if (string.IsNullOrWhiteSpace(derivedContext.StudentUserId) ||
-                        !string.Equals(derivedContext.StudentUserId, access.StudentUserId,
-                            StringComparison.OrdinalIgnoreCase)) {
-                        return Results.Json(
-                            new { error = "StudentClient bound key must match the student user ID of the package." },
-                            statusCode: StatusCodes.Status403Forbidden);
-                    }
-                }
-            }
 
             var submissionRequest = new VerifierPackageSubmissionRequest {
                 SessionId = sessionId,

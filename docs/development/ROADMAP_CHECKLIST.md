@@ -155,6 +155,9 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Reviewer-safe package status/report reads
 - [x] Package verification audit events
 - [x] Package verification diagnostics counters
+- [x] Built-in endpoint rate limiting
+- [x] Scoped upload authorization before blob persistence
+- [x] Archive hardening for entry count, duplicate paths, unsafe paths, and expansion limits
 
 ## 8. Reports and Professor Review
 

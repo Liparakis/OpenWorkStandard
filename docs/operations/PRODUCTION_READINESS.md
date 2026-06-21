@@ -12,6 +12,7 @@ This document outlines the production-readiness status, operational security pos
 | **Auth/RBAC: student client keys** | **Pilot-ready** | Pilot | Key delegation scoping restricts student keys to own sessions and package uploads. |
 | **Data Isolation & Scoping** | **Pilot-ready** | Pilot | Multi-institution scoping prevents cross-institution metadata and event sniffing. |
 | **Prometheus Metrics** | **Pilot-ready** | Pilot | Lightweight dynamic text-exposition `/metrics` endpoint available anonymously. |
+| **Built-in HTTP Rate Limiting** | **Pilot-ready** | Pilot | Per-endpoint fixed-window limits now cover probes, auth, uploads, session writes, and diagnostics. |
 | **Signing Key Custody** | **Pilot-ready** | Pilot | Receipts signed via `VerifierStorage__ReceiptSigningKey`. Keys must not be checked into Git. |
 | **Backup and Restore Drills** | **Pilot-ready** | Pilot | Documented runbooks cover PostgreSQL dumps, package blob volumes, and restore validation. |
 | **HTTPS / TLS** | **Needs hardening** | Production | Must be terminated at a reverse proxy (e.g. Nginx, Caddy) or cloud load balancer. |
@@ -44,6 +45,19 @@ This document outlines the production-readiness status, operational security pos
 - Database backups should run daily using `pg_dump`.
 - Named Docker volume `ows-verifier-package-data` contains all uploaded `.owspkg` blobs. These must be archived using standard file/tar backups alongside PostgreSQL backups to prevent metadata/blob inconsistencies.
 - Store backups on separate physical media or cloud storage buckets with access controls.
+
+### 2.4 Request Throttling and Upload Limits
+- Keep `VerifierRateLimiting__Enabled=true` in pilot and production deployments unless an upstream proxy already enforces stricter limits.
+- Default per-minute permits:
+  - public probes: `60`
+  - auth management: `10`
+  - package uploads: `6`
+  - session writes: `30`
+  - authenticated reads: `120`
+  - diagnostics/audit reads: `30`
+- `VerifierStorage__MaxPackageSizeBytes` caps uploaded package size.
+- `VerifierStorage__MaxPackageExpandedBytes` caps total uncompressed archive size after zip expansion checks.
+- `VerifierStorage__MaxPackageEntryCount` caps archive entry count.
 
 ---
 

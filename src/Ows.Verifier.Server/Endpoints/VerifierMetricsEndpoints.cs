@@ -14,7 +14,8 @@ internal static class VerifierMetricsEndpoints {
     /// <param name="app">The route builder application instance.</param>
     /// <returns>The route builder with endpoints mapped.</returns>
     public static void MapVerifierMetricsEndpoints(this IEndpointRouteBuilder app) {
-        app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
+        app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }))
+            .RequireRateLimiting(VerifierRateLimitingRegistration.PublicPolicy);
 
         app.MapGet("/metrics",
             async (HttpContext context, IVerifierAuditStore auditStore, IPackageVerificationJobStore jobStore,
@@ -135,6 +136,7 @@ internal static class VerifierMetricsEndpoints {
                         $"ows_instance_mode{{mode=\"{VerifierServerHelpers.DescribeInstanceMode(options.PackageWorkerEnabled)}\"}} 1");
 
                     return Results.Content(sb.ToString(), "text/plain; version=0.0.4; charset=utf-8");
-                });
+                })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.PublicPolicy);
     }
 }

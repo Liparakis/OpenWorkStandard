@@ -27,6 +27,7 @@ Current status:
 - MVP reference flow is real
 - optional remote verifier path exists
 - observation gaps degrade continuity rather than implying misconduct
+- verifier v0.1 now includes built-in rate limiting, scoped upload rejection before blob persistence, and stricter `.owspkg` archive admission checks
 - the semantic Work Version Graph is still scaffolded/deferred
 
 Documentation entry point:

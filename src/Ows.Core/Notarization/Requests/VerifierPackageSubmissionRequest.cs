@@ -67,6 +67,18 @@ public sealed record VerifierPackageSubmissionRequest {
             return "Session id is too long.";
         }
 
+        if (!string.IsNullOrWhiteSpace(InstitutionId) && InstitutionId.Length > 200) {
+            return "Institution id is too long.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(AssessmentId) && AssessmentId.Length > 200) {
+            return "Assessment id is too long.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(StudentUserId) && StudentUserId.Length > 200) {
+            return "Student user id is too long.";
+        }
+
         if (string.IsNullOrWhiteSpace(ObjectStorageProvider)) {
             return "Object storage provider is required.";
         }
@@ -77,6 +89,18 @@ public sealed record VerifierPackageSubmissionRequest {
 
         if (string.IsNullOrWhiteSpace(ObjectKey)) {
             return "Object key is required.";
+        }
+
+        if (ObjectStorageProvider.Length > 50) {
+            return "Object storage provider is too long.";
+        }
+
+        if (ObjectBucket.Length > 100) {
+            return "Object bucket is too long.";
+        }
+
+        if (ObjectKey.Length > 240) {
+            return "Object key is too long.";
         }
 
         if (PackageSha256.Length != 64 || PackageSha256.Any(static c => !Uri.IsHexDigit(c))) {

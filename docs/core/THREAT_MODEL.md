@@ -92,14 +92,19 @@ OWS does not aim to make a student-owned machine tamper-proof.
 - durable PostgreSQL-backed verifier storage
 - idempotent checkpoint retry handling
 - app-owned verifier migrations
+- built-in per-endpoint rate limiting for public probes, auth management, package uploads, session writes, and diagnostics reads
+- multipart body length enforcement for package uploads
+- upload authorization checks before blob persistence
+- archive entry-count, path, duplicate-entry, expansion-size, and compression-ratio checks before package blobs are accepted
 
 ## Known Gaps
 
 - the verifier is not yet production-grade
-- auth and RBAC are not implemented
-- signing-key hardening is not implemented
+- auth and RBAC are implemented for the current verifier roles, but still API-first and pilot-grade
+- signing-key custody guidance is implemented, but key rotation remains manual
 - retention enforcement is not implemented
 - a well-formed local snapshot can still be rewritten if an attacker also rewrites the local timeline and no stronger remote anchor exists
+- anonymous `/ready` and `/metrics` remain intentionally public and therefore rely on reverse-proxy network controls plus rate limiting, not authentication
 
 ## What OWS Can Honestly Claim Today
 
@@ -123,4 +128,4 @@ The next security-relevant implementation priorities remain:
 1. stronger watcher lifecycle and capture fidelity
 2. durable and operationally reliable verifier flow
 3. server-side package submission and verification
-4. auth, RBAC, and operational hardening only after the current flow is stable
+4. production-grade deployment controls (reverse proxy, network policy, TLS termination, managed secrets, and external object storage) after the current pilot flow is stable

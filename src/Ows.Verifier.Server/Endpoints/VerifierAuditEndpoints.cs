@@ -30,6 +30,7 @@ internal static class VerifierAuditEndpoints {
                     Limit = limit ?? 100
                 };
                 return Results.Ok(await auditStore.QueryAsync(query, cancellationToken));
-            });
+            })
+            .RequireRateLimiting(VerifierRateLimitingRegistration.DiagnosticsPolicy);
     }
 }

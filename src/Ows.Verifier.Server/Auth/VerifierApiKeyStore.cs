@@ -26,6 +26,14 @@ public sealed record VerifierApiKeyCreateRequest(
             return "Role must be Operator, InstitutionAdmin, InstructorReviewer, or StudentClient.";
         }
 
+        if (!string.IsNullOrWhiteSpace(InstitutionId) && InstitutionId.Trim().Length > 200) {
+            return "InstitutionId is too long.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(StudentUserId) && StudentUserId.Trim().Length > 200) {
+            return "StudentUserId is too long.";
+        }
+
         if (VerifierRolePolicy.IsInstitutionScopedRole(Role) && string.IsNullOrWhiteSpace(InstitutionId)) {
             return "InstitutionId is required for InstitutionAdmin, InstructorReviewer, and StudentClient keys.";
         }

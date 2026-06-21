@@ -27,6 +27,9 @@ internal sealed record PackageBlobSaveResult {
 /// Stores package blobs in a local filesystem directory using content-addressed names.
 /// </summary>
 internal sealed class LocalFilePackageBlobStore : IPackageBlobStore {
+    private const int MaxPackageEntryPathLength = 240;
+    private const long MaxCompressionRatio = 200;
+
     /// <summary>
     /// The root directory path on the local filesystem where blobs are stored.
     /// </summary>
@@ -36,16 +39,26 @@ internal sealed class LocalFilePackageBlobStore : IPackageBlobStore {
     /// The maximum allowed package size in bytes.
     /// </summary>
     private readonly long _maxPackageSizeBytes;
+    private readonly long _maxPackageExpandedBytes;
+    private readonly int _maxPackageEntryCount;
 
     /// <summary>
     /// Initializes a new local blob store.
     /// </summary>
     /// <param name="rootPath">The root folder path where uploaded packages will be written.</param>
     /// <param name="maxPackageSizeBytes">The maximum allowed size of an uploaded package in bytes.</param>
-    public LocalFilePackageBlobStore(string rootPath, long maxPackageSizeBytes) {
+    /// <param name="maxPackageExpandedBytes">The maximum allowed total uncompressed bytes across archive entries.</param>
+    /// <param name="maxPackageEntryCount">The maximum allowed archive entry count.</param>
+    public LocalFilePackageBlobStore(
+        string rootPath,
+        long maxPackageSizeBytes,
+        long maxPackageExpandedBytes,
+        int maxPackageEntryCount) {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
         _rootPath = rootPath;
         _maxPackageSizeBytes = maxPackageSizeBytes > 0 ? maxPackageSizeBytes : 50 * 1024 * 1024;
+        _maxPackageExpandedBytes = maxPackageExpandedBytes > 0 ? maxPackageExpandedBytes : 200 * 1024 * 1024;
+        _maxPackageEntryCount = maxPackageEntryCount > 0 ? maxPackageEntryCount : 512;
     }
 
     /// <inheritdoc />
@@ -84,7 +97,7 @@ internal sealed class LocalFilePackageBlobStore : IPackageBlobStore {
             var objectKey = $"{packageSha256}.owspkg";
             var targetPath = GetAbsolutePath(objectKey);
 
-            ValidatePackageShape(targetPath: tempPath);
+            ValidatePackageShape(tempPath, _maxPackageExpandedBytes, _maxPackageEntryCount);
 
             if (File.Exists(targetPath)) {
                 File.Delete(tempPath);
@@ -163,15 +176,58 @@ internal sealed class LocalFilePackageBlobStore : IPackageBlobStore {
     /// Validates that the package file contains all required OWS metadata entries.
     /// </summary>
     /// <param name="targetPath">The local file path to the archive file.</param>
-    private static void ValidatePackageShape(string targetPath) {
+    /// <param name="maxExpandedBytes">The maximum allowed total uncompressed size across all archive entries.</param>
+    /// <param name="maxEntryCount">The maximum allowed number of archive entries.</param>
+    private static void ValidatePackageShape(string targetPath, long maxExpandedBytes, int maxEntryCount) {
         try {
             using var archive = ZipFile.OpenRead(targetPath);
+            if (archive.Entries.Count > maxEntryCount) {
+                throw new InvalidOperationException($"Uploaded package contains too many entries ({archive.Entries.Count}).");
+            }
+
             string[] requiredEntries =
             [
                 Core.OwsConstants.ManifestFileName,
                     Core.OwsConstants.TimelineFileName,
                     Core.OwsConstants.VersionGraphFileName
             ];
+
+            var seenEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            long totalExpandedBytes = 0;
+            foreach (var entry in archive.Entries) {
+                var normalizedName = entry.FullName.Replace('\\', '/');
+                if (string.IsNullOrWhiteSpace(normalizedName)) {
+                    throw new InvalidOperationException("Uploaded package contains an empty archive entry name.");
+                }
+
+                if (normalizedName.Length > MaxPackageEntryPathLength) {
+                    throw new InvalidOperationException(
+                        $"Uploaded package entry path '{normalizedName}' exceeds the maximum allowed length.");
+                }
+
+                if (normalizedName.StartsWith("/", StringComparison.Ordinal) ||
+                    normalizedName.Contains("../", StringComparison.Ordinal) ||
+                    normalizedName.Contains(":/", StringComparison.Ordinal)) {
+                    throw new InvalidOperationException(
+                        $"Uploaded package entry path '{normalizedName}' is not allowed.");
+                }
+
+                if (!seenEntries.Add(normalizedName)) {
+                    throw new InvalidOperationException(
+                        $"Uploaded package contains duplicate archive entry '{normalizedName}'.");
+                }
+
+                totalExpandedBytes += Math.Max(0, entry.Length);
+                if (totalExpandedBytes > maxExpandedBytes) {
+                    throw new InvalidOperationException("Uploaded package expands beyond the maximum safe limit.");
+                }
+
+                if (entry.CompressedLength > 0 &&
+                    entry.Length / (double) entry.CompressedLength > MaxCompressionRatio) {
+                    throw new InvalidOperationException(
+                        $"Uploaded package entry '{normalizedName}' has an unsafe compression ratio.");
+                }
+            }
 
             foreach (var entryName in requiredEntries) {
                 if (archive.GetEntry(entryName) is null) {

@@ -247,6 +247,9 @@ PostgreSQL setup model today:
 - `/metrics` now also exposes verification success/failure totals plus worker-enabled and instance-mode metrics for external dashboards
 - audit events cover API key lifecycle, auth failures, access denials, session creation, checkpoint/heartbeat acceptance, lease-gap detection, package submission, package verification, and report reads
 - package uploads stream into local durable blob storage with server-side content-addressed object keys
+- built-in per-endpoint rate limiting now covers public probes, auth, uploads, writes, and diagnostics
+- package uploads are authorized against institution/student scope before blob persistence
+- archive admission now rejects unsafe paths, duplicate entries, oversized expansion, and suspicious compression ratios
 - package submissions persist package SHA-256, package size, verification job id, and latest verification error
 - package submission retries can use `Idempotency-Key`
 - duplicate package object registrations reject metadata drift

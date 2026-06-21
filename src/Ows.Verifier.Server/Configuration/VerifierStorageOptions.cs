@@ -35,6 +35,16 @@ public sealed record VerifierStorageOptions {
     public long MaxPackageSizeBytes { get; init; } = 52428800; // 50 MB
 
     /// <summary>
+    /// Gets the maximum allowed total uncompressed size across all package archive entries.
+    /// </summary>
+    public long MaxPackageExpandedBytes { get; init; } = 209715200; // 200 MB
+
+    /// <summary>
+    /// Gets the maximum allowed number of entries inside one package archive.
+    /// </summary>
+    public int MaxPackageEntryCount { get; init; } = 512;
+
+    /// <summary>
     /// Gets a value indicating whether the legacy verifier-storage worker flag is enabled.
     /// </summary>
     public bool PackageWorkerEnabled { get; init; } = true;
