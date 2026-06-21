@@ -1,11 +1,9 @@
-using System.IO.Compression;
-using System.Text.Json;
 using Ows.Core.Hashing;
 
 namespace Ows.Core.Packaging;
 
 /// <summary>
-/// Provides the initial OWS package builder skeleton.
+/// Provides the OWS package builder that delegates to focused helper services.
 /// </summary>
 public sealed class OwsPackageBuilder : IPackageBuilder
 {
@@ -31,75 +29,23 @@ public sealed class OwsPackageBuilder : IPackageBuilder
         var timelineText = File.ReadAllText(timelinePath);
         const string versionGraphText = "{\"nodes\":[],\"edges\":[]}";
         var sessionText = File.Exists(sessionPath) ? File.ReadAllText(sessionPath) : null;
-        var artifactHashes = Directory
-            .EnumerateFiles(request.ProjectRootPath, "*", SearchOption.AllDirectories)
-            .Select(filePath => new
-            {
-                FilePath = filePath,
-                RelativePath = Path.GetRelativePath(request.ProjectRootPath, filePath)
-            })
-            .Where(file =>
-                !string.Equals(file.FilePath, request.OutputPackagePath, StringComparison.OrdinalIgnoreCase) &&
-                !file.RelativePath.StartsWith($"{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}",
-                    StringComparison.OrdinalIgnoreCase))
-            .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                file => $"artifacts/{file.RelativePath.Replace('\\', '/')}",
-                file => hashService.ComputeHash(File.ReadAllBytes(file.FilePath)),
-                StringComparer.Ordinal);
 
-        var manifest = new OwsManifest
-        {
-            ProjectName = Path.GetFileName(request.ProjectRootPath),
-            Platform = Environment.OSVersion.Platform.ToString(),
-            TrackedPath = request.ProjectRootPath,
-            TimelineHash = hashService.ComputeHash(timelineText),
-            VersionGraphHash = hashService.ComputeHash(versionGraphText),
-            SessionStateHash = sessionText is null ? string.Empty : hashService.ComputeHash(sessionText),
-            ArtifactHashes = artifactHashes
-        };
+        var artifactHashes = PackageArtifactCollector.CollectArtifacts(
+            request.ProjectRootPath, request.OutputPackagePath, hashService);
 
-        if (File.Exists(request.OutputPackagePath))
-        {
-            File.Delete(request.OutputPackagePath);
-        }
+        var manifest = PackageManifestBuilder.BuildManifest(
+            request.ProjectRootPath, timelineText, versionGraphText, sessionText, artifactHashes, hashService);
 
-        using (var archive = ZipFile.Open(request.OutputPackagePath, ZipArchiveMode.Create))
-        {
-            var manifestEntry = archive.CreateEntry(OwsConstants.ManifestFileName);
-            using (var writer = new StreamWriter(manifestEntry.Open()))
-            {
-                writer.Write(JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
-            }
-
-            var timelineEntry = archive.CreateEntry(OwsConstants.TimelineFileName);
-            using (var timelineWriter = new StreamWriter(timelineEntry.Open()))
-            {
-                timelineWriter.Write(timelineText);
-            }
-
-            var graphEntry = archive.CreateEntry(OwsConstants.VersionGraphFileName);
-            using (var graphWriter = new StreamWriter(graphEntry.Open()))
-            {
-                graphWriter.Write(versionGraphText);
-            }
-
-            if (File.Exists(receiptsPath))
-            {
-                archive.CreateEntryFromFile(receiptsPath, OwsConstants.ReceiptsFileName);
-            }
-
-            if (sessionText is not null)
-            {
-                archive.CreateEntryFromFile(sessionPath, OwsConstants.SessionFileName);
-            }
-
-            foreach (var artifactPath in artifactHashes.Keys)
-            {
-                var relativePath = artifactPath["artifacts/".Length..].Replace('/', Path.DirectorySeparatorChar);
-                archive.CreateEntryFromFile(Path.Combine(request.ProjectRootPath, relativePath), artifactPath);
-            }
-        }
+        PackageArchiveWriter.WriteArchive(
+            request.OutputPackagePath,
+            request.ProjectRootPath,
+            manifest,
+            timelineText,
+            versionGraphText,
+            receiptsPath,
+            sessionPath,
+            sessionText is not null,
+            artifactHashes);
 
         return Task.FromResult(new PackageCreationResult
         {

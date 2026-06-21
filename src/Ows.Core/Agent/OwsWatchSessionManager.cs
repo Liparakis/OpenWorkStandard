@@ -1,12 +1,8 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
-using System.IO.Compression;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core.Init;
 using Ows.Core.Notarization;
-using Ows.Core.Packaging;
 using Ows.Core.Events;
 using Ows.Core.Hashing;
 
@@ -14,22 +10,34 @@ namespace Ows.Core.Agent;
 
 /// <summary>
 /// Implements the shared watcher and session lifecycle manager.
+/// Coordinates project initialization, background watching, timeline events, session states, and verification services.
 /// </summary>
 public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
-    private static readonly string[] KnownWatcherProcessNames = ["ows", "dotnet", "testhost"];
-
+    /// <summary>
+    /// The JSON serializer options configured for read and write operations of configuration files.
+    /// </summary>
     private static readonly JsonSerializerOptions ConfigSerializerOptions = new()
     {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
     };
 
-    private ITrackingAgent? _activeAgent;
+    /// <summary>
+    /// The active local tracking agent handling directory file changes and timeline synchronization.
+    /// </summary>
+    private LocalTrackingAgent? _activeAgent;
+
+    /// <summary>
+    /// The cancellation token source governing the lifecycle of the active file watching processes.
+    /// </summary>
     private CancellationTokenSource? _activeCts;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Checks whether the specified project directory has been initialized with the .ows structure and configuration file.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns><see langword="true"/> if the project is initialized; otherwise, <see langword="false"/>.</returns>
     public bool IsProjectInitialized(string projectRoot)
     {
         if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot)) return false;
@@ -37,7 +45,10 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         return Directory.Exists(localFolder) && File.Exists(Path.Combine(localFolder, "config.json"));
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Initializes a new project at the specified root path by creating the .ows folder and generating default configuration assets.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
     public void InitializeProject(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -45,7 +56,14 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         initializer.Initialize(projectRoot);
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Starts the project file watcher asynchronously, initializing scanning, recovery analysis, and background event loops.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="usePolling">Determines whether to fall back to a polling-based file watcher instead of native OS filesystem events.</param>
+    /// <param name="debounceMs">The interval in milliseconds to debounce rapid consecutive file change notifications.</param>
+    /// <returns>A task representing the asynchronous start operation.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if a watcher process is already running for the specified project root.</exception>
     public async Task StartWatcherAsync(string projectRoot, bool usePolling = false, int debounceMs = 500)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -55,7 +73,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         var watcherJsonPath = Path.Combine(localFolder, "watcher.json");
         var stopFilePath = Path.Combine(localFolder, "watcher.stop");
 
-        if (IsWatcherRunning(projectRoot))
+        if (WatcherStateStore.IsWatcherRunning(projectRoot))
         {
             throw new InvalidOperationException("Watcher is already running for this project.");
         }
@@ -70,13 +88,17 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
                 interruptedState = JsonSerializer.Deserialize<WatcherProcessState>(content);
                 wasInterrupted = true;
             }
-            catch {}
-            TryDeleteFile(watcherJsonPath);
+            catch
+            {
+                /*ignored*/
+            }
+
+            WatcherStateStore.TryDeleteFile(watcherJsonPath);
         }
 
         if (File.Exists(stopFilePath))
         {
-            TryDeleteFile(stopFilePath);
+            WatcherStateStore.TryDeleteFile(stopFilePath);
         }
 
         var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
@@ -85,78 +107,18 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             Pid = currentProcess.Id,
             StartedAt = DateTimeOffset.UtcNow
         };
-        await File.WriteAllTextAsync(watcherJsonPath, JsonSerializer.Serialize(state, SerializerOptions));
+        await WatcherStateStore.WriteStateAsync(watcherJsonPath, state);
 
         _activeCts = new CancellationTokenSource();
         var token = _activeCts.Token;
 
         // Background poller for watcher.stop file
-        _ = Task.Run(async () =>
-        {
-            while (!token.IsCancellationRequested)
-            {
-                if (File.Exists(stopFilePath))
-                {
-                    await _activeCts.CancelAsync();
-                    break;
-                }
-
-                try
-                {
-                    await Task.Delay(500, token);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-            }
-        }, token);
+        WatcherSessionLifecycleCoordinator.StartStopPoller(stopFilePath, _activeCts, token);
 
         // Background poller for session heartbeats (every 30 seconds)
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-        _ = Task.Run(async () =>
-        {
-            while (!token.IsCancellationRequested)
-            {
-                try
-                {
-                    await Task.Delay(30000, token);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-
-                if (token.IsCancellationRequested)
-                {
-                    break;
-                }
-
-                if (File.Exists(sessionPath))
-                {
-                    try
-                    {
-                        var content = await File.ReadAllTextAsync(sessionPath, token);
-                        var sessionState = JsonSerializer.Deserialize<SessionState>(content);
-                        if (sessionState != null && !string.IsNullOrWhiteSpace(sessionState.VerifierUrl))
-                        {
-                            await SendHeartbeatAsync(projectRoot);
-                        }
-                    }
-                    catch (IOException)
-                    {
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                    }
-                    catch (JsonException)
-                    {
-                        // Swallow background heartbeat loop errors to keep the watcher alive.
-                        // SendHeartbeatAsync automatically writes the error flags to session.json.
-                    }
-                }
-            }
-        }, token);
+        WatcherSessionLifecycleCoordinator.StartHeartbeatPoller(sessionPath, projectRoot,
+            root => SendHeartbeatAsync(root), token);
 
         var projectConfig = GetProjectConfig(projectRoot);
         var excludeDirs = projectConfig?.WatcherSettings?.ExcludeDirectories;
@@ -182,15 +144,19 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         }
         finally
         {
-            TryDeleteFile(watcherJsonPath);
-            TryDeleteFile(stopFilePath);
+            WatcherStateStore.TryDeleteFile(watcherJsonPath);
+            WatcherStateStore.TryDeleteFile(stopFilePath);
 
             _activeCts = null;
             _activeAgent = null;
         }
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Stops the active watcher process for the specified project, cleaning up token sources and active handles.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns>A task representing the asynchronous stop operation.</returns>
     public async Task StopWatcherAsync(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -200,16 +166,17 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
 
         if (!File.Exists(watcherJsonPath)) return;
 
-        var wasRunning = IsWatcherRunning(projectRoot);
+        var wasRunning = WatcherStateStore.IsWatcherRunning(projectRoot);
         if (wasRunning)
         {
             var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
             try
             {
-                await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherStopped, null, host, null, new Dictionary<string, string>
-                {
-                    { "reason", "user_requested" }
-                });
+                await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherStopped, null, host, null,
+                    new Dictionary<string, string>
+                    {
+                        { "reason", "user_requested" }
+                    });
             }
             catch
             {
@@ -233,9 +200,14 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
                     metadata["previousPid"] = prevState.Pid.ToString();
                     metadata["previousStartedAt"] = prevState.StartedAt.ToString("o");
                 }
-                await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherInterrupted, null, host, null, metadata);
+
+                await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherInterrupted, null, host, null,
+                    metadata);
             }
-            catch {}
+            catch
+            {
+                /*ignored*/
+            }
         }
 
         try
@@ -262,84 +234,32 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
 
         if (File.Exists(watcherJsonPath))
         {
-            try
-            {
-                var content = await File.ReadAllTextAsync(watcherJsonPath);
-                var state = JsonSerializer.Deserialize<WatcherProcessState>(content);
-                if (state != null)
-                {
-                    var proc = System.Diagnostics.Process.GetProcessById(state.Pid);
-                    if (!proc.HasExited)
-                    {
-                        proc.Kill(entireProcessTree: true);
-                    }
-                }
-            }
-            catch (ArgumentException)
-            {
-            }
-            catch (InvalidOperationException)
-            {
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-
-            TryDeleteFile(watcherJsonPath);
+            await WatcherSessionLifecycleCoordinator.ForceKillWatcherProcessAsync(watcherJsonPath);
+            WatcherStateStore.TryDeleteFile(watcherJsonPath);
         }
 
         if (File.Exists(stopFilePath))
         {
-            TryDeleteFile(stopFilePath);
+            WatcherStateStore.TryDeleteFile(stopFilePath);
         }
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Checks whether the watcher process is currently running for the specified project.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns><see langword="true"/> if the watcher is running; otherwise, <see langword="false"/>.</returns>
     public bool IsWatcherRunning(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
-        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
-        var watcherJsonPath = Path.Combine(localFolder, "watcher.json");
-        if (!File.Exists(watcherJsonPath)) return false;
-
-        try
-        {
-            var content = File.ReadAllText(watcherJsonPath);
-            var state = JsonSerializer.Deserialize<WatcherProcessState>(content);
-            if (state == null) return false;
-
-            var proc = System.Diagnostics.Process.GetProcessById(state.Pid);
-            if (proc.HasExited) return false;
-
-            var procName = proc.ProcessName.ToLowerInvariant();
-            return KnownWatcherProcessNames.Any(procName.Contains);
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
+        return WatcherStateStore.IsWatcherRunning(projectRoot);
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Determines whether the watcher process for the specified project has crashed or was abnormally terminated.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns><see langword="true"/> if the watcher crashed; otherwise, <see langword="false"/>.</returns>
     public bool DidWatcherCrash(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -349,6 +269,11 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         return !IsWatcherRunning(projectRoot);
     }
 
+    /// <summary>
+    /// Validates that the target project root path exists on the local filesystem.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <exception cref="DirectoryNotFoundException">Thrown if the path is null, empty, or doesn't refer to an existing directory.</exception>
     private void EnsureProjectDirectoryExists(string projectRoot)
     {
         if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot))
@@ -357,233 +282,47 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         }
     }
 
-    /// <inheritdoc />
-    public async Task<string> StartSessionAsync(string projectRoot, string? verifierUrlOverride = null)
+    /// <summary>
+    /// Begins a new remote verification session for the specified project root path.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="verifierUrlOverride">An optional URL parameter to override the configured remote verifier target.</param>
+    /// <returns>A task returning the unique remote session identifier.</returns>
+    public Task<string> StartSessionAsync(string projectRoot, string? verifierUrlOverride = null)
     {
         EnsureProjectDirectoryExists(projectRoot);
-        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
-        Directory.CreateDirectory(localFolder);
-
         var config = GetProjectConfig(projectRoot) ?? new OwsProjectConfig();
-        var verifierUrl = verifierUrlOverride ?? config.VerifierUrl;
-
-        string sessionIdVal;
-        if (string.IsNullOrWhiteSpace(verifierUrl))
-        {
-            var inMemory = new InMemoryReceiptService();
-            var sessId = inMemory.StartSession();
-            sessionIdVal = sessId.Value;
-        }
-        else
-        {
-            using var httpClient = CreateHttpClient(verifierUrl);
-            var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint())
-            {
-                StartSessionRequest = new StartSessionRequest
-                {
-                    InstitutionId = config.InstitutionId,
-                    AssessmentId = config.AssessmentId,
-                    StudentUserId = config.StudentUserId,
-                    CourseOfferingId = config.CourseOfferingId
-                }
-            };
-            var sessId = await transport.StartSessionAsync(CancellationToken.None);
-            sessionIdVal = sessId.Value;
-        }
-
-        var sessionState = new SessionState
-        {
-            SessionId = sessionIdVal,
-            VerifierUrl = verifierUrl,
-            InstitutionId = config.InstitutionId,
-            AssessmentId = config.AssessmentId,
-            StudentUserId = config.StudentUserId,
-            CourseOfferingId = config.CourseOfferingId
-        };
-
-        await File.WriteAllTextAsync(
-            Path.Combine(localFolder, OwsConstants.SessionFileName),
-            JsonSerializer.Serialize(sessionState, SerializerOptions));
-
-        await File.WriteAllTextAsync(
-            Path.Combine(localFolder, OwsConstants.ReceiptsFileName),
-            JsonSerializer.Serialize(
-                new ReceiptChain { SessionId = new AssessmentSessionId(sessionIdVal), Receipts = [] },
-                SerializerOptions));
-
-        return sessionIdVal;
+        return RemoteSessionCoordinator.StartSessionAsync(projectRoot, config, verifierUrlOverride);
     }
 
-    /// <inheritdoc />
-    public async Task SendHeartbeatAsync(string projectRoot, string? verifierUrlOverride = null)
+    /// <summary>
+    /// Dispatches a session activity heartbeat to the remote verifier.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="verifierUrlOverride">An optional URL parameter to override the configured remote verifier target.</param>
+    /// <returns>A task representing the asynchronous heartbeat process.</returns>
+    public Task SendHeartbeatAsync(string projectRoot, string? verifierUrlOverride = null)
     {
         EnsureProjectDirectoryExists(projectRoot);
-        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
-        var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-        if (!File.Exists(sessionPath))
-        {
-            throw new InvalidOperationException("No active OWS session. Start a session first.");
-        }
-
-        var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath))
-                    ?? throw new JsonException("Session state is corrupt.");
-
-        var verifierUrl = verifierUrlOverride ?? state.VerifierUrl;
-        if (string.IsNullOrWhiteSpace(verifierUrl))
-        {
-            throw new InvalidOperationException("No remote verifier URL configured for this session.");
-        }
-
-        var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
-        var lastEventHash = File.Exists(timelinePath)
-            ? OwsEventChain.ReadLastEventHash(timelinePath)
-            : null;
-
-        try
-        {
-            using var httpClient = CreateHttpClient(verifierUrl);
-            var payload = new
-            {
-                LastKnownEventHash = lastEventHash
-            };
-
-            using var response = await httpClient.PostAsJsonAsync($"sessions/{state.SessionId}/heartbeat", payload);
-
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-                response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-            {
-                throw new UnauthorizedAccessException("Verifier returned unauthorized or forbidden status code.");
-            }
-
-            response.EnsureSuccessStatusCode();
-
-            var heartbeatResponse = await response.Content.ReadFromJsonAsync<SessionHeartbeatResponse>()
-                                    ?? throw new InvalidOperationException(
-                                        "Verifier returned an invalid heartbeat response.");
-
-            var isDegraded = heartbeatResponse.SessionTrustState == "Degraded";
-
-            var updatedState = state with
-            {
-                LastHeartbeatAt = DateTimeOffset.UtcNow,
-                IsVerifierOffline = false,
-                IsHeartbeatFailing = false,
-                IsDegraded = isDegraded,
-                LastHeartbeatError = null
-            };
-            await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
-        }
-        catch (HttpRequestException ex)
-        {
-            var updatedState = state with
-            {
-                IsVerifierOffline = true,
-                IsHeartbeatFailing = false,
-                LastHeartbeatError = ex.Message
-            };
-            await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
-            throw;
-        }
-        catch (Exception ex)
-        {
-            var updatedState = state with
-            {
-                IsVerifierOffline = false,
-                IsHeartbeatFailing = true,
-                IsDegraded = ex is not UnauthorizedAccessException && state.IsDegraded,
-                LastHeartbeatError = ex.Message
-            };
-            await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
-            throw;
-        }
+        return RemoteSessionCoordinator.SendHeartbeatAsync(projectRoot, verifierUrlOverride);
     }
 
-    /// <inheritdoc />
-    public async Task<string> AddCheckpointAsync(string projectRoot)
+    /// <summary>
+    /// Computes and posts a new project timeline state checkpoint to the remote verification server.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns>A task returning the checkpoint verification sequence or identification tag.</returns>
+    public Task<string> AddCheckpointAsync(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
-        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
-        var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-        var receiptsPath = Path.Combine(localFolder, OwsConstants.ReceiptsFileName);
-        var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
-
-        if (!File.Exists(sessionPath))
-        {
-            throw new InvalidOperationException("No active OWS session. Start a session first.");
-        }
-
-        var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath))
-                    ?? throw new JsonException("Session state is corrupt.");
-
-        var sessionId = new AssessmentSessionId(state.SessionId);
-        var receiptChain = File.Exists(receiptsPath)
-            ? JsonSerializer.Deserialize<ReceiptChain>(await File.ReadAllTextAsync(receiptsPath))
-              ?? throw new JsonException("Receipt chain is corrupt.")
-            : new ReceiptChain { SessionId = sessionId, Receipts = [] };
-
-        CheckpointReceipt receipt;
-        ReceiptChain updatedReceiptChain;
-
-        if (string.IsNullOrWhiteSpace(state.VerifierUrl))
-        {
-            var checkpoint = Checkpoint.FromTimeline(timelinePath, sessionId, receiptChain.Receipts.Count + 1);
-            var service = new InMemoryReceiptService();
-            service.RestoreSession(sessionId, receiptChain.Receipts);
-            receipt = service.SubmitCheckpoint(checkpoint);
-            updatedReceiptChain = service.GetReceiptChain(sessionId);
-        }
-        else
-        {
-            try
-            {
-                using var httpClient = CreateHttpClient(state.VerifierUrl);
-                var transport = new HttpsReceiptTransport(
-                    httpClient,
-                    (activeSessionId, sequenceNumber) =>
-                        Checkpoint.FromTimeline(timelinePath, activeSessionId, sequenceNumber));
-                transport.RestoreSession(sessionId, receiptChain.Receipts.Count + 1);
-                receipt = await transport.SendCheckpointAsync(CancellationToken.None);
-                updatedReceiptChain = await transport.GetReceiptsAsync(CancellationToken.None);
-            }
-            catch (HttpRequestException ex)
-            {
-                var updatedState = state with
-                {
-                    IsVerifierOffline = true,
-                    IsHeartbeatFailing = false,
-                    LastHeartbeatError = ex.Message
-                };
-                await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
-                throw;
-            }
-            catch (Exception ex)
-            {
-                var updatedState = state with
-                {
-                    IsVerifierOffline = false,
-                    IsHeartbeatFailing = true,
-                    LastHeartbeatError = ex.Message
-                };
-                await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
-                throw;
-            }
-        }
-
-        await File.WriteAllTextAsync(receiptsPath, JsonSerializer.Serialize(updatedReceiptChain, SerializerOptions));
-
-        var finalState = state with
-        {
-            LastCheckpointAt = DateTimeOffset.UtcNow,
-            IsVerifierOffline = false,
-            IsHeartbeatFailing = false,
-            LastHeartbeatError = null
-        };
-        await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(finalState, SerializerOptions));
-
-        return receipt.ReceiptHash;
+        return RemoteSessionCoordinator.AddCheckpointAsync(projectRoot);
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Retrieves the current active session identifier from the local session database or file cache.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns>The active session ID string, or <see langword="null"/> if none exists or is readable.</returns>
     public string? GetCurrentSessionId(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -609,7 +348,11 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         }
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Resolves the remote verifier URL for the specified project, checking the active session state before falling back to static config.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns>The verifier service URL string, or <see langword="null"/> if undefined.</returns>
     public string? GetVerifierUrl(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -637,7 +380,11 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         return config?.VerifierUrl;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Loads and deserializes the configuration settings for the specified project.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns>The configured project details, or <see langword="null"/> if the configuration is missing or corrupt.</returns>
     public OwsProjectConfig? GetProjectConfig(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -663,7 +410,11 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         }
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Saves the provided configuration details to the local project configuration file directory.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="config">The updated configuration instance to serialize and commit.</param>
     public void SaveProjectConfig(string projectRoot, OwsProjectConfig config)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -673,7 +424,11 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         File.WriteAllText(configPath, JsonSerializer.Serialize(config, ConfigSerializerOptions));
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Reads the last checkpoint timestamp recorded in the local session descriptor.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns>The timestamp of the last checkpoint, or <see langword="null"/> if unavailable.</returns>
     public DateTimeOffset? GetLastCheckpointAt(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -698,7 +453,11 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         return null;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Reads the last heartbeat confirmation timestamp recorded in the local session descriptor.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns>The timestamp of the last heartbeat, or <see langword="null"/> if unavailable.</returns>
     public DateTimeOffset? GetLastHeartbeatAt(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -723,194 +482,41 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         return null;
     }
 
-    /// <inheritdoc />
-    public async Task<string> PackageProjectAsync(string projectRoot)
+    /// <summary>
+    /// Synthesizes, packages, and signs all current workspace tracked assets and history events into an OWS package.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <returns>A task returning the path to the newly created package file.</returns>
+    public Task<string> PackageProjectAsync(string projectRoot)
     {
         EnsureProjectDirectoryExists(projectRoot);
-        var packagePath = Path.Combine(projectRoot,
-            $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
-        var builder = new OwsPackageBuilder();
-        var result = await builder.CreatePackageAsync(new PackageCreationRequest
-        {
-            ProjectRootPath = projectRoot,
-            OutputPackagePath = packagePath
-        }, CancellationToken.None);
-
-        if (!result.Created)
-        {
-            throw new InvalidOperationException("Packaging failed.");
-        }
-
-        // Emit PackageCreated event locally
-        try
-        {
-            var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
-            var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-            string? sessionId = null;
-            if (File.Exists(sessionPath))
-            {
-                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
-                sessionId = state?.SessionId;
-            }
-
-            var packageHash = string.Empty;
-            long packageSize = 0;
-            var artifactCount = 0;
-
-            if (File.Exists(packagePath))
-            {
-                packageSize = new FileInfo(packagePath).Length;
-                packageHash = new Sha256HashService().ComputeHash(await File.ReadAllBytesAsync(packagePath));
-                using var archive = ZipFile.OpenRead(packagePath);
-                artifactCount = archive.Entries.Count(entry =>
-                    entry.FullName.StartsWith("artifacts/", StringComparison.OrdinalIgnoreCase));
-            }
-
-            var metadata = new Dictionary<string, string>
-            {
-                { "packagePath", Path.GetFileName(packagePath) },
-                { "packageHash", packageHash },
-                { "packageSize", packageSize.ToString() },
-                { "artifactCount", artifactCount.ToString() },
-                { "createdAt", DateTimeOffset.UtcNow.ToString("o") }
-            };
-            if (sessionId is not null)
-            {
-                metadata["sessionId"] = sessionId;
-            }
-
-            var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
-            await AppendEventToTimelineAsync(projectRoot, OwsEventType.PackageCreated, Path.GetFileName(packagePath),
-                host, 0, metadata);
-        }
-        catch
-        {
-            // Failures in writing the event should not fail the package command itself
-        }
-
-        return packagePath;
+        return PackageCreationCoordinator.PackageProjectAsync(projectRoot, AppendEventToTimelineAsync);
     }
 
-    /// <inheritdoc />
-    public async Task<string> UploadPackageAsync(string projectRoot, string packagePath,
+    /// <summary>
+    /// Uploads a built project package file to the remote verifier service.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="packagePath">The absolute path to the package archive file to upload.</param>
+    /// <param name="verifierUrlOverride">An optional URL parameter to override the configured remote verifier target.</param>
+    /// <returns>A task returning the transaction status payload returned by the verifier.</returns>
+    public Task<string> UploadPackageAsync(string projectRoot, string packagePath,
         string? verifierUrlOverride = null)
     {
         EnsureProjectDirectoryExists(projectRoot);
-        var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
-        var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-
-        string? verifierUrl = verifierUrlOverride;
-        string? sessionId = null;
-        string? institutionId = null;
-        string? assessmentId = null;
-        string? studentUserId = null;
-
-        if (File.Exists(sessionPath))
-        {
-            try
-            {
-                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
-                if (state is not null)
-                {
-                    verifierUrl ??= state.VerifierUrl;
-                    sessionId = state.SessionId;
-                    institutionId = state.InstitutionId;
-                    assessmentId = state.AssessmentId;
-                    studentUserId = state.StudentUserId;
-                }
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-            catch (JsonException)
-            {
-            }
-        }
-
         var config = GetProjectConfig(projectRoot);
-        if (config != null)
-        {
-            verifierUrl ??= config.VerifierUrl;
-            institutionId ??= config.InstitutionId;
-            assessmentId ??= config.AssessmentId;
-            studentUserId ??= config.StudentUserId;
-        }
-
-        if (string.IsNullOrWhiteSpace(verifierUrl))
-        {
-            throw new InvalidOperationException("No remote verifier URL configured for package upload.");
-        }
-
-        using var httpClient = CreateHttpClient(verifierUrl);
-        httpClient.Timeout = TimeSpan.FromSeconds(60);
-
-        using var form = new MultipartFormDataContent();
-
-        var fileStream = File.OpenRead(packagePath);
-        var fileContent = new StreamContent(fileStream);
-        fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
-        form.Add(fileContent, "file", Path.GetFileName(packagePath));
-
-        if (!string.IsNullOrWhiteSpace(sessionId)) form.Add(new StringContent(sessionId), "sessionId");
-        if (!string.IsNullOrWhiteSpace(institutionId)) form.Add(new StringContent(institutionId), "institutionId");
-        if (!string.IsNullOrWhiteSpace(assessmentId)) form.Add(new StringContent(assessmentId), "assessmentId");
-        if (!string.IsNullOrWhiteSpace(studentUserId)) form.Add(new StringContent(studentUserId), "studentUserId");
-
-        var response = await httpClient.PostAsync("packages/upload", form);
-
-        if (response.StatusCode == System.Net.HttpStatusCode.RequestEntityTooLarge)
-        {
-            throw new InvalidOperationException("Package is too large for the verifier server.");
-        }
-
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-            response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-        {
-            throw new UnauthorizedAccessException("Upload unauthorized: Invalid or expired API key.");
-        }
-
-        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
-        {
-            var errorBody = await response.Content.ReadAsStringAsync();
-            throw new ArgumentException($"Invalid package shape: {errorBody}");
-        }
-
-        response.EnsureSuccessStatusCode();
-
-        var body = await response.Content.ReadFromJsonAsync<VerifierPackageSubmissionResponse>()
-                   ?? throw new InvalidOperationException("Verifier returned an invalid upload response.");
-
-        if (File.Exists(sessionPath))
-        {
-            try
-            {
-                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
-                if (state is not null)
-                {
-                    var updatedState = state with { LastPackageId = body.SubmissionId };
-                    await File.WriteAllTextAsync(sessionPath,
-                        JsonSerializer.Serialize(updatedState, SerializerOptions));
-                }
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-            catch (JsonException)
-            {
-            }
-        }
-
-        return body.SubmissionId;
+        return RemoteSessionCoordinator.UploadPackageAsync(projectRoot, packagePath, config, verifierUrlOverride);
     }
 
-    /// <inheritdoc />
-    public async Task<string> QueryPackageStatusAsync(string projectRoot, string packageId,
+    /// <summary>
+    /// Queries the validation status and verification details of an uploaded package.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="packageId">The identifier of the remote package.</param>
+    /// <param name="verifierUrlOverride">An optional URL parameter to override the configured remote verifier target.</param>
+    /// <returns>A task returning the verification response summary.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if no verifier URL can be determined for the status query.</exception>
+    public Task<string> QueryPackageStatusAsync(string projectRoot, string packageId,
         string? verifierUrlOverride = null)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -920,47 +526,16 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             throw new InvalidOperationException("No remote verifier URL configured for status query.");
         }
 
-        using var httpClient = CreateHttpClient(verifierUrl);
-        var response = await httpClient.GetAsync($"packages/{packageId}");
-
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-            response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-        {
-            throw new UnauthorizedAccessException("Query unauthorized: Invalid or expired API key.");
-        }
-
-        response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadAsStringAsync();
+        return RemoteSessionCoordinator.QueryPackageStatusAsync(verifierUrl, packageId);
     }
 
-    private static HttpClient CreateHttpClient(string verifierUrl)
-    {
-        var client = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
-        var apiKey = Environment.GetEnvironmentVariable("OWS_VERIFIER_API_KEY");
-        if (!string.IsNullOrWhiteSpace(apiKey))
-        {
-            client.DefaultRequestHeaders.Add("X-OWS-Verifier-Key", apiKey);
-        }
-
-        return client;
-    }
-
-    private static void TryDeleteFile(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
-
-    /// <inheritdoc />
+    /// <summary>
+    /// Appends a ProjectOpened event to the local timeline history, recording host identity and safety identification hashes.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="host">The name of the host editor, IDE, or tool triggering the project open action.</param>
+    /// <param name="reason">An optional metadata explanation of the opening action trigger.</param>
+    /// <returns>A task representing the asynchronous emission.</returns>
     public async Task EmitProjectOpenedAsync(string projectRoot, string host, string? reason = null)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -1001,7 +576,13 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         await AppendEventToTimelineAsync(projectRoot, OwsEventType.ProjectOpened, null, host, null, metadata);
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Appends a ProjectClosed event to the local timeline history.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="host">The name of the host editor, IDE, or tool triggering the project close action.</param>
+    /// <param name="reason">An optional metadata explanation of the closing action trigger.</param>
+    /// <returns>A task representing the asynchronous emission.</returns>
     public async Task EmitProjectClosedAsync(string projectRoot, string host, string? reason = null)
     {
         EnsureProjectDirectoryExists(projectRoot);
@@ -1042,7 +623,17 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         await AppendEventToTimelineAsync(projectRoot, OwsEventType.ProjectClosed, null, host, null, metadata);
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Appends a generic validation or process execution event (e.g. Build, Test run) to the timeline log.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="eventType">The type of event being registered.</param>
+    /// <param name="host">The host metadata tag identifying execution environment.</param>
+    /// <param name="label">An optional descriptive label of the operation, which will be scrubbed of confidential credentials.</param>
+    /// <param name="exitCode">An optional process exit code.</param>
+    /// <param name="durationMs">An optional execution duration measurement in milliseconds.</param>
+    /// <returns>A task representing the asynchronous emission.</returns>
+    /// <exception cref="ArgumentException">Thrown if the eventType is not validated for generic emissions in this standard version.</exception>
     public async Task EmitGenericEventAsync(
         string projectRoot,
         OwsEventType eventType,
@@ -1111,8 +702,10 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     }
 
     /// <summary>
-    /// Scrub keys, tokens, passwords, and credentials from inputs.
+    /// Redacts sensitive credential information, security tokens, passwords, and authorization sequences from inputs to prevent leakage.
     /// </summary>
+    /// <param name="input">The raw text block potentially containing keys or credential identifiers.</param>
+    /// <returns>A sanitized string where matching private elements have been replaced with a redacted marker.</returns>
     public static string ScrubSecrets(string? input)
     {
         if (string.IsNullOrWhiteSpace(input)) return string.Empty;
@@ -1126,6 +719,16 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         return result;
     }
 
+    /// <summary>
+    /// Writes a structured Open Work Standard event to the timeline file.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the project root directory.</param>
+    /// <param name="eventType">The standard type classification of the timeline event.</param>
+    /// <param name="relativePath">The project-relative file location corresponding to the event, if any.</param>
+    /// <param name="toolName">The agent or tool module reporting this change.</param>
+    /// <param name="bytesChanged">The quantity of changed bytes associated with the event.</param>
+    /// <param name="metadata">A key-value dictionary of contextual metadata payloads.</param>
+    /// <returns>A task representing the timeline write operation.</returns>
     private async Task AppendEventToTimelineAsync(
         string projectRoot,
         OwsEventType eventType,
@@ -1136,18 +739,9 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     {
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
+        var previousEventHash = TimelineEventAppender.ReadLastEventHash(timelinePath);
 
-        var previousEventHash = OwsEventChain.GenesisPreviousEventHash;
-        if (File.Exists(timelinePath))
-        {
-            previousEventHash = OwsEventChain.ReadLastEventHash(timelinePath);
-        }
-        else
-        {
-            Directory.CreateDirectory(localFolder);
-        }
-
-        var owsEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
+        var owsEvent = new OwsEvent
         {
             EventType = eventType,
             ProjectId = Path.GetFileName(projectRoot),
@@ -1155,28 +749,40 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             ToolName = toolName,
             BytesChanged = bytesChanged,
             Metadata = metadata
-        }, previousEventHash);
+        };
 
-        await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(owsEvent)}{Environment.NewLine}");
+        await TimelineEventAppender.AppendEventAsync(timelinePath, owsEvent, previousEventHash, CancellationToken.None);
     }
 
+    /// <summary>
+    /// Matches common key, secret, password, and credential assignments in string values.
+    /// </summary>
+    /// <returns>A <see cref="Regex"/> instance compiled for identifying secret definitions.</returns>
     [GeneratedRegex(
         @"(?i)(password|token|key|secret|credential|pwd|bearer|auth|signature)(\s*[:=]\s*|\s+)([a-zA-Z0-9_\-\.\~]{6,})",
         RegexOptions.None, "en-US")]
     private static partial Regex MyRegex();
 
+    /// <summary>
+    /// Matches HTTP authorization scheme Bearer tokens.
+    /// </summary>
+    /// <returns>A <see cref="Regex"/> instance compiled for identifying bearer tokens.</returns>
     [GeneratedRegex(@"(?i)(bearer\s+)([a-zA-Z0-9_\-\.\~]{8,})", RegexOptions.None, "en-US")]
     private static partial Regex MyRegex1();
 }
 
 /// <summary>
-/// State tracking helper for watcher processes.
+/// State tracking helper for watcher processes. Contains process details used to detect interrupted sessions.
 /// </summary>
 public sealed class WatcherProcessState
 {
-    /// <summary>Gets or sets the Process Identifier.</summary>
+    /// <summary>
+    /// Gets or sets the operating system Process Identifier (PID) of the active watcher host.
+    /// </summary>
     public int Pid { get; init; }
 
-    /// <summary>Gets or sets the process start timestamp.</summary>
+    /// <summary>
+    /// Gets or sets the timestamp when the watcher process started.
+    /// </summary>
     public DateTimeOffset StartedAt { get; init; }
 }

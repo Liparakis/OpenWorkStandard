@@ -35,6 +35,11 @@ public static class SnapshotHashCalculator
         return new Sha256HashService().ComputeHash(builder.ToString());
     }
 
+    /// <summary>
+    /// Normalizes backslashes to forward slashes for cross-platform canonical path representation.
+    /// </summary>
+    /// <param name="relativePath">The path to normalize.</param>
+    /// <returns>The normalized forward-slash path string.</returns>
     private static string NormalizePath(string relativePath) =>
-        (relativePath ?? string.Empty).Replace('\\', '/');
+        (relativePath).Replace('\\', '/');
 }

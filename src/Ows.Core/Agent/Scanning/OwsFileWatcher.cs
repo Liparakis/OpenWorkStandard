@@ -36,12 +36,23 @@ namespace Ows.Core.Agent;
 /// </remarks>
 public sealed class OwsFileWatcher : IAsyncDisposable
 {
+    /// <summary>
+    /// Absolute path to the tracked project root directory.
+    /// </summary>
     private readonly string _projectRoot;
+
+    /// <summary>
+    /// A predicate function receiving the absolute file path, returning <see langword="true"/> if the path should be excluded.
+    /// </summary>
     private readonly Func<string, bool> _shouldExclude;
+
+    /// <summary>
+    /// Debounce and polling fallback behavior options.
+    /// </summary>
     private readonly FileWatcherOptions _options;
 
     /// <summary>
-    /// Initializes a new <see cref="OwsFileWatcher"/>.
+    /// Initializes a new instance of the <see cref="OwsFileWatcher"/> class.
     /// </summary>
     /// <param name="projectRoot">Absolute path to the tracked project root.</param>
     /// <param name="shouldExclude">
@@ -61,7 +72,7 @@ public sealed class OwsFileWatcher : IAsyncDisposable
     }
 
     /// <summary>
-    /// Streams debounced <see cref="FileWatchEvent"/> records until <paramref name="cancellationToken"/>
+    /// Streams debounced <see cref="FileWatchEvent"/> records until the <paramref name="cancellationToken"/>
     /// is cancelled.
     /// </summary>
     /// <param name="cancellationToken">Token that stops the watcher when cancelled.</param>
@@ -169,9 +180,18 @@ public sealed class OwsFileWatcher : IAsyncDisposable
         await linkedCts.CancelAsync();
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Performs asynchronous disposal task of stopping active file-watching tasks.
+    /// </summary>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
+    /// <summary>
+    /// Runs the native file watcher loop wrapping <see cref="FileSystemWatcher"/> to capture OS file change events.
+    /// </summary>
+    /// <param name="writer">The channel writer where raw events are published.</param>
+    /// <param name="cancellationToken">A token to stop the native watcher execution.</param>
+    /// <returns>A task representing the background watcher loop execution.</returns>
     private async Task RunNativeWatcherAsync(
         ChannelWriter<(string, FileChangeKind, DateTimeOffset)> writer,
         CancellationToken cancellationToken)
@@ -223,6 +243,12 @@ public sealed class OwsFileWatcher : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Periodically triggers scanning the project tree to capture file modifications and creation/deletion.
+    /// </summary>
+    /// <param name="writer">The channel writer where raw events are published.</param>
+    /// <param name="cancellationToken">A token to stop the polling watcher execution.</param>
+    /// <returns>A task representing the background polling loop execution.</returns>
     private async Task RunPollingLoopAsync(
         ChannelWriter<(string, FileChangeKind, DateTimeOffset)> writer,
         CancellationToken cancellationToken)
@@ -270,6 +296,10 @@ public sealed class OwsFileWatcher : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Scans the project directory and returns a snapshot mapping paths to their size and last write time details.
+    /// </summary>
+    /// <returns>A snapshot dictionary mapping absolute path keys to size/timestamp tuples.</returns>
     private Dictionary<string, (long Length, DateTime LastWriteUtc)> TakeSnapshot()
     {
         var snapshot = new Dictionary<string, (long, DateTime)>(StringComparer.OrdinalIgnoreCase);
