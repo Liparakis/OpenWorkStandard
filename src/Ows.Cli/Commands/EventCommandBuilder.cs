@@ -7,22 +7,18 @@ namespace Ows.Cli.Commands;
 /// <summary>
 /// Provides construction for the event command group.
 /// </summary>
-public static class EventCommandBuilder
-{
+public static class EventCommandBuilder {
     /// <summary>
     /// Builds the event command group to record explicit OWS timeline events.
     /// </summary>
     /// <returns>The configured command.</returns>
-    public static Command Build()
-    {
+    public static Command Build() {
         var command = new Command("event", "Record explicit OWS timeline events.");
 
-        var hostOption = new Option<string?>("--host")
-        {
+        var hostOption = new Option<string?>("--host") {
             Description = "Host application or environment identifier (e.g. cli, vscode, rider)."
         };
-        var labelOption = new Option<string?>("--label")
-        {
+        var labelOption = new Option<string?>("--label") {
             Description = "Safe label or command name (secrets will be redacted)."
         };
 
@@ -95,8 +91,7 @@ public static class EventCommandBuilder
         Option<string?> hostOption,
         Option<string?> labelOption,
         Option<int?>? exitCodeOption = null,
-        Option<long?>? durationOption = null)
-    {
+        Option<long?>? durationOption = null) {
         var useJson = parseResult.GetValue(SharedCliOptions.JsonOption);
         var host = parseResult.GetValue(hostOption)
                    ?? Environment.GetEnvironmentVariable("OWS_HOST")
@@ -106,12 +101,10 @@ public static class EventCommandBuilder
         var duration = durationOption != null ? parseResult.GetValue(durationOption) : null;
 
         var response = new OwsCliResponse();
-        try
-        {
+        try {
             var projectRoot = Directory.GetCurrentDirectory();
             var manager = new OwsWatchSessionManager();
-            if (!manager.IsProjectInitialized(projectRoot))
-            {
+            if (!manager.IsProjectInitialized(projectRoot)) {
                 throw new InvalidOperationException("OWS project is not initialized. Run 'ows init' first.");
             }
 
@@ -119,9 +112,7 @@ public static class EventCommandBuilder
             response.Success = true;
             response.ProjectRoot = projectRoot;
             response.Message = $"Successfully recorded {eventType} event in the local timeline.";
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             response.Success = false;
             response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));
         }

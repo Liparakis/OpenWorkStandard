@@ -5,8 +5,7 @@ namespace Ows.Core.Reporting;
 /// <summary>
 /// Describes the inputs required to generate an OWS report.
 /// </summary>
-public sealed record ReportRequest
-{
+public sealed record ReportRequest {
     /// <summary>
     /// Gets the verification result to format.
     /// </summary>

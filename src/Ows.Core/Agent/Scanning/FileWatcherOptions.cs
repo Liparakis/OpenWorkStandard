@@ -3,8 +3,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Configures the runtime behaviour of <see cref="OwsFileWatcher"/>.
 /// </summary>
-public sealed record FileWatcherOptions
-{
+public sealed record FileWatcherOptions {
     /// <summary>
     /// Gets the minimum quiet time in milliseconds that must elapse after the last
     /// file-system notification for the same path before the event is emitted.

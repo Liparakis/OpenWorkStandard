@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Defines the storage repository for package metadata and verification outcomes.
 /// </summary>
-public interface IPackageSubmissionStore
-{
+public interface IPackageSubmissionStore {
     /// <summary>
     /// Registers or updates a package submission.
     /// </summary>

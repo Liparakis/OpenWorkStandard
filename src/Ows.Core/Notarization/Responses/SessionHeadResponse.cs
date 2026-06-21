@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Represents the current authoritative receipt anchor for an assessment session.
 /// </summary>
-public sealed record SessionHeadResponse
-{
+public sealed record SessionHeadResponse {
     /// <summary>
     /// Gets the assessment session identifier.
     /// </summary>

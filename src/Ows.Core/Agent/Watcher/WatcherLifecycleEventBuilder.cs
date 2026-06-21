@@ -5,18 +5,15 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Provides factory methods to construct timeline watcher events with their appropriate metadata.
 /// </summary>
-internal static class WatcherLifecycleEventBuilder
-{
+internal static class WatcherLifecycleEventBuilder {
     /// <summary>
     /// Builds a WatcherStarted event.
     /// </summary>
     /// <param name="projectId">The identifier of the project.</param>
     /// <param name="reason">The startup reason.</param>
     /// <returns>A new <see cref="OwsEvent"/> representing the event.</returns>
-    public static OwsEvent BuildWatcherStarted(string projectId, string reason)
-    {
-        return new OwsEvent
-        {
+    public static OwsEvent BuildWatcherStarted(string projectId, string reason) {
+        return new OwsEvent {
             EventType = OwsEventType.WatcherStarted,
             ProjectId = projectId,
             ToolName = "ows watch",
@@ -33,10 +30,8 @@ internal static class WatcherLifecycleEventBuilder
     /// <param name="projectId">The identifier of the project.</param>
     /// <param name="reason">The shutdown reason.</param>
     /// <returns>A new <see cref="OwsEvent"/> representing the event.</returns>
-    public static OwsEvent BuildWatcherStopped(string projectId, string reason)
-    {
-        return new OwsEvent
-        {
+    public static OwsEvent BuildWatcherStopped(string projectId, string reason) {
+        return new OwsEvent {
             EventType = OwsEventType.WatcherStopped,
             ProjectId = projectId,
             ToolName = "ows watch",
@@ -54,10 +49,8 @@ internal static class WatcherLifecycleEventBuilder
     /// <param name="previousPid">The process identifier that was interrupted.</param>
     /// <param name="reason">The interruption reason.</param>
     /// <returns>A new <see cref="OwsEvent"/> representing the event.</returns>
-    public static OwsEvent BuildWatcherInterrupted(string projectId, string? previousPid, string reason)
-    {
-        return new OwsEvent
-        {
+    public static OwsEvent BuildWatcherInterrupted(string projectId, string? previousPid, string reason) {
+        return new OwsEvent {
             EventType = OwsEventType.WatcherInterrupted,
             ProjectId = projectId,
             ToolName = "ows watch",
@@ -76,10 +69,8 @@ internal static class WatcherLifecycleEventBuilder
     /// <param name="reason">The recovery reason.</param>
     /// <param name="gapDurationMs">The duration of the recovery interval in milliseconds.</param>
     /// <returns>A new <see cref="OwsEvent"/> representing the event.</returns>
-    public static OwsEvent BuildWatcherRecovered(string projectId, string reason, long gapDurationMs)
-    {
-        return new OwsEvent
-        {
+    public static OwsEvent BuildWatcherRecovered(string projectId, string reason, long gapDurationMs) {
+        return new OwsEvent {
             EventType = OwsEventType.WatcherRecovered,
             ProjectId = projectId,
             ToolName = "ows watch",
@@ -113,8 +104,7 @@ internal static class WatcherLifecycleEventBuilder
         string recoveryReason,
         string baselineState,
         string? committedSnapshotHash = null,
-        string? computedSnapshotHash = null)
-    {
+        string? computedSnapshotHash = null) {
         var metadata = new Dictionary<string, string>
         {
             { "gapStartedAt", gapStartedAt.ToString("o") },
@@ -125,18 +115,15 @@ internal static class WatcherLifecycleEventBuilder
             { "baselineState", baselineState }
         };
 
-        if (!string.IsNullOrWhiteSpace(committedSnapshotHash))
-        {
+        if (!string.IsNullOrWhiteSpace(committedSnapshotHash)) {
             metadata["committedSnapshotHash"] = committedSnapshotHash;
         }
 
-        if (!string.IsNullOrWhiteSpace(computedSnapshotHash))
-        {
+        if (!string.IsNullOrWhiteSpace(computedSnapshotHash)) {
             metadata["computedSnapshotHash"] = computedSnapshotHash;
         }
 
-        return new OwsEvent
-        {
+        return new OwsEvent {
             EventType = OwsEventType.ObservationGapDetected,
             ProjectId = projectId,
             ToolName = "ows watch",
@@ -160,8 +147,7 @@ internal static class WatcherLifecycleEventBuilder
         int fileCount,
         DateTimeOffset observedAt,
         string reason,
-        string? previousSnapshotHash)
-    {
+        string? previousSnapshotHash) {
         var metadata = new Dictionary<string, string>
         {
             { "snapshotHash", snapshotHash },
@@ -170,13 +156,11 @@ internal static class WatcherLifecycleEventBuilder
             { "reason", reason }
         };
 
-        if (!string.IsNullOrWhiteSpace(previousSnapshotHash))
-        {
+        if (!string.IsNullOrWhiteSpace(previousSnapshotHash)) {
             metadata["previousSnapshotHash"] = previousSnapshotHash;
         }
 
-        return new OwsEvent
-        {
+        return new OwsEvent {
             EventType = OwsEventType.SnapshotUpdated,
             ProjectId = projectId,
             ToolName = "ows watch",

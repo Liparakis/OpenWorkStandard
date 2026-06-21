@@ -4,8 +4,7 @@ namespace Ows.Core.Notarization;
 /// Identifies an assessment session across checkpoints and receipts.
 /// </summary>
 /// <param name="Value">The stable session identifier value.</param>
-public readonly record struct AssessmentSessionId(string Value)
-{
+public readonly record struct AssessmentSessionId(string Value) {
     /// <summary>
     /// Creates a new assessment session identifier.
     /// </summary>

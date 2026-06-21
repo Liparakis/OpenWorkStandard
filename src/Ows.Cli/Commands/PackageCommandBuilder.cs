@@ -9,31 +9,26 @@ namespace Ows.Cli.Commands;
 /// <summary>
 /// Provides construction for the package command group.
 /// </summary>
-public static class PackageCommandBuilder
-{
+public static class PackageCommandBuilder {
     /// <summary>
     /// Builds the package command group to create and upload OWS packages.
     /// </summary>
     /// <returns>The configured command.</returns>
-    public static Command Build()
-    {
+    public static Command Build() {
         var command = new Command("package", "Create an OWS submission package.");
 
         var uploadCommand = new Command("upload", "Upload the package to a live verifier.");
-        var packagePathOption = new Option<string?>("--package-path")
-        {
+        var packagePathOption = new Option<string?>("--package-path") {
             Description = "Path to the .owspkg file to upload."
         };
-        var serverOption = new Option<string?>("--server")
-        {
+        var serverOption = new Option<string?>("--server") {
             Description = "Override the verifier base URL."
         };
         uploadCommand.Options.Add(packagePathOption);
         uploadCommand.Options.Add(serverOption);
 
         var statusCommand = new Command("status", "Query verification status of a package.");
-        var packageIdOption = new Option<string?>("--package-id")
-        {
+        var packageIdOption = new Option<string?>("--package-id") {
             Description = "Durable package submission identifier."
         };
         statusCommand.Options.Add(packageIdOption);
@@ -43,16 +38,13 @@ public static class PackageCommandBuilder
         command.Subcommands.Add(statusCommand);
 
         // Default action: Create package
-        command.SetAction(async parseResult =>
-        {
+        command.SetAction(async parseResult => {
             var useJson = parseResult.GetValue(SharedCliOptions.JsonOption);
             var response = new OwsCliResponse();
-            try
-            {
+            try {
                 var projectRoot = Directory.GetCurrentDirectory();
                 var manager = new OwsWatchSessionManager();
-                if (!manager.IsProjectInitialized(projectRoot))
-                {
+                if (!manager.IsProjectInitialized(projectRoot)) {
                     throw new InvalidOperationException("OWS project is not initialized. Run 'ows init' first.");
                 }
 
@@ -60,9 +52,7 @@ public static class PackageCommandBuilder
                 response.Success = true;
                 response.ProjectRoot = projectRoot;
                 response.Message = $"OWS package created successfully: {path}";
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 response.Success = false;
                 response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));
             }
@@ -71,29 +61,24 @@ public static class PackageCommandBuilder
             return response.Success ? 0 : 1;
         });
 
-        uploadCommand.SetAction(async parseResult =>
-        {
+        uploadCommand.SetAction(async parseResult => {
             var useJson = parseResult.GetValue(SharedCliOptions.JsonOption);
             var pkgPath = parseResult.GetValue(packagePathOption);
             var serverUrl = parseResult.GetValue(serverOption);
             var response = new OwsCliResponse();
-            try
-            {
+            try {
                 var projectRoot = Directory.GetCurrentDirectory();
                 var manager = new OwsWatchSessionManager();
-                if (!manager.IsProjectInitialized(projectRoot))
-                {
+                if (!manager.IsProjectInitialized(projectRoot)) {
                     throw new InvalidOperationException("OWS project is not initialized. Run 'ows init' first.");
                 }
 
-                if (string.IsNullOrWhiteSpace(pkgPath))
-                {
+                if (string.IsNullOrWhiteSpace(pkgPath)) {
                     pkgPath = Path.Combine(projectRoot,
                         $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
                 }
 
-                if (!File.Exists(pkgPath))
-                {
+                if (!File.Exists(pkgPath)) {
                     throw new FileNotFoundException($"Package file not found at: {pkgPath}");
                 }
 
@@ -102,9 +87,7 @@ public static class PackageCommandBuilder
                 response.PackageId = packageId;
                 response.ProjectRoot = projectRoot;
                 response.Message = $"Package uploaded successfully. Submission ID: {packageId}";
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 response.Success = false;
                 response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));
             }
@@ -113,34 +96,28 @@ public static class PackageCommandBuilder
             return response.Success ? 0 : 1;
         });
 
-        statusCommand.SetAction(async parseResult =>
-        {
+        statusCommand.SetAction(async parseResult => {
             var useJson = parseResult.GetValue(SharedCliOptions.JsonOption);
             var pkgId = parseResult.GetValue(packageIdOption);
             var serverUrl = parseResult.GetValue(serverOption);
             var response = new OwsCliResponse();
-            try
-            {
+            try {
                 var projectRoot = Directory.GetCurrentDirectory();
                 var manager = new OwsWatchSessionManager();
-                if (!manager.IsProjectInitialized(projectRoot))
-                {
+                if (!manager.IsProjectInitialized(projectRoot)) {
                     throw new InvalidOperationException("OWS project is not initialized. Run 'ows init' first.");
                 }
 
-                if (string.IsNullOrWhiteSpace(pkgId))
-                {
+                if (string.IsNullOrWhiteSpace(pkgId)) {
                     var sessionPath = Path.Combine(projectRoot, OwsConstants.LocalFolderName,
                         OwsConstants.SessionFileName);
-                    if (File.Exists(sessionPath))
-                    {
+                    if (File.Exists(sessionPath)) {
                         var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
                         pkgId = state?.LastPackageId;
                     }
                 }
 
-                if (string.IsNullOrWhiteSpace(pkgId))
-                {
+                if (string.IsNullOrWhiteSpace(pkgId)) {
                     throw new InvalidOperationException(
                         "Package submission ID is required (no last package ID found in session).");
                 }
@@ -155,9 +132,7 @@ public static class PackageCommandBuilder
                 response.TrustStatus = root.TryGetProperty("trustStatus", out var ts) ? ts.GetString() : null;
                 response.Message =
                     $"Package verification status: {response.Status}. Trust status: {response.TrustStatus ?? "None"}";
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 response.Success = false;
                 response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));
             }

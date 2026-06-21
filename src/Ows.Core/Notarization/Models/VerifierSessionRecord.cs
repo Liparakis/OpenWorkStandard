@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Represents durable verifier session state independent of the HTTP server process.
 /// </summary>
-public sealed record VerifierSessionRecord
-{
+public sealed record VerifierSessionRecord {
     /// <summary>
     /// Gets the verifier session identifier.
     /// </summary>

@@ -11,22 +11,18 @@ namespace Ows.Cli.Commands;
 /// <summary>
 /// Provides construction for the verify command.
 /// </summary>
-public static class VerifyCommandBuilder
-{
+public static class VerifyCommandBuilder {
     /// <summary>
     /// Builds the verify command that verifies an OWS submission package.
     /// </summary>
     /// <returns>The configured command.</returns>
-    public static Command Build()
-    {
+    public static Command Build() {
         var command = new Command("verify", "Verify an OWS submission package.");
-        var serverOption = new Option<string?>("--server")
-        {
+        var serverOption = new Option<string?>("--server") {
             Description = "Cross-check packaged receipts against a live verifier API."
         };
         command.Options.Add(serverOption);
-        command.SetAction(async parseResult =>
-        {
+        command.SetAction(async parseResult => {
             var projectRoot = Directory.GetCurrentDirectory();
             var packagePath = Path.Combine(projectRoot,
                 $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
@@ -42,8 +38,7 @@ public static class VerifyCommandBuilder
                 : await FetchTrustedSessionHeadAsync(packagePath, verifierUrl, packagedReceiptChain is null,
                     CancellationToken.None);
             var result = await verifier.VerifyAsync(
-                new PackageVerificationRequest
-                {
+                new PackageVerificationRequest {
                     PackagePath = packagePath,
                     TrustedReceiptChain = trustedReceiptChain,
                     TrustedSessionHead = trustedSessionHead
@@ -68,17 +63,14 @@ public static class VerifyCommandBuilder
         string packagePath,
         string verifierUrl,
         bool shouldFetchChain,
-        CancellationToken cancellationToken)
-    {
-        if (!shouldFetchChain)
-        {
+        CancellationToken cancellationToken) {
+        if (!shouldFetchChain) {
             return null;
         }
 
         var sessionId = ReadPackagedSessionId(packagePath);
         var packagedReceiptChain = ReadPackagedReceiptChain(packagePath);
-        if (sessionId is null && packagedReceiptChain is null)
-        {
+        if (sessionId is null && packagedReceiptChain is null) {
             throw new InvalidOperationException(
                 $"The package does not contain {OwsConstants.SessionFileName} or {OwsConstants.ReceiptsFileName}, so verifier-backed verification cannot resolve a remote session.");
         }
@@ -103,10 +95,8 @@ public static class VerifyCommandBuilder
         string packagePath,
         string verifierUrl,
         bool shouldFetchHead,
-        CancellationToken cancellationToken)
-    {
-        if (!shouldFetchHead)
-        {
+        CancellationToken cancellationToken) {
+        if (!shouldFetchHead) {
             return null;
         }
 
@@ -124,13 +114,11 @@ public static class VerifyCommandBuilder
     /// </summary>
     /// <param name="verifierUrl">The verifier base URL.</param>
     /// <returns>The configured HttpClient.</returns>
-    private static HttpClient CreateVerifierHttpClient(string verifierUrl)
-    {
+    private static HttpClient CreateVerifierHttpClient(string verifierUrl) {
         ArgumentException.ThrowIfNullOrWhiteSpace(verifierUrl);
         var httpClient = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
         var apiKey = Environment.GetEnvironmentVariable("OWS_VERIFIER_API_KEY");
-        if (!string.IsNullOrWhiteSpace(apiKey))
-        {
+        if (!string.IsNullOrWhiteSpace(apiKey)) {
             httpClient.DefaultRequestHeaders.Add("X-OWS-Verifier-Key", apiKey);
         }
 
@@ -142,12 +130,10 @@ public static class VerifyCommandBuilder
     /// </summary>
     /// <param name="packagePath">The path to the package.</param>
     /// <returns>The receipt chain, or null if not found.</returns>
-    private static ReceiptChain? ReadPackagedReceiptChain(string packagePath)
-    {
+    private static ReceiptChain? ReadPackagedReceiptChain(string packagePath) {
         using var archive = ZipFile.OpenRead(packagePath);
         var receiptsEntry = archive.GetEntry(OwsConstants.ReceiptsFileName);
-        if (receiptsEntry is null)
-        {
+        if (receiptsEntry is null) {
             return null;
         }
 
@@ -160,12 +146,10 @@ public static class VerifyCommandBuilder
     /// </summary>
     /// <param name="packagePath">The path to the package.</param>
     /// <returns>The assessment session ID, or null if not found.</returns>
-    private static AssessmentSessionId? ReadPackagedSessionId(string packagePath)
-    {
+    private static AssessmentSessionId? ReadPackagedSessionId(string packagePath) {
         using var archive = ZipFile.OpenRead(packagePath);
         var sessionEntry = archive.GetEntry(OwsConstants.SessionFileName);
-        if (sessionEntry is null)
-        {
+        if (sessionEntry is null) {
             return null;
         }
 

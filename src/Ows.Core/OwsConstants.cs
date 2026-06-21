@@ -3,8 +3,7 @@ namespace Ows.Core;
 /// <summary>
 /// Defines shared constants for local OWS storage and package contents.
 /// </summary>
-public static class OwsConstants
-{
+public static class OwsConstants {
     /// <summary>
     /// Gets the folder name used for local OWS evidence inside a tracked project.
     /// </summary>

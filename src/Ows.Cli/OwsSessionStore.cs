@@ -7,8 +7,7 @@ namespace Ows.Cli;
 /// <summary>
 /// Persists the minimal local session and receipt state used by the CLI prototype flow.
 /// </summary>
-public static class OwsSessionStore
-{
+public static class OwsSessionStore {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
     /// <summary>
@@ -21,8 +20,7 @@ public static class OwsSessionStore
     public static async Task<AssessmentSessionId> StartSessionAsync(
         string projectRoot,
         string? verifierUrl,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -54,8 +52,7 @@ public static class OwsSessionStore
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The issued receipt.</returns>
     public static async Task<CheckpointReceipt> AddCheckpointAsync(string projectRoot,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -64,8 +61,7 @@ public static class OwsSessionStore
         var receiptsPath = Path.Combine(localFolder, OwsConstants.ReceiptsFileName);
         var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
 
-        if (!File.Exists(sessionPath))
-        {
+        if (!File.Exists(sessionPath)) {
             throw new InvalidOperationException("No active OWS session. Run 'ows session start' first.");
         }
 
@@ -79,16 +75,13 @@ public static class OwsSessionStore
         CheckpointReceipt receipt;
         ReceiptChain updatedReceiptChain;
 
-        if (string.IsNullOrWhiteSpace(sessionState.VerifierUrl))
-        {
+        if (string.IsNullOrWhiteSpace(sessionState.VerifierUrl)) {
             var checkpoint = Checkpoint.FromTimeline(timelinePath, sessionId, receiptChain.Receipts.Count + 1);
             var service = new InMemoryReceiptService();
             service.RestoreSession(sessionId, receiptChain.Receipts);
             receipt = service.SubmitCheckpoint(checkpoint);
             updatedReceiptChain = service.GetReceiptChain(sessionId);
-        }
-        else
-        {
+        } else {
             using var httpClient = CreateHttpClient(sessionState.VerifierUrl);
             var transport = new HttpsReceiptTransport(
                 httpClient,
@@ -109,26 +102,22 @@ public static class OwsSessionStore
     /// </summary>
     /// <param name="projectRoot">The current project root.</param>
     /// <returns>The current persisted receipt chain.</returns>
-    public static ReceiptChain GetReceipts(string projectRoot)
-    {
+    public static ReceiptChain GetReceipts(string projectRoot) {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
 
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, SessionFileName);
         var receiptsPath = Path.Combine(localFolder, OwsConstants.ReceiptsFileName);
 
-        if (!File.Exists(sessionPath))
-        {
+        if (!File.Exists(sessionPath)) {
             throw new InvalidOperationException("No active OWS session. Run 'ows session start' first.");
         }
 
         var sessionState = ReadSessionState(sessionPath);
         var sessionId = new AssessmentSessionId(sessionState.SessionId);
 
-        if (!File.Exists(receiptsPath))
-        {
-            return new ReceiptChain
-            {
+        if (!File.Exists(receiptsPath)) {
+            return new ReceiptChain {
                 SessionId = sessionId,
                 Receipts = []
             };
@@ -145,8 +134,7 @@ public static class OwsSessionStore
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The started remote session identifier.</returns>
     private static async Task<AssessmentSessionId> StartRemoteSessionAsync(string verifierUrl,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         using var httpClient = CreateHttpClient(verifierUrl);
         var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint());
         return await transport.StartSessionAsync(cancellationToken);
@@ -157,13 +145,11 @@ public static class OwsSessionStore
     /// </summary>
     /// <param name="verifierUrl">The remote verifier base URL.</param>
     /// <returns>The configured HTTP client.</returns>
-    private static HttpClient CreateHttpClient(string verifierUrl)
-    {
+    private static HttpClient CreateHttpClient(string verifierUrl) {
         ArgumentException.ThrowIfNullOrWhiteSpace(verifierUrl);
         var httpClient = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
         var apiKey = Environment.GetEnvironmentVariable("OWS_VERIFIER_API_KEY");
-        if (!string.IsNullOrWhiteSpace(apiKey))
-        {
+        if (!string.IsNullOrWhiteSpace(apiKey)) {
             httpClient.DefaultRequestHeaders.Add("X-OWS-Verifier-Key", apiKey);
         }
 

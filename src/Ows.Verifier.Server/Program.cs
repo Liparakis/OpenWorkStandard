@@ -22,8 +22,7 @@ var securityOptions = builder.Configuration.GetSection("VerifierSecurity").Get<V
                       ?? new VerifierSecurityOptions();
 var authOptions = builder.Configuration.GetSection("VerifierAuth").Get<VerifierAuthOptions>()
                   ?? new VerifierAuthOptions();
-var normalizedStorageOptions = storageOptions with
-{
+var normalizedStorageOptions = storageOptions with {
     PackageWorkerEnabled = packageWorkerEnabled,
     ApplyMigrationsOnStartup = applyMigrationsOnStartup,
     JsonStorePath = string.IsNullOrWhiteSpace(storageOptions.JsonStorePath)
@@ -35,8 +34,7 @@ var normalizedStorageOptions = storageOptions with
 };
 
 var envString = builder.Configuration["VerifierEnvironment"] ?? builder.Environment.EnvironmentName;
-if (!Enum.TryParse<VerifierEnvironmentMode>(envString, true, out var envMode))
-{
+if (!Enum.TryParse<VerifierEnvironmentMode>(envString, true, out var envMode)) {
     envMode = VerifierEnvironmentMode.Development;
 }
 
@@ -55,10 +53,8 @@ ValidateSigningKey();
 ValidateOidcConfiguration();
 ValidateStorageProvider();
 
-if (startupErrors.Count > 0)
-{
-    foreach (var error in startupErrors)
-    {
+if (startupErrors.Count > 0) {
+    foreach (var error in startupErrors) {
         Console.Error.WriteLine($"FATAL CONFIGURATION ERROR: {error}");
     }
 
@@ -69,8 +65,7 @@ if (startupErrors.Count > 0)
 
 #region Migrate CLI Invocation
 
-if (await RunMigrationIfRequestedAsync())
-{
+if (await RunMigrationIfRequestedAsync()) {
     return;
 }
 
@@ -120,10 +115,8 @@ app.Run();
 
 #region Local Functions
 
-void ValidateApiKeys()
-{
-    if (configuredApiKeys.Count == 0)
-    {
+void ValidateApiKeys() {
+    if (configuredApiKeys.Count == 0) {
         startupWarnings.Add(
             "VerifierSecurity bootstrap API keys are not configured. Persisted API keys or unguarded local bootstrap mode will be used.");
         return;
@@ -134,131 +127,99 @@ void ValidateApiKeys()
         .Where(static group => group.Count() > 1)
         .Select(static group => group.Key)
         .ToArray();
-    foreach (var duplicateKey in duplicateKeys)
-    {
+    foreach (var duplicateKey in duplicateKeys) {
         startupErrors.Add(
             $"VerifierSecurity contains duplicate API key material for fingerprint {ReceiptChainVerifier.ComputeFingerprint(duplicateKey)}.");
     }
 
-    foreach (var apiKey in configuredApiKeys)
-    {
-        if (VerifierServerHelpers.IsWeakSecret(apiKey.Key))
-        {
-            if (isProduction)
-            {
+    foreach (var apiKey in configuredApiKeys) {
+        if (VerifierServerHelpers.IsWeakSecret(apiKey.Key)) {
+            if (isProduction) {
                 startupErrors.Add(
                     $"VerifierSecurity key for role '{apiKey.Role}' is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
-            }
-            else
-            {
+            } else {
                 startupWarnings.Add($"VerifierSecurity key for role '{apiKey.Role}' is weak or using a dev default.");
             }
         }
 
-        if (!VerifierRolePolicy.IsSupportedRole(apiKey.Role))
-        {
+        if (!VerifierRolePolicy.IsSupportedRole(apiKey.Role)) {
             startupErrors.Add(
                 $"VerifierSecurity role '{apiKey.Role}' is not supported. Use 'Operator' or 'InstructorReviewer'.");
         }
 
-        if (VerifierRolePolicy.IsInstructorReviewerRole(apiKey.Role) && string.IsNullOrWhiteSpace(apiKey.InstitutionId))
-        {
+        if (VerifierRolePolicy.IsInstructorReviewerRole(apiKey.Role) && string.IsNullOrWhiteSpace(apiKey.InstitutionId)) {
             startupErrors.Add("VerifierSecurity InstructorReviewer keys must set InstitutionId.");
         }
     }
 }
 
-void ValidateSigningKey()
-{
-    if (string.IsNullOrWhiteSpace(normalizedStorageOptions.ReceiptSigningKey))
-    {
-        if (isProduction)
-        {
+void ValidateSigningKey() {
+    if (string.IsNullOrWhiteSpace(normalizedStorageOptions.ReceiptSigningKey)) {
+        if (isProduction) {
             startupErrors.Add("VerifierStorage:ReceiptSigningKey must be configured in Production mode.");
-        }
-        else
-        {
+        } else {
             startupWarnings.Add("VerifierStorage:ReceiptSigningKey is not configured. Receipts will not be signed.");
         }
 
         return;
     }
 
-    if (VerifierServerHelpers.IsWeakSecret(normalizedStorageOptions.ReceiptSigningKey))
-    {
-        if (isProduction)
-        {
+    if (VerifierServerHelpers.IsWeakSecret(normalizedStorageOptions.ReceiptSigningKey)) {
+        if (isProduction) {
             startupErrors.Add(
                 "VerifierStorage:ReceiptSigningKey is too weak/short for Production mode. It must be at least 16 characters long and not a known default.");
-        }
-        else
-        {
+        } else {
             startupWarnings.Add("VerifierStorage:ReceiptSigningKey is weak or using a dev default.");
         }
     }
 }
 
-void ValidateOidcConfiguration()
-{
-    if (!authOptions.Oidc.Enabled)
-    {
+void ValidateOidcConfiguration() {
+    if (!authOptions.Oidc.Enabled) {
         return;
     }
 
-    if (!oidcStatus.AuthorityConfigured)
-    {
+    if (!oidcStatus.AuthorityConfigured) {
         startupErrors.Add("VerifierAuth:Oidc:Authority must be configured when OIDC/JWT bearer auth is enabled.");
     }
 
-    if (!oidcStatus.AudienceConfigured)
-    {
+    if (!oidcStatus.AudienceConfigured) {
         startupErrors.Add("VerifierAuth:Oidc:Audience must be configured when OIDC/JWT bearer auth is enabled.");
     }
 
-    if (!oidcStatus.RoleClaimConfigured)
-    {
+    if (!oidcStatus.RoleClaimConfigured) {
         startupErrors.Add("VerifierAuth:Oidc:RoleClaim must be configured when OIDC/JWT bearer auth is enabled.");
     }
 }
 
-void ValidateStorageProvider()
-{
-    if (string.Equals(normalizedStorageOptions.Provider, "json", StringComparison.OrdinalIgnoreCase))
-    {
-        if (isProduction)
-        {
+void ValidateStorageProvider() {
+    if (string.Equals(normalizedStorageOptions.Provider, "json", StringComparison.OrdinalIgnoreCase)) {
+        if (isProduction) {
             startupErrors.Add("JSON storage provider is not allowed in Production mode. Use 'postgres' provider.");
-        }
-        else
-        {
+        } else {
             startupWarnings.Add("Using JSON file storage provider. This is only suitable for development/local use.");
         }
     }
 
     if (string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase) &&
-        normalizedStorageOptions.ApplyMigrationsOnStartup)
-    {
+        normalizedStorageOptions.ApplyMigrationsOnStartup) {
         startupWarnings.Add(
             "VerifierStorage:ApplyMigrationsOnStartup is enabled. Multi-instance deployments should run 'migrate' once, then set it to false on steady-state instances.");
     }
 }
 
-async Task<bool> RunMigrationIfRequestedAsync()
-{
+async Task<bool> RunMigrationIfRequestedAsync() {
     if (!args.Any(static arg => string.Equals(arg, "migrate", StringComparison.OrdinalIgnoreCase) ||
-                                string.Equals(arg, "--migrate", StringComparison.OrdinalIgnoreCase)))
-    {
+                                string.Equals(arg, "--migrate", StringComparison.OrdinalIgnoreCase))) {
         return false;
     }
 
-    if (!string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase))
-    {
+    if (!string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)) {
         Console.WriteLine("Verifier migration is only supported when VerifierStorage:Provider=postgres.");
         return true;
     }
 
-    if (string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString))
-    {
+    if (string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)) {
         throw new InvalidOperationException(
             "VerifierStorage:PostgresConnectionString must be configured when VerifierStorage:Provider=postgres.");
     }
@@ -268,8 +229,7 @@ async Task<bool> RunMigrationIfRequestedAsync()
     return true;
 }
 
-void LogStartupSummary()
-{
+void LogStartupSummary() {
     startupLogger.LogInformation("OWS Verifier starting up...");
     startupLogger.LogInformation("Environment Mode: {EnvironmentMode}", envMode);
     startupLogger.LogInformation("Storage Provider: {Provider}", normalizedStorageOptions.Provider);
@@ -286,8 +246,7 @@ void LogStartupSummary()
         oidcStatus.AuthorityConfigured,
         oidcStatus.AudienceConfigured,
         oidcStatus.RoleClaimConfigured);
-    if (configuredApiKeys.Count > 0)
-    {
+    if (configuredApiKeys.Count > 0) {
         startupLogger.LogInformation("API Header Name: {HeaderName}", securityOptions.HeaderName);
         startupLogger.LogInformation("Configured API Keys: {ApiKeyCount}", configuredApiKeys.Count);
     }
@@ -296,127 +255,96 @@ void LogStartupSummary()
     startupLogger.LogInformation("Signing Key Fingerprint: {Fingerprint}",
         string.IsNullOrWhiteSpace(keyFingerprint) ? "None (Unsigned)" : keyFingerprint);
 
-    foreach (var warning in startupWarnings)
-    {
+    foreach (var warning in startupWarnings) {
         startupLogger.LogWarning("CONFIGURATION WARNING: {Warning}", warning);
     }
 }
 
-async Task InitializeOptionalStorageAsync()
-{
-    if (app.Services.GetService<IVerifierStorage>() is not { } storage)
-    {
+async Task InitializeOptionalStorageAsync() {
+    if (app.Services.GetService<IVerifierStorage>() is not { } storage) {
         return;
     }
 
-    try
-    {
+    try {
         startupLogger.LogInformation("Initializing verifier storage...");
         await storage.InitializeAsync(CancellationToken.None);
         startupLogger.LogInformation(
             "Verifier storage initialized successfully ({InitializationMode}).",
             normalizedStorageOptions.ApplyMigrationsOnStartup ? "database/migrations ready" : "database access ready");
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
         startupLogger.LogError(ex, "Failed to initialize verifier storage.");
-        if (isProduction)
-        {
+        if (isProduction) {
             throw;
         }
     }
 }
 
-async Task InitializeOptionalEducationStoreAsync()
-{
-    if (app.Services.GetService<IEducationStore>() is not { } educationStore)
-    {
+async Task InitializeOptionalEducationStoreAsync() {
+    if (app.Services.GetService<IEducationStore>() is not { } educationStore) {
         return;
     }
 
-    try
-    {
+    try {
         startupLogger.LogInformation("Initializing education store...");
         await educationStore.InitializeAsync(CancellationToken.None);
         startupLogger.LogInformation("Education store initialized successfully.");
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
         startupLogger.LogError(ex, "Failed to initialize education store.");
-        if (isProduction)
-        {
+        if (isProduction) {
             throw;
         }
     }
 }
 
-async Task InitializeApiKeyStoreAsync(IVerifierApiKeyStore store)
-{
-    try
-    {
+async Task InitializeApiKeyStoreAsync(IVerifierApiKeyStore store) {
+    try {
         startupLogger.LogInformation("Initializing verifier API key store...");
         await store.InitializeAsync(CancellationToken.None);
         var hasPersistedKeys = await store.HasActiveKeysAsync(CancellationToken.None);
         startupLogger.LogInformation(
             "Verifier API key store initialized successfully. Persisted Keys Present: {HasPersistedKeys}",
             hasPersistedKeys);
-        if (isProduction && configuredApiKeys.Count == 0 && !hasPersistedKeys)
-        {
+        if (isProduction && configuredApiKeys.Count == 0 && !hasPersistedKeys) {
             throw new InvalidOperationException(
                 "Production mode requires either bootstrap API keys or persisted verifier API keys.");
         }
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
         startupLogger.LogError(ex, "Failed to initialize verifier API key store.");
-        if (isProduction)
-        {
+        if (isProduction) {
             throw;
         }
     }
 }
 
-async Task InitializeAuditStoreAsync(IVerifierAuditStore store)
-{
-    try
-    {
+async Task InitializeAuditStoreAsync(IVerifierAuditStore store) {
+    try {
         startupLogger.LogInformation("Initializing verifier audit store...");
         await store.InitializeAsync(CancellationToken.None);
         startupLogger.LogInformation("Verifier audit store initialized successfully.");
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
         startupLogger.LogError(ex, "Failed to initialize verifier audit store.");
-        if (isProduction)
-        {
+        if (isProduction) {
             throw;
         }
     }
 }
 
-async Task InitializePackageJobStoreAsync(IPackageVerificationJobStore store)
-{
-    try
-    {
+async Task InitializePackageJobStoreAsync(IPackageVerificationJobStore store) {
+    try {
         startupLogger.LogInformation("Initializing package verification job store...");
         await store.InitializeAsync(CancellationToken.None);
         startupLogger.LogInformation("Package verification job store initialized successfully.");
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
         startupLogger.LogError(ex, "Failed to initialize package verification job store.");
-        if (isProduction)
-        {
+        if (isProduction) {
             throw;
         }
     }
 }
 
-async Task RequestIdMiddleware(HttpContext context, RequestDelegate next)
-{
+async Task RequestIdMiddleware(HttpContext context, RequestDelegate next) {
     var requestId = context.Request.Headers["X-Request-Id"].FirstOrDefault();
-    if (string.IsNullOrWhiteSpace(requestId))
-    {
+    if (string.IsNullOrWhiteSpace(requestId)) {
         requestId = Guid.NewGuid().ToString("N");
     }
 
@@ -425,15 +353,11 @@ async Task RequestIdMiddleware(HttpContext context, RequestDelegate next)
     await next(context);
 }
 
-async Task RequestLoggingMiddleware(HttpContext context, RequestDelegate next)
-{
+async Task RequestLoggingMiddleware(HttpContext context, RequestDelegate next) {
     var stopwatch = Stopwatch.StartNew();
-    try
-    {
+    try {
         await next(context);
-    }
-    finally
-    {
+    } finally {
         stopwatch.Stop();
 
         var accessContext = VerifierAuthorizationHelpers.TryGetAccessContext(context);
@@ -451,12 +375,10 @@ async Task RequestLoggingMiddleware(HttpContext context, RequestDelegate next)
     }
 }
 
-async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate next)
-{
+async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate next) {
     var suppliedKey = VerifierAuthorizationHelpers.TryGetSuppliedApiKey(context.Request, securityOptions.HeaderName);
     var suppliedBearerToken = VerifierAuthorizationHelpers.TryGetSuppliedBearerToken(context.Request);
-    if (suppliedKey is not null && suppliedBearerToken is not null)
-    {
+    if (suppliedKey is not null && suppliedBearerToken is not null) {
         await VerifierAuditHelpers.WriteAuditEventAsync(
             context.RequestServices.GetRequiredService<IVerifierAuditStore>(),
             auditLogger,
@@ -482,14 +404,12 @@ async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate
                        (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(path, "/ready", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(path, "/metrics", StringComparison.OrdinalIgnoreCase));
-    if (isBypassPath)
-    {
+    if (isBypassPath) {
         await next(context);
         return;
     }
 
-    if (suppliedBearerToken is not null && !authOptions.Oidc.Enabled)
-    {
+    if (suppliedBearerToken is not null && !authOptions.Oidc.Enabled) {
         await VerifierAuditHelpers.WriteAuditEventAsync(
             context.RequestServices.GetRequiredService<IVerifierAuditStore>(),
             auditLogger,
@@ -512,21 +432,16 @@ async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate
     var persistentApiKeyStore = context.RequestServices.GetRequiredService<IVerifierApiKeyStore>();
     var hasBootstrapKeys = configuredApiKeys.Count > 0;
     var hasPersistedKeys = false;
-    try
-    {
+    try {
         hasPersistedKeys = await persistentApiKeyStore.HasActiveKeysAsync(context.RequestAborted);
-    }
-    catch when (!isProduction)
-    {
-        if (!hasBootstrapKeys && !authOptions.Oidc.Enabled)
-        {
+    } catch when (!isProduction) {
+        if (!hasBootstrapKeys && !authOptions.Oidc.Enabled) {
             await next(context);
             return;
         }
     }
 
-    if (!hasBootstrapKeys && !hasPersistedKeys && !authOptions.Oidc.Enabled)
-    {
+    if (!hasBootstrapKeys && !hasPersistedKeys && !authOptions.Oidc.Enabled) {
         await next(context);
         return;
     }
@@ -543,8 +458,7 @@ async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate
         ("endpoint", context.Request.Path.Value),
         ("method", context.Request.Method));
 
-    if (suppliedKey is not null)
-    {
+    if (suppliedKey is not null) {
         access = VerifierAuthorizationHelpers.TryAuthenticateConfiguredApiKey(suppliedKey, configuredApiKeys)
                  ?? await VerifierAuthorizationHelpers.TryAuthenticatePersistedApiKeyAsync(persistentApiKeyStore,
                      suppliedKey,
@@ -556,40 +470,29 @@ async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate
             ("endpoint", context.Request.Path.Value),
             ("method", context.Request.Method),
             ("authenticationType", "ApiKey"));
-    }
-    else if (suppliedBearerToken is not null)
-    {
+    } else if (suppliedBearerToken is not null) {
         authFailureMetadata = VerifierAuditHelpers.CreateMetadata(
             ("endpoint", context.Request.Path.Value),
             ("method", context.Request.Method),
             ("authenticationType", "Bearer"));
 
-        if (!authOptions.Oidc.Enabled)
-        {
+        if (!authOptions.Oidc.Enabled) {
             authFailureResult = "OidcDisabled";
             authFailureMessage = "OIDC/JWT bearer auth is not enabled on this verifier.";
             authFailureCode = "oidc_disabled";
-        }
-        else
-        {
+        } else {
             var authenticateResult = await context.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
-            if (authenticateResult is { Succeeded: true, Principal: not null })
-            {
+            if (authenticateResult is { Succeeded: true, Principal: not null }) {
                 var mappingResult = OidcPrincipalMapper.TryMap(authenticateResult.Principal, authOptions.Oidc);
-                if (mappingResult.Succeeded)
-                {
+                if (mappingResult.Succeeded) {
                     access = mappingResult.AccessContext;
-                }
-                else
-                {
+                } else {
                     authFailureResult = mappingResult.FailureResult ?? "InvalidBearerClaims";
                     authFailureMessage = mappingResult.FailureMessage ?? "Bearer token claims were not accepted.";
                     authFailureStatusCode = mappingResult.StatusCode;
                     authFailureCode = "invalid_oidc_claims";
                 }
-            }
-            else
-            {
+            } else {
                 authFailureResult = "InvalidBearerToken";
                 authFailureMessage = "Bearer token validation failed.";
                 authFailureCode = "invalid_bearer_token";
@@ -597,8 +500,7 @@ async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate
         }
     }
 
-    if (access is null)
-    {
+    if (access is null) {
         await VerifierAuditHelpers.WriteAuditEventAsync(
             auditStore,
             auditLogger,
@@ -609,13 +511,10 @@ async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate
             actorKeyPrefix: authFailureActorKeyPrefix,
             cancellationToken: context.RequestAborted);
 
-        if (authFailureCode is null)
-        {
+        if (authFailureCode is null) {
             context.Response.StatusCode = authFailureStatusCode;
             await context.Response.WriteAsync(authFailureMessage);
-        }
-        else
-        {
+        } else {
             await VerifierServerHelpers.WriteAuthErrorAsync(context, authFailureStatusCode, authFailureCode,
                 authFailureMessage);
         }
@@ -623,8 +522,7 @@ async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate
         return;
     }
 
-    if (!await VerifierAuthorizationHelpers.IsAuthorizedAsync(context, access, context.RequestAborted))
-    {
+    if (!await VerifierAuthorizationHelpers.IsAuthorizedAsync(context, access, context.RequestAborted)) {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         await VerifierAuditHelpers.WriteAuditEventAsync(
             auditStore,
@@ -655,8 +553,7 @@ async Task VerifierAuthenticationMiddleware(HttpContext context, RequestDelegate
 /// <summary>
 /// Distinguishes the verifier's intended deployment posture.
 /// </summary>
-public enum VerifierEnvironmentMode
-{
+public enum VerifierEnvironmentMode {
     /// <summary>Development workstation mode.</summary>
     Development,
 
@@ -671,8 +568,7 @@ public enum VerifierEnvironmentMode
 /// <summary>
 /// Represents the optional education context that may be supplied when starting a new verifier session.
 /// </summary>
-public sealed record StartSessionRequest
-{
+public sealed record StartSessionRequest {
     /// <summary>Gets the optional institution identifier.</summary>
     public string? InstitutionId { get; init; }
 
@@ -689,8 +585,7 @@ public sealed record StartSessionRequest
 /// <summary>
 /// Exposes the ASP.NET Core entry point for integration testing.
 /// </summary>
-public partial class Program
-{
+public partial class Program {
 }
 
 #endregion

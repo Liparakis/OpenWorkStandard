@@ -10,9 +10,9 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core.Agent;
 using Ows.Core.Events;
+using Ows.Core.Graph;
 using Ows.Core.Hashing;
 using Ows.Core.Init;
-using Ows.Core.Graph;
 using Ows.Core.Notarization;
 using Ows.Core.Packaging;
 using Ows.Core.Verification;
@@ -20,25 +20,20 @@ using Xunit;
 
 namespace Ows.Core.Tests;
 
-public sealed class ObservationGapTests
-{
-    private static void EnsureCleanDirectory(string path)
-    {
-        if (Directory.Exists(path))
-        {
-            try { Directory.Delete(path, recursive: true); } catch {}
+public sealed class ObservationGapTests {
+    private static void EnsureCleanDirectory(string path) {
+        if (Directory.Exists(path)) {
+            try { Directory.Delete(path, recursive: true); } catch { }
         }
         Directory.CreateDirectory(path);
     }
 
     [Fact]
-    public async Task GapDuration_UsesLastSnapshotOrHeartbeatTime()
-    {
+    public async Task GapDuration_UsesLastSnapshotOrHeartbeatTime() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-gap-dur-{Guid.NewGuid():N}");
         EnsureCleanDirectory(projectRoot);
 
-        try
-        {
+        try {
             var localOws = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             Directory.CreateDirectory(localOws);
 
@@ -48,8 +43,7 @@ public sealed class ObservationGapTests
 
             // Write initial snapshot
             var baseTime = DateTimeOffset.UtcNow.AddMinutes(-30);
-            var snapshot = new ObservedSnapshot
-            {
+            var snapshot = new ObservedSnapshot {
                 ObservedAt = baseTime,
                 Files = new Dictionary<string, ObservedFileState>
                 {
@@ -60,16 +54,14 @@ public sealed class ObservationGapTests
 
             // Write session file with heartbeat 10 minutes later than snapshot (so 20 minutes ago)
             var heartbeatTime = baseTime.AddMinutes(10);
-            var sessionState = new
-            {
+            var sessionState = new {
                 sessionId = "test-session",
                 lastHeartbeatAt = heartbeatTime.ToString("o")
             };
             File.WriteAllText(sessionPath, JsonSerializer.Serialize(sessionState));
 
             // Setup a mock event in timeline so chain is initialized
-            var initialEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
-            {
+            var initialEvent = OwsEventChain.CreateChainedEvent(new OwsEvent {
                 EventType = OwsEventType.FileCreated,
                 ProjectId = "test-project",
                 RelativePath = "work.txt"
@@ -85,10 +77,9 @@ public sealed class ObservationGapTests
 
             var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);
             var cts = new CancellationTokenSource();
-            
+
             // Run Prepare and let recovery scan run during Start
-            await agent.PrepareAsync(new TrackingAgentOptions
-            {
+            await agent.PrepareAsync(new TrackingAgentOptions {
                 ProjectRootPath = projectRoot,
                 DatabasePath = Path.Combine(localOws, "ows.db"),
                 WasInterrupted = false
@@ -96,7 +87,7 @@ public sealed class ObservationGapTests
 
             // StartAsync will block in WatchAsync, so cancel after a brief moment
             cts.CancelAfter(200);
-            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
+            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) { }
 
             // Read timeline
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
@@ -105,27 +96,23 @@ public sealed class ObservationGapTests
             var gapEvent = JsonSerializer.Deserialize<OwsEvent>(lines[3]);
             gapEvent.Should().NotBeNull();
             gapEvent!.EventType.Should().Be(OwsEventType.ObservationGapDetected);
-            
+
             gapEvent.Metadata.TryGetValue("gapStartedAt", out var startStr).Should().BeTrue();
             DateTimeOffset.Parse(startStr!).Should().BeCloseTo(heartbeatTime, TimeSpan.FromSeconds(5));
 
             gapEvent.Metadata.TryGetValue("gapDurationMs", out var durStr).Should().BeTrue();
-            long.Parse(durStr!).Should().BeCloseTo((long)(DateTimeOffset.UtcNow - heartbeatTime).TotalMilliseconds, 10000);
-        }
-        finally
-        {
+            long.Parse(durStr!).Should().BeCloseTo((long) (DateTimeOffset.UtcNow - heartbeatTime).TotalMilliseconds, 10000);
+        } finally {
             EnsureCleanDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task CleanStop_Restart_LargeChange_ReportsCleanStopped()
-    {
+    public async Task CleanStop_Restart_LargeChange_ReportsCleanStopped() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-clean-stop-{Guid.NewGuid():N}");
         EnsureCleanDirectory(projectRoot);
 
-        try
-        {
+        try {
             var localOws = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             Directory.CreateDirectory(localOws);
             var timelinePath = Path.Combine(localOws, OwsConstants.TimelineFileName);
@@ -133,20 +120,17 @@ public sealed class ObservationGapTests
 
             // Write initial snapshot and a timeline ending with WatcherStopped
             var baseTime = DateTimeOffset.UtcNow.AddMinutes(-5);
-            var snapshot = new ObservedSnapshot
-            {
+            var snapshot = new ObservedSnapshot {
                 ObservedAt = baseTime,
                 Files = new Dictionary<string, ObservedFileState>()
             };
             File.WriteAllText(snapshotPath, JsonSerializer.Serialize(snapshot));
 
-            var startedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
-            {
+            var startedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent {
                 EventType = OwsEventType.WatcherStarted,
                 ProjectId = "test-project"
             }, OwsEventChain.GenesisPreviousEventHash);
-            var stoppedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
-            {
+            var stoppedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent {
                 EventType = OwsEventType.WatcherStopped,
                 ProjectId = "test-project"
             }, startedEvent.EventHash);
@@ -165,15 +149,14 @@ public sealed class ObservationGapTests
             var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);
             var cts = new CancellationTokenSource();
 
-            await agent.PrepareAsync(new TrackingAgentOptions
-            {
+            await agent.PrepareAsync(new TrackingAgentOptions {
                 ProjectRootPath = projectRoot,
                 DatabasePath = Path.Combine(localOws, "ows.db"),
                 WasInterrupted = false
             }, cts.Token);
 
             cts.CancelAfter(200);
-            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
+            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) { }
 
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
             lines.Length.Should().Be(7);
@@ -188,21 +171,17 @@ public sealed class ObservationGapTests
             largeEvent.Metadata["changeKind"].Should().Be("Created");
             largeEvent.Metadata["relativePath"].Should().Be("large.txt");
             JsonSerializer.Deserialize<OwsEvent>(lines[6])!.EventType.Should().Be(OwsEventType.SnapshotUpdated);
-        }
-        finally
-        {
+        } finally {
             EnsureCleanDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task StalePid_EmitsWatcherInterrupted_NotWatcherStopped()
-    {
+    public async Task StalePid_EmitsWatcherInterrupted_NotWatcherStopped() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-stale-pid-{Guid.NewGuid():N}");
         EnsureCleanDirectory(projectRoot);
 
-        try
-        {
+        try {
             var manager = new OwsWatchSessionManager();
             manager.InitializeProject(projectRoot);
 
@@ -210,8 +189,7 @@ public sealed class ObservationGapTests
             var watcherJsonPath = Path.Combine(localOws, "watcher.json");
 
             // Write fake watcher.json with stale/dead PID
-            var state = new WatcherProcessState
-            {
+            var state = new WatcherProcessState {
                 Pid = 999999, // stale PID
                 StartedAt = DateTimeOffset.UtcNow.AddMinutes(-5)
             };
@@ -232,21 +210,17 @@ public sealed class ObservationGapTests
 
             eventTypes.Should().Contain(OwsEventType.WatcherInterrupted);
             eventTypes.Should().NotContain(OwsEventType.WatcherStopped);
-        }
-        finally
-        {
+        } finally {
             EnsureCleanDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task FirstBaseline_DoesNotCreateMisleadingOrdinaryFileCreatedEvidence()
-    {
+    public async Task FirstBaseline_DoesNotCreateMisleadingOrdinaryFileCreatedEvidence() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-baseline-{Guid.NewGuid():N}");
         EnsureCleanDirectory(projectRoot);
 
-        try
-        {
+        try {
             var file1 = Path.Combine(projectRoot, "test.txt");
             File.WriteAllText(file1, "some content");
 
@@ -256,15 +230,14 @@ public sealed class ObservationGapTests
             Directory.CreateDirectory(localOws);
             var timelinePath = Path.Combine(localOws, OwsConstants.TimelineFileName);
 
-            await agent.PrepareAsync(new TrackingAgentOptions
-            {
+            await agent.PrepareAsync(new TrackingAgentOptions {
                 ProjectRootPath = projectRoot,
                 DatabasePath = Path.Combine(localOws, "ows.db"),
                 WasInterrupted = false
             }, cts.Token);
 
             cts.CancelAfter(200);
-            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
+            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) { }
 
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
             lines.Length.Should().Be(3); // FileCreated + WatcherStarted + SnapshotUpdated
@@ -274,21 +247,17 @@ public sealed class ObservationGapTests
             fileCreatedEvent.Metadata.Should().ContainKey("source").WhoseValue.Should().Be("initial_baseline");
             fileCreatedEvent.Metadata.Should().ContainKey("usedForTrust").WhoseValue.Should().Be("false");
             JsonSerializer.Deserialize<OwsEvent>(lines[2])!.EventType.Should().Be(OwsEventType.SnapshotUpdated);
-        }
-        finally
-        {
+        } finally {
             EnsureCleanDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task InitialBaseline_EmitsSnapshotUpdatedCommitment()
-    {
+    public async Task InitialBaseline_EmitsSnapshotUpdatedCommitment() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-snapshot-commit-{Guid.NewGuid():N}");
         EnsureCleanDirectory(projectRoot);
 
-        try
-        {
+        try {
             var file1 = Path.Combine(projectRoot, "test.txt");
             File.WriteAllText(file1, "some content");
 
@@ -299,15 +268,14 @@ public sealed class ObservationGapTests
             var timelinePath = Path.Combine(localOws, OwsConstants.TimelineFileName);
             var snapshotPath = Path.Combine(localOws, OwsConstants.ObservedSnapshotFileName);
 
-            await agent.PrepareAsync(new TrackingAgentOptions
-            {
+            await agent.PrepareAsync(new TrackingAgentOptions {
                 ProjectRootPath = projectRoot,
                 DatabasePath = Path.Combine(localOws, "ows.db"),
                 WasInterrupted = false
             }, cts.Token);
 
             cts.CancelAfter(200);
-            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
+            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) { }
 
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
             var snapshotEvent = JsonSerializer.Deserialize<OwsEvent>(lines[^1]);
@@ -318,21 +286,17 @@ public sealed class ObservationGapTests
 
             var snapshot = JsonSerializer.Deserialize<ObservedSnapshot>(File.ReadAllText(snapshotPath));
             SnapshotHashCalculator.ComputeHash(snapshot!).Should().Be(snapshotEvent.Metadata["snapshotHash"]);
-        }
-        finally
-        {
+        } finally {
             EnsureCleanDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task IgnoredDirectories_DoNotProduceNoisyUnobservedChanges()
-    {
+    public async Task IgnoredDirectories_DoNotProduceNoisyUnobservedChanges() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-ignored-{Guid.NewGuid():N}");
         EnsureCleanDirectory(projectRoot);
 
-        try
-        {
+        try {
             var localOws = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             Directory.CreateDirectory(localOws);
             var snapshotPath = Path.Combine(localOws, OwsConstants.ObservedSnapshotFileName);
@@ -340,15 +304,13 @@ public sealed class ObservationGapTests
 
             // Write initial snapshot with empty files
             var baseTime = DateTimeOffset.UtcNow.AddMinutes(-5);
-            var snapshot = new ObservedSnapshot
-            {
+            var snapshot = new ObservedSnapshot {
                 ObservedAt = baseTime,
                 Files = new Dictionary<string, ObservedFileState>()
             };
             File.WriteAllText(snapshotPath, JsonSerializer.Serialize(snapshot));
 
-            var startedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
-            {
+            var startedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent {
                 EventType = OwsEventType.WatcherStarted,
                 ProjectId = "test-project"
             }, OwsEventChain.GenesisPreviousEventHash);
@@ -365,15 +327,14 @@ public sealed class ObservationGapTests
             var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);
             var cts = new CancellationTokenSource();
 
-            await agent.PrepareAsync(new TrackingAgentOptions
-            {
+            await agent.PrepareAsync(new TrackingAgentOptions {
                 ProjectRootPath = projectRoot,
                 DatabasePath = Path.Combine(localOws, "ows.db"),
                 WasInterrupted = false
             }, cts.Token);
 
             cts.CancelAfter(200);
-            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
+            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) { }
 
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
             lines.Length.Should().Be(4);
@@ -382,21 +343,17 @@ public sealed class ObservationGapTests
             eventTypes.Should().NotContain(OwsEventType.ObservationGapDetected);
             eventTypes.Should().NotContain(OwsEventType.UnobservedChangeDetected);
             eventTypes.Should().NotContain(OwsEventType.LargeUnobservedChangeDetected);
-        }
-        finally
-        {
+        } finally {
             EnsureCleanDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task SnapshotWrites_AreAtomic_AndRecoverSafelyFromCorruptSnapshot()
-    {
+    public async Task SnapshotWrites_AreAtomic_AndRecoverSafelyFromCorruptSnapshot() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-corrupt-snapshot-{Guid.NewGuid():N}");
         EnsureCleanDirectory(projectRoot);
 
-        try
-        {
+        try {
             var localOws = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             Directory.CreateDirectory(localOws);
             var snapshotPath = Path.Combine(localOws, OwsConstants.ObservedSnapshotFileName);
@@ -408,8 +365,7 @@ public sealed class ObservationGapTests
             var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);
             var cts = new CancellationTokenSource();
 
-            await agent.PrepareAsync(new TrackingAgentOptions
-            {
+            await agent.PrepareAsync(new TrackingAgentOptions {
                 ProjectRootPath = projectRoot,
                 DatabasePath = Path.Combine(localOws, "ows.db"),
                 WasInterrupted = false
@@ -422,21 +378,17 @@ public sealed class ObservationGapTests
             var content = File.ReadAllText(snapshotPath);
             var snapshot = JsonSerializer.Deserialize<ObservedSnapshot>(content);
             snapshot.Should().NotBeNull();
-        }
-        finally
-        {
+        } finally {
             EnsureCleanDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task LargeDeletion_TriggersLargeUnobservedChangeDetected()
-    {
+    public async Task LargeDeletion_TriggersLargeUnobservedChangeDetected() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-large-del-{Guid.NewGuid():N}");
         EnsureCleanDirectory(projectRoot);
 
-        try
-        {
+        try {
             var localOws = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             Directory.CreateDirectory(localOws);
             var snapshotPath = Path.Combine(localOws, OwsConstants.ObservedSnapshotFileName);
@@ -444,8 +396,7 @@ public sealed class ObservationGapTests
 
             // Write initial snapshot containing a large file
             var baseTime = DateTimeOffset.UtcNow.AddMinutes(-5);
-            var snapshot = new ObservedSnapshot
-            {
+            var snapshot = new ObservedSnapshot {
                 ObservedAt = baseTime,
                 Files = new Dictionary<string, ObservedFileState>
                 {
@@ -454,8 +405,7 @@ public sealed class ObservationGapTests
             };
             File.WriteAllText(snapshotPath, JsonSerializer.Serialize(snapshot));
 
-            var startedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
-            {
+            var startedEvent = OwsEventChain.CreateChainedEvent(new OwsEvent {
                 EventType = OwsEventType.WatcherStarted,
                 ProjectId = "test-project"
             }, OwsEventChain.GenesisPreviousEventHash);
@@ -471,15 +421,14 @@ public sealed class ObservationGapTests
             var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);
             var cts = new CancellationTokenSource();
 
-            await agent.PrepareAsync(new TrackingAgentOptions
-            {
+            await agent.PrepareAsync(new TrackingAgentOptions {
                 ProjectRootPath = projectRoot,
                 DatabasePath = Path.Combine(localOws, "ows.db"),
                 WasInterrupted = false
             }, cts.Token);
 
             cts.CancelAfter(200);
-            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) {}
+            try { await agent.StartAsync(cts.Token); } catch (OperationCanceledException) { }
 
             var lines = File.ReadAllLines(timelinePath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
             lines.Length.Should().Be(6);
@@ -489,25 +438,20 @@ public sealed class ObservationGapTests
             largeEvent.Metadata["changeKind"].Should().Be("Deleted");
             largeEvent.Metadata["bytesDelta"].Should().Be("-60000");
             JsonSerializer.Deserialize<OwsEvent>(lines[5])!.EventType.Should().Be(OwsEventType.SnapshotUpdated);
-        }
-        finally
-        {
+        } finally {
             EnsureCleanDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task ObservationGaps_DegradeToDegraded_NotInvalid()
-    {
+    public async Task ObservationGaps_DegradeToDegraded_NotInvalid() {
         var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-gap-{Guid.NewGuid():N}.owspkg");
 
-        try
-        {
+        try {
             var hashService = new Sha256HashService();
-            
+
             var startedEvent = new OwsEvent { EventType = OwsEventType.WatcherStarted, ProjectId = "sample" };
-            var gapEvent = new OwsEvent
-            {
+            var gapEvent = new OwsEvent {
                 EventType = OwsEventType.ObservationGapDetected,
                 ProjectId = "sample",
                 Metadata = new Dictionary<string, string>
@@ -524,23 +468,19 @@ public sealed class ObservationGapTests
             var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
             var sessionId = AssessmentSessionId.Create();
             var receipt = ReceiptChainVerifier.IssueReceipt(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = sessionId,
                     SequenceNumber = 1,
                     TimelineHeadHash = timelineEvents[^1].EventHash
                 },
                 ReceiptChainVerifier.GenesisPreviousReceiptHash);
-            var receiptChain = new ReceiptChain
-            {
+            var receiptChain = new ReceiptChain {
                 SessionId = sessionId,
                 Receipts = [receipt]
             };
 
-            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
-            {
-                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
-                {
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create)) {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest {
                     ProjectName = "sample",
                     Platform = "Win32NT",
                     TrackedPath = "sample",
@@ -561,32 +501,26 @@ public sealed class ObservationGapTests
             result.IsSuccess.Should().BeTrue();
             result.TrustStatus.Should().Be(TrustStatus.Degraded);
             result.Findings.Should().Contain(finding => finding.Code == "observation.gap");
-        }
-        finally
-        {
+        } finally {
             if (File.Exists(packagePath)) File.Delete(packagePath);
         }
     }
 
     [Fact]
-    public async Task BrokenHashChain_RemainsInvalid()
-    {
+    public async Task BrokenHashChain_RemainsInvalid() {
         var packagePath = Path.Combine(Path.GetTempPath(), $"ows-verify-broken-{Guid.NewGuid():N}.owspkg");
 
-        try
-        {
+        try {
             var hashService = new Sha256HashService();
-            
+
             var ev1 = OwsEventChain.CreateChainedEvent(new OwsEvent { EventType = OwsEventType.WatcherStarted, ProjectId = "sample" }, OwsEventChain.GenesisPreviousEventHash);
             var ev2 = OwsEventChain.CreateChainedEvent(new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample" }, "fake_previous_hash_here");
 
             var timelineText = JsonSerializer.Serialize(ev1) + Environment.NewLine + JsonSerializer.Serialize(ev2);
             var graphText = JsonSerializer.Serialize(WorkVersionGraph.CreateEmpty());
 
-            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
-            {
-                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest
-                {
+            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create)) {
+                WriteEntry(archive, "manifest.json", JsonSerializer.Serialize(new OwsManifest {
                     ProjectName = "sample",
                     Platform = "Win32NT",
                     TrackedPath = "sample",
@@ -606,9 +540,7 @@ public sealed class ObservationGapTests
             result.IsSuccess.Should().BeFalse();
             result.TrustStatus.Should().Be(TrustStatus.Invalid);
             result.Findings.Should().Contain(finding => finding.Code == "timeline.chain.broken");
-        }
-        finally
-        {
+        } finally {
             if (File.Exists(packagePath)) File.Delete(packagePath);
         }
     }
@@ -620,10 +552,8 @@ public sealed class ObservationGapTests
         string projectId,
         ObservedSnapshot snapshot,
         string previousEventHash,
-        string reason)
-    {
-        return OwsEventChain.CreateChainedEvent(new OwsEvent
-        {
+        string reason) {
+        return OwsEventChain.CreateChainedEvent(new OwsEvent {
             EventType = OwsEventType.SnapshotUpdated,
             ProjectId = projectId,
             ToolName = "ows watch",
@@ -637,13 +567,11 @@ public sealed class ObservationGapTests
         }, previousEventHash);
     }
 
-    private static IReadOnlyList<OwsEvent> CreateChainedEvents(params OwsEvent[] events)
-    {
+    private static IReadOnlyList<OwsEvent> CreateChainedEvents(params OwsEvent[] events) {
         var chainedEvents = new List<OwsEvent>(events.Length);
         var previousEventHash = OwsEventChain.GenesisPreviousEventHash;
 
-        foreach (var owsEvent in events)
-        {
+        foreach (var owsEvent in events) {
             var chainedEvent = OwsEventChain.CreateChainedEvent(owsEvent, previousEventHash);
             chainedEvents.Add(chainedEvent);
             previousEventHash = chainedEvent.EventHash;
@@ -652,8 +580,7 @@ public sealed class ObservationGapTests
         return chainedEvents;
     }
 
-    private static void WriteEntry(ZipArchive archive, string entryName, string content)
-    {
+    private static void WriteEntry(ZipArchive archive, string entryName, string content) {
         var entry = archive.CreateEntry(entryName);
         using var writer = new StreamWriter(entry.Open());
         writer.Write(content);

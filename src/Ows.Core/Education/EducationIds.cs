@@ -4,8 +4,7 @@ namespace Ows.Core.Education;
 /// Identifies an institution in OWS.
 /// </summary>
 /// <param name="Value">The stable institution identifier value.</param>
-public readonly record struct InstitutionId(string Value)
-{
+public readonly record struct InstitutionId(string Value) {
     /// <summary>
     /// Creates a new institution identifier.
     /// </summary>
@@ -21,8 +20,7 @@ public readonly record struct InstitutionId(string Value)
 /// Identifies a course in OWS.
 /// </summary>
 /// <param name="Value">The stable course identifier value.</param>
-public readonly record struct CourseId(string Value)
-{
+public readonly record struct CourseId(string Value) {
     /// <summary>
     /// Creates a new course identifier.
     /// </summary>
@@ -38,8 +36,7 @@ public readonly record struct CourseId(string Value)
 /// Identifies a class group in OWS.
 /// </summary>
 /// <param name="Value">The stable class group identifier value.</param>
-public readonly record struct ClassGroupId(string Value)
-{
+public readonly record struct ClassGroupId(string Value) {
     /// <summary>
     /// Creates a new class group identifier.
     /// </summary>
@@ -55,8 +52,7 @@ public readonly record struct ClassGroupId(string Value)
 /// Identifies a course offering in OWS.
 /// </summary>
 /// <param name="Value">The stable course offering identifier value.</param>
-public readonly record struct CourseOfferingId(string Value)
-{
+public readonly record struct CourseOfferingId(string Value) {
     /// <summary>
     /// Creates a new course offering identifier.
     /// </summary>
@@ -72,8 +68,7 @@ public readonly record struct CourseOfferingId(string Value)
 /// Identifies a user in OWS.
 /// </summary>
 /// <param name="Value">The stable user identifier value.</param>
-public readonly record struct UserId(string Value)
-{
+public readonly record struct UserId(string Value) {
     /// <summary>
     /// Creates a new user identifier.
     /// </summary>
@@ -89,8 +84,7 @@ public readonly record struct UserId(string Value)
 /// Identifies an enrollment in OWS.
 /// </summary>
 /// <param name="Value">The stable enrollment identifier value.</param>
-public readonly record struct EnrollmentId(string Value)
-{
+public readonly record struct EnrollmentId(string Value) {
     /// <summary>
     /// Creates a new enrollment identifier.
     /// </summary>
@@ -106,8 +100,7 @@ public readonly record struct EnrollmentId(string Value)
 /// Identifies an assessment in OWS.
 /// </summary>
 /// <param name="Value">The stable assessment identifier value.</param>
-public readonly record struct AssessmentId(string Value)
-{
+public readonly record struct AssessmentId(string Value) {
     /// <summary>
     /// Creates a new assessment identifier.
     /// </summary>
@@ -123,8 +116,7 @@ public readonly record struct AssessmentId(string Value)
 /// Identifies an assessment policy in OWS.
 /// </summary>
 /// <param name="Value">The stable policy identifier value.</param>
-public readonly record struct PolicyId(string Value)
-{
+public readonly record struct PolicyId(string Value) {
     /// <summary>
     /// Creates a new policy identifier.
     /// </summary>

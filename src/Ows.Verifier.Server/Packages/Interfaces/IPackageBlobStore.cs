@@ -3,8 +3,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Stores uploaded package blobs outside the verifier database.
 /// </summary>
-internal interface IPackageBlobStore
-{
+internal interface IPackageBlobStore {
     /// <summary>
     /// Saves a package blob durably and returns the server-side object metadata.
     /// </summary>

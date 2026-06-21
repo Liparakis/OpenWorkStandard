@@ -6,8 +6,7 @@ namespace Ows.Core.Verification;
 /// <summary>
 /// Verification helper that validates local vs. trusted remote notarization receipts to determine the final trust status.
 /// </summary>
-internal static class TrustStatusReducer
-{
+internal static class TrustStatusReducer {
     /// <summary>
     /// Resolves and verifies packaged and remote receipt chains, comparing alignment, sequence numbers, and head hashes to return a final <see cref="TrustStatus"/>.
     /// </summary>
@@ -26,59 +25,46 @@ internal static class TrustStatusReducer
         SessionHeadResponse? trustedSessionHead,
         List<string> errors,
         List<VerificationFinding> findings,
-        out List<string> verifiedKeyFingerprints)
-    {
+        out List<string> verifiedKeyFingerprints) {
         verifiedKeyFingerprints = [];
         var packagedReceiptChain = PackageStructureVerifier.ReadPackagedReceiptChain(archive, errors);
-        if (packagedReceiptChain is not null)
-        {
-            foreach (var receipt in packagedReceiptChain.Receipts)
-            {
+        if (packagedReceiptChain is not null) {
+            foreach (var receipt in packagedReceiptChain.Receipts) {
                 if (!string.IsNullOrWhiteSpace(receipt.SigningKeyFingerprint) &&
-                    !verifiedKeyFingerprints.Contains(receipt.SigningKeyFingerprint))
-                {
+                    !verifiedKeyFingerprints.Contains(receipt.SigningKeyFingerprint)) {
                     verifiedKeyFingerprints.Add(receipt.SigningKeyFingerprint);
                 }
             }
         }
 
-        if (trustedReceiptChain is not null)
-        {
-            foreach (var receipt in trustedReceiptChain.Receipts)
-            {
+        if (trustedReceiptChain is not null) {
+            foreach (var receipt in trustedReceiptChain.Receipts) {
                 if (!string.IsNullOrWhiteSpace(receipt.SigningKeyFingerprint) &&
-                    !verifiedKeyFingerprints.Contains(receipt.SigningKeyFingerprint))
-                {
+                    !verifiedKeyFingerprints.Contains(receipt.SigningKeyFingerprint)) {
                     verifiedKeyFingerprints.Add(receipt.SigningKeyFingerprint);
                 }
             }
         }
 
-        if (errors.Count > 0)
-        {
+        if (errors.Count > 0) {
             return TrustStatus.Invalid;
         }
 
-        if (trustedReceiptChain is not null)
-        {
-            if (!ReceiptChainVerifier.IsValid(trustedReceiptChain))
-            {
+        if (trustedReceiptChain is not null) {
+            if (!ReceiptChainVerifier.IsValid(trustedReceiptChain)) {
                 errors.Add("Trusted remote receipt chain is invalid.");
                 return TrustStatus.Invalid;
             }
 
-            if (packagedReceiptChain is null)
-            {
+            if (packagedReceiptChain is null) {
                 var trustedLastReceipt = trustedReceiptChain.Receipts.LastOrDefault();
-                if (trustedLastReceipt is null)
-                {
+                if (trustedLastReceipt is null) {
                     findings.Add(VerificationFindingFactory.ReceiptChainMissingFinding);
                     return TrustStatus.Unverified;
                 }
 
                 if (!string.Equals(trustedLastReceipt.TimelineHeadHash, timelineHeadHash,
-                        StringComparison.OrdinalIgnoreCase))
-                {
+                        StringComparison.OrdinalIgnoreCase)) {
                     errors.Add("Trusted remote receipt chain head does not match the local timeline head.");
                     return TrustStatus.Invalid;
                 }
@@ -87,25 +73,19 @@ internal static class TrustStatusReducer
                 return TrustStatus.Unverified;
             }
 
-            if (!AreEquivalentReceiptChains(packagedReceiptChain, trustedReceiptChain))
-            {
+            if (!AreEquivalentReceiptChains(packagedReceiptChain, trustedReceiptChain)) {
                 errors.Add("Packaged receipt chain does not match the trusted remote receipt chain.");
                 return TrustStatus.Invalid;
             }
-        }
-        else if (trustedSessionHead is not null)
-        {
-            if (string.IsNullOrWhiteSpace(trustedSessionHead.SessionId))
-            {
+        } else if (trustedSessionHead is not null) {
+            if (string.IsNullOrWhiteSpace(trustedSessionHead.SessionId)) {
                 errors.Add("Trusted remote session head is invalid.");
                 return TrustStatus.Invalid;
             }
 
-            if (packagedReceiptChain is null)
-            {
+            if (packagedReceiptChain is null) {
                 if (!string.Equals(trustedSessionHead.LastTimelineHeadHash, timelineHeadHash,
-                        StringComparison.OrdinalIgnoreCase))
-                {
+                        StringComparison.OrdinalIgnoreCase)) {
                     errors.Add("Trusted remote session head does not match the local timeline head.");
                     return TrustStatus.Invalid;
                 }
@@ -115,8 +95,7 @@ internal static class TrustStatusReducer
             }
 
             var packagedLastReceipt = packagedReceiptChain.Receipts.LastOrDefault();
-            if (packagedLastReceipt is null)
-            {
+            if (packagedLastReceipt is null) {
                 findings.Add(VerificationFindingFactory.ReceiptChainMissingFinding);
                 return TrustStatus.Unverified;
             }
@@ -125,34 +104,29 @@ internal static class TrustStatusReducer
                 !string.Equals(packagedLastReceipt.TimelineHeadHash, trustedSessionHead.LastTimelineHeadHash,
                     StringComparison.OrdinalIgnoreCase) ||
                 !string.Equals(packagedLastReceipt.ReceiptHash, trustedSessionHead.LastReceiptHash,
-                    StringComparison.OrdinalIgnoreCase))
-            {
+                    StringComparison.OrdinalIgnoreCase)) {
                 errors.Add("Packaged receipt head does not match the trusted remote session head.");
                 return TrustStatus.Invalid;
             }
         }
 
-        if (packagedReceiptChain is null)
-        {
+        if (packagedReceiptChain is null) {
             findings.Add(VerificationFindingFactory.ReceiptChainMissingFinding);
             return TrustStatus.Unverified;
         }
 
-        if (!ReceiptChainVerifier.IsValid(packagedReceiptChain))
-        {
+        if (!ReceiptChainVerifier.IsValid(packagedReceiptChain)) {
             errors.Add("Receipt chain is invalid.");
             return TrustStatus.Invalid;
         }
 
         var lastReceipt = packagedReceiptChain.Receipts.LastOrDefault();
-        if (lastReceipt is null)
-        {
+        if (lastReceipt is null) {
             findings.Add(VerificationFindingFactory.ReceiptChainMissingFinding);
             return TrustStatus.Unverified;
         }
 
-        if (!string.Equals(lastReceipt.TimelineHeadHash, timelineHeadHash, StringComparison.OrdinalIgnoreCase))
-        {
+        if (!string.Equals(lastReceipt.TimelineHeadHash, timelineHeadHash, StringComparison.OrdinalIgnoreCase)) {
             errors.Add("Receipt chain head does not match the local timeline head.");
             return TrustStatus.Invalid;
         }

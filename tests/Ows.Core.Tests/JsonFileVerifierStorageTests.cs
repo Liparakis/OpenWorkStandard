@@ -7,19 +7,16 @@ namespace Ows.Core.Tests;
 /// <summary>
 /// Tests the file-backed verifier storage used by the verifier server.
 /// </summary>
-public sealed class JsonFileVerifierStorageTests
-{
+public sealed class JsonFileVerifierStorageTests {
     /// <summary>
     /// Verifies that creating a session persists it across a storage restart.
     /// </summary>
     [Fact]
-    public async Task CreateSessionAsync_ShouldPersistSession()
-    {
+    public async Task CreateSessionAsync_ShouldPersistSession() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-session-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var firstStorage = new JsonFileVerifierStorage(storePath);
             var createdSession = await firstStorage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
@@ -30,11 +27,8 @@ public sealed class JsonFileVerifierStorageTests
             restoredSession.CheckpointCount.Should().Be(0);
             restoredSession.HeadReceiptHash.Should().Be(ReceiptChainVerifier.GenesisPreviousReceiptHash);
             restoredSession.HeadEventHash.Should().Be(OwsEventChain.GenesisPreviousEventHash);
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -44,18 +38,15 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that sessions survive a storage restart and can continue issuing receipts.
     /// </summary>
     [Fact]
-    public async Task AppendCheckpointAsync_ShouldPersistAndRestoreReceiptChains()
-    {
+    public async Task AppendCheckpointAsync_ShouldPersistAndRestoreReceiptChains() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var firstStorage = new JsonFileVerifierStorage(storePath);
             var session = await firstStorage.CreateSessionAsync(null, null, null, CancellationToken.None);
             var firstReceipt = await firstStorage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1"
@@ -65,8 +56,7 @@ public sealed class JsonFileVerifierStorageTests
             var secondStorage = new JsonFileVerifierStorage(storePath);
             var restoredChain = await secondStorage.GetReceiptsAsync(session.Id, CancellationToken.None);
             var secondReceipt = await secondStorage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 2,
                     TimelineHeadHash = "head-2"
@@ -77,11 +67,8 @@ public sealed class JsonFileVerifierStorageTests
             restoredChain.Receipts[0].ReceiptHash.Should().Be(firstReceipt.ReceiptHash);
             secondReceipt.PreviousReceiptHash.Should().Be(firstReceipt.ReceiptHash);
             ReceiptChainVerifier.IsValid(await secondStorage.GetReceiptsAsync(session.Id, CancellationToken.None)).Should().BeTrue();
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -91,18 +78,15 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that JSON storage preserves configured receipt signatures across restart.
     /// </summary>
     [Fact]
-    public async Task AppendCheckpointAsync_ShouldPersistSignedReceipts()
-    {
+    public async Task AppendCheckpointAsync_ShouldPersistSignedReceipts() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-signed-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var firstStorage = new JsonFileVerifierStorage(storePath, "test-signing-key");
             var session = await firstStorage.CreateSessionAsync(null, null, null, CancellationToken.None);
             var receipt = await firstStorage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1"
@@ -115,11 +99,8 @@ public sealed class JsonFileVerifierStorageTests
             receipt.ServerSignature.Should().NotBeNullOrWhiteSpace();
             restoredChain.Receipts[0].ServerSignature.Should().Be(receipt.ServerSignature);
             ReceiptChainVerifier.IsValid(restoredChain, "test-signing-key").Should().BeTrue();
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -129,18 +110,15 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that signed JSON storage rejects restart with the wrong signing key.
     /// </summary>
     [Fact]
-    public async Task Constructor_ShouldRejectSignedReceiptsWithWrongKey()
-    {
+    public async Task Constructor_ShouldRejectSignedReceiptsWithWrongKey() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-wrong-key-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var storage = new JsonFileVerifierStorage(storePath, "test-signing-key");
             var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
             _ = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1"
@@ -151,11 +129,8 @@ public sealed class JsonFileVerifierStorageTests
 
             act.Should().Throw<InvalidOperationException>()
                 .WithMessage("Cannot restore invalid receipt chain*");
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -165,13 +140,11 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that multiple appended checkpoints preserve durable order.
     /// </summary>
     [Fact]
-    public async Task AppendCheckpointAsync_ShouldPreserveReceiptOrder()
-    {
+    public async Task AppendCheckpointAsync_ShouldPreserveReceiptOrder() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-order-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var storage = new JsonFileVerifierStorage(storePath);
             var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
@@ -183,11 +156,8 @@ public sealed class JsonFileVerifierStorageTests
 
             chain.Receipts.Select(receipt => receipt.SequenceNumber).Should().Equal([1, 2, 3]);
             chain.Receipts.Select(receipt => receipt.TimelineHeadHash).Should().Equal(["head-1", "head-2", "head-3"]);
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -197,26 +167,22 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that the durable session head reflects the latest committed checkpoint state.
     /// </summary>
     [Fact]
-    public async Task GetHeadAsync_ShouldReturnLatestDurableState()
-    {
+    public async Task GetHeadAsync_ShouldReturnLatestDurableState() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-head-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var storage = new JsonFileVerifierStorage(storePath);
             var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
             var firstReceipt = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1"
                 },
                 CancellationToken.None);
             var secondReceipt = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 2,
                     TimelineHeadHash = "head-2"
@@ -230,11 +196,8 @@ public sealed class JsonFileVerifierStorageTests
             head.LastTimelineHeadHash.Should().Be("head-2");
             head.LastReceiptHash.Should().Be(secondReceipt.ReceiptHash);
             head.LastReceiptHash.Should().NotBe(firstReceipt.ReceiptHash);
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -244,27 +207,23 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that retrying the same checkpoint sequence with the same payload returns the committed receipt.
     /// </summary>
     [Fact]
-    public async Task AppendCheckpointAsync_ShouldReturnCommittedReceiptForSameSequenceAndPayload()
-    {
+    public async Task AppendCheckpointAsync_ShouldReturnCommittedReceiptForSameSequenceAndPayload() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-idempotent-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var storage = new JsonFileVerifierStorage(storePath);
             var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             var firstReceipt = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1"
                 },
                 CancellationToken.None);
             var retriedReceipt = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1"
@@ -273,11 +232,8 @@ public sealed class JsonFileVerifierStorageTests
 
             retriedReceipt.Should().BeEquivalentTo(firstReceipt);
             (await storage.GetReceiptsAsync(session.Id, CancellationToken.None)).Receipts.Should().ContainSingle();
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -287,19 +243,16 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that retrying the same checkpoint sequence with a different payload is rejected.
     /// </summary>
     [Fact]
-    public async Task AppendCheckpointAsync_ShouldRejectSameSequenceWithDifferentPayload()
-    {
+    public async Task AppendCheckpointAsync_ShouldRejectSameSequenceWithDifferentPayload() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-idempotent-reject-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var storage = new JsonFileVerifierStorage(storePath);
             var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             _ = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1"
@@ -307,8 +260,7 @@ public sealed class JsonFileVerifierStorageTests
                 CancellationToken.None);
 
             var act = async () => await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-2"
@@ -317,11 +269,8 @@ public sealed class JsonFileVerifierStorageTests
 
             await act.Should().ThrowAsync<InvalidOperationException>()
                 .WithMessage("Checkpoint sequence 1 already exists*different payload.");
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -331,18 +280,15 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that retrying the same idempotency key with the same payload returns the committed receipt.
     /// </summary>
     [Fact]
-    public async Task AppendCheckpointAsync_ShouldReturnCommittedReceiptForSameIdempotencyKeyAndPayload()
-    {
+    public async Task AppendCheckpointAsync_ShouldReturnCommittedReceiptForSameIdempotencyKeyAndPayload() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-idempotency-key-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var storage = new JsonFileVerifierStorage(storePath);
             var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
             var firstReceipt = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1",
@@ -350,8 +296,7 @@ public sealed class JsonFileVerifierStorageTests
                 },
                 CancellationToken.None);
             var retriedReceipt = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1",
@@ -361,11 +306,8 @@ public sealed class JsonFileVerifierStorageTests
 
             retriedReceipt.Should().BeEquivalentTo(firstReceipt);
             (await storage.GetReceiptsAsync(session.Id, CancellationToken.None)).Receipts.Should().ContainSingle();
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -375,19 +317,16 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that retrying the same idempotency key with a different payload is rejected.
     /// </summary>
     [Fact]
-    public async Task AppendCheckpointAsync_ShouldRejectSameIdempotencyKeyWithDifferentPayload()
-    {
+    public async Task AppendCheckpointAsync_ShouldRejectSameIdempotencyKeyWithDifferentPayload() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-idempotency-key-reject-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var storage = new JsonFileVerifierStorage(storePath);
             var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
             _ = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1",
@@ -396,8 +335,7 @@ public sealed class JsonFileVerifierStorageTests
                 CancellationToken.None);
 
             var act = async () => await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 2,
                     TimelineHeadHash = "head-2",
@@ -407,11 +345,8 @@ public sealed class JsonFileVerifierStorageTests
 
             await act.Should().ThrowAsync<InvalidOperationException>()
                 .WithMessage("Idempotency key same-request already exists*different payload.");
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -421,13 +356,11 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that invalid persisted receipt chains are rejected during startup.
     /// </summary>
     [Fact]
-    public void Constructor_ShouldRejectInvalidPersistedReceiptChains()
-    {
+    public void Constructor_ShouldRejectInvalidPersistedReceiptChains() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-invalid-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
         var sessionId = AssessmentSessionId.Create();
-        var invalidSnapshot = new
-        {
+        var invalidSnapshot = new {
             Sessions = new[]
             {
                 new VerifierSessionRecord
@@ -462,8 +395,7 @@ public sealed class JsonFileVerifierStorageTests
             }
         };
 
-        try
-        {
+        try {
             Directory.CreateDirectory(directoryPath);
             File.WriteAllText(storePath, System.Text.Json.JsonSerializer.Serialize(invalidSnapshot));
 
@@ -471,11 +403,8 @@ public sealed class JsonFileVerifierStorageTests
 
             act.Should().Throw<InvalidOperationException>()
                 .WithMessage("Cannot restore invalid receipt chain*");
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -485,13 +414,11 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that RecordHeartbeatAsync updates the lease properties and detects lease continuity gaps correctly.
     /// </summary>
     [Fact]
-    public async Task RecordHeartbeatAsync_ShouldUpdateLeaseAndDetectGaps()
-    {
+    public async Task RecordHeartbeatAsync_ShouldUpdateLeaseAndDetectGaps() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-heartbeat-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var storage = new JsonFileVerifierStorage(storePath);
             var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
@@ -525,11 +452,8 @@ public sealed class JsonFileVerifierStorageTests
             sessionReloaded.HasLeaseGap.Should().BeTrue();
             sessionReloaded.MaxLeaseGapSeconds.Should().Be(updated2.MaxLeaseGapSeconds);
             sessionReloaded.FirstLeaseGapAt.Should().Be(updated2.FirstLeaseGapAt);
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }
@@ -539,13 +463,11 @@ public sealed class JsonFileVerifierStorageTests
     /// Verifies that AppendCheckpointAsync also refreshes the lease and detects lease gaps.
     /// </summary>
     [Fact]
-    public async Task AppendCheckpointAsync_ShouldUpdateLeaseAndDetectGaps()
-    {
+    public async Task AppendCheckpointAsync_ShouldUpdateLeaseAndDetectGaps() {
         var directoryPath = Path.Combine(Path.GetTempPath(), $"ows-verifier-store-checkpoint-lease-{Guid.NewGuid():N}");
         var storePath = Path.Combine(directoryPath, "receipts.json");
 
-        try
-        {
+        try {
             var storage = new JsonFileVerifierStorage(storePath);
             var session = await storage.CreateSessionAsync(null, null, null, CancellationToken.None);
 
@@ -554,8 +476,7 @@ public sealed class JsonFileVerifierStorageTests
 
             // Append checkpoint, which should trigger a gap because now > LeaseExpiresAt
             var receipt = await storage.AppendCheckpointAsync(
-                new Checkpoint
-                {
+                new Checkpoint {
                     SessionId = session.Id,
                     SequenceNumber = 1,
                     TimelineHeadHash = "head-1"
@@ -567,11 +488,8 @@ public sealed class JsonFileVerifierStorageTests
             sessionState.MaxLeaseGapSeconds.Should().BeGreaterThanOrEqualTo(5);
             sessionState.FirstLeaseGapAt.Should().Be(updated1.LeaseExpiresAt);
             sessionState.HeadEventHash.Should().Be("head-1");
-        }
-        finally
-        {
-            if (Directory.Exists(directoryPath))
-            {
+        } finally {
+            if (Directory.Exists(directoryPath)) {
                 Directory.Delete(directoryPath, true);
             }
         }

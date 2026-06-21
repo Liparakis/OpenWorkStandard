@@ -3,8 +3,7 @@ namespace Ows.Core.Packaging;
 /// <summary>
 /// Describes the metadata stored in an OWS submission package manifest.
 /// </summary>
-public sealed record OwsManifest
-{
+public sealed record OwsManifest {
     /// <summary>
     /// Gets the package format version.
     /// </summary>

@@ -3,8 +3,7 @@ namespace Ows.Core.Verification;
 /// <summary>
 /// Represents the outcome of verifying an OWS package or evidence store.
 /// </summary>
-public sealed record VerificationResult
-{
+public sealed record VerificationResult {
     /// <summary>
     /// Gets a value indicating whether the verification passed.
     /// </summary>
@@ -48,8 +47,7 @@ public sealed record VerificationResult
         TrustStatus trustStatus = TrustStatus.Verified,
         IReadOnlyList<VerificationFinding>? findings = null,
         IReadOnlyList<string>? verifiedKeyFingerprints = null) =>
-        new()
-        {
+        new() {
             IsSuccess = true,
             TrustStatus = trustStatus,
             Summary = summary,
@@ -70,8 +68,7 @@ public sealed record VerificationResult
         IReadOnlyList<string>? errors = null,
         IReadOnlyList<VerificationFinding>? findings = null,
         IReadOnlyList<string>? verifiedKeyFingerprints = null) =>
-        new()
-        {
+        new() {
             IsSuccess = false,
             TrustStatus = TrustStatus.Invalid,
             Summary = summary,
@@ -129,8 +126,7 @@ public sealed record VerificationResult
 /// <summary>
 /// Structured package info for verification reports.
 /// </summary>
-public sealed record ReportPackageInfo
-{
+public sealed record ReportPackageInfo {
     /// <summary>
     /// Gets the package ID.
     /// </summary>
@@ -150,8 +146,7 @@ public sealed record ReportPackageInfo
 /// <summary>
 /// Structured timeline integrity info for verification reports.
 /// </summary>
-public sealed record ReportTimelineInfo
-{
+public sealed record ReportTimelineInfo {
     /// <summary>
     /// Gets the timeline integrity status (e.g. Valid, Broken).
     /// </summary>
@@ -171,8 +166,7 @@ public sealed record ReportTimelineInfo
 /// <summary>
 /// Structured remote receipt alignment info for verification reports.
 /// </summary>
-public sealed record ReportReceiptsInfo
-{
+public sealed record ReportReceiptsInfo {
     /// <summary>
     /// Gets the alignment status (e.g. Aligned, Misaligned, Missing).
     /// </summary>
@@ -192,8 +186,7 @@ public sealed record ReportReceiptsInfo
 /// <summary>
 /// Structured session lease gap info.
 /// </summary>
-public sealed record ReportLeaseGapInfo
-{
+public sealed record ReportLeaseGapInfo {
     /// <summary>
     /// Gets the UTC start timestamp of the gap.
     /// </summary>
@@ -208,8 +201,7 @@ public sealed record ReportLeaseGapInfo
 /// <summary>
 /// Structured session lease continuity info.
 /// </summary>
-public sealed record ReportLeaseInfo
-{
+public sealed record ReportLeaseInfo {
     /// <summary>
     /// Gets the lease status (e.g. Active, Degraded, Unverified, None).
     /// </summary>
@@ -234,8 +226,7 @@ public sealed record ReportLeaseInfo
 /// <summary>
 /// Structured package anchor status.
 /// </summary>
-public sealed record ReportAnchorInfo
-{
+public sealed record ReportAnchorInfo {
     /// <summary>
     /// Gets the anchor status (e.g. Anchored, Missing, Mismatch).
     /// </summary>
@@ -255,8 +246,7 @@ public sealed record ReportAnchorInfo
 /// <summary>
 /// Structured educational context for verification reports.
 /// </summary>
-public sealed record ReportEducationContext
-{
+public sealed record ReportEducationContext {
     /// <summary>
     /// Gets the unique institution identifier.
     /// </summary>

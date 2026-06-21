@@ -3,8 +3,7 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Defines the storage interface for persisting and retrieving educational domain models.
 /// </summary>
-public interface IEducationStore
-{
+public interface IEducationStore {
     /// <summary>
     /// Creates or updates an institution record.
     /// </summary>

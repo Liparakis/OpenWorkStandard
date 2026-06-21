@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Represents a registered package object and its verifier metadata.
 /// </summary>
-public sealed record VerifierPackageSubmissionResponse
-{
+public sealed record VerifierPackageSubmissionResponse {
     /// <summary>
     /// Gets the durable package submission identifier.
     /// </summary>

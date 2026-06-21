@@ -3,8 +3,7 @@ namespace Ows.Desktop;
 /// <summary>
 /// Marks the future home of the Avalonia desktop application.
 /// </summary>
-public static class DesktopPlaceholder
-{
+public static class DesktopPlaceholder {
     /// <summary>
     /// Gets a short description of the current desktop project status.
     /// </summary>

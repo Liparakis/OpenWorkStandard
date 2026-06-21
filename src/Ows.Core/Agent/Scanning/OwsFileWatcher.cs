@@ -34,8 +34,7 @@ namespace Ows.Core.Agent;
 /// emits one <see cref="FileWatchEvent"/> per affected path.
 /// </para>
 /// </remarks>
-public sealed class OwsFileWatcher : IAsyncDisposable
-{
+public sealed class OwsFileWatcher : IAsyncDisposable {
     /// <summary>
     /// Absolute path to the tracked project root directory.
     /// </summary>
@@ -60,8 +59,7 @@ public sealed class OwsFileWatcher : IAsyncDisposable
     /// path should be ignored (e.g. paths inside <c>.ows/</c>).
     /// </param>
     /// <param name="options">Runtime options for debounce timing and polling behaviour.</param>
-    public OwsFileWatcher(string projectRoot, Func<string, bool> shouldExclude, FileWatcherOptions options)
-    {
+    public OwsFileWatcher(string projectRoot, Func<string, bool> shouldExclude, FileWatcherOptions options) {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
         ArgumentNullException.ThrowIfNull(shouldExclude);
         ArgumentNullException.ThrowIfNull(options);
@@ -78,8 +76,7 @@ public sealed class OwsFileWatcher : IAsyncDisposable
     /// <param name="cancellationToken">Token that stops the watcher when cancelled.</param>
     /// <returns>An async sequence of debounced file-watch events.</returns>
     public async IAsyncEnumerable<FileWatchEvent> WatchAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
+        [EnumeratorCancellation] CancellationToken cancellationToken) {
         // Unbounded channel — producers (OS watcher + poll loop) never block.
         var rawChannel = Channel.CreateUnbounded<(string AbsolutePath, FileChangeKind Kind, DateTimeOffset At)>(
             new UnboundedChannelOptions { SingleReader = true });
@@ -89,8 +86,7 @@ public sealed class OwsFileWatcher : IAsyncDisposable
 
         // Launch producers in background.
         var producers = new List<Task>();
-        if (!_options.UsePollingFallback)
-        {
+        if (!_options.UsePollingFallback) {
             producers.Add(RunNativeWatcherAsync(rawChannel.Writer, token));
         }
 
@@ -104,8 +100,7 @@ public sealed class OwsFileWatcher : IAsyncDisposable
             new Dictionary<string, (FileChangeKind Kind, DateTimeOffset At)>(StringComparer.OrdinalIgnoreCase);
         var shouldStop = false;
 
-        while (!shouldStop)
-        {
+        while (!shouldStop) {
             // Try to read the next raw notification within the debounce window.
             bool readSucceeded = false;
             bool channelClosed = false;
@@ -114,39 +109,27 @@ public sealed class OwsFileWatcher : IAsyncDisposable
             using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             delayCts.CancelAfter(_options.DebounceIntervalMs);
 
-            try
-            {
+            try {
                 raw = await rawChannel.Reader.ReadAsync(delayCts.Token);
                 readSucceeded = true;
-            }
-            catch (OperationCanceledException) when (!token.IsCancellationRequested)
-            {
+            } catch (OperationCanceledException) when (!token.IsCancellationRequested) {
                 // Debounce window expired — flush pending events below.
-            }
-            catch (OperationCanceledException)
-            {
+            } catch (OperationCanceledException) {
                 // Outer cancellation — flush pending then stop.
                 shouldStop = true;
-            }
-            catch (ChannelClosedException)
-            {
+            } catch (ChannelClosedException) {
                 // All producers finished — flush pending then stop.
                 shouldStop = true;
                 channelClosed = true;
             }
 
-            if (readSucceeded)
-            {
+            if (readSucceeded) {
                 // Accumulate debounced notifications.
-                if (raw.AbsolutePath != null)
-                {
+                if (raw.AbsolutePath != null) {
                     var relative = Path.GetRelativePath(_projectRoot, raw.AbsolutePath);
-                    if (!pending.TryGetValue(relative, out var existing))
-                    {
+                    if (!pending.TryGetValue(relative, out var existing)) {
                         pending[relative] = (raw.Kind, raw.At);
-                    }
-                    else
-                    {
+                    } else {
                         // Prefer Deleted if it arrives — it is always the final state.
                         var resolvedKind = raw.Kind == FileChangeKind.Deleted ? FileChangeKind.Deleted : existing.Kind;
                         pending[relative] = (resolvedKind, existing.At);
@@ -161,15 +144,13 @@ public sealed class OwsFileWatcher : IAsyncDisposable
             // closed. In all cases, emit the accumulated events before stopping or looping.
             // C# forbids yield inside catch, so we collect into a local list and yield here.
             var toEmit = new List<FileWatchEvent>(pending.Count);
-            foreach (var kv in pending)
-            {
+            foreach (var kv in pending) {
                 toEmit.Add(new FileWatchEvent(kv.Key, kv.Value.Kind));
             }
 
             pending.Clear();
 
-            foreach (var ev in toEmit)
-            {
+            foreach (var ev in toEmit) {
                 yield return ev;
             }
 
@@ -194,10 +175,8 @@ public sealed class OwsFileWatcher : IAsyncDisposable
     /// <returns>A task representing the background watcher loop execution.</returns>
     private async Task RunNativeWatcherAsync(
         ChannelWriter<(string, FileChangeKind, DateTimeOffset)> writer,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
+        CancellationToken cancellationToken) {
+        try {
             using var fsw = new FileSystemWatcher(_projectRoot);
             fsw.IncludeSubdirectories = true;
             fsw.NotifyFilter = NotifyFilters.FileName
@@ -206,10 +185,8 @@ public sealed class OwsFileWatcher : IAsyncDisposable
                                | NotifyFilters.Size;
             fsw.EnableRaisingEvents = false;
 
-            void Enqueue(string path, FileChangeKind kind)
-            {
-                if (_shouldExclude(path))
-                {
+            void Enqueue(string path, FileChangeKind kind) {
+                if (_shouldExclude(path)) {
                     return;
                 }
 
@@ -219,25 +196,19 @@ public sealed class OwsFileWatcher : IAsyncDisposable
             fsw.Created += (_, e) => Enqueue(e.FullPath, FileChangeKind.Created);
             fsw.Changed += (_, e) => Enqueue(e.FullPath, FileChangeKind.Modified);
             fsw.Deleted += (_, e) => Enqueue(e.FullPath, FileChangeKind.Deleted);
-            fsw.Renamed += (_, e) =>
-            {
+            fsw.Renamed += (_, e) => {
                 Enqueue(e.OldFullPath, FileChangeKind.Deleted);
                 Enqueue(e.FullPath, FileChangeKind.Created);
             };
-            fsw.Error += (_, _) =>
-            {
+            fsw.Error += (_, _) => {
                 // Buffer overflow or access error — continue; the polling loop will compensate.
             };
 
             fsw.EnableRaisingEvents = true;
             await Task.Delay(Timeout.Infinite, cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
+        } catch (OperationCanceledException) {
             // Expected on stop.
-        }
-        catch (Exception)
-        {
+        } catch (Exception) {
             // If the native watcher fails to start (e.g. permission issue), silently fall
             // back to the polling loop which is always running alongside.
         }
@@ -251,47 +222,36 @@ public sealed class OwsFileWatcher : IAsyncDisposable
     /// <returns>A task representing the background polling loop execution.</returns>
     private async Task RunPollingLoopAsync(
         ChannelWriter<(string, FileChangeKind, DateTimeOffset)> writer,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         // Baseline snapshot: path → (length, lastWriteUtc).
         var baseline = TakeSnapshot();
 
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
+        try {
+            while (!cancellationToken.IsCancellationRequested) {
                 await Task.Delay(_options.PollingIntervalMs, cancellationToken);
 
                 var current = TakeSnapshot();
                 var now = DateTimeOffset.UtcNow;
 
                 // Detect creations and modifications.
-                foreach (var (path, info) in current)
-                {
-                    if (!baseline.TryGetValue(path, out var prev))
-                    {
+                foreach (var (path, info) in current) {
+                    if (!baseline.TryGetValue(path, out var prev)) {
                         writer.TryWrite((path, FileChangeKind.Created, now));
-                    }
-                    else if (prev.Length != info.Length || prev.LastWriteUtc != info.LastWriteUtc)
-                    {
+                    } else if (prev.Length != info.Length || prev.LastWriteUtc != info.LastWriteUtc) {
                         writer.TryWrite((path, FileChangeKind.Modified, now));
                     }
                 }
 
                 // Detect deletions.
-                foreach (var path in baseline.Keys)
-                {
-                    if (!current.ContainsKey(path))
-                    {
+                foreach (var path in baseline.Keys) {
+                    if (!current.ContainsKey(path)) {
                         writer.TryWrite((path, FileChangeKind.Deleted, now));
                     }
                 }
 
                 baseline = current;
             }
-        }
-        catch (OperationCanceledException)
-        {
+        } catch (OperationCanceledException) {
             // Expected on stop.
         }
     }
@@ -300,31 +260,22 @@ public sealed class OwsFileWatcher : IAsyncDisposable
     /// Scans the project directory and returns a snapshot mapping paths to their size and last write time details.
     /// </summary>
     /// <returns>A snapshot dictionary mapping absolute path keys to size/timestamp tuples.</returns>
-    private Dictionary<string, (long Length, DateTime LastWriteUtc)> TakeSnapshot()
-    {
+    private Dictionary<string, (long Length, DateTime LastWriteUtc)> TakeSnapshot() {
         var snapshot = new Dictionary<string, (long, DateTime)>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            foreach (var path in Directory.EnumerateFiles(_projectRoot, "*", SearchOption.AllDirectories))
-            {
-                if (_shouldExclude(path))
-                {
+        try {
+            foreach (var path in Directory.EnumerateFiles(_projectRoot, "*", SearchOption.AllDirectories)) {
+                if (_shouldExclude(path)) {
                     continue;
                 }
 
-                try
-                {
+                try {
                     var info = new FileInfo(path);
                     snapshot[path] = (info.Length, info.LastWriteTimeUtc);
-                }
-                catch (IOException)
-                {
+                } catch (IOException) {
                     // File may have been deleted between enumeration and stat — skip.
                 }
             }
-        }
-        catch (DirectoryNotFoundException)
-        {
+        } catch (DirectoryNotFoundException) {
             // Project root was removed — return empty snapshot.
         }
 

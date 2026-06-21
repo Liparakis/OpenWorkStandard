@@ -5,12 +5,10 @@ namespace Ows.Core.Packaging;
 /// <summary>
 /// Provides the OWS package builder that delegates to focused helper services.
 /// </summary>
-public sealed class OwsPackageBuilder : IPackageBuilder
-{
+public sealed class OwsPackageBuilder : IPackageBuilder {
     /// <inheritdoc />
     public Task<PackageCreationResult> CreatePackageAsync(PackageCreationRequest request,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -21,8 +19,7 @@ public sealed class OwsPackageBuilder : IPackageBuilder
         var outputDirectory = Path.GetDirectoryName(request.OutputPackagePath);
         var hashService = new Sha256HashService();
 
-        if (!string.IsNullOrWhiteSpace(outputDirectory))
-        {
+        if (!string.IsNullOrWhiteSpace(outputDirectory)) {
             Directory.CreateDirectory(outputDirectory);
         }
 
@@ -47,8 +44,7 @@ public sealed class OwsPackageBuilder : IPackageBuilder
             sessionText is not null,
             artifactHashes);
 
-        return Task.FromResult(new PackageCreationResult
-        {
+        return Task.FromResult(new PackageCreationResult {
             Created = true
         });
     }

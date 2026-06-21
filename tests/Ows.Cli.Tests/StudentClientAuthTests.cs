@@ -16,29 +16,21 @@ namespace Ows.Cli.Tests;
 /// package upload limits, report read limits, and metrics endpoint.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
-public sealed class StudentClientAuthTests
-{
+public sealed class StudentClientAuthTests {
     private static readonly Lock EnvLock = new();
 
     private static HttpClient CreateClientWithEnv(Dictionary<string, string?> envVars,
-        out WebApplicationFactory<global::Program> factory)
-    {
-        lock (EnvLock)
-        {
-            foreach (var (k, v) in envVars)
-            {
+        out WebApplicationFactory<global::Program> factory) {
+        lock (EnvLock) {
+            foreach (var (k, v) in envVars) {
                 Environment.SetEnvironmentVariable(k, v);
             }
 
-            try
-            {
+            try {
                 factory = new WebApplicationFactory<global::Program>();
                 return factory.CreateClient();
-            }
-            finally
-            {
-                foreach (var k in envVars.Keys)
-                {
+            } finally {
+                foreach (var k in envVars.Keys) {
                     Environment.SetEnvironmentVariable(k, null);
                 }
             }
@@ -46,12 +38,10 @@ public sealed class StudentClientAuthTests
     }
 
     [Fact]
-    public async Task StudentClient_LifecycleAndAuthRules()
-    {
+    public async Task StudentClient_LifecycleAndAuthRules() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-student-client-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -62,8 +52,7 @@ public sealed class StudentClientAuthTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 // Pre-populate institutions & users
                 var inst1 = new Institution(new InstitutionId("inst-1"), "Institution 1", "inst-1", DateTimeOffset.UtcNow);
                 var inst2 = new Institution(new InstitutionId("inst-2"), "Institution 2", "inst-2", DateTimeOffset.UtcNow);
@@ -108,8 +97,7 @@ public sealed class StudentClientAuthTests
                 var adminApiKey = adminKeyObj.GetProperty("apiKey").GetString();
 
                 // 1. InstitutionAdmin creates a StudentClient key bound to student-1
-                var createStudent1Payload = new
-                {
+                var createStudent1Payload = new {
                     role = "StudentClient",
                     institutionId = "inst-1",
                     studentUserId = "student-1"
@@ -126,8 +114,7 @@ public sealed class StudentClientAuthTests
                 var student1ApiKey = student1KeyObj.GetProperty("apiKey").GetString();
 
                 // 2. InstitutionAdmin creates an unbound StudentClient key
-                var createUnboundPayload = new
-                {
+                var createUnboundPayload = new {
                     role = "StudentClient",
                     institutionId = "inst-1"
                 };
@@ -143,8 +130,7 @@ public sealed class StudentClientAuthTests
                 var unboundApiKey = unboundKeyObj.GetProperty("apiKey").GetString();
 
                 // 3. InstitutionAdmin cannot create StudentClient key for inst-2
-                var badStudentPayload = new
-                {
+                var badStudentPayload = new {
                     role = "StudentClient",
                     institutionId = "inst-2"
                 };
@@ -165,8 +151,7 @@ public sealed class StudentClientAuthTests
                 // 5. Bound student-1 key starts a session for student-1 (succeeds)
                 using var startSessionReq = new HttpRequestMessage(HttpMethod.Post, "/sessions");
                 startSessionReq.Headers.Add("X-OWS-Verifier-Key", student1ApiKey);
-                startSessionReq.Content = JsonContent.Create(new
-                {
+                startSessionReq.Content = JsonContent.Create(new {
                     institutionId = "inst-1",
                     studentUserId = "student-1"
                 });
@@ -181,8 +166,7 @@ public sealed class StudentClientAuthTests
                 // 6. Bound student-1 key starts a session for student-2 (fails with 403)
                 using var startSession2Req = new HttpRequestMessage(HttpMethod.Post, "/sessions");
                 startSession2Req.Headers.Add("X-OWS-Verifier-Key", student1ApiKey);
-                startSession2Req.Content = JsonContent.Create(new
-                {
+                startSession2Req.Content = JsonContent.Create(new {
                     institutionId = "inst-1",
                     studentUserId = "student-2"
                 });
@@ -192,8 +176,7 @@ public sealed class StudentClientAuthTests
                 // 7. Unbound key starts a session for student-2 (succeeds)
                 using var startSessionUnboundReq = new HttpRequestMessage(HttpMethod.Post, "/sessions");
                 startSessionUnboundReq.Headers.Add("X-OWS-Verifier-Key", unboundApiKey);
-                startSessionUnboundReq.Content = JsonContent.Create(new
-                {
+                startSessionUnboundReq.Content = JsonContent.Create(new {
                     institutionId = "inst-1",
                     studentUserId = "student-2"
                 });
@@ -208,8 +191,7 @@ public sealed class StudentClientAuthTests
                 // 8. StudentClient starts a session for inst-2 (fails with 403)
                 using var startSessionInst2Req = new HttpRequestMessage(HttpMethod.Post, "/sessions");
                 startSessionInst2Req.Headers.Add("X-OWS-Verifier-Key", student1ApiKey);
-                startSessionInst2Req.Content = JsonContent.Create(new
-                {
+                startSessionInst2Req.Content = JsonContent.Create(new {
                     institutionId = "inst-2"
                 });
                 var startSessionInst2Res = await client.SendAsync(startSessionInst2Req);
@@ -224,8 +206,7 @@ public sealed class StudentClientAuthTests
 
                 using var checkpointReq = new HttpRequestMessage(HttpMethod.Post, $"/sessions/{session1Id}/checkpoints");
                 checkpointReq.Headers.Add("X-OWS-Verifier-Key", student1ApiKey);
-                checkpointReq.Content = JsonContent.Create(new
-                {
+                checkpointReq.Content = JsonContent.Create(new {
                     sessionId = session1Id,
                     sequenceNumber = 1,
                     timelineHeadHash = "def"
@@ -242,8 +223,7 @@ public sealed class StudentClientAuthTests
 
                 // 11. Package submission checks
                 // Register a package for session-1 (owned by student-1) using bound key (succeeds)
-                var submitPayload = new
-                {
+                var submitPayload = new {
                     sessionId = session1Id,
                     packageSha256 = "1111222233334444555566667777888899990000111122223333444455556666",
                     packageSizeBytes = 100,
@@ -263,8 +243,7 @@ public sealed class StudentClientAuthTests
                 var packageId = pkgObj.GetProperty("submissionId").GetString();
 
                 // Register a package for session-2 (student-2) using bound student-1 key (fails with 403)
-                var submitPayload2 = new
-                {
+                var submitPayload2 = new {
                     sessionId = session2Id,
                     packageSha256 = "2222222233334444555566667777888899990000111122223333444455556666",
                     packageSizeBytes = 100,
@@ -315,11 +294,8 @@ public sealed class StudentClientAuthTests
                 metricsOutput.Should().NotContain(student1ApiKey);
                 metricsOutput.Should().NotContain(unboundApiKey);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }

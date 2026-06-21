@@ -5,8 +5,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Provides a unified manager for OWS watcher, local config, session, and packaging/upload operations.
 /// </summary>
-public interface IOwsWatchSessionManager
-{
+public interface IOwsWatchSessionManager {
     /// <summary>
     /// Gets whether the OWS project is initialized (has .ows folder).
     /// </summary>

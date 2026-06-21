@@ -3,8 +3,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Defines the local tracking agent contract used by the CLI and future host integrations.
 /// </summary>
-public interface ITrackingAgent
-{
+public interface ITrackingAgent {
     /// <summary>
     /// Gets the current tracking agent lifecycle state.
     /// </summary>

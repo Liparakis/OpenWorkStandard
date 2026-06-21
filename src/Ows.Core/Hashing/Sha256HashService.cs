@@ -6,11 +6,9 @@ namespace Ows.Core.Hashing;
 /// <summary>
 /// Computes SHA-256 hashes for OWS content and metadata.
 /// </summary>
-public sealed class Sha256HashService : IHashService
-{
+public sealed class Sha256HashService : IHashService {
     /// <inheritdoc />
-    public string ComputeHash(byte[] data)
-    {
+    public string ComputeHash(byte[] data) {
         ArgumentNullException.ThrowIfNull(data);
 
         var hash = SHA256.HashData(data);
@@ -18,8 +16,7 @@ public sealed class Sha256HashService : IHashService
     }
 
     /// <inheritdoc />
-    public string ComputeHash(string text)
-    {
+    public string ComputeHash(string text) {
         ArgumentNullException.ThrowIfNull(text);
         return ComputeHash(Encoding.UTF8.GetBytes(text));
     }

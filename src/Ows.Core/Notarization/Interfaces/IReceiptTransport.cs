@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Defines the minimal receipt transport contract used by OWS clients.
 /// </summary>
-public interface IReceiptTransport
-{
+public interface IReceiptTransport {
     /// <summary>
     /// Starts a new assessment session.
     /// </summary>

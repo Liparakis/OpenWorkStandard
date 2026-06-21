@@ -6,22 +6,18 @@ namespace Ows.Cli.Commands;
 /// <summary>
 /// Provides construction for the watch command group.
 /// </summary>
-public static class WatchCommandBuilder
-{
+public static class WatchCommandBuilder {
     /// <summary>
     /// Builds the watch command group that manages the persistent local file-system tracking agent.
     /// </summary>
     /// <returns>The configured command.</returns>
-    public static Command Build()
-    {
+    public static Command Build() {
         var command = new Command("watch", "Start the persistent local file-system tracking agent.");
 
-        var pollOption = new Option<bool>("--poll")
-        {
+        var pollOption = new Option<bool>("--poll") {
             Description = "Use the polling fallback instead of native OS file-system signals."
         };
-        var debounceOption = new Option<int>("--debounce")
-        {
+        var debounceOption = new Option<int>("--debounce") {
             Description = "Minimum quiet time in milliseconds before a detected change is recorded. Defaults to 500.",
             DefaultValueFactory = _ => 500
         };
@@ -39,8 +35,7 @@ public static class WatchCommandBuilder
         command.Subcommands.Add(stopCommand);
 
         // Standard watch/watch start action
-        var watchAction = async (ParseResult parseResult) =>
-        {
+        var watchAction = async (ParseResult parseResult) => {
             var useJson = parseResult.GetValue(SharedCliOptions.JsonOption);
             var usePolling = parseResult.GetValue(pollOption);
             var debounceMs = parseResult.GetValue(debounceOption);
@@ -48,10 +43,8 @@ public static class WatchCommandBuilder
             var manager = new OwsWatchSessionManager();
 
             var response = new OwsCliResponse();
-            try
-            {
-                if (!manager.IsProjectInitialized(projectRoot))
-                {
+            try {
+                if (!manager.IsProjectInitialized(projectRoot)) {
                     throw new InvalidOperationException("OWS project is not initialized. Run 'ows init' first.");
                 }
 
@@ -62,22 +55,17 @@ public static class WatchCommandBuilder
                 response.SessionId = manager.GetCurrentSessionId(projectRoot);
                 response.Message = $"OWS watching {projectRoot}";
 
-                if (useJson)
-                {
+                if (useJson) {
                     // Print JSON status immediately and keep running
                     OwsCommandFactory.PrintResult(response, true);
-                }
-                else
-                {
+                } else {
                     Console.WriteLine(response.Message);
                     Console.WriteLine("Press Ctrl+C to stop.");
                 }
 
                 await manager.StartWatcherAsync(projectRoot, usePolling, debounceMs);
                 return 0;
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 response.Success = false;
                 response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));
                 OwsCommandFactory.PrintResult(response, useJson);
@@ -88,17 +76,14 @@ public static class WatchCommandBuilder
         command.SetAction(watchAction);
         startCommand.SetAction(watchAction);
 
-        stopCommand.SetAction(async parseResult =>
-        {
+        stopCommand.SetAction(async parseResult => {
             var useJson = parseResult.GetValue(SharedCliOptions.JsonOption);
             var projectRoot = Directory.GetCurrentDirectory();
             var manager = new OwsWatchSessionManager();
             var response = new OwsCliResponse();
 
-            try
-            {
-                if (!manager.IsProjectInitialized(projectRoot))
-                {
+            try {
+                if (!manager.IsProjectInitialized(projectRoot)) {
                     throw new InvalidOperationException("OWS project is not initialized. Run 'ows init' first.");
                 }
 
@@ -107,9 +92,7 @@ public static class WatchCommandBuilder
                 response.WatcherRunning = false;
                 response.Status = "Ready";
                 response.Message = "OWS watch stopped.";
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 response.Success = false;
                 response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));
             }

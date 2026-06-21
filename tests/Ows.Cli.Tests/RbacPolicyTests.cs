@@ -6,11 +6,9 @@ namespace Ows.Cli.Tests;
 /// <summary>
 /// Tests the role policy normalization and request validation for InstitutionAdmin and StudentClient.
 /// </summary>
-public sealed class RbacPolicyTests
-{
+public sealed class RbacPolicyTests {
     [Fact]
-    public void IsSupportedRole_ShouldRecognizeInstitutionAdminAndStudentClient()
-    {
+    public void IsSupportedRole_ShouldRecognizeInstitutionAdminAndStudentClient() {
         VerifierRolePolicy.IsSupportedRole("InstitutionAdmin").Should().BeTrue();
         VerifierRolePolicy.IsSupportedRole("institutionadmin").Should().BeTrue();
         VerifierRolePolicy.IsSupportedRole("admin").Should().BeTrue();
@@ -21,8 +19,7 @@ public sealed class RbacPolicyTests
     }
 
     [Fact]
-    public void NormalizeRoleName_ShouldAcceptVariants()
-    {
+    public void NormalizeRoleName_ShouldAcceptVariants() {
         VerifierRolePolicy.NormalizeRoleName("institutionadmin").Should().Be(VerifierRolePolicy.InstitutionAdmin);
         VerifierRolePolicy.NormalizeRoleName("admin").Should().Be(VerifierRolePolicy.InstitutionAdmin);
         VerifierRolePolicy.NormalizeRoleName("reviewer").Should().Be(VerifierRolePolicy.InstructorReviewer);
@@ -34,24 +31,20 @@ public sealed class RbacPolicyTests
     }
 
     [Fact]
-    public void CreateRequest_RequiresInstitutionId_ForInstitutionAdminReviewerAndStudentClient()
-    {
-        var adminRequest = new VerifierApiKeyCreateRequest
-        {
+    public void CreateRequest_RequiresInstitutionId_ForInstitutionAdminReviewerAndStudentClient() {
+        var adminRequest = new VerifierApiKeyCreateRequest {
             Role = "InstitutionAdmin",
             InstitutionId = " "
         };
         adminRequest.GetValidationError().Should().Contain("InstitutionId is required");
 
-        var reviewerRequest = new VerifierApiKeyCreateRequest
-        {
+        var reviewerRequest = new VerifierApiKeyCreateRequest {
             Role = "InstructorReviewer",
             InstitutionId = ""
         };
         reviewerRequest.GetValidationError().Should().Contain("InstitutionId is required");
 
-        var studentRequest = new VerifierApiKeyCreateRequest
-        {
+        var studentRequest = new VerifierApiKeyCreateRequest {
             Role = "StudentClient",
             InstitutionId = "   "
         };
@@ -59,24 +52,20 @@ public sealed class RbacPolicyTests
     }
 
     [Fact]
-    public void CreateRequest_Succeeds_WhenInstitutionIdProvided()
-    {
-        var adminRequest = new VerifierApiKeyCreateRequest
-        {
+    public void CreateRequest_Succeeds_WhenInstitutionIdProvided() {
+        var adminRequest = new VerifierApiKeyCreateRequest {
             Role = "InstitutionAdmin",
             InstitutionId = "inst-1"
         };
         adminRequest.GetValidationError().Should().BeNull();
 
-        var reviewerRequest = new VerifierApiKeyCreateRequest
-        {
+        var reviewerRequest = new VerifierApiKeyCreateRequest {
             Role = "InstructorReviewer",
             InstitutionId = "inst-1"
         };
         reviewerRequest.GetValidationError().Should().BeNull();
 
-        var studentRequest = new VerifierApiKeyCreateRequest
-        {
+        var studentRequest = new VerifierApiKeyCreateRequest {
             Role = "StudentClient",
             InstitutionId = "inst-1"
         };
@@ -84,10 +73,8 @@ public sealed class RbacPolicyTests
     }
 
     [Fact]
-    public void CreateRequest_Succeeds_WithoutInstitutionId_ForOperator()
-    {
-        var operatorRequest = new VerifierApiKeyCreateRequest
-        {
+    public void CreateRequest_Succeeds_WithoutInstitutionId_ForOperator() {
+        var operatorRequest = new VerifierApiKeyCreateRequest {
             Role = "Operator",
             InstitutionId = null
         };
@@ -95,8 +82,7 @@ public sealed class RbacPolicyTests
     }
 
     [Fact]
-    public void Predicates_ShouldEvaluateCorrectly()
-    {
+    public void Predicates_ShouldEvaluateCorrectly() {
         VerifierRolePolicy.IsOperatorRole("Operator").Should().BeTrue();
         VerifierRolePolicy.IsOperatorRole("operator").Should().BeTrue();
         VerifierRolePolicy.IsOperatorRole("InstitutionAdmin").Should().BeFalse();

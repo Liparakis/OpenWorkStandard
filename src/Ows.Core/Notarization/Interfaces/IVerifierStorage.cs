@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Defines the durable storage boundary for verifier sessions, checkpoints, and receipt heads.
 /// </summary>
-public interface IVerifierStorage
-{
+public interface IVerifierStorage {
     /// <summary>
     /// Creates and persists a new verifier session with optional educational metadata.
     /// </summary>

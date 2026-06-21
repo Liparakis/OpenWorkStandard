@@ -16,29 +16,21 @@ namespace Ows.Cli.Tests;
 /// and audit scoping.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
-public sealed class InstitutionAdminAuthTests
-{
+public sealed class InstitutionAdminAuthTests {
     private static readonly Lock EnvLock = new();
 
     private static HttpClient CreateClientWithEnv(Dictionary<string, string?> envVars,
-        out WebApplicationFactory<global::Program> factory)
-    {
-        lock (EnvLock)
-        {
-            foreach (var (k, v) in envVars)
-            {
+        out WebApplicationFactory<global::Program> factory) {
+        lock (EnvLock) {
+            foreach (var (k, v) in envVars) {
                 Environment.SetEnvironmentVariable(k, v);
             }
 
-            try
-            {
+            try {
                 factory = new WebApplicationFactory<global::Program>();
                 return factory.CreateClient();
-            }
-            finally
-            {
-                foreach (var k in envVars.Keys)
-                {
+            } finally {
+                foreach (var k in envVars.Keys) {
                     Environment.SetEnvironmentVariable(k, null);
                 }
             }
@@ -46,12 +38,10 @@ public sealed class InstitutionAdminAuthTests
     }
 
     [Fact]
-    public async Task InstitutionAdmin_LifecycleAndAuthRules()
-    {
+    public async Task InstitutionAdmin_LifecycleAndAuthRules() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-inst-admin-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -62,8 +52,7 @@ public sealed class InstitutionAdminAuthTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 // Pre-populate institutions
                 var inst1 = new Institution(new InstitutionId("inst-1"), "Institution 1", "inst-1", DateTimeOffset.UtcNow);
                 var inst2 = new Institution(new InstitutionId("inst-2"), "Institution 2", "inst-2", DateTimeOffset.UtcNow);
@@ -81,8 +70,7 @@ public sealed class InstitutionAdminAuthTests
                 createInst2Res.StatusCode.Should().Be(HttpStatusCode.OK);
 
                 // 1. Operator creates an InstitutionAdmin key
-                var createAdminPayload = new
-                {
+                var createAdminPayload = new {
                     role = "InstitutionAdmin",
                     institutionId = "inst-1"
                 };
@@ -207,11 +195,8 @@ public sealed class InstitutionAdminAuthTests
                 adminEvents.Should().NotBeNull();
                 adminEvents!.Any(e => e.InstitutionId == "inst-2").Should().BeFalse();
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }

@@ -6,15 +6,13 @@ namespace Ows.Core.Reporting;
 /// <summary>
 /// Provides text rendering capabilities for verification reports.
 /// </summary>
-internal static class TextReportRenderer
-{
+internal static class TextReportRenderer {
     /// <summary>
     /// Formats a <see cref="VerificationResult"/> instance into a human-readable text report.
     /// </summary>
     /// <param name="res">The verification result containing trust details, timeline statistics, lease status, and findings to render.</param>
     /// <returns>A formatted human-readable text report string.</returns>
-    public static string BuildTextReport(VerificationResult res)
-    {
+    public static string BuildTextReport(VerificationResult res) {
         var builder = new StringBuilder();
         builder.AppendLine("OWS Verification Report");
         builder.AppendLine(
@@ -34,12 +32,9 @@ internal static class TextReportRenderer
              string.IsNullOrEmpty(res.Education.CourseId) &&
              string.IsNullOrEmpty(res.Education.ClassGroupId) &&
              string.IsNullOrEmpty(res.Education.AssessmentId) &&
-             string.IsNullOrEmpty(res.Education.StudentUserId)))
-        {
+             string.IsNullOrEmpty(res.Education.StudentUserId))) {
             builder.AppendLine("Assessment context was not provided.");
-        }
-        else
-        {
+        } else {
             builder.AppendLine(
                 $"- Institution: {res.Education.InstitutionName ?? "Unknown"} (ID: {res.Education.InstitutionId ?? "Unknown"})");
             builder.AppendLine(
@@ -97,14 +92,10 @@ internal static class TextReportRenderer
         builder.AppendLine();
 
         builder.AppendLine("Findings:");
-        if (res.Findings.Count == 0)
-        {
+        if (res.Findings.Count == 0) {
             builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var finding in res.Findings)
-            {
+        } else {
+            foreach (var finding in res.Findings) {
                 builder.AppendLine($"[{finding.Severity}] {finding.Code}");
                 builder.AppendLine($"{finding.Title}: {finding.Detail}");
                 builder.AppendLine($"Suggested Action: {finding.ReviewerAction}");
@@ -120,8 +111,7 @@ internal static class TextReportRenderer
 
         builder.AppendLine("Manual Review Suggestions:");
         var suggestions = GetReviewSuggestions(res.TrustStatus);
-        foreach (var suggestion in suggestions)
-        {
+        foreach (var suggestion in suggestions) {
             builder.AppendLine(suggestion);
         }
 
@@ -129,21 +119,16 @@ internal static class TextReportRenderer
 
         builder.AppendLine("Technical Details:");
         builder.AppendLine($"- Generated At: {res.GeneratedAt}");
-        if (res.VerifiedKeyFingerprints.Count > 0)
-        {
+        if (res.VerifiedKeyFingerprints.Count > 0) {
             builder.AppendLine($"- Verifier Key Fingerprints: {string.Join(", ", res.VerifiedKeyFingerprints)}");
         }
 
-        if (res.Errors.Count > 0)
-        {
+        if (res.Errors.Count > 0) {
             builder.AppendLine("- Errors:");
-            foreach (var error in res.Errors)
-            {
+            foreach (var error in res.Errors) {
                 builder.AppendLine($"  - {error}");
             }
-        }
-        else
-        {
+        } else {
             builder.AppendLine("- Errors: None");
         }
 
@@ -155,8 +140,7 @@ internal static class TextReportRenderer
     /// </summary>
     /// <param name="seconds">The duration in seconds.</param>
     /// <returns>A formatted duration string.</returns>
-    private static string FormatDuration(double seconds)
-    {
+    private static string FormatDuration(double seconds) {
         var t = TimeSpan.FromSeconds(seconds);
         var parts = new List<string>();
         if (t.Days > 0) parts.Add($"{t.Days}d");
@@ -171,10 +155,8 @@ internal static class TextReportRenderer
     /// </summary>
     /// <param name="status">The trust status level.</param>
     /// <returns>A list of suggested verification or inspection steps.</returns>
-    private static IReadOnlyList<string> GetReviewSuggestions(TrustStatus status)
-    {
-        return status switch
-        {
+    private static IReadOnlyList<string> GetReviewSuggestions(TrustStatus status) {
+        return status switch {
             TrustStatus.Verified =>
             [
                 "- None. The submission is automatically verified."

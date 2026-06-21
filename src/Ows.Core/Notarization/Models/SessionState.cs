@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Represents the locally persisted assessment session state shared across CLI, packaging, and verification.
 /// </summary>
-public sealed record SessionState
-{
+public sealed record SessionState {
     /// <summary>
     /// Gets the active assessment session identifier.
     /// </summary>

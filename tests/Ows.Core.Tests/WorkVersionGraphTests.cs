@@ -6,14 +6,12 @@ namespace Ows.Core.Tests;
 /// <summary>
 /// Tests Work Version Graph placeholder behavior.
 /// </summary>
-public sealed class WorkVersionGraphTests
-{
+public sealed class WorkVersionGraphTests {
     /// <summary>
     /// Verifies that an empty graph returns a placeholder instance.
     /// </summary>
     [Fact]
-    public void CreateEmpty_ShouldReturnPlaceholderGraph()
-    {
+    public void CreateEmpty_ShouldReturnPlaceholderGraph() {
         var graph = WorkVersionGraph.CreateEmpty();
 
         graph.Should().NotBeNull();
@@ -24,8 +22,7 @@ public sealed class WorkVersionGraphTests
     /// showing that the version graph is currently treated as an unused placeholder in trust decisions.
     /// </summary>
     [Fact]
-    public void VersionGraph_ShouldNotBeUsedAsTrustEvidence()
-    {
+    public void VersionGraph_ShouldNotBeUsedAsTrustEvidence() {
         // Verified by checking that trust status is determined independently of version graph presence
         // (OwsPackageVerifier only validates its JSON structure but doesn't grade trust based on it).
         var graphText = "{\"nodes\":[],\"edges\":[]}";

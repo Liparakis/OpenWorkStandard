@@ -3,8 +3,7 @@ namespace Ows.Core.Verification;
 /// <summary>
 /// Defines the package verification contract.
 /// </summary>
-public interface IPackageVerifier
-{
+public interface IPackageVerifier {
     /// <summary>
     /// Verifies an OWS package.
     /// </summary>

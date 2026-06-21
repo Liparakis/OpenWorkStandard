@@ -1,6 +1,6 @@
-using System.Text.Json;
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
 using FluentAssertions;
 using Ows.Core.Events;
 using Ows.Core.Notarization;
@@ -10,24 +10,20 @@ namespace Ows.Core.Tests;
 /// <summary>
 /// Tests notarization domain types added for the remote trust boundary foundation.
 /// </summary>
-public sealed class NotarizationNamespaceTests
-{
+public sealed class NotarizationNamespaceTests {
     /// <summary>
     /// Verifies that receipt chains preserve their session and ordered receipts.
     /// </summary>
     [Fact]
-    public void ReceiptChain_ShouldPreserveOrderedReceipts()
-    {
+    public void ReceiptChain_ShouldPreserveOrderedReceipts() {
         var sessionId = AssessmentSessionId.Create();
-        var checkpoint = new Checkpoint
-        {
+        var checkpoint = new Checkpoint {
             SessionId = sessionId,
             SequenceNumber = 1,
             TimelineHeadHash = "abc123"
         };
 
-        var receipt = new CheckpointReceipt
-        {
+        var receipt = new CheckpointReceipt {
             SessionId = sessionId,
             SequenceNumber = 1,
             TimelineHeadHash = "abc123",
@@ -35,8 +31,7 @@ public sealed class NotarizationNamespaceTests
             ReceiptHash = "def456"
         };
 
-        var chain = new ReceiptChain
-        {
+        var chain = new ReceiptChain {
             SessionId = sessionId,
             Receipts = [receipt]
         };
@@ -50,15 +45,13 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that issued receipts form a valid chain.
     /// </summary>
     [Fact]
-    public void IssueReceipt_ShouldProduceValidReceiptChain()
-    {
+    public void IssueReceipt_ShouldProduceValidReceiptChain() {
         var sessionId = AssessmentSessionId.Create();
         var firstCheckpoint = new Checkpoint { SessionId = sessionId, SequenceNumber = 1, TimelineHeadHash = "head-1" };
         var firstReceipt = ReceiptChainVerifier.IssueReceipt(firstCheckpoint, ReceiptChainVerifier.GenesisPreviousReceiptHash);
         var secondCheckpoint = new Checkpoint { SessionId = sessionId, SequenceNumber = 2, TimelineHeadHash = "head-2" };
         var secondReceipt = ReceiptChainVerifier.IssueReceipt(secondCheckpoint, firstReceipt.ReceiptHash);
-        var chain = new ReceiptChain
-        {
+        var chain = new ReceiptChain {
             SessionId = sessionId,
             Receipts = [firstReceipt, secondReceipt]
         };
@@ -71,15 +64,13 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that issued receipts are signed when a server signing key is configured.
     /// </summary>
     [Fact]
-    public void IssueReceipt_ShouldSignReceiptWhenSigningKeyIsConfigured()
-    {
+    public void IssueReceipt_ShouldSignReceiptWhenSigningKeyIsConfigured() {
         var sessionId = AssessmentSessionId.Create();
         var receipt = ReceiptChainVerifier.IssueReceipt(
             new Checkpoint { SessionId = sessionId, SequenceNumber = 1, TimelineHeadHash = "head-1" },
             ReceiptChainVerifier.GenesisPreviousReceiptHash,
             signingKey: "test-signing-key");
-        var chain = new ReceiptChain
-        {
+        var chain = new ReceiptChain {
             SessionId = sessionId,
             Receipts = [receipt]
         };
@@ -93,8 +84,7 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that issued receipt timestamps are normalized to PostgreSQL-safe precision.
     /// </summary>
     [Fact]
-    public void IssueReceipt_ShouldNormalizeTimestampPrecision()
-    {
+    public void IssueReceipt_ShouldNormalizeTimestampPrecision() {
         var sessionId = AssessmentSessionId.Create();
         var receipt = ReceiptChainVerifier.IssueReceipt(
             new Checkpoint { SessionId = sessionId, SequenceNumber = 1, TimelineHeadHash = "head-1" },
@@ -108,8 +98,7 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that tampered receipts fail chain validation.
     /// </summary>
     [Fact]
-    public void IsValid_ShouldFailWhenReceiptChainIsTampered()
-    {
+    public void IsValid_ShouldFailWhenReceiptChainIsTampered() {
         var sessionId = AssessmentSessionId.Create();
         var firstReceipt = ReceiptChainVerifier.IssueReceipt(
             new Checkpoint { SessionId = sessionId, SequenceNumber = 1, TimelineHeadHash = "head-1" },
@@ -117,8 +106,7 @@ public sealed class NotarizationNamespaceTests
         var secondReceipt = ReceiptChainVerifier.IssueReceipt(
             new Checkpoint { SessionId = sessionId, SequenceNumber = 2, TimelineHeadHash = "head-2" },
             firstReceipt.ReceiptHash) with { TimelineHeadHash = "tampered-head" };
-        var chain = new ReceiptChain
-        {
+        var chain = new ReceiptChain {
             SessionId = sessionId,
             Receipts = [firstReceipt, secondReceipt]
         };
@@ -130,8 +118,7 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that checkpoints can be derived from the current timeline head.
     /// </summary>
     [Fact]
-    public void FromTimeline_ShouldUseLastChainedEventHash()
-    {
+    public void FromTimeline_ShouldUseLastChainedEventHash() {
         var timelinePath = Path.Combine(Path.GetTempPath(), $"ows-checkpoint-{Guid.NewGuid():N}.jsonl");
         var firstEvent = OwsEventChain.CreateChainedEvent(
             new OwsEvent { EventType = OwsEventType.FileCreated, ProjectId = "sample", RelativePath = "a.txt" },
@@ -140,19 +127,15 @@ public sealed class NotarizationNamespaceTests
             new OwsEvent { EventType = OwsEventType.FileModified, ProjectId = "sample", RelativePath = "a.txt" },
             firstEvent.EventHash);
 
-        try
-        {
+        try {
             File.WriteAllText(timelinePath, $"{JsonSerializer.Serialize(firstEvent)}{Environment.NewLine}{JsonSerializer.Serialize(secondEvent)}");
 
             var checkpoint = Checkpoint.FromTimeline(timelinePath, AssessmentSessionId.Create(), 2);
 
             checkpoint.SequenceNumber.Should().Be(2);
             checkpoint.TimelineHeadHash.Should().Be(secondEvent.EventHash);
-        }
-        finally
-        {
-            if (File.Exists(timelinePath))
-            {
+        } finally {
+            if (File.Exists(timelinePath)) {
                 File.Delete(timelinePath);
             }
         }
@@ -162,22 +145,17 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that empty timelines produce the genesis head hash.
     /// </summary>
     [Fact]
-    public void FromTimeline_ShouldUseGenesisHashWhenTimelineIsEmpty()
-    {
+    public void FromTimeline_ShouldUseGenesisHashWhenTimelineIsEmpty() {
         var timelinePath = Path.Combine(Path.GetTempPath(), $"ows-checkpoint-empty-{Guid.NewGuid():N}.jsonl");
 
-        try
-        {
+        try {
             File.WriteAllText(timelinePath, string.Empty);
 
             var checkpoint = Checkpoint.FromTimeline(timelinePath, AssessmentSessionId.Create(), 1);
 
             checkpoint.TimelineHeadHash.Should().Be(OwsEventChain.GenesisPreviousEventHash);
-        }
-        finally
-        {
-            if (File.Exists(timelinePath))
-            {
+        } finally {
+            if (File.Exists(timelinePath)) {
                 File.Delete(timelinePath);
             }
         }
@@ -187,19 +165,16 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that the in-memory service issues receipts into a valid chain.
     /// </summary>
     [Fact]
-    public void SubmitCheckpoint_ShouldAppendReceiptToSessionChain()
-    {
+    public void SubmitCheckpoint_ShouldAppendReceiptToSessionChain() {
         var service = new InMemoryReceiptService();
         var sessionId = service.StartSession();
 
-        var firstReceipt = service.SubmitCheckpoint(new Checkpoint
-        {
+        var firstReceipt = service.SubmitCheckpoint(new Checkpoint {
             SessionId = sessionId,
             SequenceNumber = 1,
             TimelineHeadHash = "head-1"
         });
-        var secondReceipt = service.SubmitCheckpoint(new Checkpoint
-        {
+        var secondReceipt = service.SubmitCheckpoint(new Checkpoint {
             SessionId = sessionId,
             SequenceNumber = 2,
             TimelineHeadHash = "head-2"
@@ -216,12 +191,10 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that checkpoints for unknown sessions are rejected.
     /// </summary>
     [Fact]
-    public void SubmitCheckpoint_ShouldRejectUnknownSession()
-    {
+    public void SubmitCheckpoint_ShouldRejectUnknownSession() {
         var service = new InMemoryReceiptService();
 
-        var act = () => service.SubmitCheckpoint(new Checkpoint
-        {
+        var act = () => service.SubmitCheckpoint(new Checkpoint {
             SessionId = AssessmentSessionId.Create(),
             SequenceNumber = 1,
             TimelineHeadHash = "head-1"
@@ -235,13 +208,11 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that out-of-order checkpoint sequences are rejected.
     /// </summary>
     [Fact]
-    public void SubmitCheckpoint_ShouldRejectOutOfOrderSequence()
-    {
+    public void SubmitCheckpoint_ShouldRejectOutOfOrderSequence() {
         var service = new InMemoryReceiptService();
         var sessionId = service.StartSession();
 
-        var act = () => service.SubmitCheckpoint(new Checkpoint
-        {
+        var act = () => service.SubmitCheckpoint(new Checkpoint {
             SessionId = sessionId,
             SequenceNumber = 2,
             TimelineHeadHash = "head-2"
@@ -255,12 +226,10 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that sessions can be restored from persisted receipts and continued.
     /// </summary>
     [Fact]
-    public void RestoreSession_ShouldAllowContinuingReceiptChain()
-    {
+    public void RestoreSession_ShouldAllowContinuingReceiptChain() {
         var sessionId = AssessmentSessionId.Create();
         var firstReceipt = ReceiptChainVerifier.IssueReceipt(
-            new Checkpoint
-            {
+            new Checkpoint {
                 SessionId = sessionId,
                 SequenceNumber = 1,
                 TimelineHeadHash = "head-1"
@@ -269,8 +238,7 @@ public sealed class NotarizationNamespaceTests
         var service = new InMemoryReceiptService();
 
         service.RestoreSession(sessionId, [firstReceipt]);
-        var secondReceipt = service.SubmitCheckpoint(new Checkpoint
-        {
+        var secondReceipt = service.SubmitCheckpoint(new Checkpoint {
             SessionId = sessionId,
             SequenceNumber = 2,
             TimelineHeadHash = "head-2"
@@ -286,11 +254,9 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that invalid persisted receipt chains are rejected on restore.
     /// </summary>
     [Fact]
-    public void RestoreSession_ShouldRejectInvalidReceiptChain()
-    {
+    public void RestoreSession_ShouldRejectInvalidReceiptChain() {
         var sessionId = AssessmentSessionId.Create();
-        var invalidReceipt = new CheckpointReceipt
-        {
+        var invalidReceipt = new CheckpointReceipt {
             SessionId = sessionId,
             SequenceNumber = 1,
             TimelineHeadHash = "head-1",
@@ -309,8 +275,7 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that the in-memory remote transport can start a session and issue receipts.
     /// </summary>
     [Fact]
-    public async Task InMemoryRemoteReceiptTransport_ShouldIssueReceiptsForActiveSession()
-    {
+    public async Task InMemoryRemoteReceiptTransport_ShouldIssueReceiptsForActiveSession() {
         var transport = new InMemoryRemoteReceiptTransport(
             new InMemoryReceiptService(),
             () => new Checkpoint { TimelineHeadHash = "head-1" });
@@ -330,8 +295,7 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that the in-memory remote transport rejects checkpoint submission before session start.
     /// </summary>
     [Fact]
-    public async Task InMemoryRemoteReceiptTransport_ShouldRequireActiveSession()
-    {
+    public async Task InMemoryRemoteReceiptTransport_ShouldRequireActiveSession() {
         var transport = new InMemoryRemoteReceiptTransport(
             new InMemoryReceiptService(),
             () => new Checkpoint { TimelineHeadHash = "head-1" });
@@ -346,37 +310,30 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that the HTTPS transport follows the planned session/checkpoint/receipt endpoints.
     /// </summary>
     [Fact]
-    public async Task HttpsReceiptTransport_ShouldUsePlannedApiContract()
-    {
+    public async Task HttpsReceiptTransport_ShouldUsePlannedApiContract() {
         var sessionId = AssessmentSessionId.Create();
         HttpRequestMessage? checkpointRequest = null;
-        var issuedReceipt = new CheckpointReceipt
-        {
+        var issuedReceipt = new CheckpointReceipt {
             SessionId = sessionId,
             SequenceNumber = 1,
             TimelineHeadHash = "head-1",
             PreviousReceiptHash = ReceiptChainVerifier.GenesisPreviousReceiptHash,
             ReceiptHash = "receipt-1"
         };
-        var handler = new StubHttpMessageHandler(request =>
-        {
+        var handler = new StubHttpMessageHandler(request => {
             var path = request.RequestUri!.PathAndQuery.TrimStart('/');
 
-            if (request.Method == HttpMethod.Post && path == "sessions")
-            {
+            if (request.Method == HttpMethod.Post && path == "sessions") {
                 return JsonResponse(new StartSessionResponse { SessionId = sessionId.Value });
             }
 
-            if (request.Method == HttpMethod.Post && path == $"sessions/{sessionId}/checkpoints")
-            {
+            if (request.Method == HttpMethod.Post && path == $"sessions/{sessionId}/checkpoints") {
                 checkpointRequest = request;
                 return JsonResponse(issuedReceipt);
             }
 
-            if (request.Method == HttpMethod.Get && path == $"sessions/{sessionId}/receipts")
-            {
-                return JsonResponse(new ReceiptChain
-                {
+            if (request.Method == HttpMethod.Get && path == $"sessions/{sessionId}/receipts") {
+                return JsonResponse(new ReceiptChain {
                     SessionId = sessionId,
                     Receipts = [issuedReceipt]
                 });
@@ -387,8 +344,7 @@ public sealed class NotarizationNamespaceTests
         using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://ows.test/") };
         var transport = new HttpsReceiptTransport(
             httpClient,
-            (activeSessionId, sequenceNumber) => new Checkpoint
-            {
+            (activeSessionId, sequenceNumber) => new Checkpoint {
                 SessionId = activeSessionId,
                 SequenceNumber = sequenceNumber,
                 TimelineHeadHash = "head-1",
@@ -413,16 +369,13 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that the HTTPS transport requires a started session before checkpoints can be sent.
     /// </summary>
     [Fact]
-    public async Task HttpsReceiptTransport_ShouldRequireActiveSession()
-    {
-        using var httpClient = new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)))
-        {
+    public async Task HttpsReceiptTransport_ShouldRequireActiveSession() {
+        using var httpClient = new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK))) {
             BaseAddress = new Uri("https://ows.test/")
         };
         var transport = new HttpsReceiptTransport(
             httpClient,
-            (activeSessionId, sequenceNumber) => new Checkpoint
-            {
+            (activeSessionId, sequenceNumber) => new Checkpoint {
                 SessionId = activeSessionId,
                 SequenceNumber = sequenceNumber,
                 TimelineHeadHash = "head-1"
@@ -438,10 +391,8 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that checkpoint requests reject missing payload session identifiers.
     /// </summary>
     [Fact]
-    public void CheckpointRequest_ShouldRejectMissingPayloadSessionId()
-    {
-        var request = new CheckpointRequest
-        {
+    public void CheckpointRequest_ShouldRejectMissingPayloadSessionId() {
+        var request = new CheckpointRequest {
             SessionId = string.Empty,
             SequenceNumber = 1,
             TimelineHeadHash = "head-1"
@@ -454,10 +405,8 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that checkpoint requests reject invalid sequence numbers.
     /// </summary>
     [Fact]
-    public void CheckpointRequest_ShouldRejectSequenceNumbersBelowOne()
-    {
-        var request = new CheckpointRequest
-        {
+    public void CheckpointRequest_ShouldRejectSequenceNumbersBelowOne() {
+        var request = new CheckpointRequest {
             SessionId = "session-1",
             SequenceNumber = 0,
             TimelineHeadHash = "head-1"
@@ -470,10 +419,8 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that checkpoint requests reject missing timeline head hashes.
     /// </summary>
     [Fact]
-    public void CheckpointRequest_ShouldRejectMissingTimelineHeadHash()
-    {
-        var request = new CheckpointRequest
-        {
+    public void CheckpointRequest_ShouldRejectMissingTimelineHeadHash() {
+        var request = new CheckpointRequest {
             SessionId = "session-1",
             SequenceNumber = 1,
             TimelineHeadHash = string.Empty
@@ -486,10 +433,8 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that checkpoint requests reject blank idempotency keys when a header is present.
     /// </summary>
     [Fact]
-    public void CheckpointRequest_ShouldRejectBlankIdempotencyKey()
-    {
-        var request = new CheckpointRequest
-        {
+    public void CheckpointRequest_ShouldRejectBlankIdempotencyKey() {
+        var request = new CheckpointRequest {
             SessionId = "session-1",
             SequenceNumber = 1,
             TimelineHeadHash = "head-1"
@@ -502,10 +447,8 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that package submission metadata accepts object-storage-backed packages.
     /// </summary>
     [Fact]
-    public void VerifierPackageSubmissionRequest_ShouldAcceptValidObjectStorageMetadata()
-    {
-        var request = new VerifierPackageSubmissionRequest
-        {
+    public void VerifierPackageSubmissionRequest_ShouldAcceptValidObjectStorageMetadata() {
+        var request = new VerifierPackageSubmissionRequest {
             SessionId = "session-1",
             IdempotencyKey = "package-1",
             ObjectStorageProvider = "s3",
@@ -522,10 +465,8 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that package submission metadata rejects blank idempotency keys when supplied.
     /// </summary>
     [Fact]
-    public void VerifierPackageSubmissionRequest_ShouldRejectBlankIdempotencyKey()
-    {
-        var request = new VerifierPackageSubmissionRequest
-        {
+    public void VerifierPackageSubmissionRequest_ShouldRejectBlankIdempotencyKey() {
+        var request = new VerifierPackageSubmissionRequest {
             IdempotencyKey = " ",
             ObjectStorageProvider = "s3",
             ObjectBucket = "ows-packages",
@@ -541,10 +482,8 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that package submission metadata rejects missing object storage location data.
     /// </summary>
     [Fact]
-    public void VerifierPackageSubmissionRequest_ShouldRejectMissingObjectStorageLocation()
-    {
-        var request = new VerifierPackageSubmissionRequest
-        {
+    public void VerifierPackageSubmissionRequest_ShouldRejectMissingObjectStorageLocation() {
+        var request = new VerifierPackageSubmissionRequest {
             ObjectStorageProvider = "s3",
             ObjectBucket = "ows-packages",
             PackageSha256 = new string('a', 64),
@@ -558,10 +497,8 @@ public sealed class NotarizationNamespaceTests
     /// Verifies that package submission metadata rejects malformed package hashes.
     /// </summary>
     [Fact]
-    public void VerifierPackageSubmissionRequest_ShouldRejectMalformedPackageHash()
-    {
-        var request = new VerifierPackageSubmissionRequest
-        {
+    public void VerifierPackageSubmissionRequest_ShouldRejectMalformedPackageHash() {
+        var request = new VerifierPackageSubmissionRequest {
             ObjectStorageProvider = "s3",
             ObjectBucket = "ows-packages",
             ObjectKey = "package.owspkg",
@@ -578,13 +515,11 @@ public sealed class NotarizationNamespaceTests
     /// <param name="value">The response payload.</param>
     /// <returns>The HTTP response containing the JSON payload.</returns>
     private static HttpResponseMessage JsonResponse<T>(T value) =>
-        new(HttpStatusCode.OK)
-        {
+        new(HttpStatusCode.OK) {
             Content = new StringContent(JsonSerializer.Serialize(value))
         };
 
-    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
-    {
+    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler {
         public List<string> RequestedPaths { get; } = [];
 
         /// <summary>
@@ -593,8 +528,7 @@ public sealed class NotarizationNamespaceTests
         /// <param name="request">The outgoing HTTP request.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The stubbed HTTP response.</returns>
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) {
             RequestedPaths.Add(request.RequestUri!.PathAndQuery.TrimStart('/'));
             return Task.FromResult(responder(request));
         }

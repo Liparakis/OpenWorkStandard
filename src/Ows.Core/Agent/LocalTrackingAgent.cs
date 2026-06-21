@@ -1,6 +1,6 @@
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
 using Ows.Core.Events;
 using Ows.Core.Hashing;
 
@@ -10,8 +10,7 @@ namespace Ows.Core.Agent;
 /// Provides the local tracking agent that performs a project scan (baseline or recovery) and then
 /// watches for file-system changes, appending chained provenance events to the timeline.
 /// </summary>
-public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITrackingAgent
-{
+public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITrackingAgent {
     /// <summary>
     /// The runtime options prepared for the tracking agent containing configuration settings such as paths, directories to exclude, and polling requirements.
     /// </summary>
@@ -32,8 +31,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
 
     /// <inheritdoc />
     public Task<TrackingAgentOperationResult> PrepareAsync(TrackingAgentOptions options,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -43,20 +41,17 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
 
         logger.LogInformation("Prepared tracking agent for {ProjectRootPath}.", options.ProjectRootPath);
 
-        return Task.FromResult(new TrackingAgentOperationResult
-        {
+        return Task.FromResult(new TrackingAgentOperationResult {
             Succeeded = true,
             Status = Status
         });
     }
 
     /// <inheritdoc />
-    public async Task<TrackingAgentOperationResult> StartAsync(CancellationToken cancellationToken)
-    {
+    public async Task<TrackingAgentOperationResult> StartAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (_options is null)
-        {
+        if (_options is null) {
             throw new InvalidOperationException("Tracking agent must be prepared before start.");
         }
 
@@ -73,26 +68,22 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             ShouldExclude,
             _options.WatcherOptions);
 
-        await using (watcher)
-        {
-            await foreach (var watchEvent in watcher.WatchAsync(cancellationToken))
-            {
+        await using (watcher) {
+            await foreach (var watchEvent in watcher.WatchAsync(cancellationToken)) {
                 await AppendWatchEventAsync(timelinePath, projectId, watchEvent, cancellationToken);
             }
         }
 
         Status = TrackingAgentStatus.Stopped;
 
-        return new TrackingAgentOperationResult
-        {
+        return new TrackingAgentOperationResult {
             Succeeded = true,
             Status = Status
         };
     }
 
     private async Task PerformRecoveryScanAsync(string timelinePath, string projectId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         var localFolder = Path.Combine(_options!.ProjectRootPath, OwsConstants.LocalFolderName);
         var snapshotPath = Path.Combine(localFolder, OwsConstants.ObservedSnapshotFileName);
         var hashService = new Sha256HashService();
@@ -106,8 +97,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         var snapshotUnreadable = loadResult.SnapshotUnreadable;
 
         await _timelineLock.WaitAsync(cancellationToken);
-        try
-        {
+        try {
             var previousEventHash = TimelineEventAppender.ReadLastEventHash(timelinePath);
             var hadPriorTimeline = File.Exists(timelinePath) &&
                                    File.ReadLines(timelinePath).Any(line => !string.IsNullOrWhiteSpace(line));
@@ -120,16 +110,14 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                                         hadPriorTimeline &&
                                         string.IsNullOrWhiteSpace(committedSnapshotHash);
 
-            if (previousSnapshot == null && hadPriorTimeline)
-            {
+            if (previousSnapshot == null && hadPriorTimeline) {
                 var now = DateTimeOffset.UtcNow;
                 var lastHeartbeat = GetLastHeartbeatTime(_options.ProjectRootPath);
                 var gapStartedAt = lastHeartbeat ?? now;
-                var gapDurationMsVal = (long)(now - gapStartedAt).TotalMilliseconds;
+                var gapDurationMsVal = (long) (now - gapStartedAt).TotalMilliseconds;
                 var previousStateVal = DeterminePreviousWatcherState(timelinePath, _options.WasInterrupted);
 
-                if (_options.WasInterrupted)
-                {
+                if (_options.WasInterrupted) {
                     var interruptedEvent = WatcherLifecycleEventBuilder.BuildWatcherInterrupted(projectId,
                         _options.InterruptedState?.Pid.ToString(), "stale_pid");
                     previousEventHash = await TimelineEventAppender.AppendEventAsync(timelinePath, interruptedEvent,
@@ -140,9 +128,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                             gapDurationMsVal);
                     previousEventHash = await TimelineEventAppender.AppendEventAsync(timelinePath, recoveredEvent,
                         previousEventHash, cancellationToken);
-                }
-                else
-                {
+                } else {
                     var startedEvent = WatcherLifecycleEventBuilder.BuildWatcherStarted(projectId, "user_restart");
                     previousEventHash = await TimelineEventAppender.AppendEventAsync(timelinePath, startedEvent,
                         previousEventHash, cancellationToken);
@@ -156,13 +142,11 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                 previousEventHash =
                     await TimelineEventAppender.AppendEventAsync(timelinePath, gapEvent, previousEventHash,
                         cancellationToken);
-            }
-            else if (snapshotHashMismatch || snapshotLegacyUnbound)
-            {
+            } else if (snapshotHashMismatch || snapshotLegacyUnbound) {
                 var now = DateTimeOffset.UtcNow;
                 var lastHeartbeat = GetLastHeartbeatTime(_options.ProjectRootPath);
                 var gapStartedAt = lastHeartbeat ?? now;
-                var gapDurationMsVal = (long)(now - gapStartedAt).TotalMilliseconds;
+                var gapDurationMsVal = (long) (now - gapStartedAt).TotalMilliseconds;
                 var previousStateVal = DeterminePreviousWatcherState(timelinePath, _options.WasInterrupted);
 
                 previousEventHash = await AppendRecoveryLifecycleEventsAsync(
@@ -181,14 +165,10 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                 previousEventHash =
                     await TimelineEventAppender.AppendEventAsync(timelinePath, gapEvent, previousEventHash,
                         cancellationToken);
-            }
-            else if (previousSnapshot == null)
-            {
+            } else if (previousSnapshot == null) {
                 // 1. Initial/first run: Emit file creation baseline events and WatcherStarted
-                foreach (var fileState in currentFiles.Values)
-                {
-                    var owsEvent = new OwsEvent
-                    {
+                foreach (var fileState in currentFiles.Values) {
+                    var owsEvent = new OwsEvent {
                         EventType = OwsEventType.FileCreated,
                         ProjectId = projectId,
                         RelativePath = fileState.RelativePath,
@@ -208,22 +188,19 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                 var startedEvent = WatcherLifecycleEventBuilder.BuildWatcherStarted(projectId, "user_start");
                 previousEventHash = await TimelineEventAppender.AppendEventAsync(timelinePath, startedEvent,
                     previousEventHash, cancellationToken);
-            }
-            else
-            {
+            } else {
                 // 2. Resume / recovery scan
                 var now = DateTimeOffset.UtcNow;
 
                 // Gap computation parameters
                 var lastHeartbeat = GetLastHeartbeatTime(_options.ProjectRootPath);
                 var gapStartedAt = previousSnapshot.ObservedAt;
-                if (lastHeartbeat.HasValue && lastHeartbeat.Value > gapStartedAt)
-                {
+                if (lastHeartbeat.HasValue && lastHeartbeat.Value > gapStartedAt) {
                     gapStartedAt = lastHeartbeat.Value;
                 }
 
                 var gapEndedAt = now;
-                var gapDurationMsVal = (long)(gapEndedAt - gapStartedAt).TotalMilliseconds;
+                var gapDurationMsVal = (long) (gapEndedAt - gapStartedAt).TotalMilliseconds;
 
                 var previousStateVal = DeterminePreviousWatcherState(timelinePath, _options.WasInterrupted);
 
@@ -236,8 +213,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
 
                 // Compare snapshot to current state
                 var scanResult = RecoveryScanService.CompareSnapshots(previousSnapshot, currentFiles);
-                if (scanResult.HasDifferences)
-                {
+                if (scanResult.HasDifferences) {
                     // Emit ObservationGapDetected
                     var gapEvent = WatcherLifecycleEventBuilder.BuildObservationGapDetected(
                         projectId, gapStartedAt, gapEndedAt, gapDurationMsVal, previousStateVal,
@@ -247,11 +223,9 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                         previousEventHash, cancellationToken);
 
                     // Created files
-                    foreach (var file in scanResult.CreatedFiles)
-                    {
+                    foreach (var file in scanResult.CreatedFiles) {
                         var isLarge = RecoveryScanService.IsLargeChange(file.Size, file.LineCount);
-                        var changeEvent = new OwsEvent
-                        {
+                        var changeEvent = new OwsEvent {
                             EventType = isLarge
                                 ? OwsEventType.LargeUnobservedChangeDetected
                                 : OwsEventType.UnobservedChangeDetected,
@@ -276,14 +250,12 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                     }
 
                     // Modified files
-                    foreach (var file in scanResult.ModifiedFiles)
-                    {
+                    foreach (var file in scanResult.ModifiedFiles) {
                         var bytesDelta = file.Curr.Size - file.Prev.Size;
                         var lineDelta = file.Curr.LineCount - file.Prev.LineCount;
                         var isLarge = RecoveryScanService.IsLargeChange(bytesDelta, lineDelta);
 
-                        var changeEvent = new OwsEvent
-                        {
+                        var changeEvent = new OwsEvent {
                             EventType = isLarge
                                 ? OwsEventType.LargeUnobservedChangeDetected
                                 : OwsEventType.UnobservedChangeDetected,
@@ -310,14 +282,12 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                     }
 
                     // Deleted files
-                    foreach (var file in scanResult.DeletedFiles)
-                    {
+                    foreach (var file in scanResult.DeletedFiles) {
                         var bytesDelta = -file.Size;
                         var lineDelta = -file.LineCount;
                         var isLarge = RecoveryScanService.IsLargeChange(bytesDelta, lineDelta);
 
-                        var changeEvent = new OwsEvent
-                        {
+                        var changeEvent = new OwsEvent {
                             EventType = isLarge
                                 ? OwsEventType.LargeUnobservedChangeDetected
                                 : OwsEventType.UnobservedChangeDetected,
@@ -345,8 +315,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             }
 
             // Save the updated snapshot
-            _currentSnapshot = new ObservedSnapshot
-            {
+            _currentSnapshot = new ObservedSnapshot {
                 ObservedAt = DateTimeOffset.UtcNow,
                 Files = currentFiles
             };
@@ -362,9 +331,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             );
             await TimelineEventAppender.AppendEventAsync(timelinePath, snapshotUpdatedEvent, previousEventHash,
                 CancellationToken.None);
-        }
-        finally
-        {
+        } finally {
             _timelineLock.Release();
         }
     }
@@ -374,10 +341,8 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         string projectId,
         string previousEventHash,
         long gapDurationMsVal,
-        CancellationToken cancellationToken)
-    {
-        if (_options!.WasInterrupted)
-        {
+        CancellationToken cancellationToken) {
+        if (_options!.WasInterrupted) {
             var interruptedEvent = WatcherLifecycleEventBuilder.BuildWatcherInterrupted(
                 projectId, _options.InterruptedState?.Pid.ToString(), "stale_pid");
             previousEventHash = await TimelineEventAppender.AppendEventAsync(timelinePath, interruptedEvent,
@@ -394,32 +359,24 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             cancellationToken);
     }
 
-    private static string? FindLatestCommittedSnapshotHash(string timelinePath)
-    {
-        if (!File.Exists(timelinePath))
-        {
+    private static string? FindLatestCommittedSnapshotHash(string timelinePath) {
+        if (!File.Exists(timelinePath)) {
             return null;
         }
 
-        foreach (var line in File.ReadLines(timelinePath).Reverse())
-        {
-            if (string.IsNullOrWhiteSpace(line))
-            {
+        foreach (var line in File.ReadLines(timelinePath).Reverse()) {
+            if (string.IsNullOrWhiteSpace(line)) {
                 continue;
             }
 
-            try
-            {
+            try {
                 var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line);
                 if (owsEvent?.EventType == OwsEventType.SnapshotUpdated &&
                     owsEvent.Metadata.TryGetValue("snapshotHash", out var snapshotHash) &&
-                    !string.IsNullOrWhiteSpace(snapshotHash))
-                {
+                    !string.IsNullOrWhiteSpace(snapshotHash)) {
                     return snapshotHash;
                 }
-            }
-            catch
-            {
+            } catch {
                 return null;
             }
         }
@@ -427,23 +384,17 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         return null;
     }
 
-    private DateTimeOffset? GetLastHeartbeatTime(string projectRoot)
-    {
+    private DateTimeOffset? GetLastHeartbeatTime(string projectRoot) {
         var sessionPath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, OwsConstants.SessionFileName);
-        if (File.Exists(sessionPath))
-        {
-            try
-            {
+        if (File.Exists(sessionPath)) {
+            try {
                 var content = File.ReadAllText(sessionPath);
                 using var doc = JsonDocument.Parse(content);
                 if (doc.RootElement.TryGetProperty("lastHeartbeatAt", out var prop) &&
-                    prop.TryGetDateTimeOffset(out var dto))
-                {
+                    prop.TryGetDateTimeOffset(out var dto)) {
                     return dto;
                 }
-            }
-            catch
-            {
+            } catch {
                 /*ignored*/
             }
         }
@@ -452,10 +403,8 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
     }
 
     private async Task AppendWatchEventAsync(string timelinePath, string projectId,
-        FileWatchEvent watchEvent, CancellationToken cancellationToken)
-    {
-        var eventType = watchEvent.ChangeKind switch
-        {
+        FileWatchEvent watchEvent, CancellationToken cancellationToken) {
+        var eventType = watchEvent.ChangeKind switch {
             FileChangeKind.Created => OwsEventType.FileCreated,
             FileChangeKind.Modified => OwsEventType.FileModified,
             FileChangeKind.Deleted => OwsEventType.FileDeleted,
@@ -465,24 +414,18 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
 
         long? bytesChanged = null;
         var absolutePath = Path.Combine(_options!.ProjectRootPath, watchEvent.RelativePath);
-        if (watchEvent.ChangeKind != FileChangeKind.Deleted)
-        {
-            try
-            {
+        if (watchEvent.ChangeKind != FileChangeKind.Deleted) {
+            try {
                 bytesChanged = new FileInfo(absolutePath).Length;
-            }
-            catch (IOException)
-            {
+            } catch (IOException) {
             }
         }
 
         await _timelineLock.WaitAsync(cancellationToken);
-        try
-        {
+        try {
             var previousEventHash = TimelineEventAppender.ReadLastEventHash(timelinePath);
             var previousSnapshotHash = SnapshotHashCalculator.ComputeHash(_currentSnapshot);
-            var owsEvent = new OwsEvent
-            {
+            var owsEvent = new OwsEvent {
                 EventType = eventType,
                 ProjectId = projectId,
                 RelativePath = watchEvent.RelativePath,
@@ -498,19 +441,13 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
 
             // Update snapshot
             var hashService = new Sha256HashService();
-            if (watchEvent.ChangeKind == FileChangeKind.Deleted)
-            {
+            if (watchEvent.ChangeKind == FileChangeKind.Deleted) {
                 _currentSnapshot.Files.Remove(watchEvent.RelativePath);
-            }
-            else
-            {
-                try
-                {
-                    if (File.Exists(absolutePath))
-                    {
+            } else {
+                try {
+                    if (File.Exists(absolutePath)) {
                         var info = new FileInfo(absolutePath);
-                        _currentSnapshot.Files[watchEvent.RelativePath] = new ObservedFileState
-                        {
+                        _currentSnapshot.Files[watchEvent.RelativePath] = new ObservedFileState {
                             RelativePath = watchEvent.RelativePath,
                             FileHash = ProjectFileScanner.GetFileHash(absolutePath, hashService),
                             Size = info.Length,
@@ -519,9 +456,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                             ObservedAt = DateTimeOffset.UtcNow
                         };
                     }
-                }
-                catch
-                {
+                } catch {
                     /*ignored*/
                 }
             }
@@ -541,60 +476,46 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
             );
             await TimelineEventAppender.AppendEventAsync(timelinePath, snapshotUpdatedEvent, newEventHash,
                 CancellationToken.None);
-        }
-        finally
-        {
+        } finally {
             _timelineLock.Release();
         }
     }
 
-    private bool ShouldExclude(string absolutePath)
-    {
+    private bool ShouldExclude(string absolutePath) {
         return ProjectFileScanner.ShouldExclude(absolutePath, _options!.ProjectRootPath,
             _options.WatcherOptions.ExcludeDirectories);
     }
 
-    private string DeterminePreviousWatcherState(string timelinePath, bool wasInterrupted)
-    {
-        if (wasInterrupted)
-        {
+    private string DeterminePreviousWatcherState(string timelinePath, bool wasInterrupted) {
+        if (wasInterrupted) {
             return "Interrupted";
         }
 
-        if (!File.Exists(timelinePath))
-        {
+        if (!File.Exists(timelinePath)) {
             return "Unknown";
         }
 
-        try
-        {
+        try {
             var lines = File.ReadAllLines(timelinePath);
-            for (int i = lines.Length - 1; i >= 0; i--)
-            {
+            for (int i = lines.Length - 1; i >= 0; i--) {
                 if (string.IsNullOrWhiteSpace(lines[i])) continue;
                 var owsEvent = JsonSerializer.Deserialize<OwsEvent>(lines[i]);
-                if (owsEvent != null)
-                {
-                    if (owsEvent.EventType == OwsEventType.WatcherStopped)
-                    {
+                if (owsEvent != null) {
+                    if (owsEvent.EventType == OwsEventType.WatcherStopped) {
                         return "CleanStopped";
                     }
 
-                    if (owsEvent.EventType == OwsEventType.WatcherInterrupted)
-                    {
+                    if (owsEvent.EventType == OwsEventType.WatcherInterrupted) {
                         return "Interrupted";
                     }
 
                     if (owsEvent.EventType == OwsEventType.WatcherStarted ||
-                        owsEvent.EventType == OwsEventType.WatcherRecovered)
-                    {
+                        owsEvent.EventType == OwsEventType.WatcherRecovered) {
                         return "Unknown";
                     }
                 }
             }
-        }
-        catch
-        {
+        } catch {
             // Ignore and return default
         }
 

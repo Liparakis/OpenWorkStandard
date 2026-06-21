@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Represents a session heartbeat response payload from the verifier.
 /// </summary>
-public sealed record SessionHeartbeatResponse
-{
+public sealed record SessionHeartbeatResponse {
     /// <summary>
     /// Gets the UTC time of the verifier server.
     /// </summary>

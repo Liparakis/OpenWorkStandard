@@ -5,8 +5,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Handles registering verifier security configurations and authentication/authorization schemas in the DI container.
 /// </summary>
-internal static class VerifierAuthRegistration
-{
+internal static class VerifierAuthRegistration {
     /// <summary>
     /// Registers security/auth configurations and sets up JWT/OIDC authentication middleware dependencies.
     /// </summary>
@@ -16,8 +15,7 @@ internal static class VerifierAuthRegistration
     /// <returns>The modified service collection.</returns>
     public static void AddVerifierAuth(this IServiceCollection services,
         VerifierSecurityOptions securityOptions,
-        VerifierAuthOptions authOptions)
-    {
+        VerifierAuthOptions authOptions) {
         services.AddSingleton(securityOptions);
         services.AddSingleton(authOptions);
 

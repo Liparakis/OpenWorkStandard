@@ -6,8 +6,7 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Links an educational assessment and student to a notarized verifier session and package validation outcome.
 /// </summary>
-public sealed record AssessmentSession
-{
+public sealed record AssessmentSession {
     /// <summary>
     /// Gets the unique verifier assessment session identifier.
     /// </summary>
@@ -47,13 +46,11 @@ public sealed record AssessmentSession
         UserId studentUserId,
         string? packageId,
         TrustStatus trustStatus,
-        DateTimeOffset createdAt)
-    {
+        DateTimeOffset createdAt) {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(assessmentId.Value, nameof(assessmentId));
         ArgumentException.ThrowIfNullOrWhiteSpace(studentUserId.Value, nameof(studentUserId));
-        if (createdAt == default)
-        {
+        if (createdAt == default) {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));
         }
 

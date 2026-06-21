@@ -9,131 +9,112 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Provides route endpoint mapping extension methods for OWS package submissions, uploads, verification queueing, and report queries.
 /// </summary>
-internal static class VerifierPackageEndpoints
-{
+internal static class VerifierPackageEndpoints {
     /// <summary>
     /// Maps the packages endpoints (registering metadata, uploading files, verification status, and text reports).
     /// </summary>
     /// <param name="app">The route builder application instance.</param>
     /// <returns>The route builder with endpoints mapped.</returns>
-    public static void MapVerifierPackageEndpoints(this IEndpointRouteBuilder app)
-    {
+    public static void MapVerifierPackageEndpoints(this IEndpointRouteBuilder app) {
         var auditLogger = app.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit");
 
         app.MapPost("/packages", async (HttpRequest request, HttpContext context, IPackageSubmissionStore packageStore,
             IVerifierStorage storage, IVerifierAuditStore auditStore, IPackageBlobStore blobStore,
-            IPackageVerificationJobStore jobStore, CancellationToken cancellationToken) =>
-        {
-            if (request.HasFormContentType)
-            {
-                return await HandlePackageUploadAsync(
-                    request,
-                    context,
-                    packageStore,
-                    storage,
-                    auditStore,
-                    blobStore,
-                    jobStore,
-                    cancellationToken);
-            }
-
-            var idempotencyKey = request.Headers["Idempotency-Key"].FirstOrDefault();
-            VerifierPackageSubmissionRequest jsonRequest;
-            try
-            {
-                jsonRequest = await request.ReadFromJsonAsync<VerifierPackageSubmissionRequest>(cancellationToken)
-                              ?? throw new JsonException("Request body deserialized to null.");
-            }
-            catch (Exception ex)
-            {
-                return Results.BadRequest($"Invalid JSON payload: {ex.Message}");
-            }
-
-            jsonRequest = jsonRequest with { IdempotencyKey = idempotencyKey };
-            var validationError = jsonRequest.GetValidationError();
-            if (validationError is not null)
-            {
-                return Results.BadRequest(validationError);
-            }
-
-            var derivedContext = await ResolvePackageContextFromSessionAsync(
-                storage,
-                jsonRequest.SessionId,
-                jsonRequest.InstitutionId,
-                jsonRequest.AssessmentId,
-                jsonRequest.StudentUserId,
-                cancellationToken);
-
-            jsonRequest = jsonRequest with
-            {
-                InstitutionId = derivedContext.InstitutionId,
-                AssessmentId = derivedContext.AssessmentId,
-                StudentUserId = derivedContext.StudentUserId
-            };
-
-            var access = VerifierAuthorizationHelpers.TryGetAccessContext(context);
-            if (access is not null && !VerifierRolePolicy.IsOperatorRole(access.Role))
-            {
-                if (string.IsNullOrWhiteSpace(jsonRequest.InstitutionId) ||
-                    !string.Equals(jsonRequest.InstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase))
-                {
-                    return Results.Json(
-                        new { error = $"{access.Role} may only submit packages for their own institution." },
-                        statusCode: StatusCodes.Status403Forbidden);
+            IPackageVerificationJobStore jobStore, CancellationToken cancellationToken) => {
+                if (request.HasFormContentType) {
+                    return await HandlePackageUploadAsync(
+                        request,
+                        context,
+                        packageStore,
+                        storage,
+                        auditStore,
+                        blobStore,
+                        jobStore,
+                        cancellationToken);
                 }
 
-                if (VerifierRolePolicy.IsStudentClientRole(access.Role) &&
-                    !string.IsNullOrWhiteSpace(access.StudentUserId))
-                {
-                    if (string.IsNullOrWhiteSpace(jsonRequest.StudentUserId) ||
-                        !string.Equals(jsonRequest.StudentUserId, access.StudentUserId,
-                            StringComparison.OrdinalIgnoreCase))
-                    {
+                var idempotencyKey = request.Headers["Idempotency-Key"].FirstOrDefault();
+                VerifierPackageSubmissionRequest jsonRequest;
+                try {
+                    jsonRequest = await request.ReadFromJsonAsync<VerifierPackageSubmissionRequest>(cancellationToken)
+                                  ?? throw new JsonException("Request body deserialized to null.");
+                } catch (Exception ex) {
+                    return Results.BadRequest($"Invalid JSON payload: {ex.Message}");
+                }
+
+                jsonRequest = jsonRequest with { IdempotencyKey = idempotencyKey };
+                var validationError = jsonRequest.GetValidationError();
+                if (validationError is not null) {
+                    return Results.BadRequest(validationError);
+                }
+
+                var derivedContext = await ResolvePackageContextFromSessionAsync(
+                    storage,
+                    jsonRequest.SessionId,
+                    jsonRequest.InstitutionId,
+                    jsonRequest.AssessmentId,
+                    jsonRequest.StudentUserId,
+                    cancellationToken);
+
+                jsonRequest = jsonRequest with {
+                    InstitutionId = derivedContext.InstitutionId,
+                    AssessmentId = derivedContext.AssessmentId,
+                    StudentUserId = derivedContext.StudentUserId
+                };
+
+                var access = VerifierAuthorizationHelpers.TryGetAccessContext(context);
+                if (access is not null && !VerifierRolePolicy.IsOperatorRole(access.Role)) {
+                    if (string.IsNullOrWhiteSpace(jsonRequest.InstitutionId) ||
+                        !string.Equals(jsonRequest.InstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase)) {
                         return Results.Json(
-                            new { error = "StudentClient bound key must match the student user ID of the package." },
+                            new { error = $"{access.Role} may only submit packages for their own institution." },
                             statusCode: StatusCodes.Status403Forbidden);
                     }
-                }
-            }
 
-            try
-            {
-                var response = await packageStore.SubmitAsync(jsonRequest, cancellationToken);
-                await VerifierAuditHelpers.WriteAuditEventAsync(
-                    auditStore,
-                    auditLogger,
-                    context,
-                    eventType: "package.submitted",
-                    result: "Registered",
-                    access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
-                    institutionId: response.InstitutionId,
-                    sessionId: response.SessionId,
-                    packageId: response.SubmissionId,
-                    assessmentId: response.AssessmentId,
-                    metadata: VerifierAuditHelpers.CreateMetadata(
-                        ("storageProvider", response.ObjectStorageProvider),
-                        ("objectBucket", response.ObjectBucket),
-                        ("objectKey", response.ObjectKey),
-                        ("idempotencyKey", response.IdempotencyKey)),
-                    cancellationToken: cancellationToken);
-                return Results.Ok(response);
-            }
-            catch (NotSupportedException exception)
-            {
-                return Results.BadRequest(exception.Message);
-            }
-            catch (InvalidOperationException exception)
-            {
-                if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
-                    exception.Message.Contains("already registered with different metadata",
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    return Results.Conflict(exception.Message);
+                    if (VerifierRolePolicy.IsStudentClientRole(access.Role) &&
+                        !string.IsNullOrWhiteSpace(access.StudentUserId)) {
+                        if (string.IsNullOrWhiteSpace(jsonRequest.StudentUserId) ||
+                            !string.Equals(jsonRequest.StudentUserId, access.StudentUserId,
+                                StringComparison.OrdinalIgnoreCase)) {
+                            return Results.Json(
+                                new { error = "StudentClient bound key must match the student user ID of the package." },
+                                statusCode: StatusCodes.Status403Forbidden);
+                        }
+                    }
                 }
 
-                return Results.BadRequest(exception.Message);
-            }
-        });
+                try {
+                    var response = await packageStore.SubmitAsync(jsonRequest, cancellationToken);
+                    await VerifierAuditHelpers.WriteAuditEventAsync(
+                        auditStore,
+                        auditLogger,
+                        context,
+                        eventType: "package.submitted",
+                        result: "Registered",
+                        access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
+                        institutionId: response.InstitutionId,
+                        sessionId: response.SessionId,
+                        packageId: response.SubmissionId,
+                        assessmentId: response.AssessmentId,
+                        metadata: VerifierAuditHelpers.CreateMetadata(
+                            ("storageProvider", response.ObjectStorageProvider),
+                            ("objectBucket", response.ObjectBucket),
+                            ("objectKey", response.ObjectKey),
+                            ("idempotencyKey", response.IdempotencyKey)),
+                        cancellationToken: cancellationToken);
+                    return Results.Ok(response);
+                } catch (NotSupportedException exception) {
+                    return Results.BadRequest(exception.Message);
+                } catch (InvalidOperationException exception) {
+                    if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
+                        exception.Message.Contains("already registered with different metadata",
+                            StringComparison.OrdinalIgnoreCase)) {
+                        return Results.Conflict(exception.Message);
+                    }
+
+                    return Results.BadRequest(exception.Message);
+                }
+            });
 
         app.MapPost("/packages/upload", async (HttpRequest request, HttpContext context,
                 IPackageSubmissionStore packageStore,
@@ -151,57 +132,77 @@ internal static class VerifierPackageEndpoints
 
         app.MapPut("/packages/{id}", async (string id, HttpRequest request, HttpContext context,
             IPackageSubmissionStore packageStore, IVerifierAuditStore auditStore, IPackageBlobStore blobStore,
-            IPackageVerificationJobStore jobStore, CancellationToken cancellationToken) =>
-        {
-            var submission = await packageStore.GetAsync(id, cancellationToken);
-            if (submission is null)
-            {
-                return Results.NotFound("Unknown package submission.");
-            }
+            IPackageVerificationJobStore jobStore, CancellationToken cancellationToken) => {
+                var submission = await packageStore.GetAsync(id, cancellationToken);
+                if (submission is null) {
+                    return Results.NotFound("Unknown package submission.");
+                }
 
-            if (!request.HasFormContentType)
-            {
-                return Results.BadRequest("A file upload is required.");
-            }
+                if (!request.HasFormContentType) {
+                    return Results.BadRequest("A file upload is required.");
+                }
 
-            var form = await request.ReadFormAsync(cancellationToken);
-            if (form.Files.GetFile("file") is not { } file)
-            {
-                return Results.BadRequest("A file upload is required.");
-            }
+                var form = await request.ReadFormAsync(cancellationToken);
+                if (form.Files.GetFile("file") is not { } file) {
+                    return Results.BadRequest("A file upload is required.");
+                }
 
-            var extension = Path.GetExtension(file.FileName);
-            if (!string.Equals(extension, ".owspkg", StringComparison.OrdinalIgnoreCase))
-            {
-                return Results.BadRequest("Only .owspkg files are accepted.");
-            }
+                var extension = Path.GetExtension(file.FileName);
+                if (!string.Equals(extension, ".owspkg", StringComparison.OrdinalIgnoreCase)) {
+                    return Results.BadRequest("Only .owspkg files are accepted.");
+                }
 
-            await VerifierAuditHelpers.WriteAuditEventAsync(
-                auditStore,
-                auditLogger,
-                context,
-                eventType: "package.upload.started",
-                result: "Started",
-                access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
-                institutionId: submission.InstitutionId,
-                sessionId: submission.SessionId,
-                packageId: submission.SubmissionId,
-                assessmentId: submission.AssessmentId,
-                cancellationToken: cancellationToken);
+                await VerifierAuditHelpers.WriteAuditEventAsync(
+                    auditStore,
+                    auditLogger,
+                    context,
+                    eventType: "package.upload.started",
+                    result: "Started",
+                    access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
+                    institutionId: submission.InstitutionId,
+                    sessionId: submission.SessionId,
+                    packageId: submission.SubmissionId,
+                    assessmentId: submission.AssessmentId,
+                    cancellationToken: cancellationToken);
 
-            try
-            {
-                await using var source = file.OpenReadStream();
-                var savedBlob = await blobStore.SaveAsync(source, cancellationToken);
-                if (!string.Equals(savedBlob.PackageSha256, submission.PackageSha256,
-                        StringComparison.OrdinalIgnoreCase))
-                {
+                try {
+                    await using var source = file.OpenReadStream();
+                    var savedBlob = await blobStore.SaveAsync(source, cancellationToken);
+                    if (!string.Equals(savedBlob.PackageSha256, submission.PackageSha256,
+                            StringComparison.OrdinalIgnoreCase)) {
+                        await VerifierAuditHelpers.WriteAuditEventAsync(
+                            auditStore,
+                            auditLogger,
+                            context,
+                            eventType: "package.upload.failed",
+                            result: "HashMismatch",
+                            access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
+                            institutionId: submission.InstitutionId,
+                            sessionId: submission.SessionId,
+                            packageId: submission.SubmissionId,
+                            assessmentId: submission.AssessmentId,
+                            metadata: VerifierAuditHelpers.CreateMetadata(("packageSha256", savedBlob.PackageSha256)),
+                            cancellationToken: cancellationToken);
+                        return Results.BadRequest(
+                            "Uploaded package hash does not match the registered package SHA-256 metadata.");
+                    }
+
+                    var job = await QueuePackageVerificationAsync(
+                        submission.SubmissionId,
+                        submission,
+                        VerifierAuthorizationHelpers.TryGetAccessContext(context),
+                        packageStore,
+                        jobStore,
+                        auditStore,
+                        context,
+                        cancellationToken);
+
                     await VerifierAuditHelpers.WriteAuditEventAsync(
                         auditStore,
                         auditLogger,
                         context,
-                        eventType: "package.upload.failed",
-                        result: "HashMismatch",
+                        eventType: "package.upload.completed",
+                        result: "Stored",
                         access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
                         institutionId: submission.InstitutionId,
                         sessionId: submission.SessionId,
@@ -209,8 +210,44 @@ internal static class VerifierPackageEndpoints
                         assessmentId: submission.AssessmentId,
                         metadata: VerifierAuditHelpers.CreateMetadata(("packageSha256", savedBlob.PackageSha256)),
                         cancellationToken: cancellationToken);
+
+                    return Results.Ok(new {
+                        submissionId = submission.SubmissionId,
+                        sessionId = submission.SessionId,
+                        packageSha256 = savedBlob.PackageSha256,
+                        verificationStatus = "Pending",
+                        verificationJobId = job.Id
+                    });
+                } catch (InvalidOperationException exception) {
+                    await VerifierAuditHelpers.WriteAuditEventAsync(
+                        auditStore,
+                        auditLogger,
+                        context,
+                        eventType: "package.upload.failed",
+                        result: "Rejected",
+                        access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
+                        institutionId: submission.InstitutionId,
+                        sessionId: submission.SessionId,
+                        packageId: submission.SubmissionId,
+                        assessmentId: submission.AssessmentId,
+                        metadata: VerifierAuditHelpers.CreateMetadata(("error", exception.Message)),
+                        cancellationToken: cancellationToken);
+                    return Results.BadRequest(exception.Message);
+                }
+            });
+
+        app.MapPost("/packages/{id}/verify", async (string id, HttpContext context,
+            IPackageSubmissionStore packageStore,
+            IVerifierAuditStore auditStore, IPackageBlobStore blobStore, IPackageVerificationJobStore jobStore,
+            CancellationToken cancellationToken) => {
+                var submission = await packageStore.GetAsync(id, cancellationToken);
+                if (submission is null) {
+                    return Results.NotFound("Unknown package submission.");
+                }
+
+                if (!await blobStore.ExistsAsync(submission.ObjectKey, cancellationToken)) {
                     return Results.BadRequest(
-                        "Uploaded package hash does not match the registered package SHA-256 metadata.");
+                        "Package bytes are not available for verification. Please upload the package file.");
                 }
 
                 var job = await QueuePackageVerificationAsync(
@@ -222,218 +259,132 @@ internal static class VerifierPackageEndpoints
                     auditStore,
                     context,
                     cancellationToken);
-
-                await VerifierAuditHelpers.WriteAuditEventAsync(
-                    auditStore,
-                    auditLogger,
-                    context,
-                    eventType: "package.upload.completed",
-                    result: "Stored",
-                    access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
-                    institutionId: submission.InstitutionId,
-                    sessionId: submission.SessionId,
-                    packageId: submission.SubmissionId,
-                    assessmentId: submission.AssessmentId,
-                    metadata: VerifierAuditHelpers.CreateMetadata(("packageSha256", savedBlob.PackageSha256)),
-                    cancellationToken: cancellationToken);
-
-                return Results.Ok(new
-                {
+                return Results.Ok(new {
                     submissionId = submission.SubmissionId,
-                    sessionId = submission.SessionId,
-                    packageSha256 = savedBlob.PackageSha256,
                     verificationStatus = "Pending",
                     verificationJobId = job.Id
                 });
-            }
-            catch (InvalidOperationException exception)
-            {
+            });
+
+        app.MapGet("/packages/{id}", async (string id, IPackageSubmissionStore packageStore,
+            IPackageBlobStore blobStore, CancellationToken cancellationToken) => {
+                try {
+                    var submission = await packageStore.GetAsync(id, cancellationToken);
+                    if (submission is null) {
+                        return Results.NotFound("Unknown package submission.");
+                    }
+
+                    return Results.Ok(new {
+                        submission.SubmissionId,
+                        submission.SessionId,
+                        submission.InstitutionId,
+                        submission.AssessmentId,
+                        submission.StudentUserId,
+                        submission.IdempotencyKey,
+                        submission.ObjectStorageProvider,
+                        submission.ObjectBucket,
+                        submission.ObjectKey,
+                        submission.PackageSha256,
+                        submission.PackageSizeBytes,
+                        submission.SessionHeadReceiptHash,
+                        submission.SessionHeadEventHash,
+                        submission.SessionCheckpointCount,
+                        submission.VerificationStatus,
+                        submission.VerificationJobId,
+                        submission.TrustStatus,
+                        submission.LastVerificationError,
+                        submission.CreatedAtUtc,
+                        blobAvailable = await blobStore.ExistsAsync(submission.ObjectKey, cancellationToken)
+                    });
+                } catch (NotSupportedException exception) {
+                    return Results.BadRequest(exception.Message);
+                }
+            });
+
+        app.MapGet("/packages/{id}/verification", async (string id, HttpContext context,
+            IPackageSubmissionStore packageStore,
+            IVerifierAuditStore auditStore, CancellationToken cancellationToken) => {
+                var submission = await packageStore.GetAsync(id, cancellationToken);
+                if (submission is null) {
+                    return Results.NotFound("Unknown package submission.");
+                }
+
+                if (string.IsNullOrWhiteSpace(submission.VerificationResultJson)) {
+                    return Results.Json(
+                        new {
+                            status = submission.VerificationStatus,
+                            error = submission.LastVerificationError
+                        },
+                        statusCode: submission.VerificationStatus == "Failed"
+                            ? StatusCodes.Status409Conflict
+                            : StatusCodes.Status404NotFound);
+                }
+
                 await VerifierAuditHelpers.WriteAuditEventAsync(
                     auditStore,
                     auditLogger,
                     context,
-                    eventType: "package.upload.failed",
-                    result: "Rejected",
+                    eventType: "report.read",
+                    result: "Returned",
                     access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
                     institutionId: submission.InstitutionId,
                     sessionId: submission.SessionId,
                     packageId: submission.SubmissionId,
                     assessmentId: submission.AssessmentId,
-                    metadata: VerifierAuditHelpers.CreateMetadata(("error", exception.Message)),
+                    metadata: VerifierAuditHelpers.CreateMetadata(("contentType", "application/json")),
                     cancellationToken: cancellationToken);
-                return Results.BadRequest(exception.Message);
-            }
-        });
 
-        app.MapPost("/packages/{id}/verify", async (string id, HttpContext context,
-            IPackageSubmissionStore packageStore,
-            IVerifierAuditStore auditStore, IPackageBlobStore blobStore, IPackageVerificationJobStore jobStore,
-            CancellationToken cancellationToken) =>
-        {
-            var submission = await packageStore.GetAsync(id, cancellationToken);
-            if (submission is null)
-            {
-                return Results.NotFound("Unknown package submission.");
-            }
-
-            if (!await blobStore.ExistsAsync(submission.ObjectKey, cancellationToken))
-            {
-                return Results.BadRequest(
-                    "Package bytes are not available for verification. Please upload the package file.");
-            }
-
-            var job = await QueuePackageVerificationAsync(
-                submission.SubmissionId,
-                submission,
-                VerifierAuthorizationHelpers.TryGetAccessContext(context),
-                packageStore,
-                jobStore,
-                auditStore,
-                context,
-                cancellationToken);
-            return Results.Ok(new
-            {
-                submissionId = submission.SubmissionId,
-                verificationStatus = "Pending",
-                verificationJobId = job.Id
+                return Results.Content(submission.VerificationResultJson, "application/json");
             });
-        });
 
-        app.MapGet("/packages/{id}", async (string id, IPackageSubmissionStore packageStore,
-            IPackageBlobStore blobStore, CancellationToken cancellationToken) =>
-        {
-            try
-            {
+        app.MapGet("/packages/{id}/report", async (string id, HttpContext context, IPackageSubmissionStore packageStore,
+            IVerifierAuditStore auditStore, IReportGenerator reportGenerator, CancellationToken cancellationToken) => {
                 var submission = await packageStore.GetAsync(id, cancellationToken);
-                if (submission is null)
-                {
+                if (submission is null) {
                     return Results.NotFound("Unknown package submission.");
                 }
 
-                return Results.Ok(new
-                {
-                    submission.SubmissionId,
-                    submission.SessionId,
-                    submission.InstitutionId,
-                    submission.AssessmentId,
-                    submission.StudentUserId,
-                    submission.IdempotencyKey,
-                    submission.ObjectStorageProvider,
-                    submission.ObjectBucket,
-                    submission.ObjectKey,
-                    submission.PackageSha256,
-                    submission.PackageSizeBytes,
-                    submission.SessionHeadReceiptHash,
-                    submission.SessionHeadEventHash,
-                    submission.SessionCheckpointCount,
-                    submission.VerificationStatus,
-                    submission.VerificationJobId,
-                    submission.TrustStatus,
-                    submission.LastVerificationError,
-                    submission.CreatedAtUtc,
-                    blobAvailable = await blobStore.ExistsAsync(submission.ObjectKey, cancellationToken)
-                });
-            }
-            catch (NotSupportedException exception)
-            {
-                return Results.BadRequest(exception.Message);
-            }
-        });
+                if (string.IsNullOrWhiteSpace(submission.VerificationResultJson)) {
+                    return Results.Json(
+                        new {
+                            status = submission.VerificationStatus,
+                            error = submission.LastVerificationError
+                        },
+                        statusCode: submission.VerificationStatus == "Failed"
+                            ? StatusCodes.Status409Conflict
+                            : StatusCodes.Status404NotFound);
+                }
 
-        app.MapGet("/packages/{id}/verification", async (string id, HttpContext context,
-            IPackageSubmissionStore packageStore,
-            IVerifierAuditStore auditStore, CancellationToken cancellationToken) =>
-        {
-            var submission = await packageStore.GetAsync(id, cancellationToken);
-            if (submission is null)
-            {
-                return Results.NotFound("Unknown package submission.");
-            }
+                var verificationResult = JsonSerializer.Deserialize<VerificationResult>(
+                    submission.VerificationResultJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (verificationResult is null) {
+                    return Results.Problem("Stored verification result is invalid.");
+                }
 
-            if (string.IsNullOrWhiteSpace(submission.VerificationResultJson))
-            {
-                return Results.Json(
-                    new
-                    {
-                        status = submission.VerificationStatus,
-                        error = submission.LastVerificationError
+                var report = await reportGenerator.GenerateAsync(
+                    new ReportRequest {
+                        VerificationResult = verificationResult,
+                        Format = ReportFormat.Text
                     },
-                    statusCode: submission.VerificationStatus == "Failed"
-                        ? StatusCodes.Status409Conflict
-                        : StatusCodes.Status404NotFound);
-            }
+                    cancellationToken);
 
-            await VerifierAuditHelpers.WriteAuditEventAsync(
-                auditStore,
-                auditLogger,
-                context,
-                eventType: "report.read",
-                result: "Returned",
-                access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
-                institutionId: submission.InstitutionId,
-                sessionId: submission.SessionId,
-                packageId: submission.SubmissionId,
-                assessmentId: submission.AssessmentId,
-                metadata: VerifierAuditHelpers.CreateMetadata(("contentType", "application/json")),
-                cancellationToken: cancellationToken);
+                await VerifierAuditHelpers.WriteAuditEventAsync(
+                    auditStore,
+                    auditLogger,
+                    context,
+                    eventType: "report.read",
+                    result: "Returned",
+                    access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
+                    institutionId: submission.InstitutionId,
+                    sessionId: submission.SessionId,
+                    packageId: submission.SubmissionId,
+                    assessmentId: submission.AssessmentId,
+                    metadata: VerifierAuditHelpers.CreateMetadata(("contentType", "text/plain")),
+                    cancellationToken: cancellationToken);
 
-            return Results.Content(submission.VerificationResultJson, "application/json");
-        });
-
-        app.MapGet("/packages/{id}/report", async (string id, HttpContext context, IPackageSubmissionStore packageStore,
-            IVerifierAuditStore auditStore, IReportGenerator reportGenerator, CancellationToken cancellationToken) =>
-        {
-            var submission = await packageStore.GetAsync(id, cancellationToken);
-            if (submission is null)
-            {
-                return Results.NotFound("Unknown package submission.");
-            }
-
-            if (string.IsNullOrWhiteSpace(submission.VerificationResultJson))
-            {
-                return Results.Json(
-                    new
-                    {
-                        status = submission.VerificationStatus,
-                        error = submission.LastVerificationError
-                    },
-                    statusCode: submission.VerificationStatus == "Failed"
-                        ? StatusCodes.Status409Conflict
-                        : StatusCodes.Status404NotFound);
-            }
-
-            var verificationResult = JsonSerializer.Deserialize<VerificationResult>(
-                submission.VerificationResultJson,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (verificationResult is null)
-            {
-                return Results.Problem("Stored verification result is invalid.");
-            }
-
-            var report = await reportGenerator.GenerateAsync(
-                new ReportRequest
-                {
-                    VerificationResult = verificationResult,
-                    Format = ReportFormat.Text
-                },
-                cancellationToken);
-
-            await VerifierAuditHelpers.WriteAuditEventAsync(
-                auditStore,
-                auditLogger,
-                context,
-                eventType: "report.read",
-                result: "Returned",
-                access: VerifierAuthorizationHelpers.TryGetAccessContext(context),
-                institutionId: submission.InstitutionId,
-                sessionId: submission.SessionId,
-                packageId: submission.SubmissionId,
-                assessmentId: submission.AssessmentId,
-                metadata: VerifierAuditHelpers.CreateMetadata(("contentType", "text/plain")),
-                cancellationToken: cancellationToken);
-
-            return Results.Text(report.Content, "text/plain");
-        });
+                return Results.Text(report.Content, "text/plain");
+            });
     }
 
     /// <summary>
@@ -447,22 +398,18 @@ internal static class VerifierPackageEndpoints
         IVerifierAuditStore auditStore,
         IPackageBlobStore blobStore,
         IPackageVerificationJobStore jobStore,
-        CancellationToken cancellationToken)
-    {
-        if (!request.HasFormContentType)
-        {
+        CancellationToken cancellationToken) {
+        if (!request.HasFormContentType) {
             return Results.BadRequest("A file upload is required.");
         }
 
         var form = await request.ReadFormAsync(cancellationToken);
-        if (form.Files.GetFile("file") is not { } file)
-        {
+        if (form.Files.GetFile("file") is not { } file) {
             return Results.BadRequest("A file upload is required.");
         }
 
         var extension = Path.GetExtension(file.FileName);
-        if (!string.Equals(extension, ".owspkg", StringComparison.OrdinalIgnoreCase))
-        {
+        if (!string.Equals(extension, ".owspkg", StringComparison.OrdinalIgnoreCase)) {
             return Results.BadRequest("Only .owspkg files are accepted.");
         }
 
@@ -485,8 +432,7 @@ internal static class VerifierPackageEndpoints
             assessmentId: assessmentId,
             cancellationToken: cancellationToken);
 
-        try
-        {
+        try {
             await using var source = file.OpenReadStream();
             var savedBlob = await blobStore.SaveAsync(source, cancellationToken);
             var derivedContext = await ResolvePackageContextFromSessionAsync(
@@ -497,24 +443,20 @@ internal static class VerifierPackageEndpoints
                 studentUserId,
                 cancellationToken);
 
-            if (access is not null && !VerifierRolePolicy.IsOperatorRole(access.Role))
-            {
+            if (access is not null && !VerifierRolePolicy.IsOperatorRole(access.Role)) {
                 if (string.IsNullOrWhiteSpace(derivedContext.InstitutionId) ||
                     !string.Equals(derivedContext.InstitutionId, access.InstitutionId,
-                        StringComparison.OrdinalIgnoreCase))
-                {
+                        StringComparison.OrdinalIgnoreCase)) {
                     return Results.Json(
                         new { error = $"{access.Role} may only upload packages for their own institution." },
                         statusCode: StatusCodes.Status403Forbidden);
                 }
 
                 if (VerifierRolePolicy.IsStudentClientRole(access.Role) &&
-                    !string.IsNullOrWhiteSpace(access.StudentUserId))
-                {
+                    !string.IsNullOrWhiteSpace(access.StudentUserId)) {
                     if (string.IsNullOrWhiteSpace(derivedContext.StudentUserId) ||
                         !string.Equals(derivedContext.StudentUserId, access.StudentUserId,
-                            StringComparison.OrdinalIgnoreCase))
-                    {
+                            StringComparison.OrdinalIgnoreCase)) {
                         return Results.Json(
                             new { error = "StudentClient bound key must match the student user ID of the package." },
                             statusCode: StatusCodes.Status403Forbidden);
@@ -522,8 +464,7 @@ internal static class VerifierPackageEndpoints
                 }
             }
 
-            var submissionRequest = new VerifierPackageSubmissionRequest
-            {
+            var submissionRequest = new VerifierPackageSubmissionRequest {
                 SessionId = sessionId,
                 InstitutionId = derivedContext.InstitutionId,
                 AssessmentId = derivedContext.AssessmentId,
@@ -537,16 +478,12 @@ internal static class VerifierPackageEndpoints
             };
 
             VerifierPackageSubmissionResponse submission;
-            try
-            {
+            try {
                 submission = await packageStore.SubmitAsync(submissionRequest, cancellationToken);
-            }
-            catch (InvalidOperationException exception)
-            {
+            } catch (InvalidOperationException exception) {
                 if (exception.Message.Contains("idempotency key already exists", StringComparison.OrdinalIgnoreCase) ||
                     exception.Message.Contains("already registered with different metadata",
-                        StringComparison.OrdinalIgnoreCase))
-                {
+                        StringComparison.OrdinalIgnoreCase)) {
                     await VerifierAuditHelpers.WriteAuditEventAsync(
                         auditStore,
                         context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit"),
@@ -566,10 +503,8 @@ internal static class VerifierPackageEndpoints
             }
 
             if (submission.VerificationStatus is "Pending" or "Running" or "Completed" &&
-                !string.IsNullOrWhiteSpace(submission.VerificationJobId))
-            {
-                return Results.Ok(new
-                {
+                !string.IsNullOrWhiteSpace(submission.VerificationJobId)) {
+                return Results.Ok(new {
                     submissionId = submission.SubmissionId,
                     sessionId = submission.SessionId,
                     packageSha256 = submission.PackageSha256,
@@ -580,8 +515,7 @@ internal static class VerifierPackageEndpoints
             }
 
             PackageVerificationJobRecord job;
-            try
-            {
+            try {
                 job = await QueuePackageVerificationAsync(
                     submission.SubmissionId,
                     submission,
@@ -591,9 +525,7 @@ internal static class VerifierPackageEndpoints
                     auditStore,
                     context,
                     cancellationToken);
-            }
-            catch (Exception exception)
-            {
+            } catch (Exception exception) {
                 await packageStore.UpdateVerificationStateAsync(
                     submission.SubmissionId,
                     "Failed",
@@ -648,17 +580,14 @@ internal static class VerifierPackageEndpoints
                     ("objectKey", submission.ObjectKey)),
                 cancellationToken: cancellationToken);
 
-            return Results.Ok(new
-            {
+            return Results.Ok(new {
                 submissionId = submission.SubmissionId,
                 sessionId = submission.SessionId,
                 packageSha256 = submission.PackageSha256,
                 verificationStatus = "Pending",
                 verificationJobId = job.Id
             });
-        }
-        catch (InvalidOperationException exception)
-        {
+        } catch (InvalidOperationException exception) {
             await VerifierAuditHelpers.WriteAuditEventAsync(
                 auditStore,
                 context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit"),
@@ -686,8 +615,7 @@ internal static class VerifierPackageEndpoints
         IPackageVerificationJobStore jobStore,
         IVerifierAuditStore auditStore,
         HttpContext context,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         var job = await jobStore.QueueAsync(packageId, access?.KeyId, cancellationToken);
         await packageStore.UpdateVerificationStateAsync(
             packageId,
@@ -723,15 +651,12 @@ internal static class VerifierPackageEndpoints
             string? institutionId,
             string? assessmentId,
             string? studentUserId,
-            CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(sessionId))
-        {
+            CancellationToken cancellationToken) {
+        if (string.IsNullOrWhiteSpace(sessionId)) {
             return (institutionId, assessmentId, studentUserId);
         }
 
-        try
-        {
+        try {
             var session = await storage.GetSessionAsync(new AssessmentSessionId(sessionId), cancellationToken);
             return (
                 institutionId ??
@@ -740,9 +665,7 @@ internal static class VerifierPackageEndpoints
                 VerifierAuthorizationHelpers.TryGetMetadataValue(session.MetadataJson, "assessmentId"),
                 studentUserId ??
                 VerifierAuthorizationHelpers.TryGetMetadataValue(session.MetadataJson, "studentUserId"));
-        }
-        catch (InvalidOperationException)
-        {
+        } catch (InvalidOperationException) {
             return (institutionId, assessmentId, studentUserId);
         }
     }

@@ -1,17 +1,16 @@
 using System.IO.Compression;
 using System.Text.Json;
-using Ows.Core.Hashing;
 using Ows.Core.Events;
-using Ows.Core.Packaging;
+using Ows.Core.Hashing;
 using Ows.Core.Notarization;
+using Ows.Core.Packaging;
 
 namespace Ows.Core.Agent;
 
 /// <summary>
 /// Coordinates the build package process and appends package creation events to the timeline.
 /// </summary>
-internal static class PackageCreationCoordinator
-{
+internal static class PackageCreationCoordinator {
     /// <summary>
     /// Creates a zip archive package of the project and appends a PackageCreated event to the project timeline.
     /// </summary>
@@ -21,30 +20,25 @@ internal static class PackageCreationCoordinator
     /// <exception cref="InvalidOperationException">Thrown when package creation fails.</exception>
     public static async Task<string> PackageProjectAsync(
         string projectRoot,
-        Func<string, OwsEventType, string?, string?, long?, IReadOnlyDictionary<string, string>, Task> appendEventFunc)
-    {
+        Func<string, OwsEventType, string?, string?, long?, IReadOnlyDictionary<string, string>, Task> appendEventFunc) {
         var packagePath = Path.Combine(projectRoot,
             $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
         var builder = new OwsPackageBuilder();
-        var result = await builder.CreatePackageAsync(new PackageCreationRequest
-        {
+        var result = await builder.CreatePackageAsync(new PackageCreationRequest {
             ProjectRootPath = projectRoot,
             OutputPackagePath = packagePath
         }, CancellationToken.None);
 
-        if (!result.Created)
-        {
+        if (!result.Created) {
             throw new InvalidOperationException("Packaging failed.");
         }
 
         // Emit PackageCreated event locally
-        try
-        {
+        try {
             var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
             string? sessionId = null;
-            if (File.Exists(sessionPath))
-            {
+            if (File.Exists(sessionPath)) {
                 var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
                 sessionId = state?.SessionId;
             }
@@ -53,8 +47,7 @@ internal static class PackageCreationCoordinator
             long packageSize = 0;
             var artifactCount = 0;
 
-            if (File.Exists(packagePath))
-            {
+            if (File.Exists(packagePath)) {
                 packageSize = new FileInfo(packagePath).Length;
                 packageHash = new Sha256HashService().ComputeHash(await File.ReadAllBytesAsync(packagePath));
                 using var archive = ZipFile.OpenRead(packagePath);
@@ -70,17 +63,14 @@ internal static class PackageCreationCoordinator
                 { "artifactCount", artifactCount.ToString() },
                 { "createdAt", DateTimeOffset.UtcNow.ToString("o") }
             };
-            if (sessionId is not null)
-            {
+            if (sessionId is not null) {
                 metadata["sessionId"] = sessionId;
             }
 
             var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
             await appendEventFunc(projectRoot, OwsEventType.PackageCreated, Path.GetFileName(packagePath),
                 host, 0, metadata);
-        }
-        catch
-        {
+        } catch {
             // Failures in writing the event should not fail the package command itself
         }
 

@@ -17,8 +17,7 @@ using Ows.Verifier.Server;
 namespace Ows.Cli.Tests;
 
 [Collection(CliCommandCollection.Name)]
-public sealed class OidcAuthTests
-{
+public sealed class OidcAuthTests {
     private const string TestIssuer = "https://issuer.example";
     private const string TestAudience = "ows-verifier";
     private const string SigningKey = "ows-oidc-test-signing-key-1234567890";
@@ -27,47 +26,35 @@ public sealed class OidcAuthTests
     private static HttpClient CreateClientWithEnv(
         Dictionary<string, string?> envVars,
         out WebApplicationFactory<global::Program> factory,
-        Action<Microsoft.AspNetCore.Hosting.IWebHostBuilder>? configureBuilder = null)
-    {
-        lock (EnvLock)
-        {
-            foreach (var (k, v) in envVars)
-            {
+        Action<Microsoft.AspNetCore.Hosting.IWebHostBuilder>? configureBuilder = null) {
+        lock (EnvLock) {
+            foreach (var (k, v) in envVars) {
                 Environment.SetEnvironmentVariable(k, v);
             }
 
-            try
-            {
+            try {
                 WebApplicationFactory<global::Program> baseFactory = new WebApplicationFactory<global::Program>();
                 factory = configureBuilder is null ? baseFactory : baseFactory.WithWebHostBuilder(configureBuilder);
                 return factory.CreateClient();
-            }
-            finally
-            {
-                foreach (var key in envVars.Keys)
-                {
+            } finally {
+                foreach (var key in envVars.Keys) {
                     Environment.SetEnvironmentVariable(key, null);
                 }
             }
         }
     }
 
-    private static void ConfigureTestBearerValidation(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
-    {
-        builder.ConfigureServices(services =>
-        {
-            services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
-            {
+    private static void ConfigureTestBearerValidation(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder) {
+        builder.ConfigureServices(services => {
+            services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options => {
                 options.RequireHttpsMetadata = false;
                 options.MapInboundClaims = false;
                 options.Authority = TestIssuer;
                 options.Audience = TestAudience;
-                options.Configuration = new OpenIdConnectConfiguration
-                {
+                options.Configuration = new OpenIdConnectConfiguration {
                     Issuer = TestIssuer
                 };
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
+                options.TokenValidationParameters = new TokenValidationParameters {
                     ValidateIssuer = true,
                     ValidIssuer = TestIssuer,
                     ValidateAudience = true,
@@ -83,12 +70,10 @@ public sealed class OidcAuthTests
         });
     }
 
-    private static string CreateBearerToken(params Claim[] claims)
-    {
+    private static string CreateBearerToken(params Claim[] claims) {
         var handler = new JwtSecurityTokenHandler();
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey));
-        var descriptor = new SecurityTokenDescriptor
-        {
+        var descriptor = new SecurityTokenDescriptor {
             Subject = new ClaimsIdentity(claims, "Bearer"),
             Expires = DateTime.UtcNow.AddMinutes(30),
             Issuer = TestIssuer,
@@ -123,12 +108,10 @@ public sealed class OidcAuthTests
         };
 
     [Fact]
-    public async Task Ready_ShouldExposeOidcDisabledByDefault()
-    {
+    public async Task Ready_ShouldExposeOidcDisabledByDefault() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -138,28 +121,23 @@ public sealed class OidcAuthTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 var response = await client.GetAsync("/ready");
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
                 var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
                 root.GetProperty("dependencies").GetProperty("oidc").GetProperty("enabled").GetBoolean().Should().BeFalse();
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task ApiKeyOnly_ShouldStillWork_WhenOidcDisabled()
-    {
+    public async Task ApiKeyOnly_ShouldStillWork_WhenOidcDisabled() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         const string operatorKey = "bootstrap-operator-key-1234";
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -169,8 +147,7 @@ public sealed class OidcAuthTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 request.Headers.Add("X-OWS-Verifier-Key", operatorKey);
                 var response = await client.SendAsync(request);
@@ -178,26 +155,21 @@ public sealed class OidcAuthTests
                 var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
                 root.GetProperty("oidc").GetProperty("enabled").GetBoolean().Should().BeFalse();
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task BearerOnly_ShouldSucceed_ForOperatorClaims_WhenOidcEnabled()
-    {
+    public async Task BearerOnly_ShouldSucceed_ForOperatorClaims_WhenOidcEnabled() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             using var client = CreateClientWithEnv(
                 CreateOidcConfig(tempDbPath),
                 out var factory,
                 ConfigureTestBearerValidation);
-            await using (factory)
-            {
+            await using (factory) {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 request.Headers.Authorization = CreateBearerHeader(
                     new Claim("role", "Operator"),
@@ -207,29 +179,23 @@ public sealed class OidcAuthTests
                 var response = await client.SendAsync(request);
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task BearerOnly_ShouldMapInstitutionAdmin_WithInstitutionScope()
-    {
+    public async Task BearerOnly_ShouldMapInstitutionAdmin_WithInstitutionScope() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         const string operatorKey = "bootstrap-operator-key-1234";
-        try
-        {
+        try {
             using var client = CreateClientWithEnv(
                 CreateOidcConfig(tempDbPath, operatorKey),
                 out var factory,
                 ConfigureTestBearerValidation);
-            await using (factory)
-            {
-                using (var createInstitution = new HttpRequestMessage(HttpMethod.Post, "/education/institutions"))
-                {
+            await using (factory) {
+                using (var createInstitution = new HttpRequestMessage(HttpMethod.Post, "/education/institutions")) {
                     createInstitution.Headers.Add("X-OWS-Verifier-Key", operatorKey);
                     createInstitution.Content = JsonContent.Create(new Institution(
                         new InstitutionId("inst-1"),
@@ -240,8 +206,7 @@ public sealed class OidcAuthTests
                     createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 }
 
-                using (var createUser = new HttpRequestMessage(HttpMethod.Post, "/education/users"))
-                {
+                using (var createUser = new HttpRequestMessage(HttpMethod.Post, "/education/users")) {
                     createUser.Headers.Add("X-OWS-Verifier-Key", operatorKey);
                     createUser.Content = JsonContent.Create(new User(
                         new UserId("student-1"),
@@ -254,8 +219,7 @@ public sealed class OidcAuthTests
                     createUserResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 }
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, "/sessions")
-                {
+                using var request = new HttpRequestMessage(HttpMethod.Post, "/sessions") {
                     Content = JsonContent.Create(new { institutionId = "inst-1", studentUserId = "student-1" })
                 };
                 request.Headers.Authorization = CreateBearerHeader(
@@ -265,29 +229,23 @@ public sealed class OidcAuthTests
                 var response = await client.SendAsync(request);
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task BearerOnly_ShouldMapInstructorReviewer_WithInstitutionScope()
-    {
+    public async Task BearerOnly_ShouldMapInstructorReviewer_WithInstitutionScope() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         const string operatorKey = "bootstrap-operator-key-1234";
-        try
-        {
+        try {
             using var client = CreateClientWithEnv(
                 CreateOidcConfig(tempDbPath, operatorKey),
                 out var factory,
                 ConfigureTestBearerValidation);
-            await using (factory)
-            {
-                using (var createInstitution = new HttpRequestMessage(HttpMethod.Post, "/education/institutions"))
-                {
+            await using (factory) {
+                using (var createInstitution = new HttpRequestMessage(HttpMethod.Post, "/education/institutions")) {
                     createInstitution.Headers.Add("X-OWS-Verifier-Key", operatorKey);
                     createInstitution.Content = JsonContent.Create(new Institution(
                         new InstitutionId("inst-1"),
@@ -306,29 +264,23 @@ public sealed class OidcAuthTests
                 var response = await client.SendAsync(request);
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task BearerOnly_ShouldMapStudentClient_WithInstitutionAndUserScope()
-    {
+    public async Task BearerOnly_ShouldMapStudentClient_WithInstitutionAndUserScope() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         const string operatorKey = "bootstrap-operator-key-1234";
-        try
-        {
+        try {
             using var client = CreateClientWithEnv(
                 CreateOidcConfig(tempDbPath, operatorKey),
                 out var factory,
                 ConfigureTestBearerValidation);
-            await using (factory)
-            {
-                using (var createInstitution = new HttpRequestMessage(HttpMethod.Post, "/education/institutions"))
-                {
+            await using (factory) {
+                using (var createInstitution = new HttpRequestMessage(HttpMethod.Post, "/education/institutions")) {
                     createInstitution.Headers.Add("X-OWS-Verifier-Key", operatorKey);
                     createInstitution.Content = JsonContent.Create(new Institution(
                         new InstitutionId("inst-1"),
@@ -339,8 +291,7 @@ public sealed class OidcAuthTests
                     createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 }
 
-                using (var createUser = new HttpRequestMessage(HttpMethod.Post, "/education/users"))
-                {
+                using (var createUser = new HttpRequestMessage(HttpMethod.Post, "/education/users")) {
                     createUser.Headers.Add("X-OWS-Verifier-Key", operatorKey);
                     createUser.Content = JsonContent.Create(new User(
                         new UserId("student-1"),
@@ -353,8 +304,7 @@ public sealed class OidcAuthTests
                     createUserResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 }
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, "/sessions")
-                {
+                using var request = new HttpRequestMessage(HttpMethod.Post, "/sessions") {
                     Content = JsonContent.Create(new { institutionId = "inst-1", studentUserId = "student-1" })
                 };
                 request.Headers.Authorization = CreateBearerHeader(
@@ -364,26 +314,21 @@ public sealed class OidcAuthTests
                 var response = await client.SendAsync(request);
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task BearerOnly_ShouldRejectMissingRoleClaim()
-    {
+    public async Task BearerOnly_ShouldRejectMissingRoleClaim() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             using var client = CreateClientWithEnv(
                 CreateOidcConfig(tempDbPath),
                 out var factory,
                 ConfigureTestBearerValidation);
-            await using (factory)
-            {
+            await using (factory) {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 request.Headers.Authorization = CreateBearerHeader(new Claim("sub", "user-1"));
                 var response = await client.SendAsync(request);
@@ -392,26 +337,21 @@ public sealed class OidcAuthTests
                 json.Should().Contain("invalid_oidc_claims");
                 json.Should().Contain("role claim");
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task BearerOnly_ShouldRejectInvalidRoleClaim()
-    {
+    public async Task BearerOnly_ShouldRejectInvalidRoleClaim() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             using var client = CreateClientWithEnv(
                 CreateOidcConfig(tempDbPath),
                 out var factory,
                 ConfigureTestBearerValidation);
-            await using (factory)
-            {
+            await using (factory) {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 request.Headers.Authorization = CreateBearerHeader(
                     new Claim("role", "SuperAdmin"),
@@ -422,28 +362,22 @@ public sealed class OidcAuthTests
                 json.Should().Contain("invalid_oidc_claims");
                 json.Should().Contain("not supported");
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task BearerOnly_ShouldRejectMissingInstitutionClaim_ForScopedRole()
-    {
+    public async Task BearerOnly_ShouldRejectMissingInstitutionClaim_ForScopedRole() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             using var client = CreateClientWithEnv(
                 CreateOidcConfig(tempDbPath),
                 out var factory,
                 ConfigureTestBearerValidation);
-            await using (factory)
-            {
-                using var request = new HttpRequestMessage(HttpMethod.Post, "/sessions")
-                {
+            await using (factory) {
+                using var request = new HttpRequestMessage(HttpMethod.Post, "/sessions") {
                     Content = JsonContent.Create(new { institutionId = "inst-1", studentUserId = "student-1" })
                 };
                 request.Headers.Authorization = CreateBearerHeader(
@@ -455,16 +389,13 @@ public sealed class OidcAuthTests
                 json.Should().Contain("invalid_oidc_claims");
                 json.Should().Contain("institution claim");
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task DualAuth_ShouldReturn400_AndCreateSafeAuditEvent()
-    {
+    public async Task DualAuth_ShouldReturn400_AndCreateSafeAuditEvent() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         const string operatorKey = "bootstrap-operator-key-1234";
@@ -472,16 +403,13 @@ public sealed class OidcAuthTests
             new Claim("role", "Operator"),
             new Claim("sub", "operator-1"));
 
-        try
-        {
+        try {
             using var client = CreateClientWithEnv(
                 CreateOidcConfig(tempDbPath, operatorKey),
                 out var factory,
                 ConfigureTestBearerValidation);
-            await using (factory)
-            {
-                using (var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary"))
-                {
+            await using (factory) {
+                using (var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary")) {
                     request.Headers.Add("X-OWS-Verifier-Key", operatorKey);
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
                     var response = await client.SendAsync(request);
@@ -504,28 +432,23 @@ public sealed class OidcAuthTests
                 auditJson.Should().NotContain(operatorKey);
                 auditJson.Should().NotContain(bearerToken);
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
 
     [Fact]
-    public async Task Diagnostics_ShouldExposeSafeOidcStatus_WithoutSecrets()
-    {
+    public async Task Diagnostics_ShouldExposeSafeOidcStatus_WithoutSecrets() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         const string clientSecret = "super-secret-oidc-client-secret";
 
-        try
-        {
+        try {
             using var client = CreateClientWithEnv(
                 CreateOidcConfig(tempDbPath, clientSecret: clientSecret),
                 out var factory,
                 ConfigureTestBearerValidation);
-            await using (factory)
-            {
+            await using (factory) {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 request.Headers.Authorization = CreateBearerHeader(
                     new Claim("role", "Operator"),
@@ -541,18 +464,14 @@ public sealed class OidcAuthTests
                 text.Should().NotContain(clientSecret);
                 text.Should().NotContain(SigningKey);
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
-     }
+    }
 
     [Fact]
-    public void VerifierOidcOptions_CanBeInstantiatedWithAllProperties()
-    {
-        var options = new VerifierOidcOptions
-        {
+    public void VerifierOidcOptions_CanBeInstantiatedWithAllProperties() {
+        var options = new VerifierOidcOptions {
             Enabled = true,
             Authority = "https://authority",
             Audience = "audience",

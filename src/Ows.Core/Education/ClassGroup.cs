@@ -5,8 +5,7 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Represents a class, cohort, or group inside an institution.
 /// </summary>
-public sealed record ClassGroup
-{
+public sealed record ClassGroup {
     /// <summary>
     /// Gets the class group identifier.
     /// </summary>
@@ -30,13 +29,11 @@ public sealed record ClassGroup
     /// <summary>
     /// Initializes a new instance of the <see cref="ClassGroup"/> class.
     /// </summary>
-    public ClassGroup(ClassGroupId id, InstitutionId institutionId, string name, DateTimeOffset createdAt)
-    {
+    public ClassGroup(ClassGroupId id, InstitutionId institutionId, string name, DateTimeOffset createdAt) {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(institutionId.Value, nameof(institutionId));
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        if (createdAt == default)
-        {
+        if (createdAt == default) {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));
         }
 

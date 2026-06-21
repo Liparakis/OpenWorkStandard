@@ -7,8 +7,7 @@ namespace Ows.Core.Verification;
 /// <summary>
 /// Verification helper that analyzes the timeline integrity, validating parent-child event chains and checksum correctness.
 /// </summary>
-internal static class TimelineIntegrityVerifier
-{
+internal static class TimelineIntegrityVerifier {
     /// <summary>
     /// Parses the timeline file and validates event chaining, matching parent hashes, and event hashes.
     /// </summary>
@@ -17,12 +16,10 @@ internal static class TimelineIntegrityVerifier
     /// <param name="eventTimestamps">Output list containing all validated event timestamps.</param>
     /// <returns>The hash of the last event in the timeline chain, or genesis if broken/missing.</returns>
     public static string ValidateTimeline(ZipArchive archive, List<string> errors,
-        out List<DateTimeOffset> eventTimestamps)
-    {
+        out List<DateTimeOffset> eventTimestamps) {
         eventTimestamps = [];
         var entry = archive.GetEntry(OwsConstants.TimelineFileName);
-        if (entry is null)
-        {
+        if (entry is null) {
             errors.Add($"Missing required entry: {OwsConstants.TimelineFileName}");
             return OwsEventChain.GenesisPreviousEventHash;
         }
@@ -32,40 +29,33 @@ internal static class TimelineIntegrityVerifier
         var expectedPreviousHash = OwsEventChain.GenesisPreviousEventHash;
         var lastEventHash = OwsEventChain.GenesisPreviousEventHash;
 
-        while (reader.ReadLine() is { } line)
-        {
+        while (reader.ReadLine() is { } line) {
             lineNumber++;
 
-            if (string.IsNullOrWhiteSpace(line))
-            {
+            if (string.IsNullOrWhiteSpace(line)) {
                 continue;
             }
 
-            try
-            {
+            try {
                 var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line)
                                ?? throw new JsonException("Timeline event deserialized to null.");
 
                 eventTimestamps.Add(owsEvent.TimestampUtc);
 
-                if (!string.Equals(owsEvent.PreviousEventHash, expectedPreviousHash, StringComparison.Ordinal))
-                {
+                if (!string.Equals(owsEvent.PreviousEventHash, expectedPreviousHash, StringComparison.Ordinal)) {
                     errors.Add($"Broken event chain in {OwsConstants.TimelineFileName} at line {lineNumber}");
                     return OwsEventChain.GenesisPreviousEventHash;
                 }
 
                 var actualEventHash = OwsEventChain.ComputeEventHash(owsEvent);
-                if (!string.Equals(owsEvent.EventHash, actualEventHash, StringComparison.OrdinalIgnoreCase))
-                {
+                if (!string.Equals(owsEvent.EventHash, actualEventHash, StringComparison.OrdinalIgnoreCase)) {
                     errors.Add($"Invalid event hash in {OwsConstants.TimelineFileName} at line {lineNumber}");
                     return OwsEventChain.GenesisPreviousEventHash;
                 }
 
                 expectedPreviousHash = owsEvent.EventHash;
                 lastEventHash = owsEvent.EventHash;
-            }
-            catch (JsonException)
-            {
+            } catch (JsonException) {
                 errors.Add($"Invalid JSON in {OwsConstants.TimelineFileName} at line {lineNumber}");
                 return OwsEventChain.GenesisPreviousEventHash;
             }

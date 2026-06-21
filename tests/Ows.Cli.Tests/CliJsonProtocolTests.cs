@@ -12,25 +12,21 @@ namespace Ows.Cli.Tests;
 /// Tests JSON formatting, errors, and output redaction in CLI commands.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
-public sealed class CliJsonProtocolTests
-{
+public sealed class CliJsonProtocolTests {
     [Fact]
-    public async Task CliCommands_ShouldReturnValidJsonResponses()
-    {
+    public async Task CliCommands_ShouldReturnValidJsonResponses() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-json-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
         var originalDirectory = Directory.GetCurrentDirectory();
-        
+
         var originalOut = Console.Out;
         var originalError = Console.Error;
 
-        try
-        {
+        try {
             Directory.SetCurrentDirectory(projectRoot);
 
             // 1. Test status --json on uninitialized project
-            using (var sw = new StringWriter())
-            {
+            using (var sw = new StringWriter()) {
                 Console.SetOut(sw);
                 var parseResult = OwsCommandFactory.BuildRootCommand().Parse(["status", "--json"]);
                 var exitCode = await parseResult.InvokeAsync();
@@ -44,8 +40,7 @@ public sealed class CliJsonProtocolTests
             }
 
             // 2. Test init --json
-            using (var sw = new StringWriter())
-            {
+            using (var sw = new StringWriter()) {
                 Console.SetOut(sw);
                 var parseResult = OwsCommandFactory.BuildRootCommand().Parse(["init", "--json"]);
                 var exitCode = await parseResult.InvokeAsync();
@@ -59,8 +54,7 @@ public sealed class CliJsonProtocolTests
             }
 
             // 3. Test status --json on initialized project
-            using (var sw = new StringWriter())
-            {
+            using (var sw = new StringWriter()) {
                 Console.SetOut(sw);
                 var parseResult = OwsCommandFactory.BuildRootCommand().Parse(["status", "--json"]);
                 var exitCode = await parseResult.InvokeAsync();
@@ -75,10 +69,9 @@ public sealed class CliJsonProtocolTests
 
             // 4. Test API Key Redaction
             Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", "super-secret-api-key-value-12345");
-            using (var sw = new StringWriter())
-            {
+            using (var sw = new StringWriter()) {
                 Console.SetOut(sw);
-                
+
                 // Trigger a validation failure that logs the environment variable or test string
                 // In this case, we call status with an invalid option that should throw/error,
                 // or we just check if OwsCommandFactory's RedactApiKey replaces the key correctly.
@@ -88,27 +81,22 @@ public sealed class CliJsonProtocolTests
                 var output = sw.ToString();
                 output.Should().NotContain("super-secret-api-key-value-12345");
             }
-        }
-        finally
-        {
+        } finally {
             Console.SetOut(originalOut);
             Console.SetOut(originalError);
             Directory.SetCurrentDirectory(originalDirectory);
             Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", null);
 
-            if (Directory.Exists(projectRoot))
-            {
+            if (Directory.Exists(projectRoot)) {
                 try { Directory.Delete(projectRoot, recursive: true); } catch { }
             }
         }
     }
 
-    private static string ExtractJson(string text)
-    {
+    private static string ExtractJson(string text) {
         var startIdx = text.IndexOf('{');
         var endIdx = text.LastIndexOf('}');
-        if (startIdx >= 0 && endIdx > startIdx)
-        {
+        if (startIdx >= 0 && endIdx > startIdx) {
             return text.Substring(startIdx, endIdx - startIdx + 1);
         }
         return text;

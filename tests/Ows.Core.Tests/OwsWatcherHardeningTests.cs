@@ -10,16 +10,13 @@ using Xunit;
 
 namespace Ows.Core.Tests;
 
-public sealed class OwsWatcherHardeningTests
-{
+public sealed class OwsWatcherHardeningTests {
     [Fact]
-    public async Task Watcher_ShouldRecoverFromStalePidLock()
-    {
+    public async Task Watcher_ShouldRecoverFromStalePidLock() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-stale-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
 
-        try
-        {
+        try {
             var manager = new OwsWatchSessionManager();
             manager.InitializeProject(projectRoot);
 
@@ -27,8 +24,7 @@ public sealed class OwsWatcherHardeningTests
             var watcherJsonPath = Path.Combine(localFolder, "watcher.json");
 
             // Write a stale watcher lock with a non-existent/dead PID
-            var staleState = new WatcherProcessState
-            {
+            var staleState = new WatcherProcessState {
                 Pid = 999999, // Unlikely to exist, and process name won't match ows/dotnet/testhost anyway
                 StartedAt = DateTimeOffset.UtcNow.AddHours(-1)
             };
@@ -42,10 +38,8 @@ public sealed class OwsWatcherHardeningTests
             var watcherTask = Task.Run(() => manager.StartWatcherAsync(projectRoot, usePolling: true, debounceMs: 100));
 
             // Let watcher start
-            for (int i = 0; i < 20; i++)
-            {
-                if (manager.IsWatcherRunning(projectRoot))
-                {
+            for (int i = 0; i < 20; i++) {
+                if (manager.IsWatcherRunning(projectRoot)) {
                     break;
                 }
                 await Task.Delay(100);
@@ -57,34 +51,27 @@ public sealed class OwsWatcherHardeningTests
             // Stop watcher
             await manager.StopWatcherAsync(projectRoot);
             await watcherTask;
-        }
-        finally
-        {
-            if (Directory.Exists(projectRoot))
-            {
+        } finally {
+            if (Directory.Exists(projectRoot)) {
                 try { Directory.Delete(projectRoot, recursive: true); } catch { }
             }
         }
     }
 
     [Fact]
-    public async Task Watcher_ShouldPreventDuplicateStarts()
-    {
+    public async Task Watcher_ShouldPreventDuplicateStarts() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-dup-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
 
-        try
-        {
+        try {
             var manager = new OwsWatchSessionManager();
             manager.InitializeProject(projectRoot);
 
             var watcherTask = Task.Run(() => manager.StartWatcherAsync(projectRoot, usePolling: true, debounceMs: 100));
 
             // Let watcher start
-            for (int i = 0; i < 20; i++)
-            {
-                if (manager.IsWatcherRunning(projectRoot))
-                {
+            for (int i = 0; i < 20; i++) {
+                if (manager.IsWatcherRunning(projectRoot)) {
                     break;
                 }
                 await Task.Delay(100);
@@ -100,24 +87,19 @@ public sealed class OwsWatcherHardeningTests
             // Stop watcher
             await manager.StopWatcherAsync(projectRoot);
             await watcherTask;
-        }
-        finally
-        {
-            if (Directory.Exists(projectRoot))
-            {
+        } finally {
+            if (Directory.Exists(projectRoot)) {
                 try { Directory.Delete(projectRoot, recursive: true); } catch { }
             }
         }
     }
 
     [Fact]
-    public async Task Watcher_ShouldStopCleanlyWhenAlreadyStopped()
-    {
+    public async Task Watcher_ShouldStopCleanlyWhenAlreadyStopped() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-stop-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
 
-        try
-        {
+        try {
             var manager = new OwsWatchSessionManager();
             manager.InitializeProject(projectRoot);
 
@@ -126,11 +108,8 @@ public sealed class OwsWatcherHardeningTests
             // Stopping when already stopped should return cleanly without throwing
             Func<Task> act = () => manager.StopWatcherAsync(projectRoot);
             await act.Should().NotThrowAsync();
-        }
-        finally
-        {
-            if (Directory.Exists(projectRoot))
-            {
+        } finally {
+            if (Directory.Exists(projectRoot)) {
                 try { Directory.Delete(projectRoot, recursive: true); } catch { }
             }
         }

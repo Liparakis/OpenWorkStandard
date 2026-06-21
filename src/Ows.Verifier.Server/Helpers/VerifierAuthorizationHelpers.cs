@@ -9,8 +9,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Provides helper methods for authentication and authorization logic on the OWS Verifier Server.
 /// </summary>
-internal static class VerifierAuthorizationHelpers
-{
+internal static class VerifierAuthorizationHelpers {
     /// <summary>
     /// Returns the attached <see cref="VerifierAccessContext"/> from the HTTP context items.
     /// </summary>
@@ -24,17 +23,14 @@ internal static class VerifierAuthorizationHelpers
     /// </summary>
     /// <param name="request">The incoming HTTP request.</param>
     /// <returns>The bearer token string, or null if header is not present or invalid.</returns>
-    public static string? TryGetSuppliedBearerToken(HttpRequest request)
-    {
-        if (!request.Headers.TryGetValue("Authorization", out var values))
-        {
+    public static string? TryGetSuppliedBearerToken(HttpRequest request) {
+        if (!request.Headers.TryGetValue("Authorization", out var values)) {
             return null;
         }
 
         var headerValue = values.FirstOrDefault();
         if (string.IsNullOrWhiteSpace(headerValue) ||
-            !headerValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-        {
+            !headerValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
             return null;
         }
 
@@ -47,11 +43,9 @@ internal static class VerifierAuthorizationHelpers
     /// </summary>
     /// <param name="options">The verifier security options.</param>
     /// <returns>A list of bootstrap <see cref="VerifierAccessContext"/> instances.</returns>
-    public static List<VerifierAccessContext> BuildConfiguredApiKeys(VerifierSecurityOptions options)
-    {
+    public static List<VerifierAccessContext> BuildConfiguredApiKeys(VerifierSecurityOptions options) {
         var configuredKeys = new List<VerifierAccessContext>();
-        if (!string.IsNullOrWhiteSpace(options.ApiKey))
-        {
+        if (!string.IsNullOrWhiteSpace(options.ApiKey)) {
             configuredKeys.Add(new VerifierAccessContext(
                 VerifierRolePolicy.Operator,
                 null,
@@ -60,10 +54,8 @@ internal static class VerifierAuthorizationHelpers
                 VerifierServerHelpers.CreateSafeKeyPrefix(options.ApiKey)));
         }
 
-        foreach (var apiKey in options.ApiKeys)
-        {
-            if (string.IsNullOrWhiteSpace(apiKey.Key))
-            {
+        foreach (var apiKey in options.ApiKeys) {
+            if (string.IsNullOrWhiteSpace(apiKey.Key)) {
                 continue;
             }
 
@@ -84,17 +76,14 @@ internal static class VerifierAuthorizationHelpers
     /// <param name="request">The HTTP request.</param>
     /// <param name="headerName">The name of the header carrying the API key.</param>
     /// <returns>The supplied key string, or null if header is missing or empty.</returns>
-    public static string? TryGetSuppliedApiKey(HttpRequest request, string headerName)
-    {
+    public static string? TryGetSuppliedApiKey(HttpRequest request, string headerName) {
         if (string.IsNullOrWhiteSpace(headerName) ||
-            !request.Headers.TryGetValue(headerName, out var suppliedValues))
-        {
+            !request.Headers.TryGetValue(headerName, out var suppliedValues)) {
             return null;
         }
 
         var suppliedKey = suppliedValues.FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(suppliedKey))
-        {
+        if (string.IsNullOrWhiteSpace(suppliedKey)) {
             return null;
         }
 
@@ -109,15 +98,12 @@ internal static class VerifierAuthorizationHelpers
     /// <returns>The matching access context if authenticated; otherwise null.</returns>
     public static VerifierAccessContext? TryAuthenticateConfiguredApiKey(
         string suppliedKey,
-        IReadOnlyList<VerifierAccessContext> configuredApiKeys)
-    {
+        IReadOnlyList<VerifierAccessContext> configuredApiKeys) {
         var suppliedBytes = Encoding.UTF8.GetBytes(suppliedKey);
-        foreach (var configuredApiKey in configuredApiKeys)
-        {
+        foreach (var configuredApiKey in configuredApiKeys) {
             var expectedBytes = Encoding.UTF8.GetBytes(configuredApiKey.Key);
             if (suppliedBytes.Length == expectedBytes.Length &&
-                CryptographicOperations.FixedTimeEquals(suppliedBytes, expectedBytes))
-            {
+                CryptographicOperations.FixedTimeEquals(suppliedBytes, expectedBytes)) {
                 return configuredApiKey;
             }
         }
@@ -135,14 +121,10 @@ internal static class VerifierAuthorizationHelpers
     public static async Task<VerifierAccessContext?> TryAuthenticatePersistedApiKeyAsync(
         IVerifierApiKeyStore apiKeyStore,
         string suppliedKey,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
+        CancellationToken cancellationToken) {
+        try {
             return await apiKeyStore.AuthenticateAsync(suppliedKey, cancellationToken);
-        }
-        catch
-        {
+        } catch {
             return null;
         }
     }
@@ -157,10 +139,8 @@ internal static class VerifierAuthorizationHelpers
     public static async Task<bool> IsAuthorizedAsync(
         HttpContext context,
         VerifierAccessContext access,
-        CancellationToken cancellationToken)
-    {
-        if (VerifierRolePolicy.IsOperatorRole(access.Role))
-        {
+        CancellationToken cancellationToken) {
+        if (VerifierRolePolicy.IsOperatorRole(access.Role)) {
             return true;
         }
 
@@ -171,50 +151,41 @@ internal static class VerifierAuthorizationHelpers
         var segments = context.Request.Path.Value?
                            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                        ?? [];
-        if (segments.Length == 0)
-        {
+        if (segments.Length == 0) {
             return false;
         }
 
-        if (segments is ["auth", "api-keys"])
-        {
+        if (segments is ["auth", "api-keys"]) {
             if (HttpMethods.IsGet(context.Request.Method)) return false;
             return isAdmin;
         }
 
-        if (segments is ["auth", "api-keys", _, "revoke"])
-        {
+        if (segments is ["auth", "api-keys", _, "revoke"]) {
             return false;
         }
 
-        if (segments is ["audit", "events"])
-        {
+        if (segments is ["audit", "events"]) {
             return isAdmin && HttpMethods.IsGet(context.Request.Method);
         }
 
-        if (segments is ["diagnostics", "summary"])
-        {
+        if (segments is ["diagnostics", "summary"]) {
             return false;
         }
 
         var isGet = HttpMethods.IsGet(context.Request.Method);
         var isWrite = !isGet;
 
-        if (segments is ["sessions"])
-        {
-            if (isWrite)
-            {
+        if (segments is ["sessions"]) {
+            if (isWrite) {
                 return isAdmin || isStudent;
             }
 
             return false;
         }
 
-        if (segments is ["sessions", _, "heartbeat"] || segments is ["sessions", _, "checkpoints"])
-        {
+        if (segments is ["sessions", _, "heartbeat"] || segments is ["sessions", _, "checkpoints"]) {
             var sessionId = segments[1];
-            if (isWrite)
-            {
+            if (isWrite) {
                 return isStudent && await MatchesStudentSessionScopeAsync(
                     sessionId,
                     access,
@@ -226,12 +197,10 @@ internal static class VerifierAuthorizationHelpers
         }
 
         if (segments is ["sessions", _, "packages"] || segments is ["sessions", _, "receipts"] ||
-            segments is ["sessions", _, "head"])
-        {
+            segments is ["sessions", _, "head"]) {
             var sessionId = segments[1];
             if (isWrite) return false;
-            if (isStudent)
-            {
+            if (isStudent) {
                 return await MatchesStudentSessionScopeAsync(
                     sessionId,
                     access,
@@ -247,21 +216,17 @@ internal static class VerifierAuthorizationHelpers
                 cancellationToken);
         }
 
-        if (segments is ["packages"] or ["packages", "upload"])
-        {
-            if (isWrite)
-            {
+        if (segments is ["packages"] or ["packages", "upload"]) {
+            if (isWrite) {
                 return isStudent;
             }
 
             return false;
         }
 
-        if (segments is ["packages", _, "verify"])
-        {
+        if (segments is ["packages", _, "verify"]) {
             var packageId = segments[1];
-            if (isWrite)
-            {
+            if (isWrite) {
                 return isStudent && await MatchesStudentPackageScopeAsync(
                     packageId,
                     access,
@@ -273,13 +238,10 @@ internal static class VerifierAuthorizationHelpers
         }
 
         if (segments is ["packages", _] || segments is ["packages", _, "verification"] ||
-            segments is ["packages", _, "report"])
-        {
+            segments is ["packages", _, "report"]) {
             var packageId = segments[1];
-            if (isWrite)
-            {
-                if (segments.Length == 2)
-                {
+            if (isWrite) {
+                if (segments.Length == 2) {
                     return isStudent && await MatchesStudentPackageScopeAsync(
                         packageId,
                         access,
@@ -290,8 +252,7 @@ internal static class VerifierAuthorizationHelpers
                 return false;
             }
 
-            if (isStudent)
-            {
+            if (isStudent) {
                 return await MatchesStudentPackageScopeAsync(
                     packageId,
                     access,
@@ -309,16 +270,13 @@ internal static class VerifierAuthorizationHelpers
                 cancellationToken);
         }
 
-        if (segments.Length >= 2 && string.Equals(segments[0], "education", StringComparison.OrdinalIgnoreCase))
-        {
+        if (segments.Length >= 2 && string.Equals(segments[0], "education", StringComparison.OrdinalIgnoreCase)) {
             var educationStore = context.RequestServices.GetRequiredService<IEducationStore>();
 
-            if (isWrite)
-            {
+            if (isWrite) {
                 if (!isAdmin) return false;
 
-                if (segments.Length == 2)
-                {
+                if (segments.Length == 2) {
                     return true;
                 }
 
@@ -352,19 +310,14 @@ internal static class VerifierAuthorizationHelpers
         string? sessionId,
         VerifierAccessContext access,
         IVerifierStorage storage,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         var resolvedInstitutionId = VerifierRolePolicy.NormalizeInstitutionId(institutionId);
-        if (string.IsNullOrWhiteSpace(resolvedInstitutionId) && !string.IsNullOrWhiteSpace(sessionId))
-        {
-            try
-            {
+        if (string.IsNullOrWhiteSpace(resolvedInstitutionId) && !string.IsNullOrWhiteSpace(sessionId)) {
+            try {
                 var session = await storage.GetSessionAsync(new AssessmentSessionId(sessionId), cancellationToken);
                 resolvedInstitutionId =
                     VerifierRolePolicy.NormalizeInstitutionId(TryGetInstitutionIdFromMetadata(session.MetadataJson));
-            }
-            catch (InvalidOperationException)
-            {
+            } catch (InvalidOperationException) {
                 return false;
             }
         }
@@ -385,35 +338,28 @@ internal static class VerifierAuthorizationHelpers
         string sessionId,
         VerifierAccessContext access,
         IVerifierStorage storage,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
+        CancellationToken cancellationToken) {
+        try {
             var session = await storage.GetSessionAsync(new AssessmentSessionId(sessionId), cancellationToken);
 
             var sessionInstId =
                 VerifierRolePolicy.NormalizeInstitutionId(TryGetInstitutionIdFromMetadata(session.MetadataJson));
             if (string.IsNullOrWhiteSpace(sessionInstId) ||
-                !string.Equals(sessionInstId, access.InstitutionId, StringComparison.OrdinalIgnoreCase))
-            {
+                !string.Equals(sessionInstId, access.InstitutionId, StringComparison.OrdinalIgnoreCase)) {
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(access.StudentUserId))
-            {
+            if (string.IsNullOrWhiteSpace(access.StudentUserId)) {
                 return true;
             }
 
             var sessionStudentId = TryGetMetadataValue(session.MetadataJson, "studentUserId");
-            if (!string.Equals(sessionStudentId, access.StudentUserId, StringComparison.OrdinalIgnoreCase))
-            {
+            if (!string.Equals(sessionStudentId, access.StudentUserId, StringComparison.OrdinalIgnoreCase)) {
                 return false;
             }
 
             return true;
-        }
-        catch
-        {
+        } catch {
             return false;
         }
     }
@@ -430,32 +376,25 @@ internal static class VerifierAuthorizationHelpers
         string packageId,
         VerifierAccessContext access,
         IPackageSubmissionStore packageStore,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(access.StudentUserId))
-        {
+        CancellationToken cancellationToken) {
+        if (string.IsNullOrWhiteSpace(access.StudentUserId)) {
             return false;
         }
 
-        try
-        {
+        try {
             var submission = await packageStore.GetAsync(packageId, cancellationToken);
-            if (submission is null)
-            {
+            if (submission is null) {
                 return false;
             }
 
             var packageInstId = VerifierRolePolicy.NormalizeInstitutionId(submission.InstitutionId);
             if (string.IsNullOrWhiteSpace(packageInstId) ||
-                !string.Equals(packageInstId, access.InstitutionId, StringComparison.OrdinalIgnoreCase))
-            {
+                !string.Equals(packageInstId, access.InstitutionId, StringComparison.OrdinalIgnoreCase)) {
                 return false;
             }
 
             return string.Equals(submission.StudentUserId, access.StudentUserId, StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
+        } catch {
             return false;
         }
     }
@@ -465,22 +404,17 @@ internal static class VerifierAuthorizationHelpers
     /// </summary>
     /// <param name="metadataJson">The metadata JSON string.</param>
     /// <returns>The institution ID string, or null if not found or invalid.</returns>
-    public static string? TryGetInstitutionIdFromMetadata(string? metadataJson)
-    {
-        if (string.IsNullOrWhiteSpace(metadataJson))
-        {
+    public static string? TryGetInstitutionIdFromMetadata(string? metadataJson) {
+        if (string.IsNullOrWhiteSpace(metadataJson)) {
             return null;
         }
 
-        try
-        {
+        try {
             using var document = JsonDocument.Parse(metadataJson);
             return document.RootElement.TryGetProperty("institutionId", out var institutionIdElement)
                 ? institutionIdElement.GetString()
                 : null;
-        }
-        catch (JsonException)
-        {
+        } catch (JsonException) {
             return null;
         }
     }
@@ -491,20 +425,15 @@ internal static class VerifierAuthorizationHelpers
     /// <param name="metadataJson">The JSON metadata string.</param>
     /// <param name="propertyName">The property key name.</param>
     /// <returns>The property value string, or null if not found or invalid.</returns>
-    public static string? TryGetMetadataValue(string? metadataJson, string propertyName)
-    {
-        if (string.IsNullOrWhiteSpace(metadataJson) || string.IsNullOrWhiteSpace(propertyName))
-        {
+    public static string? TryGetMetadataValue(string? metadataJson, string propertyName) {
+        if (string.IsNullOrWhiteSpace(metadataJson) || string.IsNullOrWhiteSpace(propertyName)) {
             return null;
         }
 
-        try
-        {
+        try {
             using var document = JsonDocument.Parse(metadataJson);
             return document.RootElement.TryGetProperty(propertyName, out var element) ? element.GetString() : null;
-        }
-        catch (JsonException)
-        {
+        } catch (JsonException) {
             return null;
         }
     }
@@ -519,10 +448,8 @@ internal static class VerifierAuthorizationHelpers
     private static async Task<string?> ResolveEducationInstitutionIdAsync(
         string[] segments,
         IEducationStore educationStore,
-        CancellationToken cancellationToken)
-    {
-        return segments switch
-        {
+        CancellationToken cancellationToken) {
+        return segments switch {
             ["education", "institutions", var institutionIdSegment] => institutionIdSegment,
             ["education", "courses", var courseId] => (await educationStore.GetCourseAsync(new CourseId(courseId),
                 cancellationToken))?.InstitutionId.Value,

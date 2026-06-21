@@ -7,18 +7,15 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Provides general server utility helper methods used across the OWS Verifier Server.
 /// </summary>
-internal static class VerifierServerHelpers
-{
+internal static class VerifierServerHelpers {
     /// <summary>
     /// Gets the current request ID from the HTTP context, generating a new one if not present.
     /// </summary>
     /// <param name="context">The HTTP context.</param>
     /// <returns>A string representing the request ID.</returns>
-    public static string GetRequestId(HttpContext context)
-    {
+    public static string GetRequestId(HttpContext context) {
         if (context.Items.TryGetValue("RequestId", out var value) && value is string requestId &&
-            !string.IsNullOrWhiteSpace(requestId))
-        {
+            !string.IsNullOrWhiteSpace(requestId)) {
             return requestId;
         }
 
@@ -42,8 +39,7 @@ internal static class VerifierServerHelpers
     /// </summary>
     /// <param name="context">The HTTP context.</param>
     /// <returns>The package ID string, or null if not matching package paths.</returns>
-    public static string? TryGetPackageRouteId(HttpContext context)
-    {
+    public static string? TryGetPackageRouteId(HttpContext context) {
         var path = context.Request.Path.Value ?? string.Empty;
         return path.StartsWith("/packages/", StringComparison.OrdinalIgnoreCase)
             ? TryGetRouteValue(context, "id")
@@ -68,11 +64,9 @@ internal static class VerifierServerHelpers
     public static async Task<string> ResolveAuthModeAsync(
         IVerifierApiKeyStore apiKeyStore,
         bool hasBootstrapKeys,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         var hasPersistedKeys = await apiKeyStore.HasActiveKeysAsync(cancellationToken);
-        return (hasBootstrapKeys, hasPersistedKeys) switch
-        {
+        return (hasBootstrapKeys, hasPersistedKeys) switch {
             (true, true) => "bootstrap+persistent",
             (true, false) => "bootstrap",
             (false, true) => "persistent",
@@ -86,8 +80,7 @@ internal static class VerifierServerHelpers
     /// <param name="options">The configured OIDC options.</param>
     /// <returns>An instance of <see cref="VerifierOidcStatus"/> indicating which options are configured.</returns>
     public static VerifierOidcStatus DescribeOidcStatus(VerifierOidcOptions options) =>
-        new()
-        {
+        new() {
             Enabled = options.Enabled,
             AuthorityConfigured = !string.IsNullOrWhiteSpace(options.Authority),
             AudienceConfigured = !string.IsNullOrWhiteSpace(options.Audience),
@@ -99,16 +92,13 @@ internal static class VerifierServerHelpers
     /// </summary>
     /// <param name="options">The JWT bearer options to configure.</param>
     /// <param name="oidcOptions">The source OIDC options.</param>
-    public static void ConfigureOidcJwtBearer(JwtBearerOptions options, VerifierOidcOptions oidcOptions)
-    {
+    public static void ConfigureOidcJwtBearer(JwtBearerOptions options, VerifierOidcOptions oidcOptions) {
         options.RequireHttpsMetadata = oidcOptions.RequireHttpsMetadata;
         options.SaveToken = false;
         options.MapInboundClaims = false;
 
-        if (!oidcOptions.Enabled)
-        {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
+        if (!oidcOptions.Enabled) {
+            options.TokenValidationParameters = new TokenValidationParameters {
                 ValidateIssuer = false,
                 ValidateAudience = false,
                 ValidateLifetime = false,
@@ -119,8 +109,7 @@ internal static class VerifierServerHelpers
 
         options.Authority = oidcOptions.Authority;
         options.Audience = oidcOptions.Audience;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
+        options.TokenValidationParameters = new TokenValidationParameters {
             NameClaimType = oidcOptions.DisplayNameClaim,
             RoleClaimType = oidcOptions.RoleClaim,
             ValidateIssuer = true,
@@ -137,11 +126,9 @@ internal static class VerifierServerHelpers
     /// <param name="error">The short error code string.</param>
     /// <param name="message">The detailed error message.</param>
     /// <returns>A task representing the asynchronous write operation.</returns>
-    public static async Task WriteAuthErrorAsync(HttpContext context, int statusCode, string error, string message)
-    {
+    public static async Task WriteAuthErrorAsync(HttpContext context, int statusCode, string error, string message) {
         context.Response.StatusCode = statusCode;
-        await context.Response.WriteAsJsonAsync(new
-        {
+        await context.Response.WriteAsJsonAsync(new {
             error,
             message,
             requestId = GetRequestId(context)
@@ -155,15 +142,11 @@ internal static class VerifierServerHelpers
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>True if the store is reachable and ready; otherwise false.</returns>
     public static async Task<bool> CheckEducationStoreReadyAsync(IEducationStore educationStore,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
+        CancellationToken cancellationToken) {
+        try {
             _ = await educationStore.GetInstitutionAsync(new InstitutionId("__ready_probe__"), cancellationToken);
             return true;
-        }
-        catch
-        {
+        } catch {
             return false;
         }
     }
@@ -174,11 +157,9 @@ internal static class VerifierServerHelpers
     /// <param name="configuration">The application configuration.</param>
     /// <param name="legacyDefault">The legacy fallback default value.</param>
     /// <returns>True if the worker is enabled; otherwise false.</returns>
-    public static bool ResolvePackageWorkerEnabled(IConfiguration configuration, bool legacyDefault)
-    {
+    public static bool ResolvePackageWorkerEnabled(IConfiguration configuration, bool legacyDefault) {
         var configuredValue = configuration["PackageVerificationWorker:Enabled"];
-        if (bool.TryParse(configuredValue, out var enabled))
-        {
+        if (bool.TryParse(configuredValue, out var enabled)) {
             return enabled;
         }
 
@@ -192,8 +173,7 @@ internal static class VerifierServerHelpers
     /// <param name="configuration">The application configuration.</param>
     /// <param name="defaultValue">The default value to use if not configured.</param>
     /// <returns>True if migrations should run; otherwise false.</returns>
-    public static bool ResolveApplyMigrationsOnStartup(IConfiguration configuration, bool defaultValue)
-    {
+    public static bool ResolveApplyMigrationsOnStartup(IConfiguration configuration, bool defaultValue) {
         var configuredValue = configuration["VerifierStorage:ApplyMigrationsOnStartup"];
         return bool.TryParse(configuredValue, out var enabled) ? enabled : defaultValue;
     }
@@ -219,17 +199,14 @@ internal static class VerifierServerHelpers
     /// <param name="options">The verifier storage options.</param>
     /// <param name="packageStorageReady">Whether the package storage is healthy/reachable.</param>
     /// <returns>An array of deployment warning messages.</returns>
-    public static string[] BuildDeploymentWarnings(VerifierStorageOptions options, bool packageStorageReady)
-    {
+    public static string[] BuildDeploymentWarnings(VerifierStorageOptions options, bool packageStorageReady) {
         var warnings = new List<string>();
-        if (options.PackageWorkerEnabled && !packageStorageReady)
-        {
+        if (options.PackageWorkerEnabled && !packageStorageReady) {
             warnings.Add("Package verification worker is enabled but package storage is unavailable.");
         }
 
         if (!options.ApplyMigrationsOnStartup &&
-            string.Equals(options.Provider, "postgres", StringComparison.OrdinalIgnoreCase))
-        {
+            string.Equals(options.Provider, "postgres", StringComparison.OrdinalIgnoreCase)) {
             warnings.Add("Automatic PostgreSQL migrations are disabled; run 'migrate' before starting all instances.");
         }
 
@@ -241,8 +218,7 @@ internal static class VerifierServerHelpers
     /// </summary>
     /// <param name="secret">The secret key material to check.</param>
     /// <returns>True if the secret is considered weak; otherwise false.</returns>
-    public static bool IsWeakSecret(string secret)
-    {
+    public static bool IsWeakSecret(string secret) {
         if (string.IsNullOrWhiteSpace(secret)) return true;
         var normalized = secret.Trim().ToLowerInvariant();
         if (normalized.Length < 16) return true;

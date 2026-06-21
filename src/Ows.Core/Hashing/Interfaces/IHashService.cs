@@ -3,8 +3,7 @@ namespace Ows.Core.Hashing;
 /// <summary>
 /// Defines hashing operations used by OWS integrity checks.
 /// </summary>
-public interface IHashService
-{
+public interface IHashService {
     /// <summary>
     /// Computes a SHA-256 hash for the provided binary data.
     /// </summary>

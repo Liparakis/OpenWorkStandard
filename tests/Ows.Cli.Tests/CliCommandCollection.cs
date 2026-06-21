@@ -6,8 +6,7 @@ namespace Ows.Cli.Tests;
 /// Serializes CLI tests that change process-wide current directory state.
 /// </summary>
 [CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class CliCommandCollection
-{
+public sealed class CliCommandCollection {
     /// <summary>
     /// Gets the collection name.
     /// </summary>

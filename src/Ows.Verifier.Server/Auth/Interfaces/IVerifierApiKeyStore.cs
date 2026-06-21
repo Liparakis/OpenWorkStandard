@@ -3,8 +3,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Persists verifier API keys without storing raw key material.
 /// </summary>
-internal interface IVerifierApiKeyStore
-{
+internal interface IVerifierApiKeyStore {
     /// <summary>
     /// Initializes the backing store.
     /// </summary>

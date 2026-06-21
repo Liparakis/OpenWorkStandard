@@ -5,8 +5,7 @@ namespace Ows.Core.Notarization;
 /// </summary>
 public sealed class InMemoryRemoteReceiptTransport(
     InMemoryReceiptService receiptService,
-    Func<Checkpoint>? checkpointFactory = null) : IReceiptTransport
-{
+    Func<Checkpoint>? checkpointFactory = null) : IReceiptTransport {
     private AssessmentSessionId? _activeSessionId;
 
     /// <summary>
@@ -14,8 +13,7 @@ public sealed class InMemoryRemoteReceiptTransport(
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The started session identifier.</returns>
-    public Task<AssessmentSessionId> StartSessionAsync(CancellationToken cancellationToken)
-    {
+    public Task<AssessmentSessionId> StartSessionAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
 
         _activeSessionId = receiptService.StartSession();
@@ -27,19 +25,16 @@ public sealed class InMemoryRemoteReceiptTransport(
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The issued checkpoint receipt.</returns>
-    public Task<CheckpointReceipt> SendCheckpointAsync(CancellationToken cancellationToken)
-    {
+    public Task<CheckpointReceipt> SendCheckpointAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (_activeSessionId is null)
-        {
+        if (_activeSessionId is null) {
             throw new InvalidOperationException("No active assessment session. Start a session first.");
         }
 
         var currentReceiptCount = receiptService.GetReceiptChain(_activeSessionId.Value).Receipts.Count;
         var checkpoint = checkpointFactory?.Invoke() ?? new Checkpoint();
-        var normalizedCheckpoint = checkpoint with
-        {
+        var normalizedCheckpoint = checkpoint with {
             SessionId = _activeSessionId.Value,
             SequenceNumber = currentReceiptCount + 1
         };
@@ -52,12 +47,10 @@ public sealed class InMemoryRemoteReceiptTransport(
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The active session receipt chain.</returns>
-    public Task<ReceiptChain> GetReceiptsAsync(CancellationToken cancellationToken)
-    {
+    public Task<ReceiptChain> GetReceiptsAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (_activeSessionId is null)
-        {
+        if (_activeSessionId is null) {
             throw new InvalidOperationException("No active assessment session. Start a session first.");
         }
 

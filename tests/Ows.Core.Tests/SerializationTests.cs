@@ -9,10 +9,8 @@ namespace Ows.Core.Tests;
 /// <summary>
 /// Tests JSON serialization for core models.
 /// </summary>
-public sealed class SerializationTests
-{
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
+public sealed class SerializationTests {
+    private static readonly JsonSerializerOptions SerializerOptions = new() {
         Converters = { new JsonStringEnumConverter() }
     };
 
@@ -20,10 +18,8 @@ public sealed class SerializationTests
     /// Verifies that events serialize and deserialize cleanly.
     /// </summary>
     [Fact]
-    public void OwsEvent_ShouldRoundTripThroughJson()
-    {
-        var source = new OwsEvent
-        {
+    public void OwsEvent_ShouldRoundTripThroughJson() {
+        var source = new OwsEvent {
             EventType = OwsEventType.FileModified,
             ProjectId = "sample-project",
             RelativePath = "src/Program.cs",
@@ -49,10 +45,8 @@ public sealed class SerializationTests
     /// Verifies that manifests serialize and deserialize cleanly.
     /// </summary>
     [Fact]
-    public void OwsManifest_ShouldRoundTripThroughJson()
-    {
-        var source = new OwsManifest
-        {
+    public void OwsManifest_ShouldRoundTripThroughJson() {
+        var source = new OwsManifest {
             OwsVersion = "0.1",
             PackageId = "pkg-001",
             ProjectName = "sample-project",

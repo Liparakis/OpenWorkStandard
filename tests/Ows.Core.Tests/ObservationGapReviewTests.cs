@@ -11,8 +11,7 @@ using Ows.Core.Verification;
 
 namespace Ows.Core.Tests;
 
-public sealed class ObservationGapReviewTests
-{
+public sealed class ObservationGapReviewTests {
     private static readonly string[] BannedAccusatoryPhrases =
     [
         "cheating detected",
@@ -28,12 +27,10 @@ public sealed class ObservationGapReviewTests
     ];
 
     [Fact]
-    public async Task CleanStop_LargeUnobservedChange_ReportStaysReviewOriented()
-    {
+    public async Task CleanStop_LargeUnobservedChange_ReportStaysReviewOriented() {
         var projectRoot = CreateProjectRoot("ows-gap-review-clean");
 
-        try
-        {
+        try {
             var draftPath = Path.Combine(projectRoot, "draft.txt");
             await File.WriteAllTextAsync(draftPath, "draft");
 
@@ -42,8 +39,7 @@ public sealed class ObservationGapReviewTests
             await manager.StartSessionAsync(projectRoot);
 
             await RunWatcherScanAsync(projectRoot);
-            await AppendLifecycleEventAsync(projectRoot, OwsEventType.WatcherStopped, new Dictionary<string, string>
-            {
+            await AppendLifecycleEventAsync(projectRoot, OwsEventType.WatcherStopped, new Dictionary<string, string> {
                 ["reason"] = "user_requested"
             });
 
@@ -72,20 +68,16 @@ public sealed class ObservationGapReviewTests
             outcome.ReportText.Should().Contain("This is not proof of misconduct.");
             outcome.ReportText.Should().Contain("Reviewers should ask the student to explain this interval.");
             AssertNonAccusatoryReport(outcome.ReportText);
-        }
-        finally
-        {
+        } finally {
             DeleteDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task InterruptedRestart_SmallUnobservedChange_DegradesWithoutLargeChangeAccusation()
-    {
+    public async Task InterruptedRestart_SmallUnobservedChange_DegradesWithoutLargeChangeAccusation() {
         var projectRoot = CreateProjectRoot("ows-gap-review-interrupted");
 
-        try
-        {
+        try {
             var draftPath = Path.Combine(projectRoot, "draft.txt");
             await File.WriteAllTextAsync(draftPath, "line 1");
 
@@ -97,8 +89,7 @@ public sealed class ObservationGapReviewTests
 
             await File.WriteAllTextAsync(draftPath, "line 1" + Environment.NewLine + "line 2");
 
-            await RunWatcherScanAsync(projectRoot, wasInterrupted: true, interruptedState: new WatcherProcessState
-            {
+            await RunWatcherScanAsync(projectRoot, wasInterrupted: true, interruptedState: new WatcherProcessState {
                 Pid = 424242,
                 StartedAt = DateTimeOffset.UtcNow.AddMinutes(-5)
             });
@@ -122,20 +113,16 @@ public sealed class ObservationGapReviewTests
             outcome.ReportText.Should().Contain("OWS can verify the current package hashes");
             outcome.ReportText.Should().Contain("cannot verify the unobserved edit process");
             AssertNonAccusatoryReport(outcome.ReportText);
-        }
-        finally
-        {
+        } finally {
             DeleteDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task CleanRestartWithoutChanges_DoesNotInventObservationGapFindings()
-    {
+    public async Task CleanRestartWithoutChanges_DoesNotInventObservationGapFindings() {
         var projectRoot = CreateProjectRoot("ows-gap-review-nochange");
 
-        try
-        {
+        try {
             var draftPath = Path.Combine(projectRoot, "draft.txt");
             await File.WriteAllTextAsync(draftPath, "draft");
 
@@ -144,8 +131,7 @@ public sealed class ObservationGapReviewTests
             await manager.StartSessionAsync(projectRoot);
 
             await RunWatcherScanAsync(projectRoot);
-            await AppendLifecycleEventAsync(projectRoot, OwsEventType.WatcherStopped, new Dictionary<string, string>
-            {
+            await AppendLifecycleEventAsync(projectRoot, OwsEventType.WatcherStopped, new Dictionary<string, string> {
                 ["reason"] = "user_requested"
             });
 
@@ -159,20 +145,16 @@ public sealed class ObservationGapReviewTests
             AssertFindingAbsent(outcome.VerificationResult, "observation.large_unobserved_change");
             AssertContainsEvidenceDisclaimer(outcome.ReportText);
             AssertNonAccusatoryReport(outcome.ReportText);
-        }
-        finally
-        {
+        } finally {
             DeleteDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task MissingSnapshotAfterPriorTracking_DegradesContinuityInsteadOfSilentlyTrustingRestart()
-    {
+    public async Task MissingSnapshotAfterPriorTracking_DegradesContinuityInsteadOfSilentlyTrustingRestart() {
         var projectRoot = CreateProjectRoot("ows-gap-review-missing-snapshot");
 
-        try
-        {
+        try {
             var draftPath = Path.Combine(projectRoot, "draft.txt");
             await File.WriteAllTextAsync(draftPath, "draft");
 
@@ -194,20 +176,16 @@ public sealed class ObservationGapReviewTests
             AssertFindingPresent(outcome.VerificationResult, "observation.gap");
             AssertContainsEvidenceDisclaimer(outcome.ReportText);
             AssertNonAccusatoryReport(outcome.ReportText);
-        }
-        finally
-        {
+        } finally {
             DeleteDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task CorruptSnapshotAfterPriorTracking_DegradesContinuityInsteadOfSilentlyTrustingRestart()
-    {
+    public async Task CorruptSnapshotAfterPriorTracking_DegradesContinuityInsteadOfSilentlyTrustingRestart() {
         var projectRoot = CreateProjectRoot("ows-gap-review-corrupt-snapshot");
 
-        try
-        {
+        try {
             var draftPath = Path.Combine(projectRoot, "draft.txt");
             await File.WriteAllTextAsync(draftPath, "draft");
 
@@ -229,20 +207,16 @@ public sealed class ObservationGapReviewTests
             AssertFindingPresent(outcome.VerificationResult, "observation.gap");
             AssertContainsEvidenceDisclaimer(outcome.ReportText);
             AssertNonAccusatoryReport(outcome.ReportText);
-        }
-        finally
-        {
+        } finally {
             DeleteDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task LargeUnobservedChangeReport_DistinguishesCurrentHashesFromObservedEditHistory()
-    {
+    public async Task LargeUnobservedChangeReport_DistinguishesCurrentHashesFromObservedEditHistory() {
         var projectRoot = CreateProjectRoot("ows-gap-review-wording");
 
-        try
-        {
+        try {
             var draftPath = Path.Combine(projectRoot, "draft.txt");
             await File.WriteAllTextAsync(draftPath, "draft");
 
@@ -251,8 +225,7 @@ public sealed class ObservationGapReviewTests
             await manager.StartSessionAsync(projectRoot);
 
             await RunWatcherScanAsync(projectRoot);
-            await AppendLifecycleEventAsync(projectRoot, OwsEventType.WatcherStopped, new Dictionary<string, string>
-            {
+            await AppendLifecycleEventAsync(projectRoot, OwsEventType.WatcherStopped, new Dictionary<string, string> {
                 ["reason"] = "user_requested"
             });
 
@@ -264,20 +237,16 @@ public sealed class ObservationGapReviewTests
             outcome.ReportText.Should().Contain("OWS can verify the current package hashes");
             outcome.ReportText.Should().Contain("cannot verify the unobserved edit process");
             AssertNonAccusatoryReport(outcome.ReportText);
-        }
-        finally
-        {
+        } finally {
             DeleteDirectory(projectRoot);
         }
     }
 
     [Fact]
-    public async Task ValidButTamperedSnapshot_DegradesContinuity_NotInvalid()
-    {
+    public async Task ValidButTamperedSnapshot_DegradesContinuity_NotInvalid() {
         var projectRoot = CreateProjectRoot("ows-gap-review-tampered-snapshot");
 
-        try
-        {
+        try {
             var draftPath = Path.Combine(projectRoot, "draft.txt");
             await File.WriteAllTextAsync(draftPath, "draft");
 
@@ -286,15 +255,13 @@ public sealed class ObservationGapReviewTests
             await manager.StartSessionAsync(projectRoot);
 
             await RunWatcherScanAsync(projectRoot);
-            await AppendLifecycleEventAsync(projectRoot, OwsEventType.WatcherStopped, new Dictionary<string, string>
-            {
+            await AppendLifecycleEventAsync(projectRoot, OwsEventType.WatcherStopped, new Dictionary<string, string> {
                 ["reason"] = "user_requested"
             });
 
             var snapshotPath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, OwsConstants.ObservedSnapshotFileName);
             var snapshot = JsonSerializer.Deserialize<ObservedSnapshot>(await File.ReadAllTextAsync(snapshotPath));
-            snapshot!.Files["draft.txt"] = new ObservedFileState
-            {
+            snapshot!.Files["draft.txt"] = new ObservedFileState {
                 RelativePath = "draft.txt",
                 FileHash = "fake-hash",
                 Size = 9999,
@@ -314,53 +281,43 @@ public sealed class ObservationGapReviewTests
             outcome.ReportText.Should().Contain("OWS could not verify that the local recovery snapshot matched the last committed snapshot state.");
             outcome.ReportText.Should().Contain("This is not proof of misconduct.");
             AssertNonAccusatoryReport(outcome.ReportText);
-        }
-        finally
-        {
+        } finally {
             DeleteDirectory(projectRoot);
         }
     }
 
-    private static void AssertContainsEvidenceDisclaimer(string reportText)
-    {
+    private static void AssertContainsEvidenceDisclaimer(string reportText) {
         reportText.Should().Contain("Event presence is evidence of recorded activity. Event absence is not proof of misconduct.");
     }
 
-    private static void AssertNonAccusatoryReport(string reportText)
-    {
-        foreach (var bannedPhrase in BannedAccusatoryPhrases)
-        {
+    private static void AssertNonAccusatoryReport(string reportText) {
+        foreach (var bannedPhrase in BannedAccusatoryPhrases) {
             reportText.Should().NotContain(bannedPhrase, because: "review reports must not imply that Open Work Standard judged the student");
         }
     }
 
-    private static void AssertTrustIsNotInvalid(VerificationResult verificationResult)
-    {
+    private static void AssertTrustIsNotInvalid(VerificationResult verificationResult) {
         verificationResult.IsSuccess.Should().BeTrue();
         verificationResult.TrustStatus.Should().NotBe(TrustStatus.Invalid);
     }
 
-    private static void AssertFindingPresent(VerificationResult verificationResult, string findingCode)
-    {
+    private static void AssertFindingPresent(VerificationResult verificationResult, string findingCode) {
         verificationResult.Findings.Should().Contain(finding => finding.Code == findingCode);
     }
 
-    private static void AssertFindingAbsent(VerificationResult verificationResult, string findingCode)
-    {
+    private static void AssertFindingAbsent(VerificationResult verificationResult, string findingCode) {
         verificationResult.Findings.Should().NotContain(finding => finding.Code == findingCode);
     }
 
     private static async Task RunWatcherScanAsync(
         string projectRoot,
         bool wasInterrupted = false,
-        WatcherProcessState? interruptedState = null)
-    {
+        WatcherProcessState? interruptedState = null) {
         var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);
         var localOws = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         using var cts = new CancellationTokenSource();
 
-        await agent.PrepareAsync(new TrackingAgentOptions
-        {
+        await agent.PrepareAsync(new TrackingAgentOptions {
             ProjectRootPath = projectRoot,
             DatabasePath = Path.Combine(localOws, "ows.db"),
             WasInterrupted = wasInterrupted,
@@ -368,27 +325,22 @@ public sealed class ObservationGapReviewTests
         }, cts.Token);
 
         cts.CancelAfter(200);
-        try
-        {
+        try {
             await agent.StartAsync(cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
+        } catch (OperationCanceledException) {
         }
     }
 
     private static async Task AppendLifecycleEventAsync(
         string projectRoot,
         OwsEventType eventType,
-        IReadOnlyDictionary<string, string> metadata)
-    {
+        IReadOnlyDictionary<string, string> metadata) {
         var timelinePath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, OwsConstants.TimelineFileName);
         var previousEventHash = File.Exists(timelinePath)
             ? OwsEventChain.ReadLastEventHash(timelinePath)
             : OwsEventChain.GenesisPreviousEventHash;
 
-        var owsEvent = OwsEventChain.CreateChainedEvent(new OwsEvent
-        {
+        var owsEvent = OwsEventChain.CreateChainedEvent(new OwsEvent {
             EventType = eventType,
             ProjectId = Path.GetFileName(projectRoot),
             ToolName = "ows watch",
@@ -398,8 +350,7 @@ public sealed class ObservationGapReviewTests
         await File.AppendAllTextAsync(timelinePath, $"{JsonSerializer.Serialize(owsEvent)}{Environment.NewLine}");
     }
 
-    private static IReadOnlyList<OwsEvent> ReadTimeline(string projectRoot)
-    {
+    private static IReadOnlyList<OwsEvent> ReadTimeline(string projectRoot) {
         var timelinePath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, OwsConstants.TimelineFileName);
         return File.ReadAllLines(timelinePath)
             .Where(line => !string.IsNullOrWhiteSpace(line))
@@ -409,27 +360,23 @@ public sealed class ObservationGapReviewTests
 
     private static async Task<(VerificationResult VerificationResult, string ReportText)> PackageVerifyAndReportAsync(
         string projectRoot,
-        OwsWatchSessionManager manager)
-    {
+        OwsWatchSessionManager manager) {
         await manager.AddCheckpointAsync(projectRoot);
 
         var builder = new OwsPackageBuilder();
         var packagePath = Path.Combine(projectRoot, "submission.owspkg");
-        var packageResult = await builder.CreatePackageAsync(new PackageCreationRequest
-        {
+        var packageResult = await builder.CreatePackageAsync(new PackageCreationRequest {
             ProjectRootPath = projectRoot,
             OutputPackagePath = packagePath
         }, CancellationToken.None);
 
         packageResult.Created.Should().BeTrue();
 
-        var verificationResult = await new OwsPackageVerifier().VerifyAsync(new PackageVerificationRequest
-        {
+        var verificationResult = await new OwsPackageVerifier().VerifyAsync(new PackageVerificationRequest {
             PackagePath = packagePath
         }, CancellationToken.None);
 
-        var reportText = (await new OwsReportGenerator().GenerateAsync(new ReportRequest
-        {
+        var reportText = (await new OwsReportGenerator().GenerateAsync(new ReportRequest {
             Format = ReportFormat.Text,
             VerificationResult = verificationResult
         }, CancellationToken.None)).Content;
@@ -437,23 +384,17 @@ public sealed class ObservationGapReviewTests
         return (verificationResult, reportText);
     }
 
-    private static string CreateProjectRoot(string prefix)
-    {
+    private static string CreateProjectRoot(string prefix) {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"{prefix}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
         return projectRoot;
     }
 
-    private static void DeleteDirectory(string path)
-    {
-        if (Directory.Exists(path))
-        {
-            try
-            {
+    private static void DeleteDirectory(string path) {
+        if (Directory.Exists(path)) {
+            try {
                 Directory.Delete(path, recursive: true);
-            }
-            catch
-            {
+            } catch {
             }
         }
     }

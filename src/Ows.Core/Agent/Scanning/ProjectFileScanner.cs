@@ -5,8 +5,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Provides helper functions to scan project files, apply folder exclusions, and calculate file hashes and line estimates.
 /// </summary>
-internal static class ProjectFileScanner
-{
+internal static class ProjectFileScanner {
     /// <summary>
     /// Default list of relative directory paths to exclude from scanning.
     /// </summary>
@@ -31,14 +30,12 @@ internal static class ProjectFileScanner
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <param name="excludeDirectories">An optional list of additional directory names to exclude.</param>
     /// <returns><see langword="true"/> if the file path should be excluded; otherwise, <see langword="false"/>.</returns>
-    public static bool ShouldExclude(string absolutePath, string projectRoot, IEnumerable<string>? excludeDirectories)
-    {
+    public static bool ShouldExclude(string absolutePath, string projectRoot, IEnumerable<string>? excludeDirectories) {
         // Check local .ows folder
         if (absolutePath.Contains(
                 $"{Path.DirectorySeparatorChar}{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}",
                 StringComparison.Ordinal) ||
-            absolutePath.Contains($"/{OwsConstants.LocalFolderName}/", StringComparison.Ordinal))
-        {
+            absolutePath.Contains($"/{OwsConstants.LocalFolderName}/", StringComparison.Ordinal)) {
             return true;
         }
 
@@ -49,17 +46,13 @@ internal static class ProjectFileScanner
 
         // Get exclusion list
         var exclusions = new List<string>(DefaultExclusions);
-        if (excludeDirectories != null)
-        {
+        if (excludeDirectories != null) {
             exclusions.AddRange(excludeDirectories);
         }
 
-        foreach (var segment in segments)
-        {
-            foreach (var exclusion in exclusions)
-            {
-                if (string.Equals(segment, exclusion, StringComparison.OrdinalIgnoreCase))
-                {
+        foreach (var segment in segments) {
+            foreach (var exclusion in exclusions) {
+                if (string.Equals(segment, exclusion, StringComparison.OrdinalIgnoreCase)) {
                     return true;
                 }
             }
@@ -76,8 +69,7 @@ internal static class ProjectFileScanner
     /// <param name="hashService">The hash service to compute file SHA-256 signatures.</param>
     /// <returns>A dictionary mapping relative file paths to their <see cref="ObservedFileState"/> details.</returns>
     public static Dictionary<string, ObservedFileState> ScanCurrentFiles(string projectRoot,
-        IEnumerable<string>? excludeDirectories, Sha256HashService hashService)
-    {
+        IEnumerable<string>? excludeDirectories, Sha256HashService hashService) {
         var files = new Dictionary<string, ObservedFileState>(StringComparer.OrdinalIgnoreCase);
 
         var trackedFiles = Directory
@@ -86,19 +78,16 @@ internal static class ProjectFileScanner
             .ToList();
 
         var now = DateTimeOffset.UtcNow;
-        foreach (var path in trackedFiles)
-        {
+        foreach (var path in trackedFiles) {
             var relative = Path.GetRelativePath(projectRoot, path);
-            try
-            {
+            try {
                 var info = new FileInfo(path);
                 var size = info.Length;
                 var lastWrite = info.LastWriteTimeUtc;
                 var lineCount = GetLineCountEstimate(path);
                 var fileHash = GetFileHash(path, hashService);
 
-                files[relative] = new ObservedFileState
-                {
+                files[relative] = new ObservedFileState {
                     RelativePath = relative,
                     FileHash = fileHash,
                     Size = size,
@@ -106,9 +95,7 @@ internal static class ProjectFileScanner
                     LastWriteTime = lastWrite,
                     ObservedAt = now
                 };
-            }
-            catch (IOException)
-            {
+            } catch (IOException) {
                 // File locked or missing, skip
             }
         }
@@ -121,23 +108,18 @@ internal static class ProjectFileScanner
     /// </summary>
     /// <param name="path">The absolute path to the target file.</param>
     /// <returns>The number of lines in the file, or 0 if empty or unreadable.</returns>
-    public static int GetLineCountEstimate(string path)
-    {
-        try
-        {
+    public static int GetLineCountEstimate(string path) {
+        try {
             if (!File.Exists(path)) return 0;
             var bytes = File.ReadAllBytes(path);
             if (bytes.Length == 0) return 0;
             var count = 1;
-            foreach (var t in bytes)
-            {
+            foreach (var t in bytes) {
                 if (t == '\n') count++;
             }
 
             return count;
-        }
-        catch
-        {
+        } catch {
             return 0;
         }
     }
@@ -148,14 +130,10 @@ internal static class ProjectFileScanner
     /// <param name="path">The absolute path to the file.</param>
     /// <param name="hashService">The hash service used to generate the checksum.</param>
     /// <returns>A hex-encoded string of the file's hash, or an empty string if unreadable.</returns>
-    public static string GetFileHash(string path, Sha256HashService hashService)
-    {
-        try
-        {
+    public static string GetFileHash(string path, Sha256HashService hashService) {
+        try {
             return !File.Exists(path) ? string.Empty : hashService.ComputeHash(File.ReadAllBytes(path));
-        }
-        catch
-        {
+        } catch {
             return string.Empty;
         }
     }

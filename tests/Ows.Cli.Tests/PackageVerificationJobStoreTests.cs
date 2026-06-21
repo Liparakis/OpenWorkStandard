@@ -3,16 +3,13 @@ using Ows.Verifier.Server;
 
 namespace Ows.Cli.Tests;
 
-public sealed class PackageVerificationJobStoreTests
-{
+public sealed class PackageVerificationJobStoreTests {
     [Fact]
-    public async Task JsonJobStore_ShouldPreventDuplicateClaimsAcrossConcurrentWorkers()
-    {
+    public async Task JsonJobStore_ShouldPreventDuplicateClaimsAcrossConcurrentWorkers() {
         var tempDir = Path.Combine(Path.GetTempPath(), $"ows-job-store-{Guid.NewGuid():N}");
         var storePath = Path.Combine(tempDir, "jobs.json");
 
-        try
-        {
+        try {
             var store = new JsonFilePackageVerificationJobStore(storePath);
             await store.InitializeAsync(CancellationToken.None);
             var queued = await store.QueueAsync("pkg-1", null, CancellationToken.None);
@@ -23,11 +20,8 @@ public sealed class PackageVerificationJobStoreTests
 
             claims.Count(claim => claim is not null).Should().Be(1);
             claims.Single(claim => claim is not null)!.Id.Should().Be(queued.Id);
-        }
-        finally
-        {
-            if (Directory.Exists(tempDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDir)) {
                 Directory.Delete(tempDir, recursive: true);
             }
         }

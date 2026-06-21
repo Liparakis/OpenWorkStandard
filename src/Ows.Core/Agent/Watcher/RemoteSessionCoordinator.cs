@@ -1,17 +1,16 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Ows.Core.Notarization;
 using Ows.Core.Events;
 using Ows.Core.Init;
+using Ows.Core.Notarization;
 
 namespace Ows.Core.Agent;
 
 /// <summary>
 /// Manages connection details and coordinate HTTP API communication with the remote verifier server endpoints.
 /// </summary>
-internal static class RemoteSessionCoordinator
-{
+internal static class RemoteSessionCoordinator {
     /// <summary>
     /// Serialization settings to format json files.
     /// </summary>
@@ -22,12 +21,10 @@ internal static class RemoteSessionCoordinator
     /// </summary>
     /// <param name="verifierUrl">The absolute target verifier base URL.</param>
     /// <returns>A configured <see cref="HttpClient"/> instance.</returns>
-    private static HttpClient CreateHttpClient(string verifierUrl)
-    {
+    private static HttpClient CreateHttpClient(string verifierUrl) {
         var client = new HttpClient { BaseAddress = new Uri(verifierUrl, UriKind.Absolute) };
         var apiKey = Environment.GetEnvironmentVariable("OWS_VERIFIER_API_KEY");
-        if (!string.IsNullOrWhiteSpace(apiKey))
-        {
+        if (!string.IsNullOrWhiteSpace(apiKey)) {
             client.DefaultRequestHeaders.Add("X-OWS-Verifier-Key", apiKey);
         }
 
@@ -44,25 +41,19 @@ internal static class RemoteSessionCoordinator
     public static async Task<string> StartSessionAsync(
         string projectRoot,
         OwsProjectConfig config,
-        string? verifierUrlOverride)
-    {
+        string? verifierUrlOverride) {
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var verifierUrl = verifierUrlOverride ?? config.VerifierUrl;
 
         string sessionIdVal;
-        if (string.IsNullOrWhiteSpace(verifierUrl))
-        {
+        if (string.IsNullOrWhiteSpace(verifierUrl)) {
             var inMemory = new InMemoryReceiptService();
             var sessId = inMemory.StartSession();
             sessionIdVal = sessId.Value;
-        }
-        else
-        {
+        } else {
             using var httpClient = CreateHttpClient(verifierUrl);
-            var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint())
-            {
-                StartSessionRequest = new StartSessionRequest
-                {
+            var transport = new HttpsReceiptTransport(httpClient, (_, _) => new Checkpoint()) {
+                StartSessionRequest = new StartSessionRequest {
                     InstitutionId = config.InstitutionId,
                     AssessmentId = config.AssessmentId,
                     StudentUserId = config.StudentUserId,
@@ -73,8 +64,7 @@ internal static class RemoteSessionCoordinator
             sessionIdVal = sessId.Value;
         }
 
-        var sessionState = new SessionState
-        {
+        var sessionState = new SessionState {
             SessionId = sessionIdVal,
             VerifierUrl = verifierUrl,
             InstitutionId = config.InstitutionId,
@@ -104,12 +94,10 @@ internal static class RemoteSessionCoordinator
     /// <returns>A task representing the heartbeat send operation.</returns>
     /// <exception cref="InvalidOperationException">Thrown when no session is active.</exception>
     /// <exception cref="UnauthorizedAccessException">Thrown when credentials fail.</exception>
-    public static async Task SendHeartbeatAsync(string projectRoot, string? verifierUrlOverride)
-    {
+    public static async Task SendHeartbeatAsync(string projectRoot, string? verifierUrlOverride) {
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-        if (!File.Exists(sessionPath))
-        {
+        if (!File.Exists(sessionPath)) {
             throw new InvalidOperationException("No active OWS session. Start a session first.");
         }
 
@@ -117,8 +105,7 @@ internal static class RemoteSessionCoordinator
                     ?? throw new JsonException("Session state is corrupt.");
 
         var verifierUrl = verifierUrlOverride ?? state.VerifierUrl;
-        if (string.IsNullOrWhiteSpace(verifierUrl))
-        {
+        if (string.IsNullOrWhiteSpace(verifierUrl)) {
             throw new InvalidOperationException("No remote verifier URL configured for this session.");
         }
 
@@ -127,19 +114,16 @@ internal static class RemoteSessionCoordinator
             ? OwsEventChain.ReadLastEventHash(timelinePath)
             : null;
 
-        try
-        {
+        try {
             using var httpClient = CreateHttpClient(verifierUrl);
-            var payload = new
-            {
+            var payload = new {
                 LastKnownEventHash = lastEventHash
             };
 
             using var response = await httpClient.PostAsJsonAsync($"sessions/{state.SessionId}/heartbeat", payload);
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-                response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-            {
+                response.StatusCode == System.Net.HttpStatusCode.Forbidden) {
                 throw new UnauthorizedAccessException("Verifier returned unauthorized or forbidden status code.");
             }
 
@@ -151,8 +135,7 @@ internal static class RemoteSessionCoordinator
 
             var isDegraded = heartbeatResponse.SessionTrustState == "Degraded";
 
-            var updatedState = state with
-            {
+            var updatedState = state with {
                 LastHeartbeatAt = DateTimeOffset.UtcNow,
                 IsVerifierOffline = false,
                 IsHeartbeatFailing = false,
@@ -160,22 +143,16 @@ internal static class RemoteSessionCoordinator
                 LastHeartbeatError = null
             };
             await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
-        }
-        catch (HttpRequestException ex)
-        {
-            var updatedState = state with
-            {
+        } catch (HttpRequestException ex) {
+            var updatedState = state with {
                 IsVerifierOffline = true,
                 IsHeartbeatFailing = false,
                 LastHeartbeatError = ex.Message
             };
             await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
             throw;
-        }
-        catch (Exception ex)
-        {
-            var updatedState = state with
-            {
+        } catch (Exception ex) {
+            var updatedState = state with {
                 IsVerifierOffline = false,
                 IsHeartbeatFailing = true,
                 IsDegraded = ex is not UnauthorizedAccessException && state.IsDegraded,
@@ -192,15 +169,13 @@ internal static class RemoteSessionCoordinator
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns>A task returning the generated receipt hash string.</returns>
     /// <exception cref="InvalidOperationException">Thrown when session files are missing.</exception>
-    public static async Task<string> AddCheckpointAsync(string projectRoot)
-    {
+    public static async Task<string> AddCheckpointAsync(string projectRoot) {
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         var receiptsPath = Path.Combine(localFolder, OwsConstants.ReceiptsFileName);
         var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
 
-        if (!File.Exists(sessionPath))
-        {
+        if (!File.Exists(sessionPath)) {
             throw new InvalidOperationException("No active OWS session. Start a session first.");
         }
 
@@ -216,18 +191,14 @@ internal static class RemoteSessionCoordinator
         CheckpointReceipt receipt;
         ReceiptChain updatedReceiptChain;
 
-        if (string.IsNullOrWhiteSpace(state.VerifierUrl))
-        {
+        if (string.IsNullOrWhiteSpace(state.VerifierUrl)) {
             var checkpoint = Checkpoint.FromTimeline(timelinePath, sessionId, receiptChain.Receipts.Count + 1);
             var service = new InMemoryReceiptService();
             service.RestoreSession(sessionId, receiptChain.Receipts);
             receipt = service.SubmitCheckpoint(checkpoint);
             updatedReceiptChain = service.GetReceiptChain(sessionId);
-        }
-        else
-        {
-            try
-            {
+        } else {
+            try {
                 using var httpClient = CreateHttpClient(state.VerifierUrl);
                 var transport = new HttpsReceiptTransport(
                     httpClient,
@@ -236,22 +207,16 @@ internal static class RemoteSessionCoordinator
                 transport.RestoreSession(sessionId, receiptChain.Receipts.Count + 1);
                 receipt = await transport.SendCheckpointAsync(CancellationToken.None);
                 updatedReceiptChain = await transport.GetReceiptsAsync(CancellationToken.None);
-            }
-            catch (HttpRequestException ex)
-            {
-                var updatedState = state with
-                {
+            } catch (HttpRequestException ex) {
+                var updatedState = state with {
                     IsVerifierOffline = true,
                     IsHeartbeatFailing = false,
                     LastHeartbeatError = ex.Message
                 };
                 await File.WriteAllTextAsync(sessionPath, JsonSerializer.Serialize(updatedState, SerializerOptions));
                 throw;
-            }
-            catch (Exception ex)
-            {
-                var updatedState = state with
-                {
+            } catch (Exception ex) {
+                var updatedState = state with {
                     IsVerifierOffline = false,
                     IsHeartbeatFailing = true,
                     LastHeartbeatError = ex.Message
@@ -263,8 +228,7 @@ internal static class RemoteSessionCoordinator
 
         await File.WriteAllTextAsync(receiptsPath, JsonSerializer.Serialize(updatedReceiptChain, SerializerOptions));
 
-        var finalState = state with
-        {
+        var finalState = state with {
             LastCheckpointAt = DateTimeOffset.UtcNow,
             IsVerifierOffline = false,
             IsHeartbeatFailing = false,
@@ -290,8 +254,7 @@ internal static class RemoteSessionCoordinator
         string projectRoot,
         string packagePath,
         OwsProjectConfig? config,
-        string? verifierUrlOverride)
-    {
+        string? verifierUrlOverride) {
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
 
@@ -301,41 +264,30 @@ internal static class RemoteSessionCoordinator
         string? assessmentId = null;
         string? studentUserId = null;
 
-        if (File.Exists(sessionPath))
-        {
-            try
-            {
+        if (File.Exists(sessionPath)) {
+            try {
                 var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
-                if (state is not null)
-                {
+                if (state is not null) {
                     verifierUrl ??= state.VerifierUrl;
                     sessionId = state.SessionId;
                     institutionId = state.InstitutionId;
                     assessmentId = state.AssessmentId;
                     studentUserId = state.StudentUserId;
                 }
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-            catch (JsonException)
-            {
+            } catch (IOException) {
+            } catch (UnauthorizedAccessException) {
+            } catch (JsonException) {
             }
         }
 
-        if (config != null)
-        {
+        if (config != null) {
             verifierUrl ??= config.VerifierUrl;
             institutionId ??= config.InstitutionId;
             assessmentId ??= config.AssessmentId;
             studentUserId ??= config.StudentUserId;
         }
 
-        if (string.IsNullOrWhiteSpace(verifierUrl))
-        {
+        if (string.IsNullOrWhiteSpace(verifierUrl)) {
             throw new InvalidOperationException("No remote verifier URL configured for package upload.");
         }
 
@@ -356,19 +308,16 @@ internal static class RemoteSessionCoordinator
 
         var response = await httpClient.PostAsync("packages/upload", form);
 
-        if (response.StatusCode == System.Net.HttpStatusCode.RequestEntityTooLarge)
-        {
+        if (response.StatusCode == System.Net.HttpStatusCode.RequestEntityTooLarge) {
             throw new InvalidOperationException("Package is too large for the verifier server.");
         }
 
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-            response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-        {
+            response.StatusCode == System.Net.HttpStatusCode.Forbidden) {
             throw new UnauthorizedAccessException("Upload unauthorized: Invalid or expired API key.");
         }
 
-        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
-        {
+        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest) {
             var errorBody = await response.Content.ReadAsStringAsync();
             throw new ArgumentException($"Invalid package shape: {errorBody}");
         }
@@ -378,26 +327,17 @@ internal static class RemoteSessionCoordinator
         var body = await response.Content.ReadFromJsonAsync<VerifierPackageSubmissionResponse>()
                    ?? throw new InvalidOperationException("Verifier returned an invalid upload response.");
 
-        if (File.Exists(sessionPath))
-        {
-            try
-            {
+        if (File.Exists(sessionPath)) {
+            try {
                 var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
-                if (state is not null)
-                {
+                if (state is not null) {
                     var updatedState = state with { LastPackageId = body.SubmissionId };
                     await File.WriteAllTextAsync(sessionPath,
                         JsonSerializer.Serialize(updatedState, SerializerOptions));
                 }
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-            catch (JsonException)
-            {
+            } catch (IOException) {
+            } catch (UnauthorizedAccessException) {
+            } catch (JsonException) {
             }
         }
 
@@ -413,14 +353,12 @@ internal static class RemoteSessionCoordinator
     /// <exception cref="UnauthorizedAccessException">Thrown when credentials fail.</exception>
     public static async Task<string> QueryPackageStatusAsync(
         string verifierUrl,
-        string packageId)
-    {
+        string packageId) {
         using var httpClient = CreateHttpClient(verifierUrl);
         var response = await httpClient.GetAsync($"packages/{packageId}");
 
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-            response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-        {
+            response.StatusCode == System.Net.HttpStatusCode.Forbidden) {
             throw new UnauthorizedAccessException("Query unauthorized: Invalid or expired API key.");
         }
 

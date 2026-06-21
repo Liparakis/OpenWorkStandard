@@ -5,16 +5,14 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Persists package object metadata in PostgreSQL while package bytes remain in object storage.
 /// </summary>
-public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IAsyncDisposable
-{
+public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IAsyncDisposable {
     private readonly NpgsqlDataSource? _dataSource;
     private readonly Task _initializationTask;
 
     /// <summary>
     /// Initializes a disabled package submission store for non-PostgreSQL verifier modes.
     /// </summary>
-    public PostgresPackageSubmissionStore()
-    {
+    public PostgresPackageSubmissionStore() {
         _initializationTask = Task.CompletedTask;
     }
 
@@ -23,8 +21,7 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     /// </summary>
     /// <param name="connectionString">The PostgreSQL connection string.</param>
     /// <param name="applyMigrationsOnStartup">Whether the verifier should apply schema migrations during initialization.</param>
-    public PostgresPackageSubmissionStore(string connectionString, bool applyMigrationsOnStartup = true)
-    {
+    public PostgresPackageSubmissionStore(string connectionString, bool applyMigrationsOnStartup = true) {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         _dataSource = NpgsqlDataSource.Create(connectionString);
@@ -41,17 +38,14 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     /// <returns>The durable package submission record.</returns>
     public async Task<VerifierPackageSubmissionResponse> SubmitAsync(
         VerifierPackageSubmissionRequest request,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(request);
-        if (_dataSource is null)
-        {
+        if (_dataSource is null) {
             throw new NotSupportedException("Package submission requires PostgreSQL verifier storage.");
         }
 
         var validationError = request.GetValidationError();
-        if (validationError is not null)
-        {
+        if (validationError is not null) {
             throw new InvalidOperationException(validationError);
         }
 
@@ -61,10 +55,8 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
             ? null
             : await GetSessionAnchorAsync(connection, request.SessionId, cancellationToken);
         var existingByIdempotencyKey = await TryGetExistingByIdempotencyKeyAsync(connection, request, cancellationToken);
-        if (existingByIdempotencyKey is not null)
-        {
-            if (!MatchesRequest(existingByIdempotencyKey, request))
-            {
+        if (existingByIdempotencyKey is not null) {
+            if (!MatchesRequest(existingByIdempotencyKey, request)) {
                 throw new InvalidOperationException("Package idempotency key already exists with different metadata.");
             }
 
@@ -72,10 +64,8 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
         }
 
         var existing = await TryGetExistingAsync(connection, request, cancellationToken);
-        if (existing is not null)
-        {
-            if (!MatchesRequest(existing, request))
-            {
+        if (existing is not null) {
+            if (!MatchesRequest(existing, request)) {
                 throw new InvalidOperationException("Package object is already registered with different metadata.");
             }
 
@@ -119,19 +109,19 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
                               returning id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, verification_job_id, created_at, trust_status, verification_result_json, last_verification_error, institution_id, assessment_id, student_user_id;
                               """;
         command.Parameters.AddWithValue("id", Guid.NewGuid().ToString("N"));
-        command.Parameters.AddWithValue("session_id", (object?)request.SessionId ?? DBNull.Value);
+        command.Parameters.AddWithValue("session_id", (object?) request.SessionId ?? DBNull.Value);
         command.Parameters.AddWithValue("object_storage_provider", request.ObjectStorageProvider);
         command.Parameters.AddWithValue("object_bucket", request.ObjectBucket);
         command.Parameters.AddWithValue("object_key", request.ObjectKey);
         command.Parameters.AddWithValue("package_sha256", request.PackageSha256.ToLowerInvariant());
         command.Parameters.AddWithValue("package_size_bytes", request.PackageSizeBytes);
-        command.Parameters.AddWithValue("idempotency_key", (object?)request.IdempotencyKey ?? DBNull.Value);
-        command.Parameters.AddWithValue("session_head_receipt_hash", (object?)session?.HeadReceiptHash ?? DBNull.Value);
-        command.Parameters.AddWithValue("session_head_event_hash", (object?)session?.HeadEventHash ?? DBNull.Value);
-        command.Parameters.AddWithValue("session_checkpoint_count", (object?)session?.CheckpointCount ?? DBNull.Value);
-        command.Parameters.AddWithValue("institution_id", (object?)request.InstitutionId ?? DBNull.Value);
-        command.Parameters.AddWithValue("assessment_id", (object?)request.AssessmentId ?? DBNull.Value);
-        command.Parameters.AddWithValue("student_user_id", (object?)request.StudentUserId ?? DBNull.Value);
+        command.Parameters.AddWithValue("idempotency_key", (object?) request.IdempotencyKey ?? DBNull.Value);
+        command.Parameters.AddWithValue("session_head_receipt_hash", (object?) session?.HeadReceiptHash ?? DBNull.Value);
+        command.Parameters.AddWithValue("session_head_event_hash", (object?) session?.HeadEventHash ?? DBNull.Value);
+        command.Parameters.AddWithValue("session_checkpoint_count", (object?) session?.CheckpointCount ?? DBNull.Value);
+        command.Parameters.AddWithValue("institution_id", (object?) request.InstitutionId ?? DBNull.Value);
+        command.Parameters.AddWithValue("assessment_id", (object?) request.AssessmentId ?? DBNull.Value);
+        command.Parameters.AddWithValue("student_user_id", (object?) request.StudentUserId ?? DBNull.Value);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         await reader.ReadAsync(cancellationToken);
@@ -146,11 +136,9 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     /// <returns>The package submission when found; otherwise <see langword="null"/>.</returns>
     public async Task<VerifierPackageSubmissionResponse?> GetAsync(
         string submissionId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(submissionId);
-        if (_dataSource is null)
-        {
+        if (_dataSource is null) {
             throw new NotSupportedException("Package submission requires PostgreSQL verifier storage.");
         }
 
@@ -171,11 +159,9 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     /// <inheritdoc />
     public async Task<IReadOnlyList<VerifierPackageSubmissionResponse>> ListBySessionAsync(
         string sessionId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
-        if (_dataSource is null)
-        {
+        if (_dataSource is null) {
             throw new NotSupportedException("Package submission requires PostgreSQL verifier storage.");
         }
 
@@ -192,8 +178,7 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
 
         var submissions = new List<VerifierPackageSubmissionResponse>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
+        while (await reader.ReadAsync(cancellationToken)) {
             submissions.Add(ReadSubmission(reader));
         }
 
@@ -224,11 +209,9 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
         string? trustStatus,
         string? verificationResultJson,
         string? lastVerificationError,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(submissionId);
-        if (_dataSource is null)
-        {
+        if (_dataSource is null) {
             throw new NotSupportedException("Package verification requires PostgreSQL verifier storage.");
         }
 
@@ -246,10 +229,10 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
                               """;
         command.Parameters.AddWithValue("id", submissionId);
         command.Parameters.AddWithValue("verification_status", verificationStatus);
-        command.Parameters.AddWithValue("verification_job_id", (object?)verificationJobId ?? DBNull.Value);
-        command.Parameters.AddWithValue("trust_status", (object?)trustStatus ?? DBNull.Value);
-        command.Parameters.AddWithValue("verification_result_json", (object?)verificationResultJson ?? DBNull.Value);
-        command.Parameters.AddWithValue("last_verification_error", (object?)lastVerificationError ?? DBNull.Value);
+        command.Parameters.AddWithValue("verification_job_id", (object?) verificationJobId ?? DBNull.Value);
+        command.Parameters.AddWithValue("trust_status", (object?) trustStatus ?? DBNull.Value);
+        command.Parameters.AddWithValue("verification_result_json", (object?) verificationResultJson ?? DBNull.Value);
+        command.Parameters.AddWithValue("last_verification_error", (object?) lastVerificationError ?? DBNull.Value);
 
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -267,8 +250,7 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     private static async Task<VerifierPackageSubmissionResponse?> TryGetExistingAsync(
         NpgsqlConnection connection,
         VerifierPackageSubmissionRequest request,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = """
                               select id, session_id, idempotency_key, object_storage_provider, object_bucket, object_key, package_sha256, package_size_bytes, session_head_receipt_hash, session_head_event_hash, session_checkpoint_count, verification_status, verification_job_id, created_at, trust_status, verification_result_json, last_verification_error, institution_id, assessment_id, student_user_id
@@ -295,10 +277,8 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     private static async Task<VerifierPackageSubmissionResponse?> TryGetExistingByIdempotencyKeyAsync(
         NpgsqlConnection connection,
         VerifierPackageSubmissionRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(request.IdempotencyKey))
-        {
+        CancellationToken cancellationToken) {
+        if (string.IsNullOrWhiteSpace(request.IdempotencyKey)) {
             return null;
         }
 
@@ -338,8 +318,7 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     private static async Task<VerifierSessionRecord> GetSessionAnchorAsync(
         NpgsqlConnection connection,
         string sessionId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = """
                               select id, head_receipt_hash, head_event_hash, checkpoint_count
@@ -349,13 +328,11 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
         command.Parameters.AddWithValue("id", sessionId);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-        {
+        if (!await reader.ReadAsync(cancellationToken)) {
             throw new InvalidOperationException($"Unknown assessment session: {sessionId}");
         }
 
-        return new VerifierSessionRecord
-        {
+        return new VerifierSessionRecord {
             Id = new AssessmentSessionId(reader.GetString(0)),
             HeadReceiptHash = reader.GetString(1),
             HeadEventHash = reader.GetString(2),
@@ -369,8 +346,7 @@ public sealed class PostgresPackageSubmissionStore : IPackageSubmissionStore, IA
     /// <param name="reader">The active row reader.</param>
     /// <returns>The mapped package submission response.</returns>
     private static VerifierPackageSubmissionResponse ReadSubmission(NpgsqlDataReader reader) =>
-        new()
-        {
+        new() {
             SubmissionId = reader.GetString(0),
             SessionId = reader.IsDBNull(1) ? null : reader.GetString(1),
             IdempotencyKey = reader.IsDBNull(2) ? null : reader.GetString(2),

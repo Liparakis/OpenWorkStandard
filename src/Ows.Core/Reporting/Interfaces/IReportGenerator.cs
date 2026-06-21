@@ -3,8 +3,7 @@ namespace Ows.Core.Reporting;
 /// <summary>
 /// Defines report generation for verification outcomes.
 /// </summary>
-public interface IReportGenerator
-{
+public interface IReportGenerator {
     /// <summary>
     /// Generates a report for the provided request.
     /// </summary>

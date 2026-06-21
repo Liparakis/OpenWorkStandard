@@ -3,8 +3,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Configures optional verifier authentication extensions beyond API keys.
 /// </summary>
-public sealed record VerifierAuthOptions
-{
+public sealed record VerifierAuthOptions {
     /// <summary>
     /// Gets the optional OIDC/JWT bearer settings.
     /// </summary>
@@ -14,8 +13,7 @@ public sealed record VerifierAuthOptions
 /// <summary>
 /// Configures optional OIDC/JWT bearer validation for future human-facing access.
 /// </summary>
-public sealed record VerifierOidcOptions
-{
+public sealed record VerifierOidcOptions {
     /// <summary>
     /// Gets a value indicating whether bearer authentication is enabled.
     /// </summary>
@@ -75,8 +73,7 @@ public sealed record VerifierOidcOptions
 /// <summary>
 /// Exposes a safe summary of OIDC/JWT bearer configuration.
 /// </summary>
-public sealed record VerifierOidcStatus
-{
+public sealed record VerifierOidcStatus {
     /// <summary>Gets a value indicating whether OIDC/JWT bearer auth is enabled.</summary>
     public bool Enabled { get; init; }
 

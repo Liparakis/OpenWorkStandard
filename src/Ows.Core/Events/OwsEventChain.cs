@@ -7,15 +7,13 @@ namespace Ows.Core.Events;
 /// <summary>
 /// Provides canonical hashing helpers for the timeline event chain.
 /// </summary>
-public static class OwsEventChain
-{
+public static class OwsEventChain {
     /// <summary>
     /// Gets the expected previous-hash value for the first event in a timeline.
     /// </summary>
     public const string GenesisPreviousEventHash = "";
 
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
+    private static readonly JsonSerializerOptions SerializerOptions = new() {
         Converters = { new JsonStringEnumConverter() }
     };
 
@@ -24,12 +22,10 @@ public static class OwsEventChain
     /// </summary>
     /// <param name="owsEvent">The event to hash.</param>
     /// <returns>The lower-case SHA-256 digest of the canonical event JSON.</returns>
-    public static string ComputeEventHash(OwsEvent owsEvent)
-    {
+    public static string ComputeEventHash(OwsEvent owsEvent) {
         ArgumentNullException.ThrowIfNull(owsEvent);
 
-        var canonicalEvent = new
-        {
+        var canonicalEvent = new {
             owsEvent.EventId,
             owsEvent.TimestampUtc,
             owsEvent.EventType,
@@ -53,8 +49,7 @@ public static class OwsEventChain
     /// <param name="owsEvent">The source event.</param>
     /// <param name="previousEventHash">The previous event hash, or the genesis value for the first event.</param>
     /// <returns>A new event with chain fields populated.</returns>
-    public static OwsEvent CreateChainedEvent(OwsEvent owsEvent, string previousEventHash)
-    {
+    public static OwsEvent CreateChainedEvent(OwsEvent owsEvent, string previousEventHash) {
         ArgumentNullException.ThrowIfNull(owsEvent);
 
         var eventWithPreviousHash = owsEvent with { PreviousEventHash = previousEventHash };
@@ -66,21 +61,17 @@ public static class OwsEventChain
     /// </summary>
     /// <param name="timelinePath">The path to the timeline file.</param>
     /// <returns>The last event hash, or the genesis value when the timeline is empty.</returns>
-    public static string ReadLastEventHash(string timelinePath)
-    {
+    public static string ReadLastEventHash(string timelinePath) {
         ArgumentException.ThrowIfNullOrWhiteSpace(timelinePath);
 
         string? lastNonEmptyLine = null;
-        foreach (var line in File.ReadLines(timelinePath))
-        {
-            if (!string.IsNullOrWhiteSpace(line))
-            {
+        foreach (var line in File.ReadLines(timelinePath)) {
+            if (!string.IsNullOrWhiteSpace(line)) {
                 lastNonEmptyLine = line;
             }
         }
 
-        if (string.IsNullOrWhiteSpace(lastNonEmptyLine))
-        {
+        if (string.IsNullOrWhiteSpace(lastNonEmptyLine)) {
             return GenesisPreviousEventHash;
         }
 

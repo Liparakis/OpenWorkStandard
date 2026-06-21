@@ -3,8 +3,7 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Represents an assignment, exam, or project in a course offering.
 /// </summary>
-public sealed record Assessment
-{
+public sealed record Assessment {
     /// <summary>
     /// Gets the unique assessment identifier.
     /// </summary>
@@ -49,14 +48,12 @@ public sealed record Assessment
     /// Initializes a new instance of the <see cref="Assessment"/> class.
     /// </summary>
     public Assessment(AssessmentId id, InstitutionId institutionId, CourseOfferingId courseOfferingId, string title,
-        DateTimeOffset? startsAt, DateTimeOffset? endsAt, PolicyId? policyId, DateTimeOffset createdAt)
-    {
+        DateTimeOffset? startsAt, DateTimeOffset? endsAt, PolicyId? policyId, DateTimeOffset createdAt) {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(institutionId.Value, nameof(institutionId));
         ArgumentException.ThrowIfNullOrWhiteSpace(courseOfferingId.Value, nameof(courseOfferingId));
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
-        if (createdAt == default)
-        {
+        if (createdAt == default) {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));
         }
 

@@ -8,8 +8,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Runs queued package verification jobs inside the verifier process.
 /// </summary>
-internal sealed class PackageVerificationWorker : BackgroundService
-{
+internal sealed class PackageVerificationWorker : BackgroundService {
     /// <summary>
     /// The audit store used to record verification events.
     /// </summary>
@@ -76,8 +75,7 @@ internal sealed class PackageVerificationWorker : BackgroundService
         IPackageVerifier packageVerifier,
         IVerifierAuditStore auditStore,
         VerifierStorageOptions options,
-        ILogger<PackageVerificationWorker> logger)
-    {
+        ILogger<PackageVerificationWorker> logger) {
         _jobStore = jobStore;
         _packageStore = packageStore;
         _blobStore = blobStore;
@@ -90,30 +88,22 @@ internal sealed class PackageVerificationWorker : BackgroundService
     }
 
     /// <inheritdoc />
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         var pollInterval = TimeSpan.FromMilliseconds(Math.Max(50, _options.PackageWorkerPollIntervalMilliseconds));
         var staleThreshold = TimeSpan.FromSeconds(Math.Max(30, _options.PackageWorkerStaleRunningTimeoutSeconds));
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
+        while (!stoppingToken.IsCancellationRequested) {
+            try {
                 var job = await _jobStore.TryStartNextAsync(staleThreshold, stoppingToken);
-                if (job is null)
-                {
+                if (job is null) {
                     await Task.Delay(pollInterval, stoppingToken);
                     continue;
                 }
 
                 await VerifyAsync(job, stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
+            } catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) {
                 break;
-            }
-            catch (Exception exception)
-            {
+            } catch (Exception exception) {
                 _logger.LogError(exception, "Package verification worker loop failed.");
                 await Task.Delay(pollInterval, stoppingToken);
             }
@@ -126,12 +116,10 @@ internal sealed class PackageVerificationWorker : BackgroundService
     /// <param name="job">The job record details.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task representing the asynchronous verification operation.</returns>
-    private async Task VerifyAsync(PackageVerificationJobRecord job, CancellationToken cancellationToken)
-    {
+    private async Task VerifyAsync(PackageVerificationJobRecord job, CancellationToken cancellationToken) {
         _logger.LogInformation("Starting package verification job {JobId} for package {PackageId}.", job.Id,
             job.PackageId);
-        await SafeAuditAsync(new VerifierAuditEvent
-        {
+        await SafeAuditAsync(new VerifierAuditEvent {
             Id = Guid.NewGuid().ToString("N"),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             EventType = "package.verification.started",
@@ -151,16 +139,13 @@ internal sealed class PackageVerificationWorker : BackgroundService
             cancellationToken);
 
         var submission = await _packageStore.GetAsync(job.PackageId, cancellationToken);
-        if (submission is null)
-        {
+        if (submission is null) {
             await FailAsync(job, "Package submission record not found.", cancellationToken);
             return;
         }
 
-        if (!await _blobStore.ExistsAsync(submission.ObjectKey, cancellationToken))
-        {
-            await SafeAuditAsync(new VerifierAuditEvent
-            {
+        if (!await _blobStore.ExistsAsync(submission.ObjectKey, cancellationToken)) {
+            await SafeAuditAsync(new VerifierAuditEvent {
                 Id = Guid.NewGuid().ToString("N"),
                 CreatedAtUtc = DateTimeOffset.UtcNow,
                 EventType = "package.blob.missing",
@@ -178,30 +163,24 @@ internal sealed class PackageVerificationWorker : BackgroundService
         await using var packageStream = await _blobStore.OpenReadAsync(submission.ObjectKey, cancellationToken);
         var packagePath = await CopyToTempFileAsync(packageStream, cancellationToken);
 
-        try
-        {
+        try {
             ReceiptChain? trustedReceiptChain = null;
             SessionHeadResponse? trustedSessionHead = null;
             VerifierSessionRecord? verifierSession = null;
 
-            if (!string.IsNullOrWhiteSpace(submission.SessionId))
-            {
+            if (!string.IsNullOrWhiteSpace(submission.SessionId)) {
                 var sessionId = new AssessmentSessionId(submission.SessionId);
-                try
-                {
+                try {
                     trustedReceiptChain = await _storage.GetReceiptsAsync(sessionId, cancellationToken);
                     trustedSessionHead = await _storage.GetHeadAsync(sessionId, cancellationToken);
                     verifierSession = await _storage.GetSessionAsync(sessionId, cancellationToken);
-                }
-                catch (InvalidOperationException)
-                {
+                } catch (InvalidOperationException) {
                     // ponytail: keep verifying locally and let the result explain the missing remote anchor.
                 }
             }
 
             var verificationResult = await _packageVerifier.VerifyAsync(
-                new PackageVerificationRequest
-                {
+                new PackageVerificationRequest {
                     PackagePath = packagePath,
                     TrustedReceiptChain = trustedReceiptChain,
                     TrustedSessionHead = trustedSessionHead,
@@ -225,8 +204,7 @@ internal sealed class PackageVerificationWorker : BackgroundService
                 resultJson,
                 null,
                 cancellationToken);
-            await SafeAuditAsync(new VerifierAuditEvent
-            {
+            await SafeAuditAsync(new VerifierAuditEvent {
                 Id = Guid.NewGuid().ToString("N"),
                 CreatedAtUtc = DateTimeOffset.UtcNow,
                 EventType = "package.verification.completed",
@@ -238,8 +216,7 @@ internal sealed class PackageVerificationWorker : BackgroundService
                 Result = verificationResult.TrustStatus.ToString(),
                 Metadata = new Dictionary<string, string?> { ["jobId"] = job.Id }
             }, cancellationToken);
-            await SafeAuditAsync(new VerifierAuditEvent
-            {
+            await SafeAuditAsync(new VerifierAuditEvent {
                 Id = Guid.NewGuid().ToString("N"),
                 CreatedAtUtc = DateTimeOffset.UtcNow,
                 EventType = "package.verified",
@@ -251,13 +228,9 @@ internal sealed class PackageVerificationWorker : BackgroundService
                 Result = verificationResult.TrustStatus.ToString(),
                 Metadata = new Dictionary<string, string?> { ["jobId"] = job.Id }
             }, cancellationToken);
-        }
-        catch (Exception exception)
-        {
+        } catch (Exception exception) {
             await FailAsync(job, exception.Message, cancellationToken, submission);
-        }
-        finally
-        {
+        } finally {
             File.Delete(packagePath);
         }
     }
@@ -274,14 +247,12 @@ internal sealed class PackageVerificationWorker : BackgroundService
         PackageVerificationJobRecord job,
         string message,
         CancellationToken cancellationToken,
-        VerifierPackageSubmissionResponse? submission = null)
-    {
+        VerifierPackageSubmissionResponse? submission = null) {
         _logger.LogWarning("Package verification job {JobId} failed: {Message}", job.Id, message);
         await _jobStore.CompleteAsync(job.Id, "Failed", null, message, cancellationToken);
         submission ??= await _packageStore.GetAsync(job.PackageId, cancellationToken);
 
-        if (submission is not null)
-        {
+        if (submission is not null) {
             await _packageStore.UpdateVerificationStateAsync(
                 submission.SubmissionId,
                 "Failed",
@@ -292,8 +263,7 @@ internal sealed class PackageVerificationWorker : BackgroundService
                 cancellationToken);
         }
 
-        await SafeAuditAsync(new VerifierAuditEvent
-        {
+        await SafeAuditAsync(new VerifierAuditEvent {
             Id = Guid.NewGuid().ToString("N"),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             EventType = "package.verification.failed",
@@ -303,8 +273,7 @@ internal sealed class PackageVerificationWorker : BackgroundService
             PackageId = submission?.SubmissionId ?? job.PackageId,
             AssessmentId = submission?.AssessmentId,
             Result = "Failed",
-            Metadata = new Dictionary<string, string?>
-            {
+            Metadata = new Dictionary<string, string?> {
                 ["jobId"] = job.Id,
                 ["error"] = message
             }
@@ -319,18 +288,15 @@ internal sealed class PackageVerificationWorker : BackgroundService
     /// <returns>The resolved education context report, or null if no relevant ids exist.</returns>
     private async Task<ReportEducationContext?> ResolveEducationContextAsync(
         VerifierPackageSubmissionResponse submission,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         if (string.IsNullOrWhiteSpace(submission.InstitutionId) &&
             string.IsNullOrWhiteSpace(submission.AssessmentId) &&
-            string.IsNullOrWhiteSpace(submission.StudentUserId))
-        {
+            string.IsNullOrWhiteSpace(submission.StudentUserId)) {
             return null;
         }
 
         Institution? institution = null;
-        if (!string.IsNullOrWhiteSpace(submission.InstitutionId))
-        {
+        if (!string.IsNullOrWhiteSpace(submission.InstitutionId)) {
             institution =
                 await _educationStore.GetInstitutionAsync(new InstitutionId(submission.InstitutionId),
                     cancellationToken);
@@ -340,15 +306,12 @@ internal sealed class PackageVerificationWorker : BackgroundService
         Course? course = null;
         CourseOffering? offering = null;
         ClassGroup? classGroup = null;
-        if (!string.IsNullOrWhiteSpace(submission.AssessmentId))
-        {
+        if (!string.IsNullOrWhiteSpace(submission.AssessmentId)) {
             assessment =
                 await _educationStore.GetAssessmentAsync(new AssessmentId(submission.AssessmentId), cancellationToken);
-            if (assessment is not null)
-            {
+            if (assessment is not null) {
                 offering = await _educationStore.GetCourseOfferingAsync(assessment.CourseOfferingId, cancellationToken);
-                if (offering is not null)
-                {
+                if (offering is not null) {
                     course = await _educationStore.GetCourseAsync(offering.CourseId, cancellationToken);
                     classGroup = await _educationStore.GetClassGroupAsync(offering.ClassGroupId, cancellationToken);
                 }
@@ -356,13 +319,11 @@ internal sealed class PackageVerificationWorker : BackgroundService
         }
 
         User? student = null;
-        if (!string.IsNullOrWhiteSpace(submission.StudentUserId))
-        {
+        if (!string.IsNullOrWhiteSpace(submission.StudentUserId)) {
             student = await _educationStore.GetUserAsync(new UserId(submission.StudentUserId), cancellationToken);
         }
 
-        return new ReportEducationContext
-        {
+        return new ReportEducationContext {
             InstitutionId = institution?.Id.Value,
             InstitutionName = institution?.Name,
             CourseId = course?.Id.Value,
@@ -384,8 +345,7 @@ internal sealed class PackageVerificationWorker : BackgroundService
     /// <param name="source">The source package blob stream.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The absolute path of the created temporary file.</returns>
-    private static async Task<string> CopyToTempFileAsync(Stream source, CancellationToken cancellationToken)
-    {
+    private static async Task<string> CopyToTempFileAsync(Stream source, CancellationToken cancellationToken) {
         var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.owspkg");
         await using var destination = File.Create(tempPath);
         await source.CopyToAsync(destination, cancellationToken);
@@ -399,14 +359,10 @@ internal sealed class PackageVerificationWorker : BackgroundService
     /// <param name="auditEvent">The audit event to persist.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    private async Task SafeAuditAsync(VerifierAuditEvent auditEvent, CancellationToken cancellationToken)
-    {
-        try
-        {
+    private async Task SafeAuditAsync(VerifierAuditEvent auditEvent, CancellationToken cancellationToken) {
+        try {
             await _auditStore.AppendAsync(auditEvent, cancellationToken);
-        }
-        catch (Exception exception)
-        {
+        } catch (Exception exception) {
             _logger.LogWarning(exception, "Failed to persist worker audit event {EventType}.", auditEvent.EventType);
         }
     }

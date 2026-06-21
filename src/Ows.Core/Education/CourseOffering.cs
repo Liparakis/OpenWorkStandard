@@ -3,8 +3,7 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Represents a specific delivery of a course to a class cohort in a term.
 /// </summary>
-public sealed record CourseOffering
-{
+public sealed record CourseOffering {
     /// <summary>
     /// Gets the unique course offering identifier.
     /// </summary>
@@ -44,20 +43,17 @@ public sealed record CourseOffering
     /// Initializes a new instance of the <see cref="CourseOffering"/> class.
     /// </summary>
     public CourseOffering(CourseOfferingId id, InstitutionId institutionId, CourseId courseId,
-        ClassGroupId classGroupId, string term, int year, DateTimeOffset createdAt)
-    {
+        ClassGroupId classGroupId, string term, int year, DateTimeOffset createdAt) {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(institutionId.Value, nameof(institutionId));
         ArgumentException.ThrowIfNullOrWhiteSpace(courseId.Value, nameof(courseId));
         ArgumentException.ThrowIfNullOrWhiteSpace(classGroupId.Value, nameof(classGroupId));
         ArgumentException.ThrowIfNullOrWhiteSpace(term);
-        if (year <= 0)
-        {
+        if (year <= 0) {
             throw new ArgumentOutOfRangeException(nameof(year), "Year must be a positive integer.");
         }
 
-        if (createdAt == default)
-        {
+        if (createdAt == default) {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));
         }
 

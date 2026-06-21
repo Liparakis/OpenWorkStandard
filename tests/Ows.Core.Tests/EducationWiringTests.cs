@@ -8,8 +8,7 @@ namespace Ows.Core.Tests;
 /// Tests the education wiring layer: JsonFileEducationStore round-trips and
 /// the validation rules that guard session creation with education context.
 /// </summary>
-public sealed class EducationWiringTests : IDisposable
-{
+public sealed class EducationWiringTests : IDisposable {
     private readonly string _storeDirectory;
     private readonly string _storePath;
     private readonly JsonFileEducationStore _store;
@@ -17,8 +16,7 @@ public sealed class EducationWiringTests : IDisposable
     /// <summary>
     /// Initializes a temporary education store for each test.
     /// </summary>
-    public EducationWiringTests()
-    {
+    public EducationWiringTests() {
         _storeDirectory = Path.Combine(Path.GetTempPath(), $"ows-edu-{Guid.NewGuid():N}");
         _storePath = Path.Combine(_storeDirectory, "education.json");
         _store = new JsonFileEducationStore(_storePath);
@@ -26,10 +24,8 @@ public sealed class EducationWiringTests : IDisposable
     }
 
     /// <inheritdoc />
-    public void Dispose()
-    {
-        if (Directory.Exists(_storeDirectory))
-        {
+    public void Dispose() {
+        if (Directory.Exists(_storeDirectory)) {
             Directory.Delete(_storeDirectory, recursive: true);
         }
     }
@@ -38,8 +34,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that a created institution can be retrieved by ID.
     /// </summary>
     [Fact]
-    public async Task CreateAndGetInstitutionAsync_ShouldRoundTrip()
-    {
+    public async Task CreateAndGetInstitutionAsync_ShouldRoundTrip() {
         var id = InstitutionId.Create();
         var institution = new Institution(id, "Open University", "open-university", DateTimeOffset.UtcNow);
 
@@ -56,8 +51,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that a missing institution returns null.
     /// </summary>
     [Fact]
-    public async Task GetInstitutionAsync_WhenNotFound_ShouldReturnNull()
-    {
+    public async Task GetInstitutionAsync_WhenNotFound_ShouldReturnNull() {
         var result = await _store.GetInstitutionAsync(new InstitutionId("does-not-exist"), CancellationToken.None);
         result.Should().BeNull();
     }
@@ -66,8 +60,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that a created course can be retrieved by ID.
     /// </summary>
     [Fact]
-    public async Task CreateAndGetCourseAsync_ShouldRoundTrip()
-    {
+    public async Task CreateAndGetCourseAsync_ShouldRoundTrip() {
         var institutionId = InstitutionId.Create();
         var courseId = CourseId.Create();
         var course = new Course(courseId, institutionId, "CS101", "Intro to CS", DateTimeOffset.UtcNow);
@@ -84,8 +77,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that a created user can be retrieved by ID.
     /// </summary>
     [Fact]
-    public async Task CreateAndGetUserAsync_ShouldRoundTrip()
-    {
+    public async Task CreateAndGetUserAsync_ShouldRoundTrip() {
         var institutionId = InstitutionId.Create();
         var userId = UserId.Create();
         var user = new User(userId, institutionId, "Jane Smith", "S12345", "jane@university.edu", DateTimeOffset.UtcNow);
@@ -103,8 +95,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that a created assessment can be retrieved by ID.
     /// </summary>
     [Fact]
-    public async Task CreateAndGetAssessmentAsync_ShouldRoundTrip()
-    {
+    public async Task CreateAndGetAssessmentAsync_ShouldRoundTrip() {
         var institutionId = InstitutionId.Create();
         var offeringId = CourseOfferingId.Create();
         var assessmentId = AssessmentId.Create();
@@ -131,8 +122,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that session validation accepts a valid institution + assessment + student.
     /// </summary>
     [Fact]
-    public async Task ValidateSessionEducationContext_WhenAllValid_ShouldSucceed()
-    {
+    public async Task ValidateSessionEducationContext_WhenAllValid_ShouldSucceed() {
         var institutionId = InstitutionId.Create();
         var offeringId = CourseOfferingId.Create();
         var assessmentId = AssessmentId.Create();
@@ -158,8 +148,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that session validation rejects an unknown institution.
     /// </summary>
     [Fact]
-    public async Task ValidateSessionEducationContext_WhenInstitutionMissing_ShouldReturnError()
-    {
+    public async Task ValidateSessionEducationContext_WhenInstitutionMissing_ShouldReturnError() {
         var (error, _) = await ValidateEducationContextAsync("nonexistent-inst", null, null);
         error.Should().Contain("not found");
     }
@@ -168,8 +157,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that session validation rejects an assessment that does not belong to the institution.
     /// </summary>
     [Fact]
-    public async Task ValidateSessionEducationContext_WhenAssessmentBelongsToDifferentInstitution_ShouldReturnError()
-    {
+    public async Task ValidateSessionEducationContext_WhenAssessmentBelongsToDifferentInstitution_ShouldReturnError() {
         var instA = InstitutionId.Create();
         var instB = InstitutionId.Create();
         var offeringId = CourseOfferingId.Create();
@@ -192,8 +180,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that session validation rejects an unknown student user.
     /// </summary>
     [Fact]
-    public async Task ValidateSessionEducationContext_WhenStudentMissing_ShouldReturnError()
-    {
+    public async Task ValidateSessionEducationContext_WhenStudentMissing_ShouldReturnError() {
         var institutionId = InstitutionId.Create();
         await _store.CreateInstitutionAsync(
             new Institution(institutionId, "Test U", "test-u2", DateTimeOffset.UtcNow), CancellationToken.None);
@@ -206,8 +193,7 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that ReportEducationContext is fully populated from store lookups.
     /// </summary>
     [Fact]
-    public async Task ResolveEducationContext_WhenAllEntitiesPresent_ShouldPopulateAllFields()
-    {
+    public async Task ResolveEducationContext_WhenAllEntitiesPresent_ShouldPopulateAllFields() {
         var institutionId = InstitutionId.Create();
         var courseId = CourseId.Create();
         var classGroupId = ClassGroupId.Create();
@@ -248,55 +234,45 @@ public sealed class EducationWiringTests : IDisposable
     /// Verifies that null is returned when no education identifiers are supplied.
     /// </summary>
     [Fact]
-    public async Task ResolveEducationContext_WhenNoIdentifiers_ShouldReturnNull()
-    {
+    public async Task ResolveEducationContext_WhenNoIdentifiers_ShouldReturnNull() {
         var context = await ResolveContextAsync(null, null, null);
         context.Should().BeNull();
     }
-    
+
 
     // Mirrors the validation logic in Program.cs POST /sessions
     private async Task<(string? error, string? metadata)> ValidateEducationContextAsync(
         string? institutionId,
         string? assessmentId,
-        string? studentUserId)
-    {
+        string? studentUserId) {
         if (string.IsNullOrWhiteSpace(institutionId)
             && string.IsNullOrWhiteSpace(assessmentId)
-            && string.IsNullOrWhiteSpace(studentUserId))
-        {
+            && string.IsNullOrWhiteSpace(studentUserId)) {
             return (null, null);
         }
 
-        if (string.IsNullOrWhiteSpace(institutionId))
-        {
+        if (string.IsNullOrWhiteSpace(institutionId)) {
             return ("InstitutionId is required when education context is supplied.", null);
         }
 
         var institution = await _store.GetInstitutionAsync(new InstitutionId(institutionId), CancellationToken.None);
-        if (institution is null)
-        {
+        if (institution is null) {
             return ($"Institution '{institutionId}' not found.", null);
         }
 
-        if (!string.IsNullOrWhiteSpace(assessmentId))
-        {
+        if (!string.IsNullOrWhiteSpace(assessmentId)) {
             var assessment = await _store.GetAssessmentAsync(new AssessmentId(assessmentId), CancellationToken.None);
-            if (assessment is null)
-            {
+            if (assessment is null) {
                 return ($"Assessment '{assessmentId}' not found.", null);
             }
-            if (!string.Equals(assessment.InstitutionId.Value, institutionId, StringComparison.OrdinalIgnoreCase))
-            {
+            if (!string.Equals(assessment.InstitutionId.Value, institutionId, StringComparison.OrdinalIgnoreCase)) {
                 return ($"Assessment '{assessmentId}' does not belong to institution '{institutionId}'.", null);
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(studentUserId))
-        {
+        if (!string.IsNullOrWhiteSpace(studentUserId)) {
             var student = await _store.GetUserAsync(new UserId(studentUserId), CancellationToken.None);
-            if (student is null)
-            {
+            if (student is null) {
                 return ($"Student user '{studentUserId}' not found.", null);
             }
         }
@@ -308,18 +284,15 @@ public sealed class EducationWiringTests : IDisposable
     private async Task<ReportEducationContext?> ResolveContextAsync(
         string? institutionId,
         string? assessmentId,
-        string? studentUserId)
-    {
+        string? studentUserId) {
         if (string.IsNullOrWhiteSpace(institutionId)
             && string.IsNullOrWhiteSpace(assessmentId)
-            && string.IsNullOrWhiteSpace(studentUserId))
-        {
+            && string.IsNullOrWhiteSpace(studentUserId)) {
             return null;
         }
 
         Education.Institution? institution = null;
-        if (!string.IsNullOrWhiteSpace(institutionId))
-        {
+        if (!string.IsNullOrWhiteSpace(institutionId)) {
             institution = await _store.GetInstitutionAsync(new InstitutionId(institutionId), CancellationToken.None);
         }
 
@@ -327,14 +300,11 @@ public sealed class EducationWiringTests : IDisposable
         Education.Course? course = null;
         Education.CourseOffering? offering = null;
         Education.ClassGroup? classGroup = null;
-        if (!string.IsNullOrWhiteSpace(assessmentId))
-        {
+        if (!string.IsNullOrWhiteSpace(assessmentId)) {
             assessment = await _store.GetAssessmentAsync(new AssessmentId(assessmentId), CancellationToken.None);
-            if (assessment is not null)
-            {
+            if (assessment is not null) {
                 offering = await _store.GetCourseOfferingAsync(assessment.CourseOfferingId, CancellationToken.None);
-                if (offering is not null)
-                {
+                if (offering is not null) {
                     course = await _store.GetCourseAsync(offering.CourseId, CancellationToken.None);
                     classGroup = await _store.GetClassGroupAsync(offering.ClassGroupId, CancellationToken.None);
                 }
@@ -342,13 +312,11 @@ public sealed class EducationWiringTests : IDisposable
         }
 
         Education.User? student = null;
-        if (!string.IsNullOrWhiteSpace(studentUserId))
-        {
+        if (!string.IsNullOrWhiteSpace(studentUserId)) {
             student = await _store.GetUserAsync(new UserId(studentUserId), CancellationToken.None);
         }
 
-        return new ReportEducationContext
-        {
+        return new ReportEducationContext {
             InstitutionId = institution?.Id.Value,
             InstitutionName = institution?.Name,
             CourseId = course?.Id.Value,

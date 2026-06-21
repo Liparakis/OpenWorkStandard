@@ -7,8 +7,7 @@ namespace Ows.Cli.Tests;
 /// <summary>
 /// Shared helpers for CLI command tests.
 /// </summary>
-internal static class OwsTestHelpers
-{
+internal static class OwsTestHelpers {
     /// <summary>
     /// Runs a one-shot initial file scan for the given project root, equivalent to what
     /// <c>ows watch</c> used to do before it became a persistent watcher.
@@ -16,17 +15,14 @@ internal static class OwsTestHelpers
     /// 300 ms and the test does not hang waiting for a long-running watch loop.
     /// </summary>
     /// <param name="projectRoot">Absolute path to the project root.</param>
-    public static async Task RunInitialScanAsync(string projectRoot)
-    {
+    public static async Task RunInitialScanAsync(string projectRoot) {
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
         var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);
         await agent.PrepareAsync(
-            new TrackingAgentOptions
-            {
+            new TrackingAgentOptions {
                 ProjectRootPath = projectRoot,
                 DatabasePath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, "ows.db"),
-                WatcherOptions = new FileWatcherOptions
-                {
+                WatcherOptions = new FileWatcherOptions {
                     UsePollingFallback = true,
                     PollingIntervalMs = 50,
                     DebounceIntervalMs = 30

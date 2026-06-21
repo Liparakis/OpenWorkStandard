@@ -3,8 +3,7 @@ namespace Ows.Core.Reporting;
 /// <summary>
 /// Identifies the supported report output formats.
 /// </summary>
-public enum ReportFormat
-{
+public enum ReportFormat {
     /// <summary>
     /// JSON output.
     /// </summary>

@@ -3,8 +3,7 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Links a student to a course offering.
 /// </summary>
-public sealed record StudentEnrollment
-{
+public sealed record StudentEnrollment {
     /// <summary>
     /// Gets the unique student enrollment identifier.
     /// </summary>
@@ -32,13 +31,11 @@ public sealed record StudentEnrollment
         EnrollmentId id,
         CourseOfferingId courseOfferingId,
         UserId studentUserId,
-        DateTimeOffset createdAt)
-    {
+        DateTimeOffset createdAt) {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(courseOfferingId.Value, nameof(courseOfferingId));
         ArgumentException.ThrowIfNullOrWhiteSpace(studentUserId.Value, nameof(studentUserId));
-        if (createdAt == default)
-        {
+        if (createdAt == default) {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));
         }
 

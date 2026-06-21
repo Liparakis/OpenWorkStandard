@@ -3,14 +3,12 @@ using FluentAssertions;
 
 namespace Ows.Cli.Tests;
 
-public sealed class ObservabilityAssetsTests
-{
+public sealed class ObservabilityAssetsTests {
     private static string RepoRoot =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 
     [Fact]
-    public void ObservabilityFiles_ShouldExist()
-    {
+    public void ObservabilityFiles_ShouldExist() {
         string[] requiredPaths =
         [
             "deploy/compose/docker-compose.observability.yml",
@@ -23,15 +21,13 @@ public sealed class ObservabilityAssetsTests
             "docs/operations/OBSERVABILITY.md"
         ];
 
-        foreach (var relativePath in requiredPaths)
-        {
+        foreach (var relativePath in requiredPaths) {
             File.Exists(Path.Combine(RepoRoot, relativePath)).Should().BeTrue(relativePath);
         }
     }
 
     [Fact]
-    public void GrafanaDashboard_ShouldBeValidJson()
-    {
+    public void GrafanaDashboard_ShouldBeValidJson() {
         var dashboardPath = Path.Combine(
             RepoRoot,
             "deploy",

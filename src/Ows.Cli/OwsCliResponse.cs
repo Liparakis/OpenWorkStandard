@@ -3,8 +3,7 @@ namespace Ows.Cli;
 /// <summary>
 /// Unified JSON response structure returned by CLI when executing commands with the --json flag.
 /// </summary>
-public sealed class OwsCliResponse
-{
+public sealed class OwsCliResponse {
     /// <summary>Gets or sets whether the command succeeded.</summary>
     public bool Success { get; set; }
 
@@ -59,8 +58,7 @@ public sealed class OwsCliResponse
     /// <summary>
     /// Returns a serializer-friendly snapshot so JSON output reads the full response shape explicitly.
     /// </summary>
-    public object ToSerializableModel() => new
-    {
+    public object ToSerializableModel() => new {
         Success,
         Status,
         ProjectRoot,

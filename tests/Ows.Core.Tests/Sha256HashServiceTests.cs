@@ -6,14 +6,12 @@ namespace Ows.Core.Tests;
 /// <summary>
 /// Tests SHA-256 hashing behavior.
 /// </summary>
-public sealed class Sha256HashServiceTests
-{
+public sealed class Sha256HashServiceTests {
     /// <summary>
     /// Verifies that equal text produces equal hashes.
     /// </summary>
     [Fact]
-    public void ComputeHash_ForSameText_ReturnsSameDigest()
-    {
+    public void ComputeHash_ForSameText_ReturnsSameDigest() {
         var service = new Sha256HashService();
 
         var firstHash = service.ComputeHash("ows");
@@ -26,8 +24,7 @@ public sealed class Sha256HashServiceTests
     /// Verifies that text and byte hashing align for the same content.
     /// </summary>
     [Fact]
-    public void ComputeHash_ForEquivalentTextAndBytes_ReturnsSameDigest()
-    {
+    public void ComputeHash_ForEquivalentTextAndBytes_ReturnsSameDigest() {
         var service = new Sha256HashService();
 
         var textHash = service.ComputeHash("Open Work Standard");

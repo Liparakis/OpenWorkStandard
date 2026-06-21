@@ -13,16 +13,13 @@ namespace Ows.Core.Tests;
 /// <summary>
 /// Verifies the implementation of OwsWatchSessionManager.
 /// </summary>
-public sealed class OwsWatchSessionManagerTests
-{
+public sealed class OwsWatchSessionManagerTests {
     [Fact]
-    public async Task Manager_ShouldManageProjectLifecycleCorrectly()
-    {
+    public async Task Manager_ShouldManageProjectLifecycleCorrectly() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-mgr-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
 
-        try
-        {
+        try {
             var manager = new OwsWatchSessionManager();
 
             // 1. Initialized check
@@ -74,10 +71,8 @@ public sealed class OwsWatchSessionManagerTests
             var watcherTask = Task.Run(() => manager.StartWatcherAsync(projectRoot, usePolling: true, debounceMs: 100));
 
             // Wait a moment to let watcher start and write watcher.json
-            for (int i = 0; i < 20; i++)
-            {
-                if (manager.IsWatcherRunning(projectRoot))
-                {
+            for (int i = 0; i < 20; i++) {
+                if (manager.IsWatcherRunning(projectRoot)) {
                     break;
                 }
                 await Task.Delay(100);
@@ -91,11 +86,8 @@ public sealed class OwsWatchSessionManagerTests
 
             // Wait for the background task to complete cleanly
             await watcherTask;
-        }
-        finally
-        {
-            if (Directory.Exists(projectRoot))
-            {
+        } finally {
+            if (Directory.Exists(projectRoot)) {
                 try { Directory.Delete(projectRoot, recursive: true); } catch { }
             }
         }

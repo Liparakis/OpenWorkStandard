@@ -6,15 +6,13 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Provides utility methods to read and append chained events to local timeline log files.
 /// </summary>
-internal static class TimelineEventAppender
-{
+internal static class TimelineEventAppender {
     /// <summary>
     /// Reads the head event hash of the existing timeline file.
     /// </summary>
     /// <param name="timelinePath">The absolute path to the timeline file.</param>
     /// <returns>The last event's hash, or the genesis previous hash if the timeline is empty or missing.</returns>
-    public static string ReadLastEventHash(string timelinePath)
-    {
+    public static string ReadLastEventHash(string timelinePath) {
         return File.Exists(timelinePath)
             ? OwsEventChain.ReadLastEventHash(timelinePath)
             : OwsEventChain.GenesisPreviousEventHash;
@@ -29,11 +27,9 @@ internal static class TimelineEventAppender
     /// <param name="cancellationToken">Token to cancel the write operation.</param>
     /// <returns>A task returning the new chained head event hash.</returns>
     public static async Task<string> AppendEventAsync(string timelinePath, OwsEvent owsEvent, string previousEventHash,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         var localFolder = Path.GetDirectoryName(timelinePath);
-        if (!string.IsNullOrEmpty(localFolder))
-        {
+        if (!string.IsNullOrEmpty(localFolder)) {
             Directory.CreateDirectory(localFolder);
         }
 

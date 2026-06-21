@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Represents the ordered receipts issued for an assessment session.
 /// </summary>
-public sealed record ReceiptChain
-{
+public sealed record ReceiptChain {
     /// <summary>
     /// Gets the session identifier shared by the receipt chain.
     /// </summary>

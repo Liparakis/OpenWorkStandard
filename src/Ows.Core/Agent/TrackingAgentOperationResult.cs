@@ -3,8 +3,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Represents the outcome of a tracking agent operation.
 /// </summary>
-public sealed record TrackingAgentOperationResult
-{
+public sealed record TrackingAgentOperationResult {
     /// <summary>
     /// Gets a value indicating whether the requested operation completed.
     /// </summary>

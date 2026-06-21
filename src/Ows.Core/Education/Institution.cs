@@ -3,8 +3,7 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Represents a university, school, or organization within OWS.
 /// </summary>
-public sealed record Institution
-{
+public sealed record Institution {
     /// <summary>
     /// Gets the unique institution identifier.
     /// </summary>
@@ -28,13 +27,11 @@ public sealed record Institution
     /// <summary>
     /// Initializes a new instance of the <see cref="Institution"/> class.
     /// </summary>
-    public Institution(InstitutionId id, string name, string slug, DateTimeOffset createdAt)
-    {
+    public Institution(InstitutionId id, string name, string slug, DateTimeOffset createdAt) {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(slug);
-        if (createdAt == default)
-        {
+        if (createdAt == default) {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));
         }
 

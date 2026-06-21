@@ -3,8 +3,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Describes the current lifecycle state of the local tracking agent.
 /// </summary>
-public enum TrackingAgentStatus
-{
+public enum TrackingAgentStatus {
     /// <summary>
     /// The agent has not been prepared yet.
     /// </summary>

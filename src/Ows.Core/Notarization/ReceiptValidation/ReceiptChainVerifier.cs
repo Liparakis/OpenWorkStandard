@@ -8,8 +8,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Provides canonical receipt issuance and verification helpers for the in-memory notarization flow.
 /// </summary>
-public static class ReceiptChainVerifier
-{
+public static class ReceiptChainVerifier {
     /// <summary>
     /// Gets the expected previous-hash value for the first receipt in a chain.
     /// </summary>
@@ -22,34 +21,29 @@ public static class ReceiptChainVerifier
     /// <param name="previousReceiptHash">The previous receipt hash, or the genesis value for the first receipt.</param>
     /// <param name="signingKey">The optional server signing key used to sign the receipt hash.</param>
     /// <returns>A newly issued chained receipt.</returns>
-    public static CheckpointReceipt IssueReceipt(Checkpoint checkpoint, string previousReceiptHash, string? signingKey = null)
-    {
+    public static CheckpointReceipt IssueReceipt(Checkpoint checkpoint, string previousReceiptHash, string? signingKey = null) {
         ArgumentNullException.ThrowIfNull(checkpoint);
 
         var issuedAtUtc = NormalizeIssuedAtUtc(DateTimeOffset.UtcNow);
-        var receiptWithoutHash = new CheckpointReceipt
-        {
+        var receiptWithoutHash = new CheckpointReceipt {
             SessionId = checkpoint.SessionId,
             SequenceNumber = checkpoint.SequenceNumber,
             TimelineHeadHash = checkpoint.TimelineHeadHash,
             PreviousReceiptHash = previousReceiptHash,
-            ServerTimestamp = new ServerTimestamp
-            {
+            ServerTimestamp = new ServerTimestamp {
                 IssuedAtUtc = issuedAtUtc
             },
             SigningKeyFingerprint = ComputeFingerprint(signingKey)
         };
 
         var receiptHash = ComputeReceiptHash(receiptWithoutHash);
-        return receiptWithoutHash with
-        {
+        return receiptWithoutHash with {
             ReceiptHash = receiptHash,
             ServerSignature = ComputeServerSignature(receiptHash, signingKey)
         };
     }
 
-    private static DateTimeOffset NormalizeIssuedAtUtc(DateTimeOffset value)
-    {
+    private static DateTimeOffset NormalizeIssuedAtUtc(DateTimeOffset value) {
         const long ticksPerMicrosecond = 10;
         var utcValue = value.ToUniversalTime();
         var normalizedTicks = utcValue.Ticks - (utcValue.Ticks % ticksPerMicrosecond);
@@ -61,12 +55,10 @@ public static class ReceiptChainVerifier
     /// </summary>
     /// <param name="receipt">The receipt to hash.</param>
     /// <returns>The lower-case SHA-256 digest of the canonical receipt JSON.</returns>
-    private static string ComputeReceiptHash(CheckpointReceipt receipt)
-    {
+    private static string ComputeReceiptHash(CheckpointReceipt receipt) {
         ArgumentNullException.ThrowIfNull(receipt);
 
-        var canonicalReceipt = new
-        {
+        var canonicalReceipt = new {
             receipt.SessionId,
             receipt.SequenceNumber,
             receipt.TimelineHeadHash,
@@ -84,10 +76,8 @@ public static class ReceiptChainVerifier
     /// <param name="receiptHash">The committed receipt hash to sign.</param>
     /// <param name="signingKey">The server signing key, or empty for unsigned local receipts.</param>
     /// <returns>The lower-case HMAC-SHA256 signature, or an empty string when no signing key is configured.</returns>
-    private static string ComputeServerSignature(string receiptHash, string? signingKey)
-    {
-        if (string.IsNullOrWhiteSpace(signingKey))
-        {
+    private static string ComputeServerSignature(string receiptHash, string? signingKey) {
+        if (string.IsNullOrWhiteSpace(signingKey)) {
             return string.Empty;
         }
 
@@ -100,10 +90,8 @@ public static class ReceiptChainVerifier
     /// </summary>
     /// <param name="signingKey">The server signing key.</param>
     /// <returns>A lower-case hex-encoded SHA-256 fingerprint of the key, or an empty string if null/empty.</returns>
-    public static string ComputeFingerprint(string? signingKey)
-    {
-        if (string.IsNullOrWhiteSpace(signingKey))
-        {
+    public static string ComputeFingerprint(string? signingKey) {
+        if (string.IsNullOrWhiteSpace(signingKey)) {
             return string.Empty;
         }
 
@@ -125,32 +113,26 @@ public static class ReceiptChainVerifier
     /// <param name="receiptChain">The receipt chain to verify.</param>
     /// <param name="signingKey">The optional server signing key used to verify receipt signatures.</param>
     /// <returns><see langword="true"/> when the chain is valid; otherwise, <see langword="false"/>.</returns>
-    public static bool IsValid(ReceiptChain receiptChain, string? signingKey)
-    {
+    public static bool IsValid(ReceiptChain receiptChain, string? signingKey) {
         ArgumentNullException.ThrowIfNull(receiptChain);
 
         var expectedPreviousReceiptHash = GenesisPreviousReceiptHash;
         var expectedSequenceNumber = 1;
 
-        foreach (var receipt in receiptChain.Receipts)
-        {
-            if (receipt.SessionId != receiptChain.SessionId)
-            {
+        foreach (var receipt in receiptChain.Receipts) {
+            if (receipt.SessionId != receiptChain.SessionId) {
                 return false;
             }
 
-            if (receipt.SequenceNumber != expectedSequenceNumber)
-            {
+            if (receipt.SequenceNumber != expectedSequenceNumber) {
                 return false;
             }
 
-            if (!string.Equals(receipt.PreviousReceiptHash, expectedPreviousReceiptHash, StringComparison.Ordinal))
-            {
+            if (!string.Equals(receipt.PreviousReceiptHash, expectedPreviousReceiptHash, StringComparison.Ordinal)) {
                 return false;
             }
 
-            if (!string.Equals(receipt.ReceiptHash, ComputeReceiptHash(receipt), StringComparison.OrdinalIgnoreCase))
-            {
+            if (!string.Equals(receipt.ReceiptHash, ComputeReceiptHash(receipt), StringComparison.OrdinalIgnoreCase)) {
                 return false;
             }
 
@@ -158,8 +140,7 @@ public static class ReceiptChainVerifier
                 !string.Equals(
                     receipt.ServerSignature,
                     ComputeServerSignature(receipt.ReceiptHash, signingKey),
-                    StringComparison.OrdinalIgnoreCase))
-            {
+                    StringComparison.OrdinalIgnoreCase)) {
                 return false;
             }
 

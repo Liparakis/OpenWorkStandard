@@ -3,8 +3,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Persists safe verifier audit events for operator diagnostics.
 /// </summary>
-internal interface IVerifierAuditStore
-{
+internal interface IVerifierAuditStore {
     /// <summary>
     /// Initializes the backing store.
     /// </summary>

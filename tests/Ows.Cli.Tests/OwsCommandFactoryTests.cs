@@ -6,14 +6,12 @@ namespace Ows.Cli.Tests;
 /// Tests CLI command construction.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
-public sealed class OwsCommandFactoryTests
-{
+public sealed class OwsCommandFactoryTests {
     /// <summary>
     /// Verifies the placeholder command set.
     /// </summary>
     [Fact]
-    public void BuildRootCommand_ShouldExposeExpectedSubcommands()
-    {
+    public void BuildRootCommand_ShouldExposeExpectedSubcommands() {
         var rootCommand = OwsCommandFactory.BuildRootCommand();
 
         rootCommand.Subcommands.Select(command => command.Name).Should().BeEquivalentTo(

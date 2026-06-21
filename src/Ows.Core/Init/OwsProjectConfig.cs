@@ -6,8 +6,7 @@ namespace Ows.Core.Init;
 /// <summary>
 /// Represents the project-level configuration stored in .ows/config.json.
 /// </summary>
-public sealed class OwsProjectConfig
-{
+public sealed class OwsProjectConfig {
     /// <summary>
     /// Gets or sets the OWS version.
     /// </summary>

@@ -5,30 +5,26 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Persists educational domain models in PostgreSQL.
 /// </summary>
-public sealed class PostgresEducationStore : IEducationStore
-{
+public sealed class PostgresEducationStore : IEducationStore {
     private readonly NpgsqlDataSource _dataSource;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PostgresEducationStore"/> class.
     /// </summary>
     /// <param name="connectionString">The PostgreSQL connection string.</param>
-    public PostgresEducationStore(string connectionString)
-    {
+    public PostgresEducationStore(string connectionString) {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
     }
 
     /// <inheritdoc />
-    public Task InitializeAsync(CancellationToken cancellationToken)
-    {
+    public Task InitializeAsync(CancellationToken cancellationToken) {
         // Database migration is executed by PostgresVerifierMigrator during server startup.
         return Task.CompletedTask;
     }
 
     /// <inheritdoc />
-    public async Task CreateInstitutionAsync(Institution institution, CancellationToken cancellationToken)
-    {
+    public async Task CreateInstitutionAsync(Institution institution, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(institution);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -45,15 +41,13 @@ public sealed class PostgresEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public async Task<Institution?> GetInstitutionAsync(InstitutionId id, CancellationToken cancellationToken)
-    {
+    public async Task<Institution?> GetInstitutionAsync(InstitutionId id, CancellationToken cancellationToken) {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "select id, name, slug, created_at from edu_institutions where id = @id;";
         command.Parameters.AddWithValue("id", id.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (await reader.ReadAsync(cancellationToken))
-        {
+        if (await reader.ReadAsync(cancellationToken)) {
             return new Institution(
                 new InstitutionId(reader.GetString(0)),
                 reader.GetString(1),
@@ -66,8 +60,7 @@ public sealed class PostgresEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public async Task CreateCourseAsync(Course course, CancellationToken cancellationToken)
-    {
+    public async Task CreateCourseAsync(Course course, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(course);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -85,15 +78,13 @@ public sealed class PostgresEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public async Task<Course?> GetCourseAsync(CourseId id, CancellationToken cancellationToken)
-    {
+    public async Task<Course?> GetCourseAsync(CourseId id, CancellationToken cancellationToken) {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "select id, institution_id, code, title, created_at from edu_courses where id = @id;";
         command.Parameters.AddWithValue("id", id.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (await reader.ReadAsync(cancellationToken))
-        {
+        if (await reader.ReadAsync(cancellationToken)) {
             return new Course(
                 new CourseId(reader.GetString(0)),
                 new InstitutionId(reader.GetString(1)),
@@ -107,8 +98,7 @@ public sealed class PostgresEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public async Task CreateClassGroupAsync(ClassGroup classGroup, CancellationToken cancellationToken)
-    {
+    public async Task CreateClassGroupAsync(ClassGroup classGroup, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(classGroup);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -125,15 +115,13 @@ public sealed class PostgresEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public async Task<ClassGroup?> GetClassGroupAsync(ClassGroupId id, CancellationToken cancellationToken)
-    {
+    public async Task<ClassGroup?> GetClassGroupAsync(ClassGroupId id, CancellationToken cancellationToken) {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = "select id, institution_id, name, created_at from edu_classes where id = @id;";
         command.Parameters.AddWithValue("id", id.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (await reader.ReadAsync(cancellationToken))
-        {
+        if (await reader.ReadAsync(cancellationToken)) {
             return new ClassGroup(
                 new ClassGroupId(reader.GetString(0)),
                 new InstitutionId(reader.GetString(1)),
@@ -146,8 +134,7 @@ public sealed class PostgresEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public async Task CreateUserAsync(User user, CancellationToken cancellationToken)
-    {
+    public async Task CreateUserAsync(User user, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(user);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -159,23 +146,21 @@ public sealed class PostgresEducationStore : IEducationStore
         command.Parameters.AddWithValue("id", user.Id.Value);
         command.Parameters.AddWithValue("institution_id", user.InstitutionId.Value);
         command.Parameters.AddWithValue("display_name", user.DisplayName);
-        command.Parameters.AddWithValue("external_id", (object?)user.ExternalId ?? DBNull.Value);
-        command.Parameters.AddWithValue("email", (object?)user.Email ?? DBNull.Value);
+        command.Parameters.AddWithValue("external_id", (object?) user.ExternalId ?? DBNull.Value);
+        command.Parameters.AddWithValue("email", (object?) user.Email ?? DBNull.Value);
         command.Parameters.AddWithValue("created_at", user.CreatedAt);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<User?> GetUserAsync(UserId id, CancellationToken cancellationToken)
-    {
+    public async Task<User?> GetUserAsync(UserId id, CancellationToken cancellationToken) {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText =
             "select id, institution_id, display_name, external_id, email, created_at from edu_users where id = @id;";
         command.Parameters.AddWithValue("id", id.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (await reader.ReadAsync(cancellationToken))
-        {
+        if (await reader.ReadAsync(cancellationToken)) {
             return new User(
                 new UserId(reader.GetString(0)),
                 new InstitutionId(reader.GetString(1)),
@@ -190,8 +175,7 @@ public sealed class PostgresEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public async Task CreateCourseOfferingAsync(CourseOffering offering, CancellationToken cancellationToken)
-    {
+    public async Task CreateCourseOfferingAsync(CourseOffering offering, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(offering);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -211,16 +195,14 @@ public sealed class PostgresEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public async Task<CourseOffering?> GetCourseOfferingAsync(CourseOfferingId id, CancellationToken cancellationToken)
-    {
+    public async Task<CourseOffering?> GetCourseOfferingAsync(CourseOfferingId id, CancellationToken cancellationToken) {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText =
             "select id, institution_id, course_id, class_group_id, term, year, created_at from edu_course_offerings where id = @id;";
         command.Parameters.AddWithValue("id", id.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (await reader.ReadAsync(cancellationToken))
-        {
+        if (await reader.ReadAsync(cancellationToken)) {
             return new CourseOffering(
                 new CourseOfferingId(reader.GetString(0)),
                 new InstitutionId(reader.GetString(1)),
@@ -238,8 +220,7 @@ public sealed class PostgresEducationStore : IEducationStore
     /// <inheritdoc />
     public async Task CreateStudentEnrollmentAsync(
         StudentEnrollment studentEnrollment,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(studentEnrollment);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -258,8 +239,7 @@ public sealed class PostgresEducationStore : IEducationStore
     /// <inheritdoc />
     public async Task<IReadOnlyList<StudentEnrollment>> GetStudentEnrollmentsForStudentAsync(
         UserId studentUserId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText =
@@ -267,8 +247,7 @@ public sealed class PostgresEducationStore : IEducationStore
         command.Parameters.AddWithValue("student_user_id", studentUserId.Value);
         var list = new List<StudentEnrollment>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
+        while (await reader.ReadAsync(cancellationToken)) {
             list.Add(new StudentEnrollment(
                 new EnrollmentId(reader.GetString(0)),
                 new CourseOfferingId(reader.GetString(1)),
@@ -283,8 +262,7 @@ public sealed class PostgresEducationStore : IEducationStore
     /// <inheritdoc />
     public async Task<IReadOnlyList<StudentEnrollment>> GetStudentEnrollmentsForOfferingAsync(
         CourseOfferingId offeringId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText =
@@ -292,8 +270,7 @@ public sealed class PostgresEducationStore : IEducationStore
         command.Parameters.AddWithValue("offering_id", offeringId.Value);
         var list = new List<StudentEnrollment>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
+        while (await reader.ReadAsync(cancellationToken)) {
             list.Add(new StudentEnrollment(
                 new EnrollmentId(reader.GetString(0)),
                 new CourseOfferingId(reader.GetString(1)),
@@ -306,8 +283,7 @@ public sealed class PostgresEducationStore : IEducationStore
     }
 
     /// <inheritdoc />
-    public async Task CreateAssessmentAsync(Assessment assessment, CancellationToken cancellationToken)
-    {
+    public async Task CreateAssessmentAsync(Assessment assessment, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(assessment);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -320,24 +296,22 @@ public sealed class PostgresEducationStore : IEducationStore
         command.Parameters.AddWithValue("institution_id", assessment.InstitutionId.Value);
         command.Parameters.AddWithValue("course_offering_id", assessment.CourseOfferingId.Value);
         command.Parameters.AddWithValue("title", assessment.Title);
-        command.Parameters.AddWithValue("starts_at", (object?)assessment.StartsAt ?? DBNull.Value);
-        command.Parameters.AddWithValue("ends_at", (object?)assessment.EndsAt ?? DBNull.Value);
-        command.Parameters.AddWithValue("policy_id", (object?)assessment.PolicyId?.Value ?? DBNull.Value);
+        command.Parameters.AddWithValue("starts_at", (object?) assessment.StartsAt ?? DBNull.Value);
+        command.Parameters.AddWithValue("ends_at", (object?) assessment.EndsAt ?? DBNull.Value);
+        command.Parameters.AddWithValue("policy_id", (object?) assessment.PolicyId?.Value ?? DBNull.Value);
         command.Parameters.AddWithValue("created_at", assessment.CreatedAt);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<Assessment?> GetAssessmentAsync(AssessmentId id, CancellationToken cancellationToken)
-    {
+    public async Task<Assessment?> GetAssessmentAsync(AssessmentId id, CancellationToken cancellationToken) {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText =
             "select id, institution_id, course_offering_id, title, starts_at, ends_at, policy_id, created_at from edu_assessments where id = @id;";
         command.Parameters.AddWithValue("id", id.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (await reader.ReadAsync(cancellationToken))
-        {
+        if (await reader.ReadAsync(cancellationToken)) {
             return new Assessment(
                 new AssessmentId(reader.GetString(0)),
                 new InstitutionId(reader.GetString(1)),

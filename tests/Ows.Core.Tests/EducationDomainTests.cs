@@ -11,13 +11,11 @@ namespace Ows.Core.Tests;
 /// <summary>
 /// Verifies initialization, constructor validations, and JSON serialization of education domain models.
 /// </summary>
-public sealed class EducationDomainTests
-{
+public sealed class EducationDomainTests {
     private readonly DateTimeOffset _testTime = DateTimeOffset.Parse("2026-06-20T00:00:00Z");
 
     [Fact]
-    public void Institution_ShouldInitializeAndValidateCorrectly()
-    {
+    public void Institution_ShouldInitializeAndValidateCorrectly() {
         var id = InstitutionId.Create();
         var name = "University of Science";
         var slug = "uni-science";
@@ -37,8 +35,7 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void Course_ShouldInitializeAndValidateCorrectly()
-    {
+    public void Course_ShouldInitializeAndValidateCorrectly() {
         var id = CourseId.Create();
         var instId = InstitutionId.Create();
         var code = "CS301";
@@ -61,8 +58,7 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void ClassGroup_ShouldInitializeAndValidateCorrectly()
-    {
+    public void ClassGroup_ShouldInitializeAndValidateCorrectly() {
         var id = ClassGroupId.Create();
         var instId = InstitutionId.Create();
         var name = "CS Section A";
@@ -82,8 +78,7 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void CourseOffering_ShouldInitializeAndValidateCorrectly()
-    {
+    public void CourseOffering_ShouldInitializeAndValidateCorrectly() {
         var id = CourseOfferingId.Create();
         var instId = InstitutionId.Create();
         var courseId = CourseId.Create();
@@ -109,8 +104,7 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void User_ShouldInitializeAndValidateCorrectly()
-    {
+    public void User_ShouldInitializeAndValidateCorrectly() {
         var id = UserId.Create();
         var instId = InstitutionId.Create();
         var name = "Alice Student";
@@ -131,8 +125,7 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void StudentEnrollment_ShouldInitializeAndValidateCorrectly()
-    {
+    public void StudentEnrollment_ShouldInitializeAndValidateCorrectly() {
         var id = EnrollmentId.Create();
         var offeringId = CourseOfferingId.Create();
         var studentUserId = UserId.Create();
@@ -150,8 +143,7 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void Assessment_ShouldInitializeAndValidateCorrectly()
-    {
+    public void Assessment_ShouldInitializeAndValidateCorrectly() {
         var id = AssessmentId.Create();
         var instId = InstitutionId.Create();
         var offeringId = CourseOfferingId.Create();
@@ -176,8 +168,7 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void AssessmentPolicy_ShouldInitializeAndValidateCorrectly()
-    {
+    public void AssessmentPolicy_ShouldInitializeAndValidateCorrectly() {
         var id = PolicyId.Create();
         var instId = InstitutionId.Create();
         var name = "Strict Watcher Policy";
@@ -204,8 +195,7 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void AssessmentSession_ShouldInitializeAndValidateCorrectly()
-    {
+    public void AssessmentSession_ShouldInitializeAndValidateCorrectly() {
         var sessionId = AssessmentSessionId.Create();
         var assessmentId = AssessmentId.Create();
         var studentId = UserId.Create();
@@ -227,8 +217,7 @@ public sealed class EducationDomainTests
     }
 
     [Fact]
-    public void Models_ShouldSerializeAndDeserializeJsonCorrectly()
-    {
+    public void Models_ShouldSerializeAndDeserializeJsonCorrectly() {
         var inst = new Institution(InstitutionId.Create(), "Uni Test", "uni-test", _testTime);
         var json = JsonSerializer.Serialize(inst);
         var deserialized = JsonSerializer.Deserialize<Institution>(json);

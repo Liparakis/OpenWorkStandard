@@ -3,8 +3,7 @@ namespace Ows.Core.Packaging;
 /// <summary>
 /// Defines the package creation contract for OWS submission archives.
 /// </summary>
-public interface IPackageBuilder
-{
+public interface IPackageBuilder {
     /// <summary>
     /// Attempts to create an OWS package.
     /// </summary>

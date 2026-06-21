@@ -7,8 +7,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Represents a single safe audit event.
 /// </summary>
-public sealed record VerifierAuditEvent
-{
+public sealed record VerifierAuditEvent {
     /// <summary>
     /// Gets the durable event identifier.
     /// </summary>
@@ -88,8 +87,7 @@ public sealed record VerifierAuditEvent
 /// <summary>
 /// Describes supported audit-event filters.
 /// </summary>
-public sealed record VerifierAuditQuery
-{
+public sealed record VerifierAuditQuery {
     /// <summary>
     /// Gets the optional institution identifier filter.
     /// </summary>
@@ -124,8 +122,7 @@ public sealed record VerifierAuditQuery
 /// <summary>
 /// Holds aggregate counts derived from persisted audit events.
 /// </summary>
-public sealed record VerifierAuditSummary
-{
+public sealed record VerifierAuditSummary {
     /// <summary>Gets the count of session-created events.</summary>
     public int SessionsCreated { get; init; }
 
@@ -154,10 +151,8 @@ public sealed record VerifierAuditSummary
     public int AccessDenied { get; init; }
 }
 
-internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
-{
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
+internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore {
+    private static readonly JsonSerializerOptions SerializerOptions = new() {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
     };
@@ -169,28 +164,24 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
     /// <summary>
     /// Initializes a new instance of the <see cref="JsonFileVerifierAuditStore"/> class.
     /// </summary>
-    public JsonFileVerifierAuditStore(string storePath)
-    {
+    public JsonFileVerifierAuditStore(string storePath) {
         ArgumentException.ThrowIfNullOrWhiteSpace(storePath);
         _storePath = storePath;
     }
 
     /// <inheritdoc />
-    public Task InitializeAsync(CancellationToken cancellationToken)
-    {
+    public Task InitializeAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
         LoadFromDisk();
         return Task.CompletedTask;
     }
 
     /// <inheritdoc />
-    public Task AppendAsync(VerifierAuditEvent auditEvent, CancellationToken cancellationToken)
-    {
+    public Task AppendAsync(VerifierAuditEvent auditEvent, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(auditEvent);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_gate)
-        {
+        lock (_gate) {
             _events.Add(auditEvent);
             SaveToDisk();
         }
@@ -200,24 +191,20 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
 
     /// <inheritdoc />
     public Task<IReadOnlyList<VerifierAuditEvent>> QueryAsync(VerifierAuditQuery query,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(query);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_gate)
-        {
+        lock (_gate) {
             IReadOnlyList<VerifierAuditEvent> result = ApplyQuery(_events, query).ToArray();
             return Task.FromResult(result);
         }
     }
 
     /// <inheritdoc />
-    public Task<VerifierAuditSummary> GetSummaryAsync(CancellationToken cancellationToken)
-    {
+    public Task<VerifierAuditSummary> GetSummaryAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
+        lock (_gate) {
             return Task.FromResult(BuildSummary(_events));
         }
     }
@@ -225,27 +212,20 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
     /// <summary>
     /// Loads the JSON snapshot from disk.
     /// </summary>
-    private void LoadFromDisk()
-    {
-        lock (_gate)
-        {
+    private void LoadFromDisk() {
+        lock (_gate) {
             _events.Clear();
-            if (!File.Exists(_storePath))
-            {
+            if (!File.Exists(_storePath)) {
                 return;
             }
 
-            try
-            {
+            try {
                 var json = File.ReadAllText(_storePath);
                 var snapshot = JsonSerializer.Deserialize<List<VerifierAuditEvent>>(json, SerializerOptions);
-                if (snapshot is not null)
-                {
+                if (snapshot is not null) {
                     _events.AddRange(snapshot);
                 }
-            }
-            catch
-            {
+            } catch {
                 // ponytail: malformed local audit history starts empty; add recovery tooling only if operators need it.
             }
         }
@@ -254,11 +234,9 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
     /// <summary>
     /// Saves the JSON snapshot to disk atomically.
     /// </summary>
-    private void SaveToDisk()
-    {
+    private void SaveToDisk() {
         var directory = Path.GetDirectoryName(_storePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
+        if (!string.IsNullOrWhiteSpace(directory)) {
             Directory.CreateDirectory(directory);
         }
 
@@ -272,8 +250,7 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
     /// </summary>
     private static IEnumerable<VerifierAuditEvent> ApplyQuery(
         IEnumerable<VerifierAuditEvent> events,
-        VerifierAuditQuery query)
-    {
+        VerifierAuditQuery query) {
         var limit = Math.Clamp(query.Limit <= 0 ? 100 : query.Limit, 1, 200);
         return events
             .Where(auditEvent => string.IsNullOrWhiteSpace(query.InstitutionId) ||
@@ -297,12 +274,10 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
     /// <summary>
     /// Builds the diagnostics counters from the stored events.
     /// </summary>
-    private static VerifierAuditSummary BuildSummary(IEnumerable<VerifierAuditEvent> events)
-    {
+    private static VerifierAuditSummary BuildSummary(IEnumerable<VerifierAuditEvent> events) {
         var counts = events.GroupBy(static auditEvent => auditEvent.EventType, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.OrdinalIgnoreCase);
-        return new VerifierAuditSummary
-        {
+        return new VerifierAuditSummary {
             SessionsCreated = counts.GetValueOrDefault("session.created"),
             CheckpointsAccepted = counts.GetValueOrDefault("checkpoint.accepted"),
             HeartbeatsAccepted = counts.GetValueOrDefault("heartbeat.accepted"),
@@ -316,10 +291,8 @@ internal sealed class JsonFileVerifierAuditStore : IVerifierAuditStore
     }
 }
 
-internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDisposable
-{
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
+internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDisposable {
+    private static readonly JsonSerializerOptions SerializerOptions = new() {
         PropertyNameCaseInsensitive = true
     };
 
@@ -329,8 +302,7 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
     /// <summary>
     /// Initializes a new instance of the <see cref="PostgresVerifierAuditStore"/> class.
     /// </summary>
-    public PostgresVerifierAuditStore(string connectionString, bool applyMigrationsOnStartup = true)
-    {
+    public PostgresVerifierAuditStore(string connectionString, bool applyMigrationsOnStartup = true) {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
         _initializationTask = applyMigrationsOnStartup
@@ -339,14 +311,12 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
     }
 
     /// <inheritdoc />
-    public async Task InitializeAsync(CancellationToken cancellationToken)
-    {
+    public async Task InitializeAsync(CancellationToken cancellationToken) {
         await _initializationTask.WaitAsync(cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task AppendAsync(VerifierAuditEvent auditEvent, CancellationToken cancellationToken)
-    {
+    public async Task AppendAsync(VerifierAuditEvent auditEvent, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(auditEvent);
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -355,7 +325,7 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
                               insert into verifier_audit_events (session_id, event_type, payload_json, created_at)
                               values (@session_id, @event_type, @payload_json::jsonb, @created_at);
                               """;
-        command.Parameters.AddWithValue("session_id", (object?)auditEvent.SessionId ?? DBNull.Value);
+        command.Parameters.AddWithValue("session_id", (object?) auditEvent.SessionId ?? DBNull.Value);
         command.Parameters.AddWithValue("event_type", auditEvent.EventType);
         command.Parameters.AddWithValue("payload_json", JsonSerializer.Serialize(auditEvent, SerializerOptions));
         command.Parameters.AddWithValue("created_at", auditEvent.CreatedAtUtc);
@@ -364,8 +334,7 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<VerifierAuditEvent>> QueryAsync(VerifierAuditQuery query,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(query);
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -381,32 +350,26 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
                               order by created_at desc, id desc
                               limit @limit;
                               """;
-        command.Parameters.Add(new NpgsqlParameter("institution_id", NpgsqlDbType.Text)
-        {
-            Value = (object?)NormalizeFilter(query.InstitutionId) ?? DBNull.Value
+        command.Parameters.Add(new NpgsqlParameter("institution_id", NpgsqlDbType.Text) {
+            Value = (object?) NormalizeFilter(query.InstitutionId) ?? DBNull.Value
         });
-        command.Parameters.Add(new NpgsqlParameter("session_id", NpgsqlDbType.Text)
-        {
-            Value = (object?)NormalizeFilter(query.SessionId) ?? DBNull.Value
+        command.Parameters.Add(new NpgsqlParameter("session_id", NpgsqlDbType.Text) {
+            Value = (object?) NormalizeFilter(query.SessionId) ?? DBNull.Value
         });
-        command.Parameters.Add(new NpgsqlParameter("package_id", NpgsqlDbType.Text)
-        {
-            Value = (object?)NormalizeFilter(query.PackageId) ?? DBNull.Value
+        command.Parameters.Add(new NpgsqlParameter("package_id", NpgsqlDbType.Text) {
+            Value = (object?) NormalizeFilter(query.PackageId) ?? DBNull.Value
         });
-        command.Parameters.Add(new NpgsqlParameter("event_type", NpgsqlDbType.Text)
-        {
-            Value = (object?)NormalizeFilter(query.EventType) ?? DBNull.Value
+        command.Parameters.Add(new NpgsqlParameter("event_type", NpgsqlDbType.Text) {
+            Value = (object?) NormalizeFilter(query.EventType) ?? DBNull.Value
         });
-        command.Parameters.Add(new NpgsqlParameter("since", NpgsqlDbType.TimestampTz)
-        {
-            Value = (object?)query.Since ?? DBNull.Value
+        command.Parameters.Add(new NpgsqlParameter("since", NpgsqlDbType.TimestampTz) {
+            Value = (object?) query.Since ?? DBNull.Value
         });
         command.Parameters.AddWithValue("limit", Math.Clamp(query.Limit <= 0 ? 100 : query.Limit, 1, 200));
 
         var result = new List<VerifierAuditEvent>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
+        while (await reader.ReadAsync(cancellationToken)) {
             result.Add(ReadAuditEvent(reader));
         }
 
@@ -414,8 +377,7 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
     }
 
     /// <inheritdoc />
-    public async Task<VerifierAuditSummary> GetSummaryAsync(CancellationToken cancellationToken)
-    {
+    public async Task<VerifierAuditSummary> GetSummaryAsync(CancellationToken cancellationToken) {
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -427,13 +389,11 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
 
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
+        while (await reader.ReadAsync(cancellationToken)) {
             counts[reader.GetString(0)] = reader.GetInt32(1);
         }
 
-        return new VerifierAuditSummary
-        {
+        return new VerifierAuditSummary {
             SessionsCreated = counts.GetValueOrDefault("session.created"),
             CheckpointsAccepted = counts.GetValueOrDefault("checkpoint.accepted"),
             HeartbeatsAccepted = counts.GetValueOrDefault("heartbeat.accepted"),
@@ -458,12 +418,10 @@ internal sealed class PostgresVerifierAuditStore : IVerifierAuditStore, IAsyncDi
     /// <summary>
     /// Rehydrates an audit event from the row payload.
     /// </summary>
-    private static VerifierAuditEvent ReadAuditEvent(NpgsqlDataReader reader)
-    {
+    private static VerifierAuditEvent ReadAuditEvent(NpgsqlDataReader reader) {
         var payload = JsonSerializer.Deserialize<VerifierAuditEvent>(reader.GetString(3), SerializerOptions)
                       ?? new VerifierAuditEvent();
-        return payload with
-        {
+        return payload with {
             Id = reader.GetInt64(0).ToString(),
             SessionId = reader.IsDBNull(1) ? payload.SessionId : reader.GetString(1),
             EventType = reader.GetString(2),

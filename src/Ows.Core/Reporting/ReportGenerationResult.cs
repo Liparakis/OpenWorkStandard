@@ -3,8 +3,7 @@ namespace Ows.Core.Reporting;
 /// <summary>
 /// Represents the outcome of generating a report.
 /// </summary>
-public sealed record ReportGenerationResult
-{
+public sealed record ReportGenerationResult {
     /// <summary>
     /// Gets the selected report format.
     /// </summary>

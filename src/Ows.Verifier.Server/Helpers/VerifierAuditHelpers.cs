@@ -3,20 +3,16 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Provides utility helpers for writing verifier audit events and building metadata dictionaries.
 /// </summary>
-internal static class VerifierAuditHelpers
-{
+internal static class VerifierAuditHelpers {
     /// <summary>
     /// Builds a compact metadata dictionary, ignoring null or whitespace keys and values.
     /// </summary>
     /// <param name="pairs">An array of key-value tuples.</param>
     /// <returns>A read-only dictionary containing the non-blank metadata key-value pairs.</returns>
-    public static IReadOnlyDictionary<string, string?> CreateMetadata(params (string Key, string? Value)[] pairs)
-    {
+    public static IReadOnlyDictionary<string, string?> CreateMetadata(params (string Key, string? Value)[] pairs) {
         var metadata = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (key, value) in pairs)
-        {
-            if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
-            {
+        foreach (var (key, value) in pairs) {
+            if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value)) {
                 metadata[key] = value;
             }
         }
@@ -54,10 +50,8 @@ internal static class VerifierAuditHelpers
         string? assessmentId = null,
         IReadOnlyDictionary<string, string?>? metadata = null,
         string? actorKeyPrefix = null,
-        CancellationToken cancellationToken = default)
-    {
-        var auditEvent = new VerifierAuditEvent
-        {
+        CancellationToken cancellationToken = default) {
+        var auditEvent = new VerifierAuditEvent {
             Id = Guid.NewGuid().ToString("N"),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             EventType = eventType,
@@ -75,12 +69,9 @@ internal static class VerifierAuditHelpers
             Metadata = metadata ?? CreateMetadata()
         };
 
-        try
-        {
+        try {
             await auditStore.AppendAsync(auditEvent, cancellationToken);
-        }
-        catch (Exception exception)
-        {
+        } catch (Exception exception) {
             logger.LogWarning(
                 exception,
                 "Verifier audit persistence failed for eventType={EventType} requestId={RequestId}.",

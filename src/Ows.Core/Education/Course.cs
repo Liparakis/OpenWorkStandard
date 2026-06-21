@@ -3,8 +3,7 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Represents a reusable course template/identity under an institution.
 /// </summary>
-public sealed record Course
-{
+public sealed record Course {
     /// <summary>
     /// Gets the unique course identifier.
     /// </summary>
@@ -33,14 +32,12 @@ public sealed record Course
     /// <summary>
     /// Initializes a new instance of the <see cref="Course"/> class.
     /// </summary>
-    public Course(CourseId id, InstitutionId institutionId, string code, string title, DateTimeOffset createdAt)
-    {
+    public Course(CourseId id, InstitutionId institutionId, string code, string title, DateTimeOffset createdAt) {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(institutionId.Value, nameof(institutionId));
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
-        if (createdAt == default)
-        {
+        if (createdAt == default) {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));
         }
 

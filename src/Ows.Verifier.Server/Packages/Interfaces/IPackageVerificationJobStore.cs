@@ -3,8 +3,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Persists package verification jobs so uploads survive server restarts.
 /// </summary>
-internal interface IPackageVerificationJobStore
-{
+internal interface IPackageVerificationJobStore {
     /// <summary>
     /// Initializes the backing store.
     /// </summary>

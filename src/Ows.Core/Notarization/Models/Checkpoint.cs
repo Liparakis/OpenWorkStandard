@@ -5,8 +5,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Represents a client-side checkpoint submitted for notarization.
 /// </summary>
-public sealed record Checkpoint
-{
+public sealed record Checkpoint {
     /// <summary>
     /// Gets the session identifier associated with the checkpoint.
     /// </summary>
@@ -40,8 +39,7 @@ public sealed record Checkpoint
     /// <param name="sequenceNumber">The checkpoint sequence number within the session.</param>
     /// <returns>A checkpoint anchored to the current timeline head hash.</returns>
     public static Checkpoint FromTimeline(string timelinePath, AssessmentSessionId sessionId, int sequenceNumber) =>
-        new()
-        {
+        new() {
             SessionId = sessionId,
             SequenceNumber = sequenceNumber,
             TimelineHeadHash = OwsEventChain.ReadLastEventHash(timelinePath)

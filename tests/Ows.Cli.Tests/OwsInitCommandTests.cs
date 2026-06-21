@@ -6,20 +6,17 @@ namespace Ows.Cli.Tests;
 /// Tests the init command behavior.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
-public sealed class OwsInitCommandTests
-{
+public sealed class OwsInitCommandTests {
     /// <summary>
     /// Verifies that the init command creates local OWS state in the current directory.
     /// </summary>
     [Fact]
-    public async Task InitCommand_ShouldCreateLocalOwsStateInCurrentDirectory()
-    {
+    public async Task InitCommand_ShouldCreateLocalOwsStateInCurrentDirectory() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-init-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
         var originalDirectory = Directory.GetCurrentDirectory();
 
-        try
-        {
+        try {
             Directory.SetCurrentDirectory(projectRoot);
 
             var parseResult = OwsCommandFactory.BuildRootCommand().Parse(["init"]);
@@ -29,13 +26,10 @@ public sealed class OwsInitCommandTests
             Directory.Exists(Path.Combine(projectRoot, ".ows")).Should().BeTrue();
             File.Exists(Path.Combine(projectRoot, ".ows", "config.json")).Should().BeTrue();
             File.Exists(Path.Combine(projectRoot, ".ows", "timeline.jsonl")).Should().BeTrue();
-        }
-        finally
-        {
+        } finally {
             Directory.SetCurrentDirectory(originalDirectory);
 
-            if (Directory.Exists(projectRoot))
-            {
+            if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
             }
         }

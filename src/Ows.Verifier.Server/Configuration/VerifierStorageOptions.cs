@@ -3,8 +3,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Configures which verifier storage provider the server uses.
 /// </summary>
-public sealed record VerifierStorageOptions
-{
+public sealed record VerifierStorageOptions {
     /// <summary>
     /// Gets the storage provider name. Supported today: <c>json</c> and <c>postgres</c>.
     /// </summary>

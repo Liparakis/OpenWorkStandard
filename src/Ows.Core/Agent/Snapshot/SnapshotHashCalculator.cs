@@ -6,23 +6,20 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Computes deterministic hashes for observed snapshot state.
 /// </summary>
-public static class SnapshotHashCalculator
-{
+public static class SnapshotHashCalculator {
     /// <summary>
     /// Computes a canonical hash for the supplied observed snapshot.
     /// </summary>
     /// <param name="snapshot">The snapshot to hash.</param>
     /// <returns>The lower-case SHA-256 digest of the canonical snapshot representation.</returns>
-    public static string ComputeHash(ObservedSnapshot snapshot)
-    {
+    public static string ComputeHash(ObservedSnapshot snapshot) {
         ArgumentNullException.ThrowIfNull(snapshot);
 
         var builder = new StringBuilder();
         builder.Append("observedAt=").Append(snapshot.ObservedAt.ToUniversalTime().ToString("O")).Append('\n');
 
         foreach (var file in snapshot.Files.Values
-                     .OrderBy(state => NormalizePath(state.RelativePath), StringComparer.Ordinal))
-        {
+                     .OrderBy(state => NormalizePath(state.RelativePath), StringComparer.Ordinal)) {
             builder
                 .Append(NormalizePath(file.RelativePath)).Append('|')
                 .Append(file.FileHash).Append('|')

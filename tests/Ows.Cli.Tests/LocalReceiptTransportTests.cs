@@ -6,20 +6,17 @@ namespace Ows.Cli.Tests;
 /// Tests the local no-network receipt transport used by the CLI.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
-public sealed class LocalReceiptTransportTests
-{
+public sealed class LocalReceiptTransportTests {
     /// <summary>
     /// Verifies that starting a session through the local transport persists an empty receipt chain.
     /// </summary>
     [Fact]
-    public async Task StartSessionAsync_ShouldPersistEmptyReceiptChain()
-    {
+    public async Task StartSessionAsync_ShouldPersistEmptyReceiptChain() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-transport-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
         var originalDirectory = Directory.GetCurrentDirectory();
 
-        try
-        {
+        try {
             Directory.SetCurrentDirectory(projectRoot);
             await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync();
 
@@ -30,13 +27,10 @@ public sealed class LocalReceiptTransportTests
             sessionId.Value.Should().NotBeNullOrWhiteSpace();
             receiptChain.SessionId.Should().Be(sessionId);
             receiptChain.Receipts.Should().BeEmpty();
-        }
-        finally
-        {
+        } finally {
             Directory.SetCurrentDirectory(originalDirectory);
 
-            if (Directory.Exists(projectRoot))
-            {
+            if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
             }
         }

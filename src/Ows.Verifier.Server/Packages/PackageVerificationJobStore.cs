@@ -7,8 +7,7 @@ namespace Ows.Verifier.Server;
 /// Represents one durable package verification job.
 /// </summary>
 // ReSharper disable UnusedAutoPropertyAccessor.Global
-internal sealed record PackageVerificationJobRecord
-{
+internal sealed record PackageVerificationJobRecord {
     /// <summary>
     /// Gets the unique identifier for the job.
     /// </summary>
@@ -63,8 +62,7 @@ internal sealed record PackageVerificationJobRecord
 /// <summary>
 /// Holds aggregate job counters for diagnostics.
 /// </summary>
-internal sealed record PackageVerificationJobSummary
-{
+internal sealed record PackageVerificationJobSummary {
     /// <summary>
     /// Gets the number of pending jobs.
     /// </summary>
@@ -89,8 +87,7 @@ internal sealed record PackageVerificationJobSummary
 /// <summary>
 /// A JSON file-backed implementation of <see cref="IPackageVerificationJobStore"/>.
 /// </summary>
-internal sealed class JsonFilePackageVerificationJobStore : IPackageVerificationJobStore
-{
+internal sealed class JsonFilePackageVerificationJobStore : IPackageVerificationJobStore {
     /// <summary>
     /// The options used for JSON serialization.
     /// </summary>
@@ -115,15 +112,13 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
     /// Initializes a new JSON job store.
     /// </summary>
     /// <param name="storePath">The path to the JSON storage file.</param>
-    public JsonFilePackageVerificationJobStore(string storePath)
-    {
+    public JsonFilePackageVerificationJobStore(string storePath) {
         ArgumentException.ThrowIfNullOrWhiteSpace(storePath);
         _storePath = storePath;
     }
 
     /// <inheritdoc />
-    public Task InitializeAsync(CancellationToken cancellationToken)
-    {
+    public Task InitializeAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
         LoadFromDisk();
         return Task.CompletedTask;
@@ -133,24 +128,20 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
     public Task<PackageVerificationJobRecord> QueueAsync(
         string packageId,
         string? requestedByApiKeyId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_gate)
-        {
+        lock (_gate) {
             var existing = _jobs.Values
                 .Where(job => string.Equals(job.PackageId, packageId, StringComparison.Ordinal))
                 .OrderByDescending(job => job.CreatedAtUtc)
                 .FirstOrDefault();
-            if (existing is not null && (existing.Status == "Pending" || existing.Status == "Running"))
-            {
+            if (existing is not null && (existing.Status == "Pending" || existing.Status == "Running")) {
                 return Task.FromResult(existing);
             }
 
-            var job = new PackageVerificationJobRecord
-            {
+            var job = new PackageVerificationJobRecord {
                 Id = Guid.NewGuid().ToString("N"),
                 PackageId = packageId,
                 Status = "Pending",
@@ -166,11 +157,9 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
     /// <inheritdoc />
     public Task<PackageVerificationJobRecord?> TryStartNextAsync(
         TimeSpan staleRunningThreshold,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
+        lock (_gate) {
             var now = DateTimeOffset.UtcNow;
             ResetStaleRunningJobs(now, staleRunningThreshold);
 
@@ -178,13 +167,11 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
                 .Where(job => job.Status == "Pending")
                 .OrderBy(job => job.CreatedAtUtc)
                 .FirstOrDefault();
-            if (next is null)
-            {
+            if (next is null) {
                 return Task.FromResult<PackageVerificationJobRecord?>(null);
             }
 
-            var started = next with
-            {
+            var started = next with {
                 Status = "Running",
                 Attempts = next.Attempts + 1,
                 StartedAtUtc = now,
@@ -199,12 +186,10 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
 
     /// <inheritdoc />
     public Task<PackageVerificationJobRecord?> GetLatestForPackageAsync(string packageId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
+        lock (_gate) {
             var job = _jobs.Values
                 .Where(candidate => string.Equals(candidate.PackageId, packageId, StringComparison.Ordinal))
                 .OrderByDescending(candidate => candidate.CreatedAtUtc)
@@ -219,19 +204,15 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
         string status,
         string? resultJson,
         string? lastError,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(jobId);
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
-            if (!_jobs.TryGetValue(jobId, out var existing))
-            {
+        lock (_gate) {
+            if (!_jobs.TryGetValue(jobId, out var existing)) {
                 throw new InvalidOperationException($"Verification job not found: {jobId}");
             }
 
-            _jobs[jobId] = existing with
-            {
+            _jobs[jobId] = existing with {
                 Status = status,
                 CompletedAtUtc = DateTimeOffset.UtcNow,
                 ResultJson = resultJson,
@@ -243,11 +224,9 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
     }
 
     /// <inheritdoc />
-    public Task<PackageVerificationJobSummary> GetSummaryAsync(CancellationToken cancellationToken)
-    {
+    public Task<PackageVerificationJobSummary> GetSummaryAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
+        lock (_gate) {
             return Task.FromResult(BuildSummary(_jobs.Values));
         }
     }
@@ -255,32 +234,24 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
     /// <summary>
     /// Loads verification jobs from the JSON file on disk.
     /// </summary>
-    private void LoadFromDisk()
-    {
-        lock (_gate)
-        {
+    private void LoadFromDisk() {
+        lock (_gate) {
             _jobs.Clear();
-            if (!File.Exists(_storePath))
-            {
+            if (!File.Exists(_storePath)) {
                 return;
             }
 
-            try
-            {
+            try {
                 var json = File.ReadAllText(_storePath);
                 var snapshot = JsonSerializer.Deserialize<List<PackageVerificationJobRecord>>(json, SerializerOptions);
-                if (snapshot is null)
-                {
+                if (snapshot is null) {
                     return;
                 }
 
-                foreach (var job in snapshot)
-                {
+                foreach (var job in snapshot) {
                     _jobs[job.Id] = job;
                 }
-            }
-            catch
-            {
+            } catch {
                 // ponytail: malformed local job history starts empty; add repair tooling only if operators ask for it.
             }
         }
@@ -289,11 +260,9 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
     /// <summary>
     /// Saves the current list of verification jobs to the JSON file on disk.
     /// </summary>
-    private void SaveToDisk()
-    {
+    private void SaveToDisk() {
         var directory = Path.GetDirectoryName(_storePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
+        if (!string.IsNullOrWhiteSpace(directory)) {
             Directory.CreateDirectory(directory);
         }
 
@@ -307,14 +276,11 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
     /// </summary>
     /// <param name="now">The current date time offset.</param>
     /// <param name="staleRunningThreshold">The threshold duration beyond which a running job is considered stale.</param>
-    private void ResetStaleRunningJobs(DateTimeOffset now, TimeSpan staleRunningThreshold)
-    {
+    private void ResetStaleRunningJobs(DateTimeOffset now, TimeSpan staleRunningThreshold) {
         foreach (var job in _jobs.Values.Where(job =>
                      job is { Status: "Running", StartedAtUtc: not null } &&
-                     now - job.StartedAtUtc.Value >= staleRunningThreshold).ToArray())
-        {
-            _jobs[job.Id] = job with
-            {
+                     now - job.StartedAtUtc.Value >= staleRunningThreshold).ToArray()) {
+            _jobs[job.Id] = job with {
                 Status = "Pending",
                 StartedAtUtc = null,
                 LastError = "Reset to pending after stale running job timeout."
@@ -327,12 +293,10 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
     /// </summary>
     /// <param name="jobs">The list of jobs to aggregate.</param>
     /// <returns>A summary statistics record.</returns>
-    private static PackageVerificationJobSummary BuildSummary(IEnumerable<PackageVerificationJobRecord> jobs)
-    {
+    private static PackageVerificationJobSummary BuildSummary(IEnumerable<PackageVerificationJobRecord> jobs) {
         var counts = jobs.GroupBy(static job => job.Status, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.OrdinalIgnoreCase);
-        return new PackageVerificationJobSummary
-        {
+        return new PackageVerificationJobSummary {
             Pending = counts.GetValueOrDefault("Pending"),
             Running = counts.GetValueOrDefault("Running"),
             Succeeded = counts.GetValueOrDefault("Succeeded"),
@@ -344,8 +308,7 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
 /// <summary>
 /// A PostgreSQL-backed implementation of <see cref="IPackageVerificationJobStore"/>.
 /// </summary>
-internal sealed class PostgresPackageVerificationJobStore : IPackageVerificationJobStore, IAsyncDisposable
-{
+internal sealed class PostgresPackageVerificationJobStore : IPackageVerificationJobStore, IAsyncDisposable {
     /// <summary>
     /// The database connection data source.
     /// </summary>
@@ -361,8 +324,7 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
     /// </summary>
     /// <param name="connectionString">The DB connection string.</param>
     /// <param name="applyMigrationsOnStartup">Whether schema migration should run automatically on startup.</param>
-    public PostgresPackageVerificationJobStore(string connectionString, bool applyMigrationsOnStartup = true)
-    {
+    public PostgresPackageVerificationJobStore(string connectionString, bool applyMigrationsOnStartup = true) {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
         _initializationTask = applyMigrationsOnStartup
@@ -371,8 +333,7 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
     }
 
     /// <inheritdoc />
-    public async Task InitializeAsync(CancellationToken cancellationToken)
-    {
+    public async Task InitializeAsync(CancellationToken cancellationToken) {
         await _initializationTask.WaitAsync(cancellationToken);
     }
 
@@ -380,14 +341,12 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
     public async Task<PackageVerificationJobRecord> QueueAsync(
         string packageId,
         string? requestedByApiKeyId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
 
-        await using (var existingCommand = connection.CreateCommand())
-        {
+        await using (var existingCommand = connection.CreateCommand()) {
             existingCommand.CommandText = """
                                           select id, package_id, status, attempts, requested_by_api_key_id, created_at, started_at, completed_at, last_error, result_json
                                           from ows_package_verification_jobs
@@ -397,18 +356,15 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
                                           """;
             existingCommand.Parameters.AddWithValue("package_id", packageId);
             await using var existingReader = await existingCommand.ExecuteReaderAsync(cancellationToken);
-            if (await existingReader.ReadAsync(cancellationToken))
-            {
+            if (await existingReader.ReadAsync(cancellationToken)) {
                 var existing = ReadJob(existingReader);
-                if (existing.Status is "Pending" or "Running")
-                {
+                if (existing.Status is "Pending" or "Running") {
                     return existing;
                 }
             }
         }
 
-        var job = new PackageVerificationJobRecord
-        {
+        var job = new PackageVerificationJobRecord {
             Id = Guid.NewGuid().ToString("N"),
             PackageId = packageId,
             Status = "Pending",
@@ -447,7 +403,7 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
         command.Parameters.AddWithValue("package_id", job.PackageId);
         command.Parameters.AddWithValue("status", job.Status);
         command.Parameters.AddWithValue("attempts", job.Attempts);
-        command.Parameters.AddWithValue("requested_by_api_key_id", (object?)job.RequestedByApiKeyId ?? DBNull.Value);
+        command.Parameters.AddWithValue("requested_by_api_key_id", (object?) job.RequestedByApiKeyId ?? DBNull.Value);
         command.Parameters.AddWithValue("created_at", job.CreatedAtUtc);
         command.Parameters.AddWithValue("started_at", DBNull.Value);
         command.Parameters.AddWithValue("completed_at", DBNull.Value);
@@ -460,14 +416,12 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
     /// <inheritdoc />
     public async Task<PackageVerificationJobRecord?> TryStartNextAsync(
         TimeSpan staleRunningThreshold,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         var staleBefore = DateTimeOffset.UtcNow - staleRunningThreshold;
 
-        await using (var resetCommand = connection.CreateCommand())
-        {
+        await using (var resetCommand = connection.CreateCommand()) {
             resetCommand.CommandText = """
                                        update ows_package_verification_jobs
                                        set status = 'Pending',
@@ -506,10 +460,8 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
         command.Parameters.AddWithValue("started_at", DateTimeOffset.UtcNow);
 
         PackageVerificationJobRecord? job = null;
-        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
-        {
-            if (await reader.ReadAsync(cancellationToken))
-            {
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken)) {
+            if (await reader.ReadAsync(cancellationToken)) {
                 job = ReadJob(reader);
             }
         }
@@ -520,8 +472,7 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
 
     /// <inheritdoc />
     public async Task<PackageVerificationJobRecord?> GetLatestForPackageAsync(string packageId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -544,8 +495,7 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
         string status,
         string? resultJson,
         string? lastError,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(jobId);
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -561,14 +511,13 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
         command.Parameters.AddWithValue("id", jobId);
         command.Parameters.AddWithValue("status", status);
         command.Parameters.AddWithValue("completed_at", DateTimeOffset.UtcNow);
-        command.Parameters.AddWithValue("result_json", (object?)resultJson ?? DBNull.Value);
-        command.Parameters.AddWithValue("last_error", (object?)lastError ?? DBNull.Value);
+        command.Parameters.AddWithValue("result_json", (object?) resultJson ?? DBNull.Value);
+        command.Parameters.AddWithValue("last_error", (object?) lastError ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<PackageVerificationJobSummary> GetSummaryAsync(CancellationToken cancellationToken)
-    {
+    public async Task<PackageVerificationJobSummary> GetSummaryAsync(CancellationToken cancellationToken) {
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -580,13 +529,11 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
 
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
+        while (await reader.ReadAsync(cancellationToken)) {
             counts[reader.GetString(0)] = reader.GetInt32(1);
         }
 
-        return new PackageVerificationJobSummary
-        {
+        return new PackageVerificationJobSummary {
             Pending = counts.GetValueOrDefault("Pending"),
             Running = counts.GetValueOrDefault("Running"),
             Succeeded = counts.GetValueOrDefault("Succeeded"),
@@ -603,8 +550,7 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
     /// <param name="reader">The active database reader.</param>
     /// <returns>A mapped job record instance.</returns>
     private static PackageVerificationJobRecord ReadJob(NpgsqlDataReader reader) =>
-        new()
-        {
+        new() {
             Id = reader.GetString(0),
             PackageId = reader.GetString(1),
             Status = reader.GetString(2),

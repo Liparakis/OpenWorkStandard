@@ -1,22 +1,20 @@
+using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core.Agent;
 using Ows.Core.Events;
-using System.Text.Json;
 
 namespace Ows.Core.Tests;
 
 /// <summary>
 /// Tests agent types after consolidation into Ows.Core.
 /// </summary>
-public sealed class AgentNamespaceTests
-{
+public sealed class AgentNamespaceTests {
     /// <summary>
     /// Verifies the tracking agent status enum is exposed from Ows.Core.
     /// </summary>
     [Fact]
-    public void TrackingAgentStatus_ShouldExposeIdleState()
-    {
+    public void TrackingAgentStatus_ShouldExposeIdleState() {
         TrackingAgentStatus.Idle.Should().Be(TrackingAgentStatus.Idle);
     }
 
@@ -26,15 +24,13 @@ public sealed class AgentNamespaceTests
     /// initial scan (before the watch loop can yield any additional events).
     /// </summary>
     [Fact]
-    public async Task StartAsync_ShouldAppendExistingFilesToTimeline()
-    {
+    public async Task StartAsync_ShouldAppendExistingFilesToTimeline() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-watch-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
         var trackedFile = Path.Combine(projectRoot, "notes.txt");
         File.WriteAllText(trackedFile, "hello");
 
-        try
-        {
+        try {
             var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             Directory.CreateDirectory(localFolder);
             var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
@@ -45,12 +41,10 @@ public sealed class AgentNamespaceTests
 
             var agent = new LocalTrackingAgent(new NullLogger<LocalTrackingAgent>());
             await agent.PrepareAsync(
-                new TrackingAgentOptions
-                {
+                new TrackingAgentOptions {
                     ProjectRootPath = projectRoot,
                     DatabasePath = Path.Combine(localFolder, "ows.db"),
-                    WatcherOptions = new FileWatcherOptions
-                    {
+                    WatcherOptions = new FileWatcherOptions {
                         UsePollingFallback = true,
                         PollingIntervalMs = 50,
                         DebounceIntervalMs = 30
@@ -69,7 +63,7 @@ public sealed class AgentNamespaceTests
                 OwsEventType.FileCreated,
                 OwsEventType.WatcherStarted,
                 OwsEventType.SnapshotUpdated);
-            
+
             var trackedEvent = events[0];
             trackedEvent.RelativePath.Should().Be("notes.txt");
             trackedEvent.PreviousEventHash.Should().Be(OwsEventChain.GenesisPreviousEventHash);
@@ -78,11 +72,8 @@ public sealed class AgentNamespaceTests
             var startedEvent = events[1];
             startedEvent.PreviousEventHash.Should().Be(trackedEvent.EventHash);
             events[2].PreviousEventHash.Should().Be(startedEvent.EventHash);
-        }
-        finally
-        {
-            if (Directory.Exists(projectRoot))
-            {
+        } finally {
+            if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
             }
         }
@@ -94,15 +85,13 @@ public sealed class AgentNamespaceTests
     /// Uses polling fallback at 50 ms so the test does not depend on FileSystemWatcher availability.
     /// </summary>
     [Fact]
-    public async Task WatchAsync_ShouldAppendModifiedFileEvent()
-    {
+    public async Task WatchAsync_ShouldAppendModifiedFileEvent() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-watch-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
         var trackedFile = Path.Combine(projectRoot, "work.txt");
         File.WriteAllText(trackedFile, "initial content");
 
-        try
-        {
+        try {
             var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             Directory.CreateDirectory(localFolder);
             var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
@@ -112,12 +101,10 @@ public sealed class AgentNamespaceTests
 
             var agent = new LocalTrackingAgent(new NullLogger<LocalTrackingAgent>());
             await agent.PrepareAsync(
-                new TrackingAgentOptions
-                {
+                new TrackingAgentOptions {
                     ProjectRootPath = projectRoot,
                     DatabasePath = Path.Combine(localFolder, "ows.db"),
-                    WatcherOptions = new FileWatcherOptions
-                    {
+                    WatcherOptions = new FileWatcherOptions {
                         UsePollingFallback = true,
                         PollingIntervalMs = 50,
                         DebounceIntervalMs = 30
@@ -150,16 +137,12 @@ public sealed class AgentNamespaceTests
 
             // Verify the chain is unbroken.
             var allEvents = lines.Select(l => JsonSerializer.Deserialize<OwsEvent>(l)!).ToList();
-            for (var i = 1; i < allEvents.Count; i++)
-            {
+            for (var i = 1; i < allEvents.Count; i++) {
                 allEvents[i].PreviousEventHash.Should().Be(allEvents[i - 1].EventHash,
                     "each event must chain to the previous one");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(projectRoot))
-            {
+        } finally {
+            if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
             }
         }
@@ -171,15 +154,13 @@ public sealed class AgentNamespaceTests
     /// Uses polling fallback at 50 ms so the test does not depend on FileSystemWatcher availability.
     /// </summary>
     [Fact]
-    public async Task WatchAsync_ShouldAppendDeletedFileEvent()
-    {
+    public async Task WatchAsync_ShouldAppendDeletedFileEvent() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-watch-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
         var trackedFile = Path.Combine(projectRoot, "draft.txt");
         File.WriteAllText(trackedFile, "some content");
 
-        try
-        {
+        try {
             var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             Directory.CreateDirectory(localFolder);
             var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
@@ -189,12 +170,10 @@ public sealed class AgentNamespaceTests
 
             var agent = new LocalTrackingAgent(new NullLogger<LocalTrackingAgent>());
             await agent.PrepareAsync(
-                new TrackingAgentOptions
-                {
+                new TrackingAgentOptions {
                     ProjectRootPath = projectRoot,
                     DatabasePath = Path.Combine(localFolder, "ows.db"),
-                    WatcherOptions = new FileWatcherOptions
-                    {
+                    WatcherOptions = new FileWatcherOptions {
                         UsePollingFallback = true,
                         PollingIntervalMs = 50,
                         DebounceIntervalMs = 30
@@ -222,11 +201,8 @@ public sealed class AgentNamespaceTests
             var deletedLine = lines.Skip(1).FirstOrDefault(l => l.Contains(nameof(OwsEventType.FileDeleted)));
             deletedLine.Should().NotBeNull("a FileDeleted event should have been recorded for draft.txt");
             deletedLine!.Should().Contain("draft.txt");
-        }
-        finally
-        {
-            if (Directory.Exists(projectRoot))
-            {
+        } finally {
+            if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
             }
         }

@@ -9,33 +9,26 @@ namespace Ows.Cli.Commands;
 /// <summary>
 /// Provides construction for the status command.
 /// </summary>
-public static class StatusCommandBuilder
-{
+public static class StatusCommandBuilder {
     /// <summary>
     /// Builds the status command that shows current OWS tracking and session status.
     /// </summary>
     /// <returns>The configured command.</returns>
-    public static Command Build()
-    {
+    public static Command Build() {
         var command = new Command("status", "Show current OWS tracking and session status.");
-        command.SetAction(parseResult =>
-        {
+        command.SetAction(parseResult => {
             var useJson = parseResult.GetValue(SharedCliOptions.JsonOption);
             var response = new OwsCliResponse();
-            try
-            {
+            try {
                 var projectRoot = Directory.GetCurrentDirectory();
                 var manager = new OwsWatchSessionManager();
 
                 response.ProjectRoot = projectRoot;
-                if (!manager.IsProjectInitialized(projectRoot))
-                {
+                if (!manager.IsProjectInitialized(projectRoot)) {
                     response.Success = false;
                     response.Errors.Add("OWS project is not initialized. Run 'ows init' first.");
                     response.Status = "Not Initialized";
-                }
-                else
-                {
+                } else {
                     var config = manager.GetProjectConfig(projectRoot);
                     var sessId = manager.GetCurrentSessionId(projectRoot);
                     var watcherRunning = manager.IsWatcherRunning(projectRoot);
@@ -45,8 +38,7 @@ public static class StatusCommandBuilder
                     response.SessionId = sessId;
                     response.WatcherRunning = watcherRunning;
 
-                    if (config != null)
-                    {
+                    if (config != null) {
                         response.VerifierUrl = config.VerifierUrl;
                         response.InstitutionId = config.InstitutionId;
                         response.AssessmentId = config.AssessmentId;
@@ -64,73 +56,50 @@ public static class StatusCommandBuilder
 
                     var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
                     var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-                    if (File.Exists(sessionPath))
-                    {
-                        try
-                        {
+                    if (File.Exists(sessionPath)) {
+                        try {
                             var content = File.ReadAllText(sessionPath);
                             var state = JsonSerializer.Deserialize<SessionState>(content);
-                            if (state != null)
-                            {
+                            if (state != null) {
                                 isOffline = state.IsVerifierOffline;
                                 isFailing = state.IsHeartbeatFailing;
                                 isDegraded = state.IsDegraded;
                                 lastErr = state.LastHeartbeatError;
                             }
-                        }
-                        catch
-                        {
+                        } catch {
                             /* ignored */
                         }
                     }
 
-                    if (watcherCrashed)
-                    {
+                    if (watcherCrashed) {
                         response.Status = "Error";
                         response.Errors.Add("Watcher has crashed or is not running.");
-                    }
-                    else if (isOffline)
-                    {
+                    } else if (isOffline) {
                         response.Status = "VerifierOffline";
                         response.Errors.Add(lastErr ?? "Verifier server is offline or unreachable.");
-                    }
-                    else if (isFailing)
-                    {
+                    } else if (isFailing) {
                         response.Status = "HeartbeatFailing";
                         response.Errors.Add(lastErr ?? "Verifier session heartbeats are failing.");
-                    }
-                    else if (isDegraded)
-                    {
+                    } else if (isDegraded) {
                         response.Status = "Degraded";
                         response.Message = "OWS session is active but degraded (lease gap detected).";
-                    }
-                    else if (watcherRunning)
-                    {
-                        if (string.IsNullOrWhiteSpace(response.VerifierUrl))
-                        {
+                    } else if (watcherRunning) {
+                        if (string.IsNullOrWhiteSpace(response.VerifierUrl)) {
                             response.Status = "WatchingLocalOnly";
                             response.Message = "Watcher is running in local-only mode.";
-                        }
-                        else
-                        {
+                        } else {
                             response.Status = "SessionActive";
                             response.Message = "Watcher is running and session is active.";
                         }
-                    }
-                    else if (sessId != null)
-                    {
+                    } else if (sessId != null) {
                         response.Status = "SessionActive";
                         response.Message = "Session is active but watcher is not running.";
-                    }
-                    else
-                    {
+                    } else {
                         response.Status = "Ready";
                         response.Message = "OWS is ready.";
                     }
                 }
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 response.Success = false;
                 response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));
             }

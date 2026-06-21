@@ -3,8 +3,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Identifies the kind of file-system change detected by the watcher.
 /// </summary>
-public enum FileChangeKind
-{
+public enum FileChangeKind {
     /// <summary>A file was created inside the tracked project boundary.</summary>
     Created,
 

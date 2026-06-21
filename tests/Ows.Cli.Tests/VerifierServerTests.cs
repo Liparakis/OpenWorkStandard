@@ -15,54 +15,42 @@ namespace Ows.Cli.Tests;
 /// Integration tests for the OWS Verifier Server endpoints, API key guard, and startup validations.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
-public sealed class VerifierServerTests
-{
+public sealed class VerifierServerTests {
     private static readonly Lock EnvLock = new();
 
     /// <summary>
     /// Helper to create a test client and factory with environment variables configured before host building.
     /// </summary>
     private static HttpClient CreateClientWithEnv(Dictionary<string, string?> envVars,
-        out WebApplicationFactory<global::Program> factory)
-    {
-        lock (EnvLock)
-        {
-            foreach (var (k, v) in envVars)
-            {
+        out WebApplicationFactory<global::Program> factory) {
+        lock (EnvLock) {
+            foreach (var (k, v) in envVars) {
                 Environment.SetEnvironmentVariable(k, v);
             }
 
-            try
-            {
+            try {
                 factory = new WebApplicationFactory<global::Program>();
                 return factory.CreateClient();
-            }
-            finally
-            {
-                foreach (var k in envVars.Keys)
-                {
+            } finally {
+                foreach (var k in envVars.Keys) {
                     Environment.SetEnvironmentVariable(k, null);
                 }
             }
         }
     }
 
-    private static async Task<string> CreateTestPackageAsync(string projectRoot)
-    {
+    private static async Task<string> CreateTestPackageAsync(string projectRoot) {
         Directory.CreateDirectory(projectRoot);
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft content");
         var originalDirectory = Directory.GetCurrentDirectory();
-        try
-        {
+        try {
             Directory.SetCurrentDirectory(projectRoot);
             await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync();
             await OwsTestHelpers.RunInitialScanAsync(projectRoot);
             await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync();
             var packagePath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}.owspkg");
             return packagePath;
-        }
-        finally
-        {
+        } finally {
             Directory.SetCurrentDirectory(originalDirectory);
         }
     }
@@ -74,13 +62,10 @@ public sealed class VerifierServerTests
         HttpClient client,
         string submissionId,
         string? apiKey = null,
-        params string[] expectedStatuses)
-    {
-        for (var attempt = 0; attempt < 50; attempt++)
-        {
+        params string[] expectedStatuses) {
+        for (var attempt = 0; attempt < 50; attempt++) {
             using var request = new HttpRequestMessage(HttpMethod.Get, $"/packages/{submissionId}");
-            if (!string.IsNullOrWhiteSpace(apiKey))
-            {
+            if (!string.IsNullOrWhiteSpace(apiKey)) {
                 request.Headers.Add("X-OWS-Verifier-Key", apiKey);
             }
 
@@ -90,8 +75,7 @@ public sealed class VerifierServerTests
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement.Clone();
             var status = root.GetProperty("verificationStatus").GetString();
-            if (expectedStatuses.Contains(status, StringComparer.OrdinalIgnoreCase))
-            {
+            if (expectedStatuses.Contains(status, StringComparer.OrdinalIgnoreCase)) {
                 return root;
             }
 
@@ -106,12 +90,10 @@ public sealed class VerifierServerTests
     /// Verifies that GET /health returns 200 OK and "Healthy".
     /// </summary>
     [Fact]
-    public async Task GetHealth_ShouldReturn200AndHealthy()
-    {
+    public async Task GetHealth_ShouldReturn200AndHealthy() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -121,19 +103,15 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 var response = await client.GetAsync("/health");
 
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
                 var content = await response.Content.ReadAsStringAsync();
                 content.Should().Contain("Healthy");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -143,12 +121,10 @@ public sealed class VerifierServerTests
     /// Verifies that /metrics exposes worker mode and verification failure counters for external dashboards.
     /// </summary>
     [Fact]
-    public async Task GetMetrics_ShouldExposeWorkerModeAndVerificationFailureCounters()
-    {
+    public async Task GetMetrics_ShouldExposeWorkerModeAndVerificationFailureCounters() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -159,8 +135,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 var response = await client.GetAsync("/metrics");
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
                 var content = await response.Content.ReadAsStringAsync();
@@ -168,11 +143,8 @@ public sealed class VerifierServerTests
                 content.Should().Contain("ows_package_verification_worker_enabled");
                 content.Should().Contain("ows_instance_mode");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -182,12 +154,10 @@ public sealed class VerifierServerTests
     /// Verifies that GET /ready returns 200 OK when JSON storage is valid and writable.
     /// </summary>
     [Fact]
-    public async Task GetReady_ShouldReturn200_WhenJsonStorageValid()
-    {
+    public async Task GetReady_ShouldReturn200_WhenJsonStorageValid() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -198,8 +168,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 var response = await client.GetAsync("/ready");
 
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -211,11 +180,8 @@ public sealed class VerifierServerTests
                 root.GetProperty("storage").GetString().Should().Be("json");
                 root.GetProperty("signing").GetString().Should().Be("Enabled");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -225,8 +191,7 @@ public sealed class VerifierServerTests
     /// Verifies that GET /ready returns 503 Service Unavailable when Postgres database is unreachable.
     /// </summary>
     [Fact]
-    public async Task GetReady_ShouldReturn503_WhenPostgresUnreachable()
-    {
+    public async Task GetReady_ShouldReturn503_WhenPostgresUnreachable() {
         var config = new Dictionary<string, string?>
         {
             { "VerifierEnvironment", "Local" },
@@ -239,8 +204,7 @@ public sealed class VerifierServerTests
         };
 
         using var client = CreateClientWithEnv(config, out var factory);
-        await using (factory)
-        {
+        await using (factory) {
             var response = await client.GetAsync("/ready");
 
             response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
@@ -253,12 +217,10 @@ public sealed class VerifierServerTests
     /// Verifies that API requests are rejected with a 401 and custom message when API key is required but missing.
     /// </summary>
     [Fact]
-    public async Task ApiKeyGuard_ShouldRejectMissingApiKey()
-    {
+    public async Task ApiKeyGuard_ShouldRejectMissingApiKey() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -268,19 +230,15 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 var response = await client.GetAsync("/diagnostics/summary");
 
                 response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
                 var content = await response.Content.ReadAsStringAsync();
                 content.Should().Be("Verifier API key is required.");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -290,12 +248,10 @@ public sealed class VerifierServerTests
     /// Verifies that API requests are rejected with a 401 and custom message when API key is wrong.
     /// </summary>
     [Fact]
-    public async Task ApiKeyGuard_ShouldRejectWrongApiKey()
-    {
+    public async Task ApiKeyGuard_ShouldRejectWrongApiKey() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -305,8 +261,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 request.Headers.Add("X-OWS-Verifier-Key", "wrong-api-key-here-12345");
 
@@ -316,11 +271,8 @@ public sealed class VerifierServerTests
                 var content = await response.Content.ReadAsStringAsync();
                 content.Should().Be("Invalid verifier API key.");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -330,12 +282,10 @@ public sealed class VerifierServerTests
     /// Verifies that API requests succeed when the correct API key is provided.
     /// </summary>
     [Fact]
-    public async Task ApiKeyGuard_ShouldAcceptCorrectApiKey()
-    {
+    public async Task ApiKeyGuard_ShouldAcceptCorrectApiKey() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -345,8 +295,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/health");
                 request.Headers.Add("X-OWS-Verifier-Key", "strong-test-api-key-16-chars-long");
 
@@ -356,11 +305,8 @@ public sealed class VerifierServerTests
                 var content = await response.Content.ReadAsStringAsync();
                 content.Should().Contain("Healthy");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -370,12 +316,10 @@ public sealed class VerifierServerTests
     /// Verifies that the server always returns a request identifier and preserves a supplied one.
     /// </summary>
     [Fact]
-    public async Task Requests_ShouldReturnRequestIdHeader()
-    {
+    public async Task Requests_ShouldReturnRequestIdHeader() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -385,8 +329,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var generatedRequest = new HttpRequestMessage(HttpMethod.Get, "/health");
                 var generatedResponse = await client.SendAsync(generatedRequest);
                 generatedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -400,11 +343,8 @@ public sealed class VerifierServerTests
                 suppliedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 suppliedResponse.Headers.GetValues("X-Request-Id").Single().Should().Be("req-test-123");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -414,14 +354,12 @@ public sealed class VerifierServerTests
     /// Verifies that auth failures are audited and raw API keys never land in audit storage.
     /// </summary>
     [Fact]
-    public async Task AuditEvents_ShouldRecordAuthFailuresWithoutRawKeys()
-    {
+    public async Task AuditEvents_ShouldRecordAuthFailuresWithoutRawKeys() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         const string operatorKey = "bootstrap-operator-key-1234";
         const string badKey = "definitely-wrong-key-9999";
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -431,8 +369,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var badRequest = new HttpRequestMessage(HttpMethod.Get, "/diagnostics/summary");
                 badRequest.Headers.Add("X-OWS-Verifier-Key", badKey);
                 var badResponse = await client.SendAsync(badRequest);
@@ -451,11 +388,8 @@ public sealed class VerifierServerTests
                 auditJson.Should().NotContain(badKey);
                 auditJson.Should().NotContain(operatorKey);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -465,12 +399,10 @@ public sealed class VerifierServerTests
     /// Verifies that reviewer-denied requests are audited and reviewer keys cannot query the global audit feed.
     /// </summary>
     [Fact]
-    public async Task AuditEvents_ShouldRecordAccessDeniedAndBlockReviewerAuditQuery()
-    {
+    public async Task AuditEvents_ShouldRecordAccessDeniedAndBlockReviewerAuditQuery() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -485,8 +417,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var deniedRequest = new HttpRequestMessage(HttpMethod.Get, "/audit/events");
                 deniedRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
                 var deniedResponse = await client.SendAsync(deniedRequest);
@@ -500,11 +431,8 @@ public sealed class VerifierServerTests
                 events.Should().NotBeNull();
                 events.Should().Contain(e => e.EventType == "access.denied" && e.ActorRole == "InstructorReviewer");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -514,12 +442,10 @@ public sealed class VerifierServerTests
     /// Verifies that persisted API keys can be created, listed, used, and revoked without storing raw secrets.
     /// </summary>
     [Fact]
-    public async Task PersistentApiKeys_ShouldSupportLifecycleWithoutStoringRawSecret()
-    {
+    public async Task PersistentApiKeys_ShouldSupportLifecycleWithoutStoringRawSecret() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -529,10 +455,8 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
-                var createPayload = new
-                {
+            await using (factory) {
+                var createPayload = new {
                     role = "Operator"
                 };
 
@@ -601,11 +525,8 @@ public sealed class VerifierServerTests
                 var auditJson = await File.ReadAllTextAsync(Path.Combine(tempDbDir, "audit_events.json"));
                 auditJson.Should().NotContain(rawApiKey);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -615,12 +536,10 @@ public sealed class VerifierServerTests
     /// Verifies that expired persisted API keys are rejected.
     /// </summary>
     [Fact]
-    public async Task PersistentApiKeys_ShouldRejectExpiredKey()
-    {
+    public async Task PersistentApiKeys_ShouldRejectExpiredKey() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -630,10 +549,8 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
-                var createPayload = new
-                {
+            await using (factory) {
+                var createPayload = new {
                     role = "Operator",
                     expiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1)
                 };
@@ -653,11 +570,8 @@ public sealed class VerifierServerTests
                 var healthResponse = await client.SendAsync(healthRequest);
                 healthResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -667,12 +581,10 @@ public sealed class VerifierServerTests
     /// Verifies that reviewer keys can read package metadata within their institution scope.
     /// </summary>
     [Fact]
-    public async Task ReviewerApiKey_ShouldAllowScopedPackageReads()
-    {
+    public async Task ReviewerApiKey_ShouldAllowScopedPackageReads() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -686,10 +598,8 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
-                var payload = new VerifierPackageSubmissionRequest
-                {
+            await using (factory) {
+                var payload = new VerifierPackageSubmissionRequest {
                     InstitutionId = "inst-1",
                     ObjectStorageProvider = "aws",
                     ObjectBucket = "test-bucket",
@@ -714,11 +624,8 @@ public sealed class VerifierServerTests
 
                 readResponse.StatusCode.Should().Be(HttpStatusCode.OK);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -728,12 +635,10 @@ public sealed class VerifierServerTests
     /// Verifies that reviewer keys cannot read package metadata outside their institution scope.
     /// </summary>
     [Fact]
-    public async Task ReviewerApiKey_ShouldRejectCrossInstitutionPackageReads()
-    {
+    public async Task ReviewerApiKey_ShouldRejectCrossInstitutionPackageReads() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -747,10 +652,8 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
-                var payload = new VerifierPackageSubmissionRequest
-                {
+            await using (factory) {
+                var payload = new VerifierPackageSubmissionRequest {
                     InstitutionId = "inst-2",
                     ObjectStorageProvider = "aws",
                     ObjectBucket = "test-bucket",
@@ -775,11 +678,8 @@ public sealed class VerifierServerTests
 
                 readResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -789,13 +689,11 @@ public sealed class VerifierServerTests
     /// Verifies that reviewer keys can read verification reports for their institution and not for another institution.
     /// </summary>
     [Fact]
-    public async Task ReviewerApiKey_ShouldAllowScopedVerificationReport()
-    {
+    public async Task ReviewerApiKey_ShouldAllowScopedVerificationReport() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-test-pkg-{Guid.NewGuid():N}");
-        try
-        {
+        try {
             var packagePath = await CreateTestPackageAsync(projectRoot);
             var fileBytes = await File.ReadAllBytesAsync(packagePath);
 
@@ -818,10 +716,8 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
-                var metadataPayload = new VerifierPackageSubmissionRequest
-                {
+            await using (factory) {
+                var metadataPayload = new VerifierPackageSubmissionRequest {
                     InstitutionId = "inst-1",
                     ObjectStorageProvider = "local",
                     ObjectBucket = "packages",
@@ -861,16 +757,12 @@ public sealed class VerifierServerTests
                 var deniedResponse = await client.SendAsync(deniedRequest);
                 deniedResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
 
-            if (Directory.Exists(projectRoot))
-            {
+            if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
             }
         }
@@ -880,12 +772,10 @@ public sealed class VerifierServerTests
     /// Verifies that reviewer keys remain read-only for education metadata and API key management.
     /// </summary>
     [Fact]
-    public async Task ReviewerApiKey_ShouldRejectEducationMutationAndApiKeyManagement()
-    {
+    public async Task ReviewerApiKey_ShouldRejectEducationMutationAndApiKeyManagement() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -897,8 +787,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 var institution = new Institution(new InstitutionId("inst-1"), "Institution One", "inst-one",
                     DateTimeOffset.UtcNow);
                 using var institutionRequest = new HttpRequestMessage(HttpMethod.Post, "/education/institutions");
@@ -913,11 +802,8 @@ public sealed class VerifierServerTests
                 var keyResponse = await client.SendAsync(keyRequest);
                 keyResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -927,12 +813,10 @@ public sealed class VerifierServerTests
     /// Verifies that reviewer keys can read education data for their institution but not another institution.
     /// </summary>
     [Fact]
-    public async Task ReviewerApiKey_ShouldRespectEducationInstitutionScope()
-    {
+    public async Task ReviewerApiKey_ShouldRespectEducationInstitutionScope() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -946,16 +830,14 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 foreach (var institution in new[]
                          {
                              new Institution(new InstitutionId("inst-1"), "Institution One", "inst-one",
                                  DateTimeOffset.UtcNow),
                              new Institution(new InstitutionId("inst-2"), "Institution Two", "inst-two",
                                  DateTimeOffset.UtcNow)
-                         })
-                {
+                         }) {
                     using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/education/institutions");
                     createRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
                     createRequest.Content = JsonContent.Create(institution);
@@ -973,11 +855,8 @@ public sealed class VerifierServerTests
                 var deniedResponse = await client.SendAsync(deniedRequest);
                 deniedResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -987,8 +866,7 @@ public sealed class VerifierServerTests
     /// Verifies that the verifier server fails to start in Production mode when weak/default keys are configured.
     /// </summary>
     [Fact]
-    public void Startup_ShouldThrowException_InProductionModeWithInsecureConfig()
-    {
+    public void Startup_ShouldThrowException_InProductionModeWithInsecureConfig() {
         var config = new Dictionary<string, string?>
         {
             { "VerifierEnvironment", "Production" },
@@ -997,11 +875,9 @@ public sealed class VerifierServerTests
             { "VerifierSecurity__ApiKey", "weak" }
         };
 
-        var act = () =>
-        {
+        var act = () => {
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
-            {
+            using (factory) {
                 _ = factory.Server;
             }
         };
@@ -1014,8 +890,7 @@ public sealed class VerifierServerTests
     /// Verifies that reviewer API keys must declare an institution scope.
     /// </summary>
     [Fact]
-    public void Startup_ShouldThrowException_WhenReviewerKeyHasNoInstitutionScope()
-    {
+    public void Startup_ShouldThrowException_WhenReviewerKeyHasNoInstitutionScope() {
         var config = new Dictionary<string, string?>
         {
             { "VerifierEnvironment", "Local" },
@@ -1024,11 +899,9 @@ public sealed class VerifierServerTests
             { "VerifierSecurity__ApiKeys__0__Role", "reviewer" }
         };
 
-        var act = () =>
-        {
+        var act = () => {
             using var client = CreateClientWithEnv(config, out var factory);
-            using (factory)
-            {
+            using (factory) {
                 _ = factory.Server;
             }
         };
@@ -1041,12 +914,10 @@ public sealed class VerifierServerTests
     /// Verifies that registering metadata (Option B) works correctly and is idempotent.
     /// </summary>
     [Fact]
-    public async Task PostPackageMetadata_ShouldRegisterAndBeIdempotent()
-    {
+    public async Task PostPackageMetadata_ShouldRegisterAndBeIdempotent() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -1056,10 +927,8 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
-                var payload = new VerifierPackageSubmissionRequest
-                {
+            await using (factory) {
+                var payload = new VerifierPackageSubmissionRequest {
                     SessionId = "some-session-id",
                     ObjectStorageProvider = "aws",
                     ObjectBucket = "test-bucket",
@@ -1105,11 +974,8 @@ public sealed class VerifierServerTests
                 var response3 = await client.SendAsync(request3);
                 response3.StatusCode.Should().Be(HttpStatusCode.Conflict);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -1119,12 +985,10 @@ public sealed class VerifierServerTests
     /// Verifies that package metadata can be listed by verifier session.
     /// </summary>
     [Fact]
-    public async Task GetSessionPackages_ShouldReturnPackagesForSessionNewestFirst()
-    {
+    public async Task GetSessionPackages_ShouldReturnPackagesForSessionNewestFirst() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -1134,10 +998,8 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
-                var firstPayload = new VerifierPackageSubmissionRequest
-                {
+            await using (factory) {
+                var firstPayload = new VerifierPackageSubmissionRequest {
                     SessionId = "session-a",
                     ObjectStorageProvider = "aws",
                     ObjectBucket = "test-bucket",
@@ -1146,8 +1008,7 @@ public sealed class VerifierServerTests
                     PackageSizeBytes = 100
                 };
 
-                var secondPayload = new VerifierPackageSubmissionRequest
-                {
+                var secondPayload = new VerifierPackageSubmissionRequest {
                     SessionId = "session-a",
                     ObjectStorageProvider = "aws",
                     ObjectBucket = "test-bucket",
@@ -1156,8 +1017,7 @@ public sealed class VerifierServerTests
                     PackageSizeBytes = 200
                 };
 
-                var otherSessionPayload = new VerifierPackageSubmissionRequest
-                {
+                var otherSessionPayload = new VerifierPackageSubmissionRequest {
                     SessionId = "session-b",
                     ObjectStorageProvider = "aws",
                     ObjectBucket = "test-bucket",
@@ -1187,11 +1047,8 @@ public sealed class VerifierServerTests
                 packages[0].ObjectKey.Should().Be("second.owspkg");
                 packages[1].ObjectKey.Should().Be("first.owspkg");
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -1201,13 +1058,11 @@ public sealed class VerifierServerTests
     /// Verifies that multipart file upload stores the blob durably, queues verification, and exposes the eventual result.
     /// </summary>
     [Fact]
-    public async Task PostPackageMultipart_ShouldUploadAndVerify()
-    {
+    public async Task PostPackageMultipart_ShouldUploadAndVerify() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-test-pkg-{Guid.NewGuid():N}");
-        try
-        {
+        try {
             var packagePath = await CreateTestPackageAsync(projectRoot);
             var fileBytes = await File.ReadAllBytesAsync(packagePath);
 
@@ -1221,8 +1076,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var content = new MultipartFormDataContent();
                 var fileContent = new ByteArrayContent(fileBytes);
                 fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
@@ -1272,9 +1126,7 @@ public sealed class VerifierServerTests
                     e.PackageId == submissionId &&
                     e.Result == TrustStatus.Unverified.ToString());
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
             if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, recursive: true);
         }
@@ -1284,13 +1136,11 @@ public sealed class VerifierServerTests
     /// Verifies that metadata registration followed by PUT file upload queues worker verification correctly.
     /// </summary>
     [Fact]
-    public async Task PutPackageFile_ShouldUploadAndVerify()
-    {
+    public async Task PutPackageFile_ShouldUploadAndVerify() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-test-pkg-{Guid.NewGuid():N}");
-        try
-        {
+        try {
             var packagePath = await CreateTestPackageAsync(projectRoot);
             var fileBytes = await File.ReadAllBytesAsync(packagePath);
 
@@ -1307,11 +1157,9 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 // Register metadata first
-                var metadataPayload = new VerifierPackageSubmissionRequest
-                {
+                var metadataPayload = new VerifierPackageSubmissionRequest {
                     SessionId = "session-123",
                     ObjectStorageProvider = "local",
                     ObjectBucket = "packages",
@@ -1352,9 +1200,7 @@ public sealed class VerifierServerTests
                 var reverifiedState = await WaitForPackageStatusAsync(client, submissionId!, null, "Completed");
                 reverifiedState.GetProperty("trustStatus").GetString().Should().Be("Unverified");
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
             if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, recursive: true);
         }
@@ -1364,15 +1210,13 @@ public sealed class VerifierServerTests
     /// Verifies that API-only mode accepts uploads but leaves verification queued.
     /// </summary>
     [Fact]
-    public async Task PackageVerificationWorker_DisabledMode_ShouldLeaveJobsPending()
-    {
+    public async Task PackageVerificationWorker_DisabledMode_ShouldLeaveJobsPending() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-test-pkg-{Guid.NewGuid():N}");
         const string operatorKey = "bootstrap-operator-key-1234";
 
-        try
-        {
+        try {
             var packagePath = await CreateTestPackageAsync(projectRoot);
             var fileBytes = await File.ReadAllBytesAsync(packagePath);
 
@@ -1387,15 +1231,13 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var content = new MultipartFormDataContent();
                 var fileContent = new ByteArrayContent(fileBytes);
                 fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
                 content.Add(fileContent, "file", "test.owspkg");
 
-                using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/packages/upload")
-                {
+                using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/packages/upload") {
                     Content = content
                 };
                 uploadRequest.Headers.Add("X-OWS-Verifier-Key", operatorKey);
@@ -1422,9 +1264,7 @@ public sealed class VerifierServerTests
                 diagnostics.GetProperty("workerEnabled").GetBoolean().Should().BeFalse();
                 diagnostics.GetProperty("instanceMode").GetString().Should().Be("api-only");
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
             if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, recursive: true);
         }
@@ -1434,12 +1274,10 @@ public sealed class VerifierServerTests
     /// Verifies that package upload rejects non-package payloads before job creation.
     /// </summary>
     [Fact]
-    public async Task PostPackageUpload_ShouldRejectInvalidPackageShape()
-    {
+    public async Task PostPackageUpload_ShouldRejectInvalidPackageShape() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -1450,8 +1288,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var content = new MultipartFormDataContent();
                 var fileContent = new ByteArrayContent("not-a-zip"u8.ToArray());
                 fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
@@ -1462,9 +1299,7 @@ public sealed class VerifierServerTests
                 var body = await response.Content.ReadAsStringAsync();
                 body.Should().Contain(".owspkg archive");
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
         }
     }
@@ -1473,13 +1308,11 @@ public sealed class VerifierServerTests
     /// Verifies that a missing blob causes the worker to fail the package status clearly.
     /// </summary>
     [Fact]
-    public async Task PackageVerificationWorker_ShouldFailClearlyWhenBlobIsMissing()
-    {
+    public async Task PackageVerificationWorker_ShouldFailClearlyWhenBlobIsMissing() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-test-pkg-{Guid.NewGuid():N}");
-        try
-        {
+        try {
             var packagePath = await CreateTestPackageAsync(projectRoot);
             var fileBytes = await File.ReadAllBytesAsync(packagePath);
             var packageStoragePath = Path.Combine(tempDbDir, "packages");
@@ -1495,12 +1328,10 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var sha256 = System.Security.Cryptography.SHA256.Create();
                 var hash = Convert.ToHexString(sha256.ComputeHash(fileBytes)).ToLowerInvariant();
-                var metadataPayload = new VerifierPackageSubmissionRequest
-                {
+                var metadataPayload = new VerifierPackageSubmissionRequest {
                     SessionId = "session-missing-blob",
                     ObjectStorageProvider = "local",
                     ObjectBucket = "packages",
@@ -1525,9 +1356,7 @@ public sealed class VerifierServerTests
                 var failedState = await WaitForPackageStatusAsync(client, regResult.SubmissionId, null, "Failed");
                 failedState.GetProperty("lastVerificationError").GetString().Should().Contain("missing");
             }
-        }
-        finally
-        {
+        } finally {
             if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, recursive: true);
             if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, recursive: true);
         }
@@ -1537,14 +1366,12 @@ public sealed class VerifierServerTests
     /// Verifies that diagnostics remain secret-safe while exposing lightweight operator summary data.
     /// </summary>
     [Fact]
-    public async Task DiagnosticsSummary_ShouldBeSecretSafe()
-    {
+    public async Task DiagnosticsSummary_ShouldBeSecretSafe() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         const string operatorKey = "bootstrap-operator-key-1234";
         const string signingKey = "very-strong-signing-key-1234";
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -1555,8 +1382,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 using var startRequest = new HttpRequestMessage(HttpMethod.Post, "/sessions");
                 startRequest.Headers.Add("X-OWS-Verifier-Key", operatorKey);
                 var startResponse = await client.SendAsync(startRequest);
@@ -1572,11 +1398,8 @@ public sealed class VerifierServerTests
                 diagnosticsJson.Should().NotContain(operatorKey);
                 diagnosticsJson.Should().NotContain(signingKey);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -1586,15 +1409,13 @@ public sealed class VerifierServerTests
     /// Verifies that readiness and diagnostics expose worker/storage deployment mode without leaking local paths.
     /// </summary>
     [Fact]
-    public async Task DeploymentDiagnostics_ShouldExposeWorkerModeSafely()
-    {
+    public async Task DeploymentDiagnostics_ShouldExposeWorkerModeSafely() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
         const string operatorKey = "bootstrap-operator-key-1234";
         const string signingKey = "very-strong-signing-key-1234";
 
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -1607,8 +1428,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 var readyResponse = await client.GetAsync("/ready");
                 readyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 var readyJson = JsonDocument.Parse(await readyResponse.Content.ReadAsStringAsync()).RootElement;
@@ -1630,11 +1450,8 @@ public sealed class VerifierServerTests
                 diagnosticsJson.GetProperty("packageStorageProvider").GetString().Should().Be("local-file");
                 diagnosticsJson.GetProperty("applyMigrationsOnStartup").GetBoolean().Should().BeFalse();
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -1644,12 +1461,10 @@ public sealed class VerifierServerTests
     /// Verifies that size limits and file extensions are checked and rejected if invalid.
     /// </summary>
     [Fact]
-    public async Task PostPackage_ShouldRejectInvalidExtensionsAndSizeLimits()
-    {
+    public async Task PostPackage_ShouldRejectInvalidExtensionsAndSizeLimits() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -1660,11 +1475,9 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 // Reject invalid extension
-                using (var content = new MultipartFormDataContent())
-                {
+                using (var content = new MultipartFormDataContent()) {
                     var fileContent = new ByteArrayContent(new byte[5]);
                     fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
                     content.Add(fileContent, "file", "invalid.txt");
@@ -1676,8 +1489,7 @@ public sealed class VerifierServerTests
                 }
 
                 // Reject size limit
-                using (var content = new MultipartFormDataContent())
-                {
+                using (var content = new MultipartFormDataContent()) {
                     var fileContent = new ByteArrayContent(new byte[100]);
                     fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
                     content.Add(fileContent, "file", "valid.owspkg");
@@ -1688,11 +1500,8 @@ public sealed class VerifierServerTests
                     body.Should().Contain("Uploaded package exceeds maximum size limit.");
                 }
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
@@ -1702,12 +1511,10 @@ public sealed class VerifierServerTests
     /// Verifies that POST /sessions/{id}/heartbeat registers heartbeats and manages leases.
     /// </summary>
     [Fact]
-    public async Task PostHeartbeat_ShouldRecordSessionHeartbeat()
-    {
+    public async Task PostHeartbeat_ShouldRecordSessionHeartbeat() {
         var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
         var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try
-        {
+        try {
             var config = new Dictionary<string, string?>
             {
                 { "VerifierEnvironment", "Local" },
@@ -1717,8 +1524,7 @@ public sealed class VerifierServerTests
             };
 
             using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory)
-            {
+            await using (factory) {
                 // Start a session
                 var startResponse = await client.PostAsync("/sessions", null);
                 startResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1729,8 +1535,7 @@ public sealed class VerifierServerTests
                 var sessionId = startSession.SessionId;
 
                 // Send heartbeat
-                var request = new SessionHeartbeatRequest
-                {
+                var request = new SessionHeartbeatRequest {
                     LastKnownEventHash = "last-hash"
                 };
 
@@ -1749,11 +1554,8 @@ public sealed class VerifierServerTests
                 var badResponse = await client.PostAsJsonAsync("/sessions/nonexistent/heartbeat", request);
                 badResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
             }
-        }
-        finally
-        {
-            if (Directory.Exists(tempDbDir))
-            {
+        } finally {
+            if (Directory.Exists(tempDbDir)) {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }

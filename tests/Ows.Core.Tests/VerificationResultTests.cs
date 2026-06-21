@@ -6,14 +6,12 @@ namespace Ows.Core.Tests;
 /// <summary>
 /// Tests verification result helpers.
 /// </summary>
-public sealed class VerificationResultTests
-{
+public sealed class VerificationResultTests {
     /// <summary>
     /// Verifies successful result construction.
     /// </summary>
     [Fact]
-    public void Success_ShouldCreateSuccessfulResult()
-    {
+    public void Success_ShouldCreateSuccessfulResult() {
         var result = VerificationResult.Success("Verified", TrustStatus.Verified);
 
         result.IsSuccess.Should().BeTrue();
@@ -27,8 +25,7 @@ public sealed class VerificationResultTests
     /// Verifies failed result construction.
     /// </summary>
     [Fact]
-    public void Failure_ShouldCreateFailedResultWithErrors()
-    {
+    public void Failure_ShouldCreateFailedResultWithErrors() {
         var result = VerificationResult.Failure("Failed", ["hash mismatch"]);
 
         result.IsSuccess.Should().BeFalse();

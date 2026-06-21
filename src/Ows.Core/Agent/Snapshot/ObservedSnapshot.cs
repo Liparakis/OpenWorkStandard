@@ -3,8 +3,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Represents the observed state of a single project file at a specific time.
 /// </summary>
-public sealed class ObservedFileState
-{
+public sealed class ObservedFileState {
     /// <summary>
     /// Gets or sets the relative file path.
     /// </summary>
@@ -39,8 +38,7 @@ public sealed class ObservedFileState
 /// <summary>
 /// Represents a snapshot of all observed project files.
 /// </summary>
-public sealed class ObservedSnapshot
-{
+public sealed class ObservedSnapshot {
     /// <summary>
     /// Gets or sets the timestamp when the snapshot was taken.
     /// </summary>

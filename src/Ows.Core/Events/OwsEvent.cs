@@ -5,8 +5,7 @@ namespace Ows.Core.Events;
 /// <summary>
 /// Represents a normalized provenance event captured for tracked work.
 /// </summary>
-public sealed record OwsEvent
-{
+public sealed record OwsEvent {
     /// <summary>
     /// Gets the unique identifier for the event.
     /// </summary>

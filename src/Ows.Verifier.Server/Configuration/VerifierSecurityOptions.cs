@@ -7,8 +7,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Configures the verifier's API access guard.
 /// </summary>
-public sealed record VerifierSecurityOptions
-{
+public sealed record VerifierSecurityOptions {
     /// <summary>
     /// Gets the optional legacy operator API key required for verifier requests.
     /// </summary>
@@ -28,8 +27,7 @@ public sealed record VerifierSecurityOptions
 /// <summary>
 /// Describes one configured verifier API key and its access scope.
 /// </summary>
-public sealed record VerifierApiKeyOptions
-{
+public sealed record VerifierApiKeyOptions {
     /// <summary>
     /// Gets the API key secret.
     /// </summary>
@@ -50,8 +48,7 @@ public sealed record VerifierApiKeyOptions
 /// <summary>
 /// Normalizes and validates the currently supported verifier roles.
 /// </summary>
-internal static class VerifierRolePolicy
-{
+internal static class VerifierRolePolicy {
     /// <summary>
     /// Gets the full-access operator role name.
     /// </summary>
@@ -75,12 +72,10 @@ internal static class VerifierRolePolicy
     /// <summary>
     /// Normalizes a configured or requested role name.
     /// </summary>
-    public static string NormalizeRoleName(string role)
-    {
+    public static string NormalizeRoleName(string role) {
         var normalized = role?.Trim().Replace("_", string.Empty, StringComparison.Ordinal)
             .Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
-        return normalized switch
-        {
+        return normalized switch {
             "operator" => Operator,
             "institutionadmin" => InstitutionAdmin,
             "admin" => InstitutionAdmin,
@@ -96,8 +91,7 @@ internal static class VerifierRolePolicy
     /// <summary>
     /// Returns whether the role is currently supported.
     /// </summary>
-    public static bool IsSupportedRole(string role)
-    {
+    public static bool IsSupportedRole(string role) {
         var normalized = NormalizeRoleName(role);
         return string.Equals(normalized, Operator, StringComparison.Ordinal) ||
                string.Equals(normalized, InstitutionAdmin, StringComparison.Ordinal) ||

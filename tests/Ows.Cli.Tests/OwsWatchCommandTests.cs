@@ -12,14 +12,12 @@ namespace Ows.Cli.Tests;
 /// integration-test runs do not hang waiting for an indefinite watcher loop.
 /// </remarks>
 [Collection(CliCommandCollection.Name)]
-public sealed class OwsWatchCommandTests
-{
+public sealed class OwsWatchCommandTests {
     /// <summary>
     /// Verifies that the watch command is registered on the root command.
     /// </summary>
     [Fact]
-    public void WatchCommand_ShouldBeRegisteredOnRootCommand()
-    {
+    public void WatchCommand_ShouldBeRegisteredOnRootCommand() {
         var root = OwsCommandFactory.BuildRootCommand();
         root.Subcommands.Should().Contain(c => c.Name == "watch",
             "the watch command should be registered on the root command");
@@ -29,8 +27,7 @@ public sealed class OwsWatchCommandTests
     /// Verifies that the watch command exposes the --poll option.
     /// </summary>
     [Fact]
-    public void WatchCommand_ShouldExposePollingOption()
-    {
+    public void WatchCommand_ShouldExposePollingOption() {
         var root = OwsCommandFactory.BuildRootCommand();
         var watchCommand = root.Subcommands.Single(c => c.Name == "watch");
         watchCommand.Options.Should().Contain(o => o.Name == "poll" || o.Name == "--poll",
@@ -41,8 +38,7 @@ public sealed class OwsWatchCommandTests
     /// Verifies that the watch command exposes the --debounce option with a default value.
     /// </summary>
     [Fact]
-    public void WatchCommand_ShouldExposeDebounceOption()
-    {
+    public void WatchCommand_ShouldExposeDebounceOption() {
         var root = OwsCommandFactory.BuildRootCommand();
         var watchCommand = root.Subcommands.Single(c => c.Name == "watch");
         watchCommand.Options.Should().Contain(o => o.Name == "debounce" || o.Name == "--debounce",
@@ -54,15 +50,13 @@ public sealed class OwsWatchCommandTests
     /// local timeline within the polling window, then exits cleanly when cancellation fires.
     /// </summary>
     [Fact]
-    public async Task WatchCommand_ShouldAppendExistingFilesToTimeline()
-    {
+    public async Task WatchCommand_ShouldAppendExistingFilesToTimeline() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-watch-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft");
         var originalDirectory = Directory.GetCurrentDirectory();
 
-        try
-        {
+        try {
             Directory.SetCurrentDirectory(projectRoot);
 
             var initResult = await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync();
@@ -74,12 +68,10 @@ public sealed class OwsWatchCommandTests
             var agent = new Core.Agent.LocalTrackingAgent(
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<Core.Agent.LocalTrackingAgent>.Instance);
             await agent.PrepareAsync(
-                new Core.Agent.TrackingAgentOptions
-                {
+                new Core.Agent.TrackingAgentOptions {
                     ProjectRootPath = projectRoot,
                     DatabasePath = Path.Combine(projectRoot, Core.OwsConstants.LocalFolderName, "ows.db"),
-                    WatcherOptions = new Core.Agent.FileWatcherOptions
-                    {
+                    WatcherOptions = new Core.Agent.FileWatcherOptions {
                         UsePollingFallback = true,
                         PollingIntervalMs = 50,
                         DebounceIntervalMs = 30
@@ -95,13 +87,10 @@ public sealed class OwsWatchCommandTests
 
             lines.Should().Contain(line => line.Contains("draft.txt"),
                 "the initial scan should have appended a FileCreated event for draft.txt");
-        }
-        finally
-        {
+        } finally {
             Directory.SetCurrentDirectory(originalDirectory);
 
-            if (Directory.Exists(projectRoot))
-            {
+            if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
             }
         }

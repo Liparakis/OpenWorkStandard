@@ -3,8 +3,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Configures the local tracking agent.
 /// </summary>
-public sealed record TrackingAgentOptions
-{
+public sealed record TrackingAgentOptions {
     /// <summary>
     /// Gets the root path of the tracked project.
     /// </summary>

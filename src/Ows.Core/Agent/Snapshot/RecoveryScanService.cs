@@ -3,8 +3,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Represents the result of comparing a previous snapshot to the current files on disk.
 /// </summary>
-internal sealed class RecoveryScanResult
-{
+internal sealed class RecoveryScanResult {
     /// <summary>
     /// Gets the list of files created since the previous snapshot.
     /// </summary>
@@ -29,8 +28,7 @@ internal sealed class RecoveryScanResult
 /// <summary>
 /// Provides comparison services between file snapshots and checks delta thresholds for unobserved changes.
 /// </summary>
-internal static class RecoveryScanService
-{
+internal static class RecoveryScanService {
     /// <summary>
     /// Compares a previous snapshot with the current scan of files to identify changes.
     /// </summary>
@@ -39,34 +37,26 @@ internal static class RecoveryScanService
     /// <returns>A <see cref="RecoveryScanResult"/> listing created, modified, and deleted files.</returns>
     public static RecoveryScanResult CompareSnapshots(
         ObservedSnapshot previousSnapshot,
-        Dictionary<string, ObservedFileState> currentFiles)
-    {
+        Dictionary<string, ObservedFileState> currentFiles) {
         var createdFiles = new List<ObservedFileState>();
         var modifiedFiles = new List<(ObservedFileState Prev, ObservedFileState Curr)>();
         var deletedFiles = new List<ObservedFileState>();
 
-        foreach (var file in currentFiles)
-        {
-            if (!previousSnapshot.Files.TryGetValue(file.Key, out var prev))
-            {
+        foreach (var file in currentFiles) {
+            if (!previousSnapshot.Files.TryGetValue(file.Key, out var prev)) {
                 createdFiles.Add(file.Value);
-            }
-            else if (!string.Equals(prev.FileHash, file.Value.FileHash, StringComparison.Ordinal) || prev.Size != file.Value.Size)
-            {
+            } else if (!string.Equals(prev.FileHash, file.Value.FileHash, StringComparison.Ordinal) || prev.Size != file.Value.Size) {
                 modifiedFiles.Add((prev, file.Value));
             }
         }
 
-        foreach (var file in previousSnapshot.Files)
-        {
-            if (!currentFiles.ContainsKey(file.Key))
-            {
+        foreach (var file in previousSnapshot.Files) {
+            if (!currentFiles.ContainsKey(file.Key)) {
                 deletedFiles.Add(file.Value);
             }
         }
 
-        return new RecoveryScanResult
-        {
+        return new RecoveryScanResult {
             CreatedFiles = createdFiles,
             ModifiedFiles = modifiedFiles,
             DeletedFiles = deletedFiles
@@ -79,8 +69,7 @@ internal static class RecoveryScanService
     /// <param name="bytesDelta">The change in bytes (current size minus previous size).</param>
     /// <param name="linesDelta">The change in estimated line count.</param>
     /// <returns><see langword="true"/> if the change is considered large; otherwise, <see langword="false"/>.</returns>
-    public static bool IsLargeChange(long bytesDelta, int linesDelta)
-    {
+    public static bool IsLargeChange(long bytesDelta, int linesDelta) {
         if (!IsLargeUnobservedChangeEnabled()) return false;
         var byteThreshold = GetLargeUnobservedChangeByteThreshold();
         var lineThreshold = GetLargeUnobservedChangeLineThreshold();
@@ -91,8 +80,7 @@ internal static class RecoveryScanService
     /// Reads from environment variables whether large unobserved change checks are enabled.
     /// </summary>
     /// <returns><see langword="true"/> if enabled (default); otherwise, <see langword="false"/>.</returns>
-    private static bool IsLargeUnobservedChangeEnabled()
-    {
+    private static bool IsLargeUnobservedChangeEnabled() {
         var envVal = Environment.GetEnvironmentVariable("OwsCapture:LargeUnobservedChange:Enabled")
                      ?? Environment.GetEnvironmentVariable("OwsCapture__LargeUnobservedChange__Enabled")
                      ?? Environment.GetEnvironmentVariable("OWS_CAPTURE_LARGE_UNOBSERVED_CHANGE_ENABLED");
@@ -104,8 +92,7 @@ internal static class RecoveryScanService
     /// Reads the byte threshold above which changes are classified as large unobserved changes.
     /// </summary>
     /// <returns>The byte threshold value (default is 50000).</returns>
-    private static long GetLargeUnobservedChangeByteThreshold()
-    {
+    private static long GetLargeUnobservedChangeByteThreshold() {
         var envVal = Environment.GetEnvironmentVariable("OwsCapture:LargeUnobservedChange:ByteThreshold")
                      ?? Environment.GetEnvironmentVariable("OwsCapture__LargeUnobservedChange__ByteThreshold")
                      ?? Environment.GetEnvironmentVariable("OWS_CAPTURE_LARGE_UNOBSERVED_CHANGE_BYTETHRESHOLD");
@@ -117,8 +104,7 @@ internal static class RecoveryScanService
     /// Reads the line count threshold above which changes are classified as large unobserved changes.
     /// </summary>
     /// <returns>The line threshold value (default is 300).</returns>
-    private static int GetLargeUnobservedChangeLineThreshold()
-    {
+    private static int GetLargeUnobservedChangeLineThreshold() {
         var envVal = Environment.GetEnvironmentVariable("OwsCapture:LargeUnobservedChange:LineThreshold")
                      ?? Environment.GetEnvironmentVariable("OwsCapture__LargeUnobservedChange__LineThreshold")
                      ?? Environment.GetEnvironmentVariable("OWS_CAPTURE_LARGE_UNOBSERVED_CHANGE_LINETHRESHOLD");

@@ -3,8 +3,7 @@ namespace Ows.Core.Events;
 /// <summary>
 /// Identifies the normalized event categories tracked by Open Work Standard.
 /// </summary>
-public enum OwsEventType
-{
+public enum OwsEventType {
     /// <summary>
     /// A file was created inside the tracked project.
     /// </summary>

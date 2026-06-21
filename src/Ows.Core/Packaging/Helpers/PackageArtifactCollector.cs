@@ -1,19 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Collections.Generic;
 using Ows.Core.Hashing;
 
 namespace Ows.Core.Packaging;
 
-internal static class PackageArtifactCollector
-{
-    public static Dictionary<string, string> CollectArtifacts(string projectRootPath, string outputPackagePath, Sha256HashService hashService)
-    {
+internal static class PackageArtifactCollector {
+    public static Dictionary<string, string> CollectArtifacts(string projectRootPath, string outputPackagePath, Sha256HashService hashService) {
         return Directory
             .EnumerateFiles(projectRootPath, "*", SearchOption.AllDirectories)
-            .Select(filePath => new
-            {
+            .Select(filePath => new {
                 FilePath = filePath,
                 RelativePath = Path.GetRelativePath(projectRootPath, filePath)
             })

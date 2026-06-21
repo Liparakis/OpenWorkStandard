@@ -6,8 +6,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Represents the result of an observed snapshot loading operation, including readability and hashing flags.
 /// </summary>
-internal sealed class LoadSnapshotResult
-{
+internal sealed class LoadSnapshotResult {
     /// <summary>
     /// Gets the loaded <see cref="ObservedSnapshot"/> instance when successful; otherwise, <see langword="null"/>.
     /// </summary>
@@ -32,8 +31,7 @@ internal sealed class LoadSnapshotResult
 /// <summary>
 /// Provides atomic persistence and retrieval of project observed snapshot states on the local file system.
 /// </summary>
-internal static class ObservedSnapshotStore
-{
+internal static class ObservedSnapshotStore {
     /// <summary>
     /// Serialization options to save the snapshot file formatted with indentations.
     /// </summary>
@@ -46,34 +44,27 @@ internal static class ObservedSnapshotStore
     /// <param name="logger">The logger instance to report warnings/errors.</param>
     /// <param name="cancellationToken">Token to cancel the load operation.</param>
     /// <returns>A <see cref="LoadSnapshotResult"/> summarizing the outcome of the loading process.</returns>
-    public static async Task<LoadSnapshotResult> LoadSnapshotAsync(string snapshotPath, ILogger logger, CancellationToken cancellationToken)
-    {
+    public static async Task<LoadSnapshotResult> LoadSnapshotAsync(string snapshotPath, ILogger logger, CancellationToken cancellationToken) {
         var hadSnapshotFile = File.Exists(snapshotPath);
         var snapshotUnreadable = false;
         ObservedSnapshot? previousSnapshot = null;
         string? computedSnapshotHash = null;
 
-        if (hadSnapshotFile)
-        {
-            try
-            {
+        if (hadSnapshotFile) {
+            try {
                 var content = await File.ReadAllTextAsync(snapshotPath, cancellationToken);
                 previousSnapshot = JsonSerializer.Deserialize<ObservedSnapshot>(content);
-                if (previousSnapshot != null)
-                {
+                if (previousSnapshot != null) {
                     computedSnapshotHash = SnapshotHashCalculator.ComputeHash(previousSnapshot);
                 }
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 snapshotUnreadable = true;
                 logger.LogWarning("Failed to parse observed snapshot: {Message}. Treating as corrupted and running clean scan.", ex.Message);
                 try { File.Delete(snapshotPath); } catch { /*ignored*/ }
             }
         }
 
-        return new LoadSnapshotResult
-        {
+        return new LoadSnapshotResult {
             Snapshot = previousSnapshot,
             HadSnapshotFile = hadSnapshotFile,
             SnapshotUnreadable = snapshotUnreadable,
@@ -88,20 +79,17 @@ internal static class ObservedSnapshotStore
     /// <param name="snapshot">The snapshot model state to persist.</param>
     /// <param name="cancellationToken">Token to cancel the save operation.</param>
     /// <returns>A task representing the asynchronous save operation.</returns>
-    public static async Task SaveSnapshotAtomicallyAsync(string snapshotPath, ObservedSnapshot snapshot, CancellationToken cancellationToken)
-    {
+    public static async Task SaveSnapshotAtomicallyAsync(string snapshotPath, ObservedSnapshot snapshot, CancellationToken cancellationToken) {
         var tempPath = snapshotPath + ".tmp";
         var directory = Path.GetDirectoryName(snapshotPath);
-        if (!string.IsNullOrEmpty(directory))
-        {
+        if (!string.IsNullOrEmpty(directory)) {
             Directory.CreateDirectory(directory);
         }
 
         var json = JsonSerializer.Serialize(snapshot, SnapshotSerializerOptions);
 
         await using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true))
-        await using (var writer = new StreamWriter(fs, System.Text.Encoding.UTF8))
-        {
+        await using (var writer = new StreamWriter(fs, System.Text.Encoding.UTF8)) {
             await writer.WriteAsync(json);
             await writer.FlushAsync(cancellationToken);
             await fs.FlushAsync(cancellationToken);

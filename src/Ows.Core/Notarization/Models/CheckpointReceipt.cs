@@ -3,8 +3,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Represents the server-side receipt issued for a submitted checkpoint.
 /// </summary>
-public sealed record CheckpointReceipt
-{
+public sealed record CheckpointReceipt {
     /// <summary>
     /// Gets the session identifier associated with the receipt.
     /// </summary>

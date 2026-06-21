@@ -5,8 +5,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Persists verifier sessions and checkpoints in PostgreSQL using transactional append semantics.
 /// </summary>
-public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
-{
+public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable {
     private readonly NpgsqlDataSource _dataSource;
     private readonly Task _initializationTask;
     private readonly string? _signingKey;
@@ -17,8 +16,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     /// <param name="connectionString">The PostgreSQL connection string.</param>
     /// <param name="signingKey">The optional server signing key used to sign issued receipts.</param>
     /// <param name="applyMigrationsOnStartup">Whether the verifier should apply schema migrations during initialization.</param>
-    public PostgresVerifierStorage(string connectionString, string? signingKey = null, bool applyMigrationsOnStartup = true)
-    {
+    public PostgresVerifierStorage(string connectionString, string? signingKey = null, bool applyMigrationsOnStartup = true) {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         _signingKey = signingKey;
@@ -29,25 +27,20 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public async Task InitializeAsync(CancellationToken cancellationToken)
-    {
+    public async Task InitializeAsync(CancellationToken cancellationToken) {
         await AwaitInitializationAsync(cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<bool> CheckHealthAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
+    public async Task<bool> CheckHealthAsync(CancellationToken cancellationToken) {
+        try {
             await InitializeAsync(cancellationToken);
             await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
             await using var command = connection.CreateCommand();
             command.CommandText = "select 1;";
             var res = await command.ExecuteScalarAsync(cancellationToken);
             return res is not null;
-        }
-        catch
-        {
+        } catch {
             return false;
         }
     }
@@ -57,8 +50,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         string? clientId,
         string? assessmentId,
         string? metadataJson,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await AwaitInitializationAsync(cancellationToken);
 
         var sessionId = AssessmentSessionId.Create();
@@ -99,8 +91,8 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
                               """;
         command.Parameters.AddWithValue("id", sessionId.Value);
         command.Parameters.AddWithValue("created_at", createdAtUtc);
-        command.Parameters.AddWithValue("client_id", (object?)clientId ?? DBNull.Value);
-        command.Parameters.AddWithValue("assessment_id", (object?)assessmentId ?? DBNull.Value);
+        command.Parameters.AddWithValue("client_id", (object?) clientId ?? DBNull.Value);
+        command.Parameters.AddWithValue("assessment_id", (object?) assessmentId ?? DBNull.Value);
         command.Parameters.AddWithValue("metadata_json", metadataJson ?? "{}");
         command.Parameters.AddWithValue("head_receipt_hash", ReceiptChainVerifier.GenesisPreviousReceiptHash);
         command.Parameters.AddWithValue("head_event_hash", Events.OwsEventChain.GenesisPreviousEventHash);
@@ -111,8 +103,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("max_lease_gap_seconds", 0);
         await command.ExecuteNonQueryAsync(cancellationToken);
 
-        return new VerifierSessionRecord
-        {
+        return new VerifierSessionRecord {
             Id = sessionId,
             AssessmentId = assessmentId,
             MetadataJson = metadataJson ?? "{}",
@@ -128,8 +119,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
 
     /// <inheritdoc />
     public async Task<VerifierSessionRecord> GetSessionAsync(AssessmentSessionId sessionId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await AwaitInitializationAsync(cancellationToken);
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -138,8 +128,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
 
     /// <inheritdoc />
     public async Task<CheckpointReceipt> AppendCheckpointAsync(Checkpoint checkpoint,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(checkpoint);
         await AwaitInitializationAsync(cancellationToken);
 
@@ -148,28 +137,23 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         var session =
             await GetRequiredSessionAsync(connection, checkpoint.SessionId, lockForUpdate: true, cancellationToken);
         var expectedSequenceNumber = session.CheckpointCount + 1;
-        if (!string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
-        {
+        if (!string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey)) {
             var existingReceipt = await TryGetReceiptByIdempotencyKeyAsync(connection, checkpoint, _signingKey, cancellationToken);
-            if (existingReceipt is not null)
-            {
+            if (existingReceipt is not null) {
                 await transaction.RollbackAsync(cancellationToken);
                 return existingReceipt;
             }
         }
 
-        if (checkpoint.SequenceNumber <= session.CheckpointCount)
-        {
+        if (checkpoint.SequenceNumber <= session.CheckpointCount) {
             var existingReceipt = await TryGetReceiptBySequenceAsync(connection, checkpoint.SessionId,
                 checkpoint.SequenceNumber, _signingKey, cancellationToken);
-            if (existingReceipt is null)
-            {
+            if (existingReceipt is null) {
                 throw new InvalidOperationException(
                     $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {expectedSequenceNumber}.");
             }
 
-            if (!string.Equals(existingReceipt.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal))
-            {
+            if (!string.Equals(existingReceipt.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal)) {
                 throw new InvalidOperationException(
                     $"Checkpoint sequence {checkpoint.SequenceNumber} already exists for session {checkpoint.SessionId} with a different payload.");
             }
@@ -178,8 +162,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
             return existingReceipt;
         }
 
-        if (checkpoint.SequenceNumber != expectedSequenceNumber)
-        {
+        if (checkpoint.SequenceNumber != expectedSequenceNumber) {
             throw new InvalidOperationException(
                 $"Checkpoint sequence {checkpoint.SequenceNumber} is invalid for session {checkpoint.SessionId}. Expected {expectedSequenceNumber}.");
         }
@@ -191,10 +174,9 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
         var hasLeaseGap = session.HasLeaseGap;
 
-        if (session.LeaseExpiresAt.HasValue && now > session.LeaseExpiresAt.Value)
-        {
+        if (session.LeaseExpiresAt.HasValue && now > session.LeaseExpiresAt.Value) {
             hasLeaseGap = true;
-            var gapSeconds = (int)(now - session.LeaseExpiresAt.Value).TotalSeconds;
+            var gapSeconds = (int) (now - session.LeaseExpiresAt.Value).TotalSeconds;
             maxLeaseGapSeconds = Math.Max(maxLeaseGapSeconds, gapSeconds);
             firstLeaseGapAt ??= session.LeaseExpiresAt.Value;
         }
@@ -216,8 +198,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public async Task<ReceiptChain> GetReceiptsAsync(AssessmentSessionId sessionId, CancellationToken cancellationToken)
-    {
+    public async Task<ReceiptChain> GetReceiptsAsync(AssessmentSessionId sessionId, CancellationToken cancellationToken) {
         await AwaitInitializationAsync(cancellationToken);
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -240,13 +221,11 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
 
         var receipts = new List<CheckpointReceipt>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
+        while (await reader.ReadAsync(cancellationToken)) {
             receipts.Add(ReadReceipt(reader, _signingKey));
         }
 
-        return new ReceiptChain
-        {
+        return new ReceiptChain {
             SessionId = sessionId,
             Receipts = receipts
         };
@@ -254,14 +233,12 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
 
     /// <inheritdoc />
     public async Task<SessionHeadResponse> GetHeadAsync(AssessmentSessionId sessionId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await AwaitInitializationAsync(cancellationToken);
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         var session = await GetRequiredSessionAsync(connection, sessionId, lockForUpdate: false, cancellationToken);
-        return new SessionHeadResponse
-        {
+        return new SessionHeadResponse {
             SessionId = session.Id.Value,
             LastSequenceNumber = session.CheckpointCount,
             LastTimelineHeadHash = session.HeadEventHash,
@@ -274,8 +251,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         AssessmentSessionId sessionId,
         string? lastKnownEventHash,
         TimeSpan leaseDuration,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await AwaitInitializationAsync(cancellationToken);
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -288,10 +264,9 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         var maxLeaseGapSeconds = session.MaxLeaseGapSeconds;
         var hasLeaseGap = session.HasLeaseGap;
 
-        if (session.LeaseExpiresAt.HasValue && now > session.LeaseExpiresAt.Value)
-        {
+        if (session.LeaseExpiresAt.HasValue && now > session.LeaseExpiresAt.Value) {
             hasLeaseGap = true;
-            var gapSeconds = (int)(now - session.LeaseExpiresAt.Value).TotalSeconds;
+            var gapSeconds = (int) (now - session.LeaseExpiresAt.Value).TotalSeconds;
             maxLeaseGapSeconds = Math.Max(maxLeaseGapSeconds, gapSeconds);
             firstLeaseGapAt ??= session.LeaseExpiresAt.Value;
         }
@@ -313,16 +288,15 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("id", sessionId.Value);
         command.Parameters.AddWithValue("last_heartbeat_at", now);
         command.Parameters.AddWithValue("lease_expires_at", updatedLeaseExpiresAt);
-        command.Parameters.AddWithValue("last_known_event_hash", (object?)updatedEventHash ?? DBNull.Value);
+        command.Parameters.AddWithValue("last_known_event_hash", (object?) updatedEventHash ?? DBNull.Value);
         command.Parameters.AddWithValue("has_lease_gap", hasLeaseGap);
         command.Parameters.AddWithValue("max_lease_gap_seconds", maxLeaseGapSeconds);
-        command.Parameters.AddWithValue("first_lease_gap_at", (object?)firstLeaseGapAt ?? DBNull.Value);
+        command.Parameters.AddWithValue("first_lease_gap_at", (object?) firstLeaseGapAt ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
 
-        return session with
-        {
+        return session with {
             LastHeartbeatAt = now,
             LeaseExpiresAt = updatedLeaseExpiresAt,
             LastKnownEventHash = updatedEventHash,
@@ -355,8 +329,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         NpgsqlConnection connection,
         AssessmentSessionId sessionId,
         bool lockForUpdate,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
                                select
@@ -381,13 +354,11 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("id", sessionId.Value);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-        {
+        if (!await reader.ReadAsync(cancellationToken)) {
             throw new InvalidOperationException($"Unknown assessment session: {sessionId}");
         }
 
-        var session = new VerifierSessionRecord
-        {
+        var session = new VerifierSessionRecord {
             Id = new AssessmentSessionId(reader.GetString(0)),
             AssessmentId = reader.IsDBNull(3) ? null : reader.GetString(3),
             MetadataJson = reader.GetString(4),
@@ -419,8 +390,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         AssessmentSessionId sessionId,
         int sequenceNumber,
         string? signingKey,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = """
                               select
@@ -438,8 +408,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("sequence_number", sequenceNumber);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-        {
+        if (!await reader.ReadAsync(cancellationToken)) {
             return null;
         }
 
@@ -461,8 +430,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         Checkpoint checkpoint,
         VerifierSessionRecord session,
         CheckpointReceipt receipt,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = """
                               insert into verifier_checkpoints (
@@ -502,7 +470,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("previous_receipt_hash", receipt.PreviousReceiptHash);
         command.Parameters.AddWithValue("receipt_hash", receipt.ReceiptHash);
         command.Parameters.AddWithValue("server_signature", receipt.ServerSignature);
-        command.Parameters.AddWithValue("idempotency_key", (object?)checkpoint.IdempotencyKey ?? DBNull.Value);
+        command.Parameters.AddWithValue("idempotency_key", (object?) checkpoint.IdempotencyKey ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -518,8 +486,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         NpgsqlConnection connection,
         Checkpoint checkpoint,
         string? signingKey,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = """
                               select
@@ -537,16 +504,14 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("idempotency_key", checkpoint.IdempotencyKey!);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-        {
+        if (!await reader.ReadAsync(cancellationToken)) {
             return null;
         }
 
         var receipt = ReadReceipt(reader, signingKey);
         await reader.CloseAsync();
         if (receipt.SequenceNumber != checkpoint.SequenceNumber ||
-            !string.Equals(receipt.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal))
-        {
+            !string.Equals(receipt.TimelineHeadHash, checkpoint.TimelineHeadHash, StringComparison.Ordinal)) {
             throw new InvalidOperationException(
                 $"Idempotency key {checkpoint.IdempotencyKey} already exists for session {checkpoint.SessionId} with a different payload.");
         }
@@ -575,8 +540,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         bool hasLeaseGap,
         int maxLeaseGapSeconds,
         DateTimeOffset? firstLeaseGapAt,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = """
                               update verifier_sessions
@@ -598,7 +562,7 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
         command.Parameters.AddWithValue("lease_expires_at", leaseExpiresAt);
         command.Parameters.AddWithValue("has_lease_gap", hasLeaseGap);
         command.Parameters.AddWithValue("max_lease_gap_seconds", maxLeaseGapSeconds);
-        command.Parameters.AddWithValue("first_lease_gap_at", (object?)firstLeaseGapAt ?? DBNull.Value);
+        command.Parameters.AddWithValue("first_lease_gap_at", (object?) firstLeaseGapAt ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -609,16 +573,14 @@ public sealed class PostgresVerifierStorage : IVerifierStorage, IAsyncDisposable
     /// <param name="signingKey">The optional server signing key.</param>
     /// <returns>The mapped checkpoint receipt.</returns>
     private static CheckpointReceipt ReadReceipt(NpgsqlDataReader reader, string? signingKey) =>
-        new()
-        {
+        new() {
             SessionId = new AssessmentSessionId(reader.GetString(0)),
             SequenceNumber = reader.GetInt32(1),
             TimelineHeadHash = reader.GetString(2),
             PreviousReceiptHash = reader.GetString(3),
             ReceiptHash = reader.GetString(4),
             ServerSignature = reader.GetString(5),
-            ServerTimestamp = new ServerTimestamp
-            {
+            ServerTimestamp = new ServerTimestamp {
                 IssuedAtUtc = reader.GetFieldValue<DateTimeOffset>(6)
             },
             SigningKeyFingerprint = ReceiptChainVerifier.ComputeFingerprint(signingKey)

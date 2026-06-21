@@ -3,8 +3,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Represents the security context and access details of an authenticated caller.
 /// </summary>
-internal sealed record VerifierAccessContext
-{
+internal sealed record VerifierAccessContext {
     /// <summary>
     /// Initializes a new instance of the <see cref="VerifierAccessContext"/> record.
     /// </summary>
@@ -28,8 +27,7 @@ internal sealed record VerifierAccessContext
         string authenticationType = "ApiKey",
         string? actorUserId = null,
         string? actorEmail = null,
-        string? actorDisplayName = null)
-    {
+        string? actorDisplayName = null) {
         Role = string.IsNullOrWhiteSpace(role)
             ? VerifierRolePolicy.Operator
             : VerifierRolePolicy.NormalizeRoleName(role);

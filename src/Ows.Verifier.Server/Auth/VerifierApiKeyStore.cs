@@ -17,20 +17,16 @@ public sealed record VerifierApiKeyCreateRequest(
     string Role = "Operator",
     string? InstitutionId = null,
     string? StudentUserId = null,
-    DateTimeOffset? ExpiresAtUtc = null)
-{
+    DateTimeOffset? ExpiresAtUtc = null) {
     /// <summary>
     /// Returns the validation error, if any.
     /// </summary>
-    public string? GetValidationError()
-    {
-        if (!VerifierRolePolicy.IsSupportedRole(Role))
-        {
+    public string? GetValidationError() {
+        if (!VerifierRolePolicy.IsSupportedRole(Role)) {
             return "Role must be Operator, InstitutionAdmin, InstructorReviewer, or StudentClient.";
         }
 
-        if (VerifierRolePolicy.IsInstitutionScopedRole(Role) && string.IsNullOrWhiteSpace(InstitutionId))
-        {
+        if (VerifierRolePolicy.IsInstitutionScopedRole(Role) && string.IsNullOrWhiteSpace(InstitutionId)) {
             return "InstitutionId is required for InstitutionAdmin, InstructorReviewer, and StudentClient keys.";
         }
 
@@ -73,8 +69,7 @@ public sealed record VerifierApiKeyMetadata(
 /// <summary>
 /// Represents a persisted verifier API key record.
 /// </summary>
-internal sealed record PersistedVerifierApiKeyRecord
-{
+internal sealed record PersistedVerifierApiKeyRecord {
     /// <summary>
     /// Gets the unique key identifier.
     /// </summary>
@@ -145,8 +140,7 @@ internal sealed record PersistedVerifierApiKeyRecord
 /// <summary>
 /// Persists verifier API keys in a local JSON snapshot file.
 /// </summary>
-internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
-{
+internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore {
     /// <summary>
     /// The JSON serialization options.
     /// </summary>
@@ -170,26 +164,22 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
     /// <summary>
     /// Initializes a new instance of the <see cref="JsonFileVerifierApiKeyStore"/> class.
     /// </summary>
-    public JsonFileVerifierApiKeyStore(string storePath)
-    {
+    public JsonFileVerifierApiKeyStore(string storePath) {
         ArgumentException.ThrowIfNullOrWhiteSpace(storePath);
         _storePath = storePath;
     }
 
     /// <inheritdoc />
-    public Task InitializeAsync(CancellationToken cancellationToken)
-    {
+    public Task InitializeAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
         LoadFromDisk();
         return Task.CompletedTask;
     }
 
     /// <inheritdoc />
-    public Task<bool> HasActiveKeysAsync(CancellationToken cancellationToken)
-    {
+    public Task<bool> HasActiveKeysAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
+        lock (_gate) {
             var now = DateTimeOffset.UtcNow;
             return Task.FromResult(_records.Values.Any(record => record.IsActiveAt(now)));
         }
@@ -198,21 +188,18 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
     /// <inheritdoc />
     public Task<VerifierApiKeyCreateResult> CreateAsync(
         VerifierApiKeyCreateRequest request,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
         var validationError = request.GetValidationError();
-        if (validationError is not null)
-        {
+        if (validationError is not null) {
             throw new InvalidOperationException(validationError);
         }
 
         var rawKey = VerifierApiKeyMaterial.CreateRawApiKey();
         var now = DateTimeOffset.UtcNow;
-        var record = new PersistedVerifierApiKeyRecord
-        {
+        var record = new PersistedVerifierApiKeyRecord {
             KeyId = Guid.NewGuid().ToString("N"),
             KeyPrefix = VerifierApiKeyMaterial.CreateKeyPrefix(rawKey),
             KeyHash = VerifierApiKeyMaterial.ComputeKeyHash(rawKey),
@@ -223,8 +210,7 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
             ExpiresAtUtc = request.ExpiresAtUtc
         };
 
-        lock (_gate)
-        {
+        lock (_gate) {
             _records[record.KeyId] = record;
             SaveToDisk();
         }
@@ -233,11 +219,9 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<VerifierApiKeyMetadata>> ListAsync(CancellationToken cancellationToken)
-    {
+    public Task<IReadOnlyList<VerifierApiKeyMetadata>> ListAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
+        lock (_gate) {
             IReadOnlyList<VerifierApiKeyMetadata> records = _records.Values
                 .OrderByDescending(record => record.CreatedAtUtc)
                 .Select(record => record.ToMetadata())
@@ -247,20 +231,16 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
     }
 
     /// <inheritdoc />
-    public Task<bool> RevokeAsync(string keyId, CancellationToken cancellationToken)
-    {
+    public Task<bool> RevokeAsync(string keyId, CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(keyId);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_gate)
-        {
-            if (!_records.TryGetValue(keyId, out var record))
-            {
+        lock (_gate) {
+            if (!_records.TryGetValue(keyId, out var record)) {
                 return Task.FromResult(false);
             }
 
-            if (record.RevokedAtUtc is not null)
-            {
+            if (record.RevokedAtUtc is not null) {
                 return Task.FromResult(true);
             }
 
@@ -271,19 +251,16 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
     }
 
     /// <inheritdoc />
-    public Task<VerifierAccessContext?> AuthenticateAsync(string rawApiKey, CancellationToken cancellationToken)
-    {
+    public Task<VerifierAccessContext?> AuthenticateAsync(string rawApiKey, CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(rawApiKey);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_gate)
-        {
+        lock (_gate) {
             var now = DateTimeOffset.UtcNow;
             var keyHash = VerifierApiKeyMaterial.ComputeKeyHash(rawApiKey);
             var record = _records.Values.FirstOrDefault(candidate =>
                 string.Equals(candidate.KeyHash, keyHash, StringComparison.Ordinal));
-            if (record is null || !record.IsActiveAt(now))
-            {
+            if (record is null || !record.IsActiveAt(now)) {
                 return Task.FromResult<VerifierAccessContext?>(null);
             }
 
@@ -302,37 +279,28 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
     /// <summary>
     /// Loads persisted API keys from the JSON snapshot file.
     /// </summary>
-    private void LoadFromDisk()
-    {
-        lock (_gate)
-        {
+    private void LoadFromDisk() {
+        lock (_gate) {
             _records.Clear();
-            if (!File.Exists(_storePath))
-            {
+            if (!File.Exists(_storePath)) {
                 return;
             }
 
-            try
-            {
+            try {
                 var json = File.ReadAllText(_storePath);
-                if (string.IsNullOrWhiteSpace(json))
-                {
+                if (string.IsNullOrWhiteSpace(json)) {
                     return;
                 }
 
                 var snapshot = JsonSerializer.Deserialize<List<PersistedVerifierApiKeyRecord>>(json, SerializerOptions);
-                if (snapshot is null)
-                {
+                if (snapshot is null) {
                     return;
                 }
 
-                foreach (var record in snapshot)
-                {
+                foreach (var record in snapshot) {
                     _records[record.KeyId] = record;
                 }
-            }
-            catch
-            {
+            } catch {
                 // ponytail: start empty on malformed local auth state; add operator recovery tooling only if this becomes operationally noisy.
             }
         }
@@ -341,11 +309,9 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
     /// <summary>
     /// Saves the current API key collection to the JSON snapshot file.
     /// </summary>
-    private void SaveToDisk()
-    {
+    private void SaveToDisk() {
         var dir = Path.GetDirectoryName(_storePath);
-        if (!string.IsNullOrWhiteSpace(dir))
-        {
+        if (!string.IsNullOrWhiteSpace(dir)) {
             Directory.CreateDirectory(dir);
         }
 
@@ -359,8 +325,7 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
 /// <summary>
 /// Persists verifier API keys in PostgreSQL.
 /// </summary>
-internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsyncDisposable
-{
+internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsyncDisposable {
     /// <summary>
     /// The connection pool database data source.
     /// </summary>
@@ -376,8 +341,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
     /// </summary>
     /// <param name="connectionString">The PostgreSQL connection string.</param>
     /// <param name="applyMigrationsOnStartup">Whether schema migration should run automatically on startup.</param>
-    public PostgresVerifierApiKeyStore(string connectionString, bool applyMigrationsOnStartup = true)
-    {
+    public PostgresVerifierApiKeyStore(string connectionString, bool applyMigrationsOnStartup = true) {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _dataSource = NpgsqlDataSource.Create(connectionString);
         _initializationTask = applyMigrationsOnStartup
@@ -386,14 +350,12 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
     }
 
     /// <inheritdoc />
-    public async Task InitializeAsync(CancellationToken cancellationToken)
-    {
+    public async Task InitializeAsync(CancellationToken cancellationToken) {
         await _initializationTask.WaitAsync(cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<bool> HasActiveKeysAsync(CancellationToken cancellationToken)
-    {
+    public async Task<bool> HasActiveKeysAsync(CancellationToken cancellationToken) {
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -405,25 +367,22 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
                                     and (expires_at is null or expires_at > now())
                               );
                               """;
-        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
+        return (bool) (await command.ExecuteScalarAsync(cancellationToken))!;
     }
 
     /// <inheritdoc />
     public async Task<VerifierApiKeyCreateResult> CreateAsync(
         VerifierApiKeyCreateRequest request,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(request);
         var validationError = request.GetValidationError();
-        if (validationError is not null)
-        {
+        if (validationError is not null) {
             throw new InvalidOperationException(validationError);
         }
 
         await InitializeAsync(cancellationToken);
         var rawKey = VerifierApiKeyMaterial.CreateRawApiKey();
-        var record = new PersistedVerifierApiKeyRecord
-        {
+        var record = new PersistedVerifierApiKeyRecord {
             KeyId = Guid.NewGuid().ToString("N"),
             KeyPrefix = VerifierApiKeyMaterial.CreateKeyPrefix(rawKey),
             KeyHash = VerifierApiKeyMaterial.ComputeKeyHash(rawKey),
@@ -466,10 +425,10 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         command.Parameters.AddWithValue("key_prefix", record.KeyPrefix);
         command.Parameters.AddWithValue("key_hash", record.KeyHash);
         command.Parameters.AddWithValue("role", record.Role);
-        command.Parameters.AddWithValue("institution_id", (object?)record.InstitutionId ?? DBNull.Value);
-        command.Parameters.AddWithValue("student_user_id", (object?)record.StudentUserId ?? DBNull.Value);
+        command.Parameters.AddWithValue("institution_id", (object?) record.InstitutionId ?? DBNull.Value);
+        command.Parameters.AddWithValue("student_user_id", (object?) record.StudentUserId ?? DBNull.Value);
         command.Parameters.AddWithValue("created_at", record.CreatedAtUtc);
-        command.Parameters.AddWithValue("expires_at", (object?)record.ExpiresAtUtc ?? DBNull.Value);
+        command.Parameters.AddWithValue("expires_at", (object?) record.ExpiresAtUtc ?? DBNull.Value);
         command.Parameters.AddWithValue("last_used_at", DBNull.Value);
         command.Parameters.AddWithValue("revoked_at", DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -478,8 +437,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<VerifierApiKeyMetadata>> ListAsync(CancellationToken cancellationToken)
-    {
+    public async Task<IReadOnlyList<VerifierApiKeyMetadata>> ListAsync(CancellationToken cancellationToken) {
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -491,8 +449,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
 
         var records = new List<VerifierApiKeyMetadata>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
+        while (await reader.ReadAsync(cancellationToken)) {
             records.Add(ReadRecord(reader).ToMetadata());
         }
 
@@ -500,8 +457,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
     }
 
     /// <inheritdoc />
-    public async Task<bool> RevokeAsync(string keyId, CancellationToken cancellationToken)
-    {
+    public async Task<bool> RevokeAsync(string keyId, CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(keyId);
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -518,8 +474,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
     }
 
     /// <inheritdoc />
-    public async Task<VerifierAccessContext?> AuthenticateAsync(string rawApiKey, CancellationToken cancellationToken)
-    {
+    public async Task<VerifierAccessContext?> AuthenticateAsync(string rawApiKey, CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(rawApiKey);
         await InitializeAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -533,15 +488,13 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         command.Parameters.AddWithValue("key_hash", keyHash);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-        {
+        if (!await reader.ReadAsync(cancellationToken)) {
             return null;
         }
 
         var record = ReadRecord(reader);
         await reader.CloseAsync();
-        if (!record.IsActiveAt(DateTimeOffset.UtcNow))
-        {
+        if (!record.IsActiveAt(DateTimeOffset.UtcNow)) {
             return null;
         }
 
@@ -567,8 +520,7 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
     /// <param name="reader">The active database reader.</param>
     /// <returns>A mapped persisted API key record instance.</returns>
     private static PersistedVerifierApiKeyRecord ReadRecord(NpgsqlDataReader reader) =>
-        new()
-        {
+        new() {
             KeyId = reader.GetString(0),
             KeyPrefix = reader.GetString(1),
             KeyHash = reader.GetString(2),
@@ -585,14 +537,12 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
 /// <summary>
 /// Provides static cryptographic helpers for generating and hashing OWS API keys.
 /// </summary>
-file static class VerifierApiKeyMaterial
-{
+file static class VerifierApiKeyMaterial {
     /// <summary>
     /// Generates a cryptographically strong random API key prefixed with "ows_".
     /// </summary>
     /// <returns>The generated raw API key string.</returns>
-    public static string CreateRawApiKey()
-    {
+    public static string CreateRawApiKey() {
         Span<byte> bytes = stackalloc byte[24];
         RandomNumberGenerator.Fill(bytes);
         return $"ows_{Convert.ToHexString(bytes).ToLowerInvariant()}";
@@ -611,8 +561,7 @@ file static class VerifierApiKeyMaterial
     /// </summary>
     /// <param name="rawApiKey">The raw API key.</param>
     /// <returns>A hex-encoded lowercase SHA-256 hash string.</returns>
-    public static string ComputeKeyHash(string rawApiKey)
-    {
+    public static string ComputeKeyHash(string rawApiKey) {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawApiKey));
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }

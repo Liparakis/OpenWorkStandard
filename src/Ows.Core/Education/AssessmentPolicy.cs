@@ -3,8 +3,7 @@ namespace Ows.Core.Education;
 /// <summary>
 /// Dictates OWS verification rules and heartbeat tolerances for an assessment.
 /// </summary>
-public sealed record AssessmentPolicy
-{
+public sealed record AssessmentPolicy {
     /// <summary>
     /// Gets the unique policy identifier.
     /// </summary>
@@ -62,25 +61,20 @@ public sealed record AssessmentPolicy
         int significantGapSeconds,
         bool requireRemoteReceipts,
         bool requirePackageAnchor,
-        DateTimeOffset createdAt)
-    {
+        DateTimeOffset createdAt) {
         ArgumentException.ThrowIfNullOrWhiteSpace(id.Value, nameof(id));
         ArgumentException.ThrowIfNullOrWhiteSpace(institutionId.Value, nameof(institutionId));
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        if (heartbeatTargetSeconds < 0)
-        {
+        if (heartbeatTargetSeconds < 0) {
             throw new ArgumentOutOfRangeException(nameof(heartbeatTargetSeconds), "Target seconds must be non-negative.");
         }
-        if (heartbeatGraceSeconds < 0)
-        {
+        if (heartbeatGraceSeconds < 0) {
             throw new ArgumentOutOfRangeException(nameof(heartbeatGraceSeconds), "Grace seconds must be non-negative.");
         }
-        if (significantGapSeconds < 0)
-        {
+        if (significantGapSeconds < 0) {
             throw new ArgumentOutOfRangeException(nameof(significantGapSeconds), "Significant gap seconds must be non-negative.");
         }
-        if (createdAt == default)
-        {
+        if (createdAt == default) {
             throw new ArgumentException("CreatedAt must be a valid timestamp.", nameof(createdAt));
         }
 

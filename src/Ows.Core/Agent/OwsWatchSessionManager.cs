@@ -1,10 +1,10 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Ows.Core.Init;
-using Ows.Core.Notarization;
 using Ows.Core.Events;
 using Ows.Core.Hashing;
+using Ows.Core.Init;
+using Ows.Core.Notarization;
 
 namespace Ows.Core.Agent;
 
@@ -12,13 +12,11 @@ namespace Ows.Core.Agent;
 /// Implements the shared watcher and session lifecycle manager.
 /// Coordinates project initialization, background watching, timeline events, session states, and verification services.
 /// </summary>
-public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
-{
+public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager {
     /// <summary>
     /// The JSON serializer options configured for read and write operations of configuration files.
     /// </summary>
-    private static readonly JsonSerializerOptions ConfigSerializerOptions = new()
-    {
+    private static readonly JsonSerializerOptions ConfigSerializerOptions = new() {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
     };
@@ -38,8 +36,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns><see langword="true"/> if the project is initialized; otherwise, <see langword="false"/>.</returns>
-    public bool IsProjectInitialized(string projectRoot)
-    {
+    public bool IsProjectInitialized(string projectRoot) {
         if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot)) return false;
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         return Directory.Exists(localFolder) && File.Exists(Path.Combine(localFolder, "config.json"));
@@ -49,8 +46,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// Initializes a new project at the specified root path by creating the .ows folder and generating default configuration assets.
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
-    public void InitializeProject(string projectRoot)
-    {
+    public void InitializeProject(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         var initializer = new OwsProjectInitializer();
         initializer.Initialize(projectRoot);
@@ -64,8 +60,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <param name="debounceMs">The interval in milliseconds to debounce rapid consecutive file change notifications.</param>
     /// <returns>A task representing the asynchronous start operation.</returns>
     /// <exception cref="InvalidOperationException">Thrown if a watcher process is already running for the specified project root.</exception>
-    public async Task StartWatcherAsync(string projectRoot, bool usePolling = false, int debounceMs = 500)
-    {
+    public async Task StartWatcherAsync(string projectRoot, bool usePolling = false, int debounceMs = 500) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         Directory.CreateDirectory(localFolder);
@@ -73,37 +68,30 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         var watcherJsonPath = Path.Combine(localFolder, "watcher.json");
         var stopFilePath = Path.Combine(localFolder, "watcher.stop");
 
-        if (WatcherStateStore.IsWatcherRunning(projectRoot))
-        {
+        if (WatcherStateStore.IsWatcherRunning(projectRoot)) {
             throw new InvalidOperationException("Watcher is already running for this project.");
         }
 
         bool wasInterrupted = false;
         WatcherProcessState? interruptedState = null;
-        if (File.Exists(watcherJsonPath))
-        {
-            try
-            {
+        if (File.Exists(watcherJsonPath)) {
+            try {
                 var content = await File.ReadAllTextAsync(watcherJsonPath);
                 interruptedState = JsonSerializer.Deserialize<WatcherProcessState>(content);
                 wasInterrupted = true;
-            }
-            catch
-            {
+            } catch {
                 /*ignored*/
             }
 
             WatcherStateStore.TryDeleteFile(watcherJsonPath);
         }
 
-        if (File.Exists(stopFilePath))
-        {
+        if (File.Exists(stopFilePath)) {
             WatcherStateStore.TryDeleteFile(stopFilePath);
         }
 
         var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
-        var state = new WatcherProcessState
-        {
+        var state = new WatcherProcessState {
             Pid = currentProcess.Id,
             StartedAt = DateTimeOffset.UtcNow
         };
@@ -124,12 +112,10 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         var excludeDirs = projectConfig?.WatcherSettings?.ExcludeDirectories;
 
         _activeAgent = new LocalTrackingAgent(new NullLogger<LocalTrackingAgent>());
-        await _activeAgent.PrepareAsync(new TrackingAgentOptions
-        {
+        await _activeAgent.PrepareAsync(new TrackingAgentOptions {
             ProjectRootPath = projectRoot,
             DatabasePath = Path.Combine(localFolder, "ows.db"),
-            WatcherOptions = new FileWatcherOptions
-            {
+            WatcherOptions = new FileWatcherOptions {
                 UsePollingFallback = usePolling,
                 DebounceIntervalMs = debounceMs,
                 ExcludeDirectories = excludeDirs
@@ -138,12 +124,9 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             InterruptedState = interruptedState
         }, token);
 
-        try
-        {
+        try {
             await _activeAgent.StartAsync(token);
-        }
-        finally
-        {
+        } finally {
             WatcherStateStore.TryDeleteFile(watcherJsonPath);
             WatcherStateStore.TryDeleteFile(stopFilePath);
 
@@ -157,8 +140,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns>A task representing the asynchronous stop operation.</returns>
-    public async Task StopWatcherAsync(string projectRoot)
-    {
+    public async Task StopWatcherAsync(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var watcherJsonPath = Path.Combine(localFolder, "watcher.json");
@@ -167,27 +149,20 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         if (!File.Exists(watcherJsonPath)) return;
 
         var wasRunning = WatcherStateStore.IsWatcherRunning(projectRoot);
-        if (wasRunning)
-        {
+        if (wasRunning) {
             var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
-            try
-            {
+            try {
                 await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherStopped, null, host, null,
                     new Dictionary<string, string>
                     {
                         { "reason", "user_requested" }
                     });
-            }
-            catch
-            {
+            } catch {
                 // Do not fail watcher stop if event logging fails
             }
-        }
-        else
-        {
+        } else {
             // stale PID / crash recovery: emit WatcherInterrupted
-            try
-            {
+            try {
                 var content = await File.ReadAllTextAsync(watcherJsonPath);
                 var prevState = JsonSerializer.Deserialize<WatcherProcessState>(content);
                 var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
@@ -195,51 +170,39 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
                 {
                     { "reason", "stale_pid_cleanup" }
                 };
-                if (prevState != null)
-                {
+                if (prevState != null) {
                     metadata["previousPid"] = prevState.Pid.ToString();
                     metadata["previousStartedAt"] = prevState.StartedAt.ToString("o");
                 }
 
                 await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherInterrupted, null, host, null,
                     metadata);
-            }
-            catch
-            {
+            } catch {
                 /*ignored*/
             }
         }
 
-        try
-        {
+        try {
             await File.WriteAllTextAsync(stopFilePath, "stop");
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
+        } catch (IOException) {
+        } catch (UnauthorizedAccessException) {
         }
 
         // Wait up to 3 seconds for clean exit
-        for (var i = 0; i < 30; i++)
-        {
-            if (!File.Exists(watcherJsonPath))
-            {
+        for (var i = 0; i < 30; i++) {
+            if (!File.Exists(watcherJsonPath)) {
                 break;
             }
 
             await Task.Delay(100);
         }
 
-        if (File.Exists(watcherJsonPath))
-        {
+        if (File.Exists(watcherJsonPath)) {
             await WatcherSessionLifecycleCoordinator.ForceKillWatcherProcessAsync(watcherJsonPath);
             WatcherStateStore.TryDeleteFile(watcherJsonPath);
         }
 
-        if (File.Exists(stopFilePath))
-        {
+        if (File.Exists(stopFilePath)) {
             WatcherStateStore.TryDeleteFile(stopFilePath);
         }
     }
@@ -249,8 +212,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns><see langword="true"/> if the watcher is running; otherwise, <see langword="false"/>.</returns>
-    public bool IsWatcherRunning(string projectRoot)
-    {
+    public bool IsWatcherRunning(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         return WatcherStateStore.IsWatcherRunning(projectRoot);
     }
@@ -260,8 +222,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns><see langword="true"/> if the watcher crashed; otherwise, <see langword="false"/>.</returns>
-    public bool DidWatcherCrash(string projectRoot)
-    {
+    public bool DidWatcherCrash(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var watcherJsonPath = Path.Combine(localFolder, "watcher.json");
@@ -274,10 +235,8 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <exception cref="DirectoryNotFoundException">Thrown if the path is null, empty, or doesn't refer to an existing directory.</exception>
-    private void EnsureProjectDirectoryExists(string projectRoot)
-    {
-        if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot))
-        {
+    private void EnsureProjectDirectoryExists(string projectRoot) {
+        if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot)) {
             throw new DirectoryNotFoundException($"Project directory not found at: {projectRoot}");
         }
     }
@@ -288,8 +247,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <param name="verifierUrlOverride">An optional URL parameter to override the configured remote verifier target.</param>
     /// <returns>A task returning the unique remote session identifier.</returns>
-    public Task<string> StartSessionAsync(string projectRoot, string? verifierUrlOverride = null)
-    {
+    public Task<string> StartSessionAsync(string projectRoot, string? verifierUrlOverride = null) {
         EnsureProjectDirectoryExists(projectRoot);
         var config = GetProjectConfig(projectRoot) ?? new OwsProjectConfig();
         return RemoteSessionCoordinator.StartSessionAsync(projectRoot, config, verifierUrlOverride);
@@ -301,8 +259,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <param name="verifierUrlOverride">An optional URL parameter to override the configured remote verifier target.</param>
     /// <returns>A task representing the asynchronous heartbeat process.</returns>
-    public Task SendHeartbeatAsync(string projectRoot, string? verifierUrlOverride = null)
-    {
+    public Task SendHeartbeatAsync(string projectRoot, string? verifierUrlOverride = null) {
         EnsureProjectDirectoryExists(projectRoot);
         return RemoteSessionCoordinator.SendHeartbeatAsync(projectRoot, verifierUrlOverride);
     }
@@ -312,8 +269,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns>A task returning the checkpoint verification sequence or identification tag.</returns>
-    public Task<string> AddCheckpointAsync(string projectRoot)
-    {
+    public Task<string> AddCheckpointAsync(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         return RemoteSessionCoordinator.AddCheckpointAsync(projectRoot);
     }
@@ -323,27 +279,19 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns>The active session ID string, or <see langword="null"/> if none exists or is readable.</returns>
-    public string? GetCurrentSessionId(string projectRoot)
-    {
+    public string? GetCurrentSessionId(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         if (!File.Exists(sessionPath)) return null;
-        try
-        {
+        try {
             var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
             return state?.SessionId;
-        }
-        catch (IOException)
-        {
+        } catch (IOException) {
             return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
+        } catch (UnauthorizedAccessException) {
             return null;
-        }
-        catch (JsonException)
-        {
+        } catch (JsonException) {
             return null;
         }
     }
@@ -353,26 +301,17 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns>The verifier service URL string, or <see langword="null"/> if undefined.</returns>
-    public string? GetVerifierUrl(string projectRoot)
-    {
+    public string? GetVerifierUrl(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-        if (File.Exists(sessionPath))
-        {
-            try
-            {
+        if (File.Exists(sessionPath)) {
+            try {
                 var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
                 if (!string.IsNullOrWhiteSpace(state?.VerifierUrl)) return state.VerifierUrl;
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-            catch (JsonException)
-            {
+            } catch (IOException) {
+            } catch (UnauthorizedAccessException) {
+            } catch (JsonException) {
             }
         }
 
@@ -385,27 +324,19 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns>The configured project details, or <see langword="null"/> if the configuration is missing or corrupt.</returns>
-    public OwsProjectConfig? GetProjectConfig(string projectRoot)
-    {
+    public OwsProjectConfig? GetProjectConfig(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var configPath = Path.Combine(localFolder, "config.json");
         if (!File.Exists(configPath)) return null;
 
-        try
-        {
+        try {
             return JsonSerializer.Deserialize<OwsProjectConfig>(File.ReadAllText(configPath), ConfigSerializerOptions);
-        }
-        catch (IOException)
-        {
+        } catch (IOException) {
             return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
+        } catch (UnauthorizedAccessException) {
             return null;
-        }
-        catch (JsonException)
-        {
+        } catch (JsonException) {
             return null;
         }
     }
@@ -415,8 +346,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <param name="config">The updated configuration instance to serialize and commit.</param>
-    public void SaveProjectConfig(string projectRoot, OwsProjectConfig config)
-    {
+    public void SaveProjectConfig(string projectRoot, OwsProjectConfig config) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         Directory.CreateDirectory(localFolder);
@@ -429,25 +359,17 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns>The timestamp of the last checkpoint, or <see langword="null"/> if unavailable.</returns>
-    public DateTimeOffset? GetLastCheckpointAt(string projectRoot)
-    {
+    public DateTimeOffset? GetLastCheckpointAt(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         if (!File.Exists(sessionPath)) return null;
-        try
-        {
+        try {
             var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
             return state?.LastCheckpointAt;
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-        catch (JsonException)
-        {
+        } catch (IOException) {
+        } catch (UnauthorizedAccessException) {
+        } catch (JsonException) {
         }
 
         return null;
@@ -458,25 +380,17 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns>The timestamp of the last heartbeat, or <see langword="null"/> if unavailable.</returns>
-    public DateTimeOffset? GetLastHeartbeatAt(string projectRoot)
-    {
+    public DateTimeOffset? GetLastHeartbeatAt(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         if (!File.Exists(sessionPath)) return null;
-        try
-        {
+        try {
             var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(sessionPath));
             return state?.LastHeartbeatAt;
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-        catch (JsonException)
-        {
+        } catch (IOException) {
+        } catch (UnauthorizedAccessException) {
+        } catch (JsonException) {
         }
 
         return null;
@@ -487,8 +401,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <returns>A task returning the path to the newly created package file.</returns>
-    public Task<string> PackageProjectAsync(string projectRoot)
-    {
+    public Task<string> PackageProjectAsync(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
         return PackageCreationCoordinator.PackageProjectAsync(projectRoot, AppendEventToTimelineAsync);
     }
@@ -501,8 +414,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <param name="verifierUrlOverride">An optional URL parameter to override the configured remote verifier target.</param>
     /// <returns>A task returning the transaction status payload returned by the verifier.</returns>
     public Task<string> UploadPackageAsync(string projectRoot, string packagePath,
-        string? verifierUrlOverride = null)
-    {
+        string? verifierUrlOverride = null) {
         EnsureProjectDirectoryExists(projectRoot);
         var config = GetProjectConfig(projectRoot);
         return RemoteSessionCoordinator.UploadPackageAsync(projectRoot, packagePath, config, verifierUrlOverride);
@@ -517,12 +429,10 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <returns>A task returning the verification response summary.</returns>
     /// <exception cref="InvalidOperationException">Thrown if no verifier URL can be determined for the status query.</exception>
     public Task<string> QueryPackageStatusAsync(string projectRoot, string packageId,
-        string? verifierUrlOverride = null)
-    {
+        string? verifierUrlOverride = null) {
         EnsureProjectDirectoryExists(projectRoot);
         var verifierUrl = verifierUrlOverride ?? GetVerifierUrl(projectRoot);
-        if (string.IsNullOrWhiteSpace(verifierUrl))
-        {
+        if (string.IsNullOrWhiteSpace(verifierUrl)) {
             throw new InvalidOperationException("No remote verifier URL configured for status query.");
         }
 
@@ -536,21 +446,16 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <param name="host">The name of the host editor, IDE, or tool triggering the project open action.</param>
     /// <param name="reason">An optional metadata explanation of the opening action trigger.</param>
     /// <returns>A task representing the asynchronous emission.</returns>
-    public async Task EmitProjectOpenedAsync(string projectRoot, string host, string? reason = null)
-    {
+    public async Task EmitProjectOpenedAsync(string projectRoot, string host, string? reason = null) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         string? sessionId = null;
-        if (File.Exists(sessionPath))
-        {
-            try
-            {
+        if (File.Exists(sessionPath)) {
+            try {
                 var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
                 sessionId = state?.SessionId;
-            }
-            catch
-            {
+            } catch {
                 /*ignored*/
             }
         }
@@ -563,13 +468,11 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             { "host", host },
             { "projectIdentifier", safeProjectIdentifier }
         };
-        if (reason is not null)
-        {
+        if (reason is not null) {
             metadata["reason"] = reason;
         }
 
-        if (sessionId is not null)
-        {
+        if (sessionId is not null) {
             metadata["sessionId"] = sessionId;
         }
 
@@ -583,21 +486,16 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// <param name="host">The name of the host editor, IDE, or tool triggering the project close action.</param>
     /// <param name="reason">An optional metadata explanation of the closing action trigger.</param>
     /// <returns>A task representing the asynchronous emission.</returns>
-    public async Task EmitProjectClosedAsync(string projectRoot, string host, string? reason = null)
-    {
+    public async Task EmitProjectClosedAsync(string projectRoot, string host, string? reason = null) {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         string? sessionId = null;
-        if (File.Exists(sessionPath))
-        {
-            try
-            {
+        if (File.Exists(sessionPath)) {
+            try {
                 var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
                 sessionId = state?.SessionId;
-            }
-            catch
-            {
+            } catch {
                 /*ignored*/
             }
         }
@@ -610,13 +508,11 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             { "host", host },
             { "projectIdentifier", safeProjectIdentifier }
         };
-        if (reason is not null)
-        {
+        if (reason is not null) {
             metadata["reason"] = reason;
         }
 
-        if (sessionId is not null)
-        {
+        if (sessionId is not null) {
             metadata["sessionId"] = sessionId;
         }
 
@@ -640,8 +536,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         string host,
         string? label = null,
         int? exitCode = null,
-        long? durationMs = null)
-    {
+        long? durationMs = null) {
         EnsureProjectDirectoryExists(projectRoot);
 
         var allowedEventTypes = new[]
@@ -653,23 +548,18 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
             OwsEventType.ProgramExecuted
         };
 
-        if (Array.IndexOf(allowedEventTypes, eventType) < 0)
-        {
+        if (Array.IndexOf(allowedEventTypes, eventType) < 0) {
             throw new ArgumentException($"Event type '{eventType}' is not allowed for generic emission in v0.1.");
         }
 
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         string? sessionId = null;
-        if (File.Exists(sessionPath))
-        {
-            try
-            {
+        if (File.Exists(sessionPath)) {
+            try {
                 var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
                 sessionId = state?.SessionId;
-            }
-            catch
-            {
+            } catch {
                 /*ignored*/
             }
         }
@@ -678,23 +568,19 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         {
             { "host", host }
         };
-        if (!string.IsNullOrWhiteSpace(label))
-        {
+        if (!string.IsNullOrWhiteSpace(label)) {
             metadata["label"] = ScrubSecrets(label);
         }
 
-        if (exitCode.HasValue)
-        {
+        if (exitCode.HasValue) {
             metadata["exitCode"] = exitCode.Value.ToString();
         }
 
-        if (durationMs.HasValue)
-        {
+        if (durationMs.HasValue) {
             metadata["durationMs"] = durationMs.Value.ToString();
         }
 
-        if (sessionId is not null)
-        {
+        if (sessionId is not null) {
             metadata["sessionId"] = sessionId;
         }
 
@@ -706,8 +592,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
     /// </summary>
     /// <param name="input">The raw text block potentially containing keys or credential identifiers.</param>
     /// <returns>A sanitized string where matching private elements have been replaced with a redacted marker.</returns>
-    public static string ScrubSecrets(string? input)
-    {
+    public static string ScrubSecrets(string? input) {
         if (string.IsNullOrWhiteSpace(input)) return string.Empty;
 
         // Redact values matching common key/token/password assignments or headers
@@ -735,14 +620,12 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
         string? relativePath,
         string? toolName,
         long? bytesChanged,
-        IReadOnlyDictionary<string, string> metadata)
-    {
+        IReadOnlyDictionary<string, string> metadata) {
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
         var previousEventHash = TimelineEventAppender.ReadLastEventHash(timelinePath);
 
-        var owsEvent = new OwsEvent
-        {
+        var owsEvent = new OwsEvent {
             EventType = eventType,
             ProjectId = Path.GetFileName(projectRoot),
             RelativePath = relativePath,
@@ -774,8 +657,7 @@ public sealed partial class OwsWatchSessionManager : IOwsWatchSessionManager
 /// <summary>
 /// State tracking helper for watcher processes. Contains process details used to detect interrupted sessions.
 /// </summary>
-public sealed class WatcherProcessState
-{
+public sealed class WatcherProcessState {
     /// <summary>
     /// Gets or sets the operating system Process Identifier (PID) of the active watcher host.
     /// </summary>

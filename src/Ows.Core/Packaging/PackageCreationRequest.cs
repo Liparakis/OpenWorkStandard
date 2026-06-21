@@ -3,8 +3,7 @@ namespace Ows.Core.Packaging;
 /// <summary>
 /// Describes the inputs required to create an OWS package.
 /// </summary>
-public sealed record PackageCreationRequest
-{
+public sealed record PackageCreationRequest {
     /// <summary>
     /// Gets the tracked project root path.
     /// </summary>

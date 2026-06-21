@@ -3,8 +3,7 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Provides extension methods for registering all OWS Verifier Server services.
 /// </summary>
-public static class VerifierServiceCollectionExtensions
-{
+public static class VerifierServiceCollectionExtensions {
     /// <summary>
     /// Registers all storage, security/auth, observability, and background worker dependencies in a single consolidated call.
     /// </summary>
@@ -18,8 +17,7 @@ public static class VerifierServiceCollectionExtensions
         VerifierStorageOptions storageOptions,
         VerifierSecurityOptions securityOptions,
         VerifierAuthOptions authOptions,
-        IWebHostEnvironment environment)
-    {
+        IWebHostEnvironment environment) {
         services.AddVerifierStorage(storageOptions, environment);
         services.AddVerifierAuth(securityOptions, authOptions);
         services.AddVerifierObservability();

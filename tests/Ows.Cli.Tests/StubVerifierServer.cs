@@ -7,8 +7,7 @@ namespace Ows.Cli.Tests;
 /// <summary>
 /// Hosts a minimal in-process verifier API for CLI integration tests.
 /// </summary>
-internal sealed class StubVerifierServer : IDisposable
-{
+internal sealed class StubVerifierServer : IDisposable {
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private readonly HttpListener _listener = new();
     private readonly Task _listenerTask;
@@ -18,8 +17,7 @@ internal sealed class StubVerifierServer : IDisposable
     /// Initializes a new stub verifier server.
     /// </summary>
     /// <param name="responder">Maps HTTP method and path to a JSON response payload, or <see langword="null"/> for 404.</param>
-    public StubVerifierServer(Func<string, string, object?> responder)
-    {
+    public StubVerifierServer(Func<string, string, object?> responder) {
         this._responder = responder;
         var port = GetAvailablePort();
         BaseUrl = $"http://127.0.0.1:{port}/";
@@ -44,43 +42,30 @@ internal sealed class StubVerifierServer : IDisposable
     public List<IReadOnlyDictionary<string, string>> RequestedHeaders { get; } = [];
 
     /// <inheritdoc />
-    public void Dispose()
-    {
+    public void Dispose() {
         _cancellationTokenSource.Cancel();
         _listener.Stop();
         _listener.Close();
 
-        try
-        {
+        try {
             _listenerTask.GetAwaiter().GetResult();
-        }
-        catch (HttpListenerException)
-        {
-        }
-        catch (ObjectDisposedException)
-        {
+        } catch (HttpListenerException) {
+        } catch (ObjectDisposedException) {
         }
     }
 
     /// <summary>
     /// Accepts requests until the stub server is disposed.
     /// </summary>
-    private void Listen()
-    {
-        while (!_cancellationTokenSource.IsCancellationRequested)
-        {
+    private void Listen() {
+        while (!_cancellationTokenSource.IsCancellationRequested) {
             HttpListenerContext context;
 
-            try
-            {
+            try {
                 context = _listener.GetContext();
-            }
-            catch (HttpListenerException)
-            {
+            } catch (HttpListenerException) {
                 break;
-            }
-            catch (ObjectDisposedException)
-            {
+            } catch (ObjectDisposedException) {
                 break;
             }
 
@@ -106,13 +91,12 @@ internal sealed class StubVerifierServer : IDisposable
     /// </summary>
     /// <param name="context">The active HTTP context.</param>
     /// <param name="path">The requested path.</param>
-    private void WriteResponse(HttpListenerContext context, string path)
-    {
+    private void WriteResponse(HttpListenerContext context, string path) {
         var payload = _responder(context.Request.HttpMethod, path);
         var statusCode = payload is null ? HttpStatusCode.NotFound : HttpStatusCode.OK;
         var buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload ?? new { Error = "not-found" }));
 
-        context.Response.StatusCode = (int)statusCode;
+        context.Response.StatusCode = (int) statusCode;
         context.Response.ContentType = "application/json";
         context.Response.OutputStream.Write(buffer, 0, buffer.Length);
         context.Response.Close();
@@ -122,11 +106,10 @@ internal sealed class StubVerifierServer : IDisposable
     /// Finds an available loopback TCP port.
     /// </summary>
     /// <returns>The available port number.</returns>
-    private static int GetAvailablePort()
-    {
+    private static int GetAvailablePort() {
         var tcpListener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
         tcpListener.Start();
-        var port = ((IPEndPoint)tcpListener.LocalEndpoint).Port;
+        var port = ((IPEndPoint) tcpListener.LocalEndpoint).Port;
         tcpListener.Stop();
         return port;
     }

@@ -3,8 +3,7 @@ namespace Ows.Core.Verification;
 /// <summary>
 /// Represents the verification trust grade for a package or evidence store.
 /// </summary>
-public enum TrustStatus
-{
+public enum TrustStatus {
     /// <summary>
     /// The evidence and remote receipts align with no meaningful integrity concerns.
     /// </summary>

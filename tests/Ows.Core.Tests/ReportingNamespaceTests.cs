@@ -1,26 +1,23 @@
+using System.Text.Json;
 using FluentAssertions;
 using Ows.Core.Reporting;
 using Ows.Core.Verification;
-using System.Text.Json;
 
 namespace Ows.Core.Tests;
 
 /// <summary>
 /// Tests reporting types after consolidation into Ows.Core.
 /// </summary>
-public sealed class ReportingNamespaceTests
-{
+public sealed class ReportingNamespaceTests {
     /// <summary>
     /// Verifies that the report generator emits a useful text summary.
     /// </summary>
     [Fact]
-    public async Task GenerateAsync_ShouldReturnTextSummary()
-    {
+    public async Task GenerateAsync_ShouldReturnTextSummary() {
         var generator = new OwsReportGenerator();
 
         var result = await generator.GenerateAsync(
-            new ReportRequest
-            {
+            new ReportRequest {
                 Format = ReportFormat.Text,
                 VerificationResult = VerificationResult.Success("OWS verify succeeded.", TrustStatus.Unverified)
             },
@@ -37,13 +34,11 @@ public sealed class ReportingNamespaceTests
     /// Verifies that the text report surfaces findings for human review.
     /// </summary>
     [Fact]
-    public async Task GenerateAsync_ShouldIncludeFindingsInTextReport()
-    {
+    public async Task GenerateAsync_ShouldIncludeFindingsInTextReport() {
         var generator = new OwsReportGenerator();
 
         var result = await generator.GenerateAsync(
-            new ReportRequest
-            {
+            new ReportRequest {
                 Format = ReportFormat.Text,
                 VerificationResult = VerificationResult.Success(
                     "OWS verify succeeded.",
@@ -73,13 +68,11 @@ public sealed class ReportingNamespaceTests
     /// Verifies that the report generator can emit JSON output.
     /// </summary>
     [Fact]
-    public async Task GenerateAsync_ShouldReturnJsonSummary()
-    {
+    public async Task GenerateAsync_ShouldReturnJsonSummary() {
         var generator = new OwsReportGenerator();
 
         var result = await generator.GenerateAsync(
-            new ReportRequest
-            {
+            new ReportRequest {
                 Format = ReportFormat.Json,
                 VerificationResult = VerificationResult.Success("OWS verify succeeded.", TrustStatus.Verified)
             },

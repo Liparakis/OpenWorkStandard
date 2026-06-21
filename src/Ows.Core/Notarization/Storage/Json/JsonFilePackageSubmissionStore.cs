@@ -5,8 +5,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Persists package metadata registrations to a local JSON file.
 /// </summary>
-public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
-{
+public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
     private readonly Lock _gate = new();
     private readonly string _storePath;
@@ -16,8 +15,7 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
     /// Initializes a new instance of the JsonFilePackageSubmissionStore class.
     /// </summary>
     /// <param name="storePath">The path to the JSON storage file.</param>
-    public JsonFilePackageSubmissionStore(string storePath)
-    {
+    public JsonFilePackageSubmissionStore(string storePath) {
         ArgumentException.ThrowIfNullOrWhiteSpace(storePath);
         _storePath = storePath;
         LoadFromDisk();
@@ -26,27 +24,21 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
     /// <inheritdoc />
     public Task<VerifierPackageSubmissionResponse> SubmitAsync(
         VerifierPackageSubmissionRequest request,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
         var validationError = request.GetValidationError();
-        if (validationError is not null)
-        {
+        if (validationError is not null) {
             throw new InvalidOperationException(validationError);
         }
 
-        lock (_gate)
-        {
-            if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
-            {
+        lock (_gate) {
+            if (!string.IsNullOrWhiteSpace(request.IdempotencyKey)) {
                 var existingByIdempotency = _submissions.Values
                     .FirstOrDefault(s => string.Equals(s.IdempotencyKey, request.IdempotencyKey, StringComparison.Ordinal));
-                if (existingByIdempotency is not null)
-                {
-                    if (!MatchesRequest(existingByIdempotency, request))
-                    {
+                if (existingByIdempotency is not null) {
+                    if (!MatchesRequest(existingByIdempotency, request)) {
                         throw new InvalidOperationException("Package idempotency key already exists with different metadata.");
                     }
                     return Task.FromResult(existingByIdempotency);
@@ -57,18 +49,15 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
                 .FirstOrDefault(s => string.Equals(s.ObjectStorageProvider, request.ObjectStorageProvider, StringComparison.Ordinal)
                                   && string.Equals(s.ObjectBucket, request.ObjectBucket, StringComparison.Ordinal)
                                   && string.Equals(s.ObjectKey, request.ObjectKey, StringComparison.Ordinal));
-            if (existingByLocation is not null)
-            {
-                if (!MatchesRequest(existingByLocation, request))
-                {
+            if (existingByLocation is not null) {
+                if (!MatchesRequest(existingByLocation, request)) {
                     throw new InvalidOperationException("Package object is already registered with different metadata.");
                 }
                 return Task.FromResult(existingByLocation);
             }
 
             var submissionId = Guid.NewGuid().ToString("N");
-            var response = new VerifierPackageSubmissionResponse
-            {
+            var response = new VerifierPackageSubmissionResponse {
                 SubmissionId = submissionId,
                 SessionId = request.SessionId,
                 IdempotencyKey = request.IdempotencyKey,
@@ -93,13 +82,11 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
     /// <inheritdoc />
     public Task<VerifierPackageSubmissionResponse?> GetAsync(
         string submissionId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(submissionId);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_gate)
-        {
+        lock (_gate) {
             _submissions.TryGetValue(submissionId, out var submission);
             return Task.FromResult(submission);
         }
@@ -108,13 +95,11 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
     /// <inheritdoc />
     public Task<IReadOnlyList<VerifierPackageSubmissionResponse>> ListBySessionAsync(
         string sessionId,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_gate)
-        {
+        lock (_gate) {
             IReadOnlyList<VerifierPackageSubmissionResponse> submissions = _submissions.Values
                 .Where(submission => string.Equals(submission.SessionId, sessionId, StringComparison.Ordinal))
                 .OrderByDescending(submission => submission.CreatedAtUtc)
@@ -147,20 +132,16 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
         string? trustStatus,
         string? verificationResultJson,
         string? lastVerificationError,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         ArgumentException.ThrowIfNullOrWhiteSpace(submissionId);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_gate)
-        {
-            if (!_submissions.TryGetValue(submissionId, out var existing))
-            {
+        lock (_gate) {
+            if (!_submissions.TryGetValue(submissionId, out var existing)) {
                 throw new InvalidOperationException($"Submission not found: {submissionId}");
             }
 
-            var updated = existing with
-            {
+            var updated = existing with {
                 VerificationStatus = verificationStatus,
                 TrustStatus = trustStatus,
                 VerificationResultJson = verificationResultJson,
@@ -182,41 +163,31 @@ public sealed class JsonFilePackageSubmissionStore : IPackageSubmissionStore
         string.Equals(existing.PackageSha256, request.PackageSha256, StringComparison.OrdinalIgnoreCase) &&
         existing.PackageSizeBytes == request.PackageSizeBytes;
 
-    private void LoadFromDisk()
-    {
-        if (!File.Exists(_storePath))
-        {
+    private void LoadFromDisk() {
+        if (!File.Exists(_storePath)) {
             return;
         }
 
-        try
-        {
+        try {
             var json = File.ReadAllText(_storePath);
-            if (string.IsNullOrWhiteSpace(json))
-            {
+            if (string.IsNullOrWhiteSpace(json)) {
                 return;
             }
 
             var snapshot = JsonSerializer.Deserialize<List<VerifierPackageSubmissionResponse>>(json, SerializerOptions);
-            if (snapshot is not null)
-            {
-                foreach (var submission in snapshot)
-                {
+            if (snapshot is not null) {
+                foreach (var submission in snapshot) {
                     _submissions[submission.SubmissionId] = submission;
                 }
             }
-        }
-        catch
-        {
+        } catch {
             // Fail silently or start empty if deserialization fails
         }
     }
 
-    private void SaveToDisk()
-    {
+    private void SaveToDisk() {
         var dir = Path.GetDirectoryName(_storePath);
-        if (!string.IsNullOrEmpty(dir))
-        {
+        if (!string.IsNullOrEmpty(dir)) {
             Directory.CreateDirectory(dir);
         }
         var json = JsonSerializer.Serialize(_submissions.Values.ToList(), SerializerOptions);

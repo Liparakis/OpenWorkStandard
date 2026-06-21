@@ -3,13 +3,11 @@ namespace Ows.Core.Verification;
 /// <summary>
 /// Factory for standard verification finding templates used throughout OWS verification reporting.
 /// </summary>
-internal static class VerificationFindingFactory
-{
+internal static class VerificationFindingFactory {
     /// <summary>
     /// Finding template for indicating a complete, unbroken, and valid local timeline event chain.
     /// </summary>
-    public static readonly VerificationFinding TimelineChainValidFinding = new()
-    {
+    public static readonly VerificationFinding TimelineChainValidFinding = new() {
         Code = "timeline.chain.valid",
         Severity = "Low",
         Title = "Timeline chain valid",
@@ -21,8 +19,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating a broken or inconsistent local timeline event chain.
     /// </summary>
-    public static readonly VerificationFinding TimelineChainBrokenFinding = new()
-    {
+    public static readonly VerificationFinding TimelineChainBrokenFinding = new() {
         Code = "timeline.chain.broken",
         Severity = "Critical",
         Title = "Timeline chain broken",
@@ -34,8 +31,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating valid remote notarization receipts within the package.
     /// </summary>
-    public static readonly VerificationFinding ReceiptChainValidFinding = new()
-    {
+    public static readonly VerificationFinding ReceiptChainValidFinding = new() {
         Code = "receipt.chain.valid",
         Severity = "Low",
         Title = "Receipt chain valid",
@@ -47,8 +43,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating that the package does not contain verifier receipts.
     /// </summary>
-    public static readonly VerificationFinding ReceiptChainMissingFinding = new()
-    {
+    public static readonly VerificationFinding ReceiptChainMissingFinding = new() {
         Code = "receipt.chain.missing",
         Severity = "Medium",
         Title = "Receipt chain missing",
@@ -61,8 +56,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating a short session continuity gap that mostly preserves sequence flow.
     /// </summary>
-    public static readonly VerificationFinding LeaseGapShortFinding = new()
-    {
+    public static readonly VerificationFinding LeaseGapShortFinding = new() {
         Code = "lease.gap.short",
         Severity = "Warning",
         Title = "Short session continuity gap",
@@ -75,8 +69,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating a significant session continuity gap where heartbeat was interrupted.
     /// </summary>
-    public static readonly VerificationFinding LeaseGapLongFinding = new()
-    {
+    public static readonly VerificationFinding LeaseGapLongFinding = new() {
         Code = "lease.gap.long",
         Severity = "High",
         Title = "Significant session continuity gap",
@@ -88,8 +81,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating a package anchored to the registered verifier session head.
     /// </summary>
-    public static readonly VerificationFinding PackageAnchorValidFinding = new()
-    {
+    public static readonly VerificationFinding PackageAnchorValidFinding = new() {
         Code = "package.anchor.valid",
         Severity = "Low",
         Title = "Package anchor valid",
@@ -101,8 +93,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating a package that is not anchored to a registered verifier session head.
     /// </summary>
-    public static readonly VerificationFinding PackageAnchorMissingFinding = new()
-    {
+    public static readonly VerificationFinding PackageAnchorMissingFinding = new() {
         Code = "package.anchor.missing",
         Severity = "Medium",
         Title = "Package anchor missing",
@@ -114,8 +105,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating that package files have modified hashes that do not match the manifest.
     /// </summary>
-    public static readonly VerificationFinding PackageHashInvalidFinding = new()
-    {
+    public static readonly VerificationFinding PackageHashInvalidFinding = new() {
         Code = "package.hash.invalid",
         Severity = "Critical",
         Title = "Package hash invalid",
@@ -127,8 +117,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating that the session head reported by the verifier does not match the local timeline head.
     /// </summary>
-    public static readonly VerificationFinding VerifierSessionHeadMismatchFinding = new()
-    {
+    public static readonly VerificationFinding VerifierSessionHeadMismatchFinding = new() {
         Code = "verifier.session.head.mismatch",
         Severity = "High",
         Title = "Verifier session head mismatch",
@@ -140,8 +129,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating timeline events recorded after the remote verifier session lease expired.
     /// </summary>
-    public static readonly VerificationFinding LeaseWorkAfterExpirationFinding = new()
-    {
+    public static readonly VerificationFinding LeaseWorkAfterExpirationFinding = new() {
         Code = "lease.work_after_expiration",
         Severity = "High",
         Title = "Work after lease expiration",
@@ -153,8 +141,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating that OWS was not observing the project for an interval of time.
     /// </summary>
-    public static readonly VerificationFinding ObservationGapFinding = new()
-    {
+    public static readonly VerificationFinding ObservationGapFinding = new() {
         Code = "observation.gap",
         Severity = "Low",
         Title = "Observation gap detected",
@@ -167,8 +154,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating a large file change that occurred during an unobserved gap.
     /// </summary>
-    public static readonly VerificationFinding LargeUnobservedChangeFinding = new()
-    {
+    public static readonly VerificationFinding LargeUnobservedChangeFinding = new() {
         Code = "observation.large_unobserved_change",
         Severity = "High",
         Title = "Large unobserved change",
@@ -182,8 +168,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating a standard file change that occurred during an unobserved gap.
     /// </summary>
-    public static readonly VerificationFinding UnobservedChangeFinding = new()
-    {
+    public static readonly VerificationFinding UnobservedChangeFinding = new() {
         Code = "observation.unobserved_change",
         Severity = "Medium",
         Title = "Unobserved file change",
@@ -196,8 +181,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating OWS could not verify that the local recovery snapshot matched the last committed snapshot state.
     /// </summary>
-    public static readonly VerificationFinding SnapshotMismatchFinding = new()
-    {
+    public static readonly VerificationFinding SnapshotMismatchFinding = new() {
         Code = "observation.snapshot_mismatch",
         Severity = "High",
         Title = "Recovery snapshot mismatch",
@@ -211,8 +195,7 @@ internal static class VerificationFindingFactory
     /// <summary>
     /// Finding template for indicating a recovery snapshot that was not committed into the timeline.
     /// </summary>
-    public static readonly VerificationFinding SnapshotUnboundFinding = new()
-    {
+    public static readonly VerificationFinding SnapshotUnboundFinding = new() {
         Code = "observation.snapshot_unbound",
         Severity = "Medium",
         Title = "Recovery snapshot unbound",

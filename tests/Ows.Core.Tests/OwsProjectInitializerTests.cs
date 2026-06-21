@@ -7,19 +7,16 @@ namespace Ows.Core.Tests;
 /// <summary>
 /// Tests project initialization for local OWS state.
 /// </summary>
-public sealed class OwsProjectInitializerTests
-{
+public sealed class OwsProjectInitializerTests {
     /// <summary>
     /// Verifies that initialization creates the local OWS folder and starter files.
     /// </summary>
     [Fact]
-    public void Initialize_ShouldCreateLocalFolderConfigAndTimeline()
-    {
+    public void Initialize_ShouldCreateLocalFolderConfigAndTimeline() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-init-{Guid.NewGuid():N}");
         Directory.CreateDirectory(projectRoot);
 
-        try
-        {
+        try {
             var initializer = new OwsProjectInitializer();
 
             var result = initializer.Initialize(projectRoot);
@@ -36,11 +33,8 @@ public sealed class OwsProjectInitializerTests
             using var document = JsonDocument.Parse(File.ReadAllText(configPath));
             document.RootElement.GetProperty("owsVersion").GetString().Should().Be("0.1");
             document.RootElement.GetProperty("projectRoot").GetString().Should().Be(projectRoot);
-        }
-        finally
-        {
-            if (Directory.Exists(projectRoot))
-            {
+        } finally {
+            if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
             }
         }

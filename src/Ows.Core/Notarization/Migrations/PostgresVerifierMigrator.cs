@@ -5,8 +5,7 @@ namespace Ows.Core.Notarization;
 /// <summary>
 /// Applies ordered PostgreSQL schema migrations for the Work Verifier store.
 /// </summary>
-public static class PostgresVerifierMigrator
-{
+public static class PostgresVerifierMigrator {
     private const string CreateSchemaVersionTableSql = """
                                                        create table if not exists ows_verifier_schema_version (
                                                            version integer primary key,
@@ -289,8 +288,7 @@ public static class PostgresVerifierMigrator
     /// <param name="connectionString">The PostgreSQL connection string.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when the schema is fully migrated.</returns>
-    public static async Task MigrateAsync(string connectionString, CancellationToken cancellationToken = default)
-    {
+    public static async Task MigrateAsync(string connectionString, CancellationToken cancellationToken = default) {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         await using var dataSource = NpgsqlDataSource.Create(connectionString);
@@ -303,8 +301,7 @@ public static class PostgresVerifierMigrator
     /// <param name="dataSource">The PostgreSQL data source.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when the schema is fully migrated.</returns>
-    public static async Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken cancellationToken = default)
-    {
+    public static async Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken cancellationToken = default) {
         ArgumentNullException.ThrowIfNull(dataSource);
 
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
@@ -312,10 +309,8 @@ public static class PostgresVerifierMigrator
         await ExecuteAsync(connection, CreateSchemaVersionTableSql, cancellationToken);
 
         var appliedVersions = await LoadAppliedVersionsAsync(connection, cancellationToken);
-        foreach (var migration in GetMigrations())
-        {
-            if (appliedVersions.Contains(migration.Version))
-            {
+        foreach (var migration in GetMigrations()) {
+            if (appliedVersions.Contains(migration.Version)) {
                 continue;
             }
 
@@ -353,8 +348,7 @@ public static class PostgresVerifierMigrator
     /// <returns>The applied migration versions.</returns>
     private static async Task<HashSet<int>> LoadAppliedVersionsAsync(
         NpgsqlConnection connection,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = """
                               select version
@@ -364,8 +358,7 @@ public static class PostgresVerifierMigrator
 
         var versions = new HashSet<int>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
+        while (await reader.ReadAsync(cancellationToken)) {
             versions.Add(reader.GetInt32(0));
         }
 
@@ -382,8 +375,7 @@ public static class PostgresVerifierMigrator
     private static async Task RecordAppliedVersionAsync(
         NpgsqlConnection connection,
         PostgresVerifierMigration migration,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = """
                               insert into ows_verifier_schema_version (version, name)
@@ -403,8 +395,7 @@ public static class PostgresVerifierMigrator
     private static async Task ExecuteAsync(
         NpgsqlConnection connection,
         string commandText,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         await using var command = connection.CreateCommand();
         command.CommandText = commandText;
         await command.ExecuteNonQueryAsync(cancellationToken);
