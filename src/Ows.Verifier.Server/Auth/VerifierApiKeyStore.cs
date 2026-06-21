@@ -70,32 +70,74 @@ public sealed record VerifierApiKeyMetadata(
     DateTimeOffset? LastUsedAtUtc,
     DateTimeOffset? RevokedAtUtc);
 
+/// <summary>
+/// Represents a persisted verifier API key record.
+/// </summary>
 internal sealed record PersistedVerifierApiKeyRecord
 {
+    /// <summary>
+    /// Gets the unique key identifier.
+    /// </summary>
     public string KeyId { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Gets the non-secret key prefix.
+    /// </summary>
     public string KeyPrefix { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Gets the SHA-256 hash of the API key.
+    /// </summary>
     public string KeyHash { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Gets the security role.
+    /// </summary>
     public string Role { get; init; } = "Operator";
 
+    /// <summary>
+    /// Gets the optional institution identifier scope.
+    /// </summary>
     public string? InstitutionId { get; init; }
 
+    /// <summary>
+    /// Gets the optional student user identifier.
+    /// </summary>
     public string? StudentUserId { get; init; }
 
+    /// <summary>
+    /// Gets the UTC creation timestamp.
+    /// </summary>
     public DateTimeOffset CreatedAtUtc { get; init; }
 
+    /// <summary>
+    /// Gets the optional UTC expiry timestamp.
+    /// </summary>
     public DateTimeOffset? ExpiresAtUtc { get; init; }
 
+    /// <summary>
+    /// Gets the optional UTC last used timestamp.
+    /// </summary>
     public DateTimeOffset? LastUsedAtUtc { get; init; }
 
+    /// <summary>
+    /// Gets the optional UTC revocation timestamp.
+    /// </summary>
     public DateTimeOffset? RevokedAtUtc { get; init; }
 
+    /// <summary>
+    /// Converts this persisted record into an API key metadata record.
+    /// </summary>
+    /// <returns>A mapped <see cref="VerifierApiKeyMetadata"/> instance.</returns>
     public VerifierApiKeyMetadata ToMetadata() =>
         new(KeyId, KeyPrefix, Role, InstitutionId, StudentUserId, CreatedAtUtc, ExpiresAtUtc, LastUsedAtUtc,
             RevokedAtUtc);
 
+    /// <summary>
+    /// Checks if the API key is active at a specific timestamp.
+    /// </summary>
+    /// <param name="now">The timestamp to evaluate key active state against.</param>
+    /// <returns>True if the key has not been revoked and is not expired; otherwise, false.</returns>
     public bool IsActiveAt(DateTimeOffset now) =>
         RevokedAtUtc is null && (ExpiresAtUtc is null || ExpiresAtUtc > now);
 }
@@ -105,9 +147,24 @@ internal sealed record PersistedVerifierApiKeyRecord
 /// </summary>
 internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
 {
+    /// <summary>
+    /// The JSON serialization options.
+    /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
+
+    /// <summary>
+    /// The lock object used to synchronize database operations.
+    /// </summary>
     private readonly Lock _gate = new();
+
+    /// <summary>
+    /// The cached dictionary of API keys keyed by their KeyId.
+    /// </summary>
     private readonly Dictionary<string, PersistedVerifierApiKeyRecord> _records = [];
+
+    /// <summary>
+    /// The file path to the JSON storage file.
+    /// </summary>
     private readonly string _storePath;
 
     /// <summary>
@@ -242,6 +299,9 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
         }
     }
 
+    /// <summary>
+    /// Loads persisted API keys from the JSON snapshot file.
+    /// </summary>
     private void LoadFromDisk()
     {
         lock (_gate)
@@ -278,6 +338,9 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
         }
     }
 
+    /// <summary>
+    /// Saves the current API key collection to the JSON snapshot file.
+    /// </summary>
     private void SaveToDisk()
     {
         var dir = Path.GetDirectoryName(_storePath);
@@ -298,12 +361,21 @@ internal sealed class JsonFileVerifierApiKeyStore : IVerifierApiKeyStore
 /// </summary>
 internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsyncDisposable
 {
+    /// <summary>
+    /// The connection pool database data source.
+    /// </summary>
     private readonly NpgsqlDataSource _dataSource;
+
+    /// <summary>
+    /// The background initialization task running migrations.
+    /// </summary>
     private readonly Task _initializationTask;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PostgresVerifierApiKeyStore"/> class.
     /// </summary>
+    /// <param name="connectionString">The PostgreSQL connection string.</param>
+    /// <param name="applyMigrationsOnStartup">Whether schema migration should run automatically on startup.</param>
     public PostgresVerifierApiKeyStore(string connectionString, bool applyMigrationsOnStartup = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
@@ -489,6 +561,11 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
     /// <inheritdoc />
     public ValueTask DisposeAsync() => _dataSource.DisposeAsync();
 
+    /// <summary>
+    /// Reads and maps a single API key record from a database reader.
+    /// </summary>
+    /// <param name="reader">The active database reader.</param>
+    /// <returns>A mapped persisted API key record instance.</returns>
     private static PersistedVerifierApiKeyRecord ReadRecord(NpgsqlDataReader reader) =>
         new()
         {
@@ -505,8 +582,15 @@ internal sealed class PostgresVerifierApiKeyStore : IVerifierApiKeyStore, IAsync
         };
 }
 
+/// <summary>
+/// Provides static cryptographic helpers for generating and hashing OWS API keys.
+/// </summary>
 file static class VerifierApiKeyMaterial
 {
+    /// <summary>
+    /// Generates a cryptographically strong random API key prefixed with "ows_".
+    /// </summary>
+    /// <returns>The generated raw API key string.</returns>
     public static string CreateRawApiKey()
     {
         Span<byte> bytes = stackalloc byte[24];
@@ -514,9 +598,19 @@ file static class VerifierApiKeyMaterial
         return $"ows_{Convert.ToHexString(bytes).ToLowerInvariant()}";
     }
 
+    /// <summary>
+    /// Creates a safe non-secret prefix from the raw API key.
+    /// </summary>
+    /// <param name="rawApiKey">The raw API key.</param>
+    /// <returns>The non-secret safe prefix.</returns>
     public static string CreateKeyPrefix(string rawApiKey) =>
         rawApiKey[..Math.Min(12, rawApiKey.Length)];
 
+    /// <summary>
+    /// Computes the hex-encoded SHA-256 hash of the raw API key.
+    /// </summary>
+    /// <param name="rawApiKey">The raw API key.</param>
+    /// <returns>A hex-encoded lowercase SHA-256 hash string.</returns>
     public static string ComputeKeyHash(string rawApiKey)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawApiKey));

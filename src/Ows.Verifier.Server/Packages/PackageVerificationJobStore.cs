@@ -6,26 +6,57 @@ namespace Ows.Verifier.Server;
 /// <summary>
 /// Represents one durable package verification job.
 /// </summary>
+// ReSharper disable UnusedAutoPropertyAccessor.Global
 internal sealed record PackageVerificationJobRecord
 {
+    /// <summary>
+    /// Gets the unique identifier for the job.
+    /// </summary>
     public string Id { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Gets the package identifier associated with the job.
+    /// </summary>
     public string PackageId { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Gets the current status of the verification job (e.g. Pending, Running, Succeeded, Failed).
+    /// </summary>
     public string Status { get; init; } = "Pending";
 
+    /// <summary>
+    /// Gets the number of verification attempts made for this job.
+    /// </summary>
     public int Attempts { get; init; }
 
+    /// <summary>
+    /// Gets the API key ID that requested the package verification, if applicable.
+    /// </summary>
     public string? RequestedByApiKeyId { get; init; }
 
+    /// <summary>
+    /// Gets the creation timestamp of the job in UTC.
+    /// </summary>
     public DateTimeOffset CreatedAtUtc { get; init; }
 
+    /// <summary>
+    /// Gets the start timestamp of the job in UTC, if applicable.
+    /// </summary>
     public DateTimeOffset? StartedAtUtc { get; init; }
 
+    /// <summary>
+    /// Gets the completion timestamp of the job in UTC, if applicable.
+    /// </summary>
     public DateTimeOffset? CompletedAtUtc { get; init; }
 
+    /// <summary>
+    /// Gets the error message of the last failed attempt, if applicable.
+    /// </summary>
     public string? LastError { get; init; }
 
+    /// <summary>
+    /// Gets the serialized JSON representation of the verification result, if applicable.
+    /// </summary>
     public string? ResultJson { get; init; }
 }
 
@@ -34,25 +65,56 @@ internal sealed record PackageVerificationJobRecord
 /// </summary>
 internal sealed record PackageVerificationJobSummary
 {
+    /// <summary>
+    /// Gets the number of pending jobs.
+    /// </summary>
     public int Pending { get; init; }
 
+    /// <summary>
+    /// Gets the number of running jobs.
+    /// </summary>
     public int Running { get; init; }
 
+    /// <summary>
+    /// Gets the number of successfully completed jobs.
+    /// </summary>
     public int Succeeded { get; init; }
 
+    /// <summary>
+    /// Gets the number of failed jobs.
+    /// </summary>
     public int Failed { get; init; }
 }
 
+/// <summary>
+/// A JSON file-backed implementation of <see cref="IPackageVerificationJobStore"/>.
+/// </summary>
 internal sealed class JsonFilePackageVerificationJobStore : IPackageVerificationJobStore
 {
+    /// <summary>
+    /// The options used for JSON serialization.
+    /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
+
+    /// <summary>
+    /// A lock object to synchronize access to the in-memory dictionary.
+    /// </summary>
     private readonly Lock _gate = new();
+
+    /// <summary>
+    /// The in-memory collection of verification jobs, keyed by their unique job ID.
+    /// </summary>
     private readonly Dictionary<string, PackageVerificationJobRecord> _jobs = [];
+
+    /// <summary>
+    /// The file path where the job definitions are stored.
+    /// </summary>
     private readonly string _storePath;
 
     /// <summary>
     /// Initializes a new JSON job store.
     /// </summary>
+    /// <param name="storePath">The path to the JSON storage file.</param>
     public JsonFilePackageVerificationJobStore(string storePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storePath);
@@ -190,6 +252,9 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
         }
     }
 
+    /// <summary>
+    /// Loads verification jobs from the JSON file on disk.
+    /// </summary>
     private void LoadFromDisk()
     {
         lock (_gate)
@@ -221,6 +286,9 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
         }
     }
 
+    /// <summary>
+    /// Saves the current list of verification jobs to the JSON file on disk.
+    /// </summary>
     private void SaveToDisk()
     {
         var directory = Path.GetDirectoryName(_storePath);
@@ -234,6 +302,11 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
         File.Move(tempPath, _storePath, overwrite: true);
     }
 
+    /// <summary>
+    /// Resets verification jobs back to Pending status if they have been running longer than the stale threshold.
+    /// </summary>
+    /// <param name="now">The current date time offset.</param>
+    /// <param name="staleRunningThreshold">The threshold duration beyond which a running job is considered stale.</param>
     private void ResetStaleRunningJobs(DateTimeOffset now, TimeSpan staleRunningThreshold)
     {
         foreach (var job in _jobs.Values.Where(job =>
@@ -249,6 +322,11 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
         }
     }
 
+    /// <summary>
+    /// Aggregates list of jobs into a status summary.
+    /// </summary>
+    /// <param name="jobs">The list of jobs to aggregate.</param>
+    /// <returns>A summary statistics record.</returns>
     private static PackageVerificationJobSummary BuildSummary(IEnumerable<PackageVerificationJobRecord> jobs)
     {
         var counts = jobs.GroupBy(static job => job.Status, StringComparer.OrdinalIgnoreCase)
@@ -263,14 +341,26 @@ internal sealed class JsonFilePackageVerificationJobStore : IPackageVerification
     }
 }
 
+/// <summary>
+/// A PostgreSQL-backed implementation of <see cref="IPackageVerificationJobStore"/>.
+/// </summary>
 internal sealed class PostgresPackageVerificationJobStore : IPackageVerificationJobStore, IAsyncDisposable
 {
+    /// <summary>
+    /// The database connection data source.
+    /// </summary>
     private readonly NpgsqlDataSource _dataSource;
+
+    /// <summary>
+    /// The background initialization task running migrations.
+    /// </summary>
     private readonly Task _initializationTask;
 
     /// <summary>
     /// Initializes a PostgreSQL-backed job store.
     /// </summary>
+    /// <param name="connectionString">The DB connection string.</param>
+    /// <param name="applyMigrationsOnStartup">Whether schema migration should run automatically on startup.</param>
     public PostgresPackageVerificationJobStore(string connectionString, bool applyMigrationsOnStartup = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
@@ -507,6 +597,11 @@ internal sealed class PostgresPackageVerificationJobStore : IPackageVerification
     /// <inheritdoc />
     public ValueTask DisposeAsync() => _dataSource.DisposeAsync();
 
+    /// <summary>
+    /// Reads and maps a single job record from a database data reader.
+    /// </summary>
+    /// <param name="reader">The active database reader.</param>
+    /// <returns>A mapped job record instance.</returns>
     private static PackageVerificationJobRecord ReadJob(NpgsqlDataReader reader) =>
         new()
         {

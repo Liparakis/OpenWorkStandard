@@ -10,19 +10,63 @@ namespace Ows.Verifier.Server;
 /// </summary>
 internal sealed class PackageVerificationWorker : BackgroundService
 {
+    /// <summary>
+    /// The audit store used to record verification events.
+    /// </summary>
     private readonly IVerifierAuditStore _auditStore;
+
+    /// <summary>
+    /// The blob store used to read uploaded packages.
+    /// </summary>
     private readonly IPackageBlobStore _blobStore;
+
+    /// <summary>
+    /// The education context store.
+    /// </summary>
     private readonly IEducationStore _educationStore;
+
+    /// <summary>
+    /// The job store used to manage the verification queue status.
+    /// </summary>
     private readonly IPackageVerificationJobStore _jobStore;
+
+    /// <summary>
+    /// The logger instance.
+    /// </summary>
     private readonly ILogger<PackageVerificationWorker> _logger;
+
+    /// <summary>
+    /// The core package verifier engine.
+    /// </summary>
     private readonly IPackageVerifier _packageVerifier;
+
+    /// <summary>
+    /// The package submission record store.
+    /// </summary>
     private readonly IPackageSubmissionStore _packageStore;
+
+    /// <summary>
+    /// The storage configuration options.
+    /// </summary>
     private readonly VerifierStorageOptions _options;
+
+    /// <summary>
+    /// The verifier storage backend.
+    /// </summary>
     private readonly IVerifierStorage _storage;
 
     /// <summary>
     /// Initializes a new package verification worker.
     /// </summary>
+    /// <param name="jobStore">The queue store for tracking jobs.</param>
+    /// <param name="packageStore">The store holding submission metadata.</param>
+    /// <param name="blobStore">The blob storage for package files.</param>
+    /// <param name="storage">The verifier storage backend.</param>
+    /// <param name="educationStore">The education metadata store.</param>
+    /// <param name="packageVerifier">The core verification service.</param>
+    /// <param name="auditStore">The verifier audit trail store.</param>
+    /// <param name="options">The storage and worker configuration options.</param>
+    /// <param name="logger">The logger instance.</param>
     public PackageVerificationWorker(
         IPackageVerificationJobStore jobStore,
         IPackageSubmissionStore packageStore,
@@ -76,9 +120,16 @@ internal sealed class PackageVerificationWorker : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Executes the package verification process for a single job.
+    /// </summary>
+    /// <param name="job">The job record details.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task representing the asynchronous verification operation.</returns>
     private async Task VerifyAsync(PackageVerificationJobRecord job, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Starting package verification job {JobId} for package {PackageId}.", job.Id, job.PackageId);
+        _logger.LogInformation("Starting package verification job {JobId} for package {PackageId}.", job.Id,
+            job.PackageId);
         await SafeAuditAsync(new VerifierAuditEvent
         {
             Id = Guid.NewGuid().ToString("N"),
@@ -211,6 +262,14 @@ internal sealed class PackageVerificationWorker : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Marks a job as failed and updates the associated submission status and audit trail.
+    /// </summary>
+    /// <param name="job">The job record.</param>
+    /// <param name="message">The failure reason message.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="submission">The optional associated package submission response.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private async Task FailAsync(
         PackageVerificationJobRecord job,
         string message,
@@ -252,6 +311,12 @@ internal sealed class PackageVerificationWorker : BackgroundService
         }, cancellationToken);
     }
 
+    /// <summary>
+    /// Resolves and builds a contextual education context report for verification.
+    /// </summary>
+    /// <param name="submission">The package submission details.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The resolved education context report, or null if no relevant ids exist.</returns>
     private async Task<ReportEducationContext?> ResolveEducationContextAsync(
         VerifierPackageSubmissionResponse submission,
         CancellationToken cancellationToken)
@@ -266,7 +331,9 @@ internal sealed class PackageVerificationWorker : BackgroundService
         Institution? institution = null;
         if (!string.IsNullOrWhiteSpace(submission.InstitutionId))
         {
-            institution = await _educationStore.GetInstitutionAsync(new InstitutionId(submission.InstitutionId), cancellationToken);
+            institution =
+                await _educationStore.GetInstitutionAsync(new InstitutionId(submission.InstitutionId),
+                    cancellationToken);
         }
 
         Assessment? assessment = null;
@@ -275,7 +342,8 @@ internal sealed class PackageVerificationWorker : BackgroundService
         ClassGroup? classGroup = null;
         if (!string.IsNullOrWhiteSpace(submission.AssessmentId))
         {
-            assessment = await _educationStore.GetAssessmentAsync(new AssessmentId(submission.AssessmentId), cancellationToken);
+            assessment =
+                await _educationStore.GetAssessmentAsync(new AssessmentId(submission.AssessmentId), cancellationToken);
             if (assessment is not null)
             {
                 offering = await _educationStore.GetCourseOfferingAsync(assessment.CourseOfferingId, cancellationToken);
@@ -310,7 +378,13 @@ internal sealed class PackageVerificationWorker : BackgroundService
         };
     }
 
-    private async Task<string> CopyToTempFileAsync(Stream source, CancellationToken cancellationToken)
+    /// <summary>
+    /// Copies a package stream to a temporary local file on the filesystem.
+    /// </summary>
+    /// <param name="source">The source package blob stream.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The absolute path of the created temporary file.</returns>
+    private static async Task<string> CopyToTempFileAsync(Stream source, CancellationToken cancellationToken)
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.owspkg");
         await using var destination = File.Create(tempPath);
@@ -319,6 +393,12 @@ internal sealed class PackageVerificationWorker : BackgroundService
         return tempPath;
     }
 
+    /// <summary>
+    /// Appends an audit event to the audit store, capturing and logging any exceptions that occur.
+    /// </summary>
+    /// <param name="auditEvent">The audit event to persist.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private async Task SafeAuditAsync(VerifierAuditEvent auditEvent, CancellationToken cancellationToken)
     {
         try
