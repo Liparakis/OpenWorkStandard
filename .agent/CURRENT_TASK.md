@@ -19,6 +19,9 @@
   - The filesystem and explicitly initialized project roots are the observation boundary.
 - Files currently being inspected or changed:
   - `src/Ows.Cli/Commands/InspectCommandBuilder.cs`
+  - `src/Ows.Core/Agent/LocalTrackingAgent.cs`
+  - `src/Ows.Core/Verification/Helpers/{VerificationFindingFactory,ObservationContinuityAnalyzer}.cs`
+  - `tests/Ows.Core.Tests/OwsIgnoreEngineTests.cs`
   - `docs/development/CLI.md`
   - `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`
   - `.agent/DECISIONS.md`, `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`
@@ -28,6 +31,7 @@
   - [x] Validate Windows setup/service/uninstall behavior from the owner smoke test.
   - [x] Keep docs aligned with the actual seven-command local CLI.
   - [x] Remove redundant one-implementation interfaces and stale CLI JSON claims.
+  - [x] Remove the last active legacy terminology from snapshot continuity and ignore-rule tests.
   - [x] Validate build, tests, smoke workflow, syntax, links, and generated-output cleanup.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
@@ -44,6 +48,7 @@
 - Current build/test state:
   - Focused inspect test passes: 1/1.
   - Release build passed with 0 warnings/errors after the final CLI correction.
+  - Release build passed again after the final terminology correction.
   - Full tests pass: Core 41/41 and CLI 10/10; focused inspect test passes 1/1.
   - Release-binary smoke passed: `init -> package -> verify -> inspect --json -> report --format json`.
   - Markdown relative links, `git diff --check`, and forbidden legacy-reference scans pass.

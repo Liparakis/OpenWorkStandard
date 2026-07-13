@@ -42,7 +42,7 @@ internal static class VerificationFindingFactory {
         Severity = "Medium",
         Title = "Recovery snapshot unbound",
         Detail = "OWS found a recovery snapshot that was not committed into the timeline.",
-        TechnicalDetail = "The baseline was treated as legacy or untrusted for continuity reconstruction.",
+        TechnicalDetail = "The baseline was treated as unbound or untrusted for continuity reconstruction.",
         ReviewerAction = "Review the interval manually. This is not proof of misconduct."
     };
 }

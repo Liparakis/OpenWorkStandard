@@ -155,3 +155,26 @@
 - Exact next action: owner reviews commits `de61aa7` and `624ed33` plus the Windows SCM lifecycle evidence.
 - Important context: Local package integrity is the v0 tamper boundary; hosted anchoring is deferred.
 - Files to inspect first: `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, `docs/development/CLI.md`, and `src/Ows.Core/Verification`.
+
+## 2026-07-13 - Remove final active legacy terminology
+
+### Completed
+- Renamed the remaining snapshot continuity variable/message and ignore-rule test fixture from legacy wording to neutral unbound/additional wording.
+
+### Changed
+- Added: none.
+- Modified: Agent continuity code, verification findings/docs, and the ignore-engine test.
+- Deleted: none.
+
+### Validation
+- Full tests passed Core 41/41 and CLI 10/10.
+- Release build passed with 0 warnings/errors.
+- Active source/test/docs scan contains no legacy compatibility implementation names or `UnsignedLegacy`.
+
+### Remaining
+- Commit this final terminology correction and await owner review.
+
+### Handoff
+- Exact next action: commit the final terminology correction, clean generated outputs, and verify the tree.
+- Important context: Remaining server/session mentions are intentional negative-boundary documentation, not active features.
+- Files to inspect first: `src/Ows.Core/Agent/LocalTrackingAgent.cs`, `src/Ows.Core/Verification/Helpers`, and `.agent/CURRENT_TASK.md`.

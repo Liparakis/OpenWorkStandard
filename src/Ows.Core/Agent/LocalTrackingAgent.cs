@@ -114,9 +114,9 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
                                        !string.IsNullOrWhiteSpace(committedSnapshotHash) &&
                                        !string.Equals(computedSnapshotHash, committedSnapshotHash,
                                            StringComparison.OrdinalIgnoreCase);
-            var snapshotLegacyUnbound = previousSnapshot != null &&
-                                        hadPriorTimeline &&
-                                        string.IsNullOrWhiteSpace(committedSnapshotHash);
+            var snapshotUnbound = previousSnapshot != null &&
+                                  hadPriorTimeline &&
+                                  string.IsNullOrWhiteSpace(committedSnapshotHash);
 
             if (previousSnapshot == null && hadPriorTimeline) {
                 var now = DateTimeOffset.UtcNow;
@@ -149,7 +149,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
                 previousEventHash =
                     await TimelineEventAppender.AppendEventAsync(timelinePath, gapEvent, previousEventHash,
                         cancellationToken);
-            } else if (snapshotHashMismatch || snapshotLegacyUnbound) {
+            } else if (snapshotHashMismatch || snapshotUnbound) {
                 var now = DateTimeOffset.UtcNow;
                 var gapStartedAt = now;
                 var gapDurationMsVal = (long) (now - gapStartedAt).TotalMilliseconds;

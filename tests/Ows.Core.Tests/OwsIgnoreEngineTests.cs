@@ -47,11 +47,11 @@ public sealed class OwsIgnoreEngineTests {
         try {
             File.WriteAllText(Path.Combine(projectRoot, ".owsignore"), "custom/\n*.cache\n");
 
-            var engine = OwsIgnoreEngine.Load(projectRoot, ["legacy-output"]);
+            var engine = OwsIgnoreEngine.Load(projectRoot, ["extra-output"]);
 
             engine.IsIgnored("custom/file.txt").Should().BeTrue();
             engine.IsIgnored("data/cache.cache").Should().BeTrue();
-            engine.IsIgnored("legacy-output/file.txt").Should().BeTrue();
+            engine.IsIgnored("extra-output/file.txt").Should().BeTrue();
             engine.IsIgnored("src/main.cs").Should().BeFalse();
         } finally {
             if (Directory.Exists(projectRoot)) {

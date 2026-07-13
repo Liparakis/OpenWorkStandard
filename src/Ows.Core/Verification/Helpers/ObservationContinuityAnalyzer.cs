@@ -9,7 +9,7 @@ namespace Ows.Core.Verification;
 /// </summary>
 internal static class ObservationContinuityAnalyzer {
     /// <summary>
-    /// Scans the timeline from the packaged archive to build appropriate findings on observation gaps, unobserved changes, and legacy/mismatched snapshot states.
+    /// Scans the timeline from the packaged archive to build appropriate findings on observation gaps, unobserved changes, and unbound/mismatched snapshot states.
     /// </summary>
     /// <param name="archive">The ZIP archive package containing project files and history.</param>
     /// <param name="findings">The list of findings to append newly discovered anomalies or validations to.</param>
