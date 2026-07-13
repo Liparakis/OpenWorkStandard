@@ -19,14 +19,18 @@ public static class VerifyCommandBuilder {
         };
         command.Arguments.Add(packageArgument);
         command.SetAction(async parseResult => {
-            var projectRoot = Directory.GetCurrentDirectory();
-            var packagePath = parseResult.GetValue(packageArgument) ?? Path.Combine(projectRoot,
-                $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
-            var result = await new OwsPackageVerifier().VerifyAsync(
-                new PackageVerificationRequest { PackagePath = packagePath }, CancellationToken.None);
-            Console.WriteLine(result.Summary);
-            return result.IsSuccess ? 0 : 1;
-        });
+                var projectRoot = Directory.GetCurrentDirectory();
+                var packagePath = parseResult.GetValue(packageArgument) ?? Path.Combine(
+                    projectRoot,
+                    $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}"
+                );
+                var result = await new OwsPackageVerifier().VerifyAsync(
+                    new PackageVerificationRequest { PackagePath = packagePath }, CancellationToken.None
+                );
+                Console.WriteLine(result.Summary);
+                return result.IsSuccess ? 0 : 1;
+            }
+        );
 
         return command;
     }

@@ -19,6 +19,8 @@
   - The filesystem and explicitly initialized project roots are the observation boundary.
 - Files currently being inspected or changed:
   - `src/Ows.Cli/Commands/InspectCommandBuilder.cs`
+  - `src/Ows.Cli/OwsCliResponse.cs`
+  - `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`
   - `src/Ows.Core/Agent/LocalTrackingAgent.cs`
   - `src/Ows.Core/Verification/Helpers/{VerificationFindingFactory,ObservationContinuityAnalyzer}.cs`
   - `tests/Ows.Core.Tests/OwsIgnoreEngineTests.cs`
@@ -32,6 +34,7 @@
   - [x] Keep docs aligned with the actual seven-command local CLI.
   - [x] Remove redundant one-implementation interfaces and stale CLI JSON claims.
   - [x] Remove the last active legacy terminology from snapshot continuity and ignore-rule tests.
+  - [x] Remove the unused `OwsCliResponse.TrustStatus` property and serialized field.
   - [x] Validate build, tests, smoke workflow, syntax, links, and generated-output cleanup.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
@@ -52,6 +55,8 @@
   - Full tests pass: Core 41/41 and CLI 10/10; focused inspect test passes 1/1.
   - Release-binary smoke passed: `init -> package -> verify -> inspect --json -> report --format json`.
   - Real Agent smoke passed: `init -> running Agent -> file change -> package -> valid non-empty timeline` (8 events observed).
+  - Dead-field cleanup passed the focused CLI JSON test and Release build with 0 warnings/errors.
   - Markdown relative links, `git diff --check`, and forbidden legacy-reference scans pass.
   - Generated build outputs were removed; `git clean -ndX` is empty.
   - Final terminology correction committed as `6001de1`; runtime evidence notes committed as `8f9fc3b`; the working tree is clean and owner review remains the next action.
+  - Current dead-field cleanup is pending validation.

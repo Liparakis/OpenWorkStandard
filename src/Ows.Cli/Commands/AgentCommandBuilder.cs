@@ -20,33 +20,36 @@ public static class AgentCommandBuilder {
         var runCommand = new Command("run", "Watch all explicitly initialized registered projects until stopped.");
         runCommand.Options.Add(pollOption);
         runCommand.SetAction(async parseResult => {
-            var usePolling = parseResult.GetValue(pollOption);
-            using var cancellation = new CancellationTokenSource();
-            ConsoleCancelEventHandler? handler = null;
-            handler = (_, args) => {
-                args.Cancel = true;
-                cancellation.Cancel();
-            };
-            Console.CancelKeyPress += handler;
-            try {
-                await new OwsAgentHost(new OwsProjectRegistry(), usePolling).RunAsync(cancellation.Token);
-            } finally {
-                Console.CancelKeyPress -= handler;
-            }
+                var usePolling = parseResult.GetValue(pollOption);
+                using var cancellation = new CancellationTokenSource();
+                var handler = CreateHandler(cancellation);
+                Console.CancelKeyPress += handler;
+                try {
+                    await new OwsAgentHost(new OwsProjectRegistry(), usePolling).RunAsync(cancellation.Token);
+                } finally {
+                    Console.CancelKeyPress -= handler;
+                }
 
-            return 0;
-        });
+                return 0;
+
+                static ConsoleCancelEventHandler CreateHandler(CancellationTokenSource cts) => (_, args) => {
+                    args.Cancel = true;
+                    cts.Cancel();
+                };
+            }
+        );
         command.Subcommands.Add(runCommand);
 
         var serviceCommand = new Command("service", "Run the OWS Agent under the operating system service host.");
         serviceCommand.SetAction(async _ => {
-            var builder = Host.CreateApplicationBuilder();
-            builder.Services.AddWindowsService(options => options.ServiceName = "OWS Agent");
-            builder.Services.AddHostedService<WindowsAgentHostedService>();
-            using var host = builder.Build();
-            await host.RunAsync();
-            return 0;
-        });
+                var builder = Host.CreateApplicationBuilder();
+                builder.Services.AddWindowsService(options => options.ServiceName = "OWS Agent");
+                builder.Services.AddHostedService<WindowsAgentHostedService>();
+                using var host = builder.Build();
+                await host.RunAsync();
+                return 0;
+            }
+        );
         command.Subcommands.Add(serviceCommand);
         return command;
     }

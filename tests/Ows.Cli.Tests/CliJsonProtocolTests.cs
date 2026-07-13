@@ -37,6 +37,7 @@ public sealed class CliJsonProtocolTests {
                 doc.RootElement.GetProperty("Success").GetBoolean().Should().BeFalse();
                 doc.RootElement.GetProperty("Status").GetString().Should().Be("Not Initialized");
                 doc.RootElement.GetProperty("Errors")[0].GetString().Should().Contain("not initialized");
+                doc.RootElement.TryGetProperty("TrustStatus", out _).Should().BeFalse();
             }
 
             // 2. Test init --json

@@ -221,3 +221,25 @@
 - Exact next action: owner reviews the local-only release candidate and the runtime Agent evidence.
 - Important context: The Agent records project evolution without requiring a server or manual checkpoint ceremony.
 - Files to inspect first: `src/Ows.Core/Agent/OwsAgentHost.cs`, `src/Ows.Core/Agent/OwsProjectAgent.cs`, and `.agent/NEXT_STEPS.md`.
+
+## 2026-07-13 - Remove dead CLI trust field
+
+### Completed
+- Confirmed `OwsCliResponse.TrustStatus` had no writer or consumer and removed it from the response model and JSON shape.
+
+### Changed
+- Added: a JSON regression assertion that `TrustStatus` is absent.
+- Modified: `src/Ows.Cli/OwsCliResponse.cs` and `CliJsonProtocolTests.cs`.
+- Deleted: the unused response property and serialized field.
+
+### Validation
+- Focused CLI JSON test passed 1/1.
+- Release build passed with 0 warnings/errors; full suite remained green at Core 41/41 and CLI 10/10.
+
+### Remaining
+- None for this fix; owner review/publication gate remains unchanged.
+
+### Handoff
+- Exact next action: commit this dead-field cleanup.
+- Important context: Verification trust remains correctly sourced from `Ows.Core.VerificationResult`; it was never part of the project-state CLI response.
+- Files to inspect first: `src/Ows.Cli/OwsCliResponse.cs` and `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`.

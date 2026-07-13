@@ -17,24 +17,31 @@ public sealed class OwsInspectCommandTests {
         var originalDirectory = Directory.GetCurrentDirectory();
         var originalOut = Console.Out;
         try {
-            var timelineEvent = OwsEventChain.CreateChainedEvent(new OwsEvent {
-                EventType = OwsEventType.FileCreated,
-                ProjectId = "inspect-fixture",
-                RelativePath = "README.md"
-            }, OwsEventChain.GenesisPreviousEventHash);
-            File.WriteAllText(Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName),
-                System.Text.Json.JsonSerializer.Serialize(timelineEvent) + Environment.NewLine);
+            var timelineEvent = OwsEventChain.CreateChainedEvent(
+                new OwsEvent {
+                    EventType = OwsEventType.FileCreated,
+                    ProjectId = "inspect-fixture",
+                    RelativePath = "README.md"
+                }, OwsEventChain.GenesisPreviousEventHash
+            );
+            File.WriteAllText(
+                Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName),
+                System.Text.Json.JsonSerializer.Serialize(timelineEvent) + Environment.NewLine
+            );
             var packagePath = Path.Combine(projectRoot, "inspection.owspkg");
-            await new OwsPackageBuilder().CreatePackageAsync(new PackageCreationRequest {
-                ProjectRootPath = projectRoot,
-                OutputPackagePath = packagePath
-            }, CancellationToken.None);
+            await new OwsPackageBuilder().CreatePackageAsync(
+                new PackageCreationRequest {
+                    ProjectRootPath = projectRoot,
+                    OutputPackagePath = packagePath
+                }, CancellationToken.None
+            );
 
             Directory.SetCurrentDirectory(projectRoot);
-            using var output = new StringWriter();
+            await using var output = new StringWriter();
             Console.SetOut(output);
             var exitCode = await OwsCommandFactory.BuildRootCommand().Parse(
-                ["inspect", "--package-path", packagePath, "--json"]).InvokeAsync();
+                ["inspect", "--package-path", packagePath, "--json"]
+            ).InvokeAsync();
 
             exitCode.Should().Be(0);
             output.ToString().Should().Contain("\"signatureStatus\"");
