@@ -1358,3 +1358,29 @@
 - Exact next action: Double-click `artifacts\ows-setup\Ows.Setup.exe`, approve UAC, and confirm the Agent appears Running in Services.
 - Important context: Current installed payload remains the older hash until that UAC-approved reinstall.
 - Files to inspect first: `src/Ows.Setup/Program.cs`, `artifacts/ows-setup/Ows.Setup.exe`, and `.agent/NEXT_STEPS.md`.
+
+## 2026-07-13 — Live SCM install validation
+
+### Completed
+- Owner installed the corrected setup artifact with UAC approval.
+- Confirmed `OwsAgent` is Running.
+- Confirmed SCM recovery is configured for restart after 5, 30, and 60 seconds.
+
+### Changed
+- Added: None.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Previously passed with 0 warnings and 0 errors.
+- Targeted tests: Setup publish succeeded.
+- Full tests: Previously passed Core 131/131 and CLI/server 80/80.
+- Manual checks: `Get-Service OwsAgent` returned Running; `sc.exe qfailure OwsAgent` returned the expected recovery policy.
+
+### Remaining
+- Run Installed apps uninstall and verify service, payload, uninstall entry, and project-boundary preservation.
+
+### Handoff
+- Exact next action: Open Settings → Apps → Installed apps → Open Work Standard → Uninstall.
+- Important context: The service install and recovery configuration are now owner-validated; choose shared-data deletion only if intended.
+- Files to inspect first: `src/Ows.Setup/Program.cs`, `.agent/NEXT_STEPS.md`, and `docs/development/RELEASE_READINESS.md`.
