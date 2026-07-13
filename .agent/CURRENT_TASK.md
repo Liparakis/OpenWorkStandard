@@ -19,6 +19,7 @@
   - .github/ISSUE_TEMPLATE/*, .github/pull_request_template.md
   - docs/development/RELEASE_READINESS.md, docs/core/ARCHITECTURE.md
   - docs/development/ROADMAP_CHECKLIST.md, docs/workflows/PILOT_DEMO.md
+  - all tracked Markdown under `docs/`, root entry points, GitHub templates, and sample/test READMEs for the documentation prune audit
   - src/Ows.Core/Reporting/OwsReportGenerator.cs
   - src/Ows.Cli/Commands/InspectCommandBuilder.cs, VerifyCommandBuilder.cs, ReportCommandBuilder.cs
   - scripts/windows/run-release-regression-gate.ps1, scripts/unix/run-release-regression-gate.sh
@@ -50,6 +51,8 @@
   - [x] Make setup reinstall/uninstall tolerate normal slow SCM shutdown and report stop permission failures clearly.
   - [x] Run the Add/Remove Programs uninstall action and confirm complete installed-file cleanup.
   - [x] Remove ignored generated build, test, verifier, IDE, and release-output files after lifecycle validation.
+  - [x] Audit Markdown references, overlap, stale snapshots, and future-scope documentation.
+  - [ ] Apply the owner-approved documentation prune/merge plan.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
   - dotnet build OWS.sln -nologo.
@@ -86,4 +89,6 @@
   - Source fix build and full tests pass; the corrected setup artifact was republished and successfully installed with UAC approval.
   - Read-only post-uninstall check confirms the `OwsAgent` service, Program Files install directory, and uninstall registry entry are absent.
   - Repository cleanup removed ignored generated outputs; `git clean -ndX` now reports no remaining ignored files.
+  - Documentation audit found 67 Markdown files; several are canonical protocol docs, while remote-verifier operations, archive snapshots, release notes, and planning documents overlap or exceed the local-first v0 scope.
+  - No product Markdown was deleted during the audit; graphify's failed semantic cache was removed.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.

@@ -1,8 +1,10 @@
 # Next Steps
 
-1. Owner reviews repository history, license, generated artifacts, and current worktree scope.
-2. Owner confirms the release candidate and explicitly authorizes publication.
-3. Only after approval: tag the selected version, push the tag, and create the GitHub release.
+1. Owner approves or adjusts the proposed documentation prune/merge set from the latest work-log entry.
+2. Apply the approved documentation changes and repair all links/references.
+3. Owner reviews repository history, license, generated artifacts, and current worktree scope.
+4. Owner confirms the release candidate and explicitly authorizes publication.
+5. Only after approval: tag the selected version, push the tag, and create the GitHub release.
 
 Post-release roadmap:
 
