@@ -1497,3 +1497,27 @@
 - Exact next action: Review the reduced Markdown surface and release checklist.
 - Important context: Active remote-verifier operations docs were intentionally preserved because they describe implemented optional code; only high-confidence stale/duplicate material was removed.
 - Files to inspect first: `README.md`, `docs/START_HERE.md`, `docs/development/RELEASE_CHECKLIST.md`, and `docs/core/ARCHITECTURE.md`.
+
+## 2026-07-13 — Post-validation generated-output cleanup
+
+### Completed
+- Removed `bin`, `obj`, verifier cache, and generated artifact outputs recreated by the validation build.
+
+### Changed
+- Added: None.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/WORK_LOG.md`.
+- Deleted: Ignored validation outputs only.
+
+### Validation
+- Build: Previously passed with 0 warnings and 0 errors.
+- Targeted tests: Not applicable.
+- Full tests: Previously passed Core 131/131 and CLI/server 80/80.
+- Manual checks: `git clean -ndX` is empty; tracked worktree changes are limited to the committed documentation cleanup.
+
+### Remaining
+- Final owner review and explicit publication approval.
+
+### Handoff
+- Exact next action: Review commit `2c81f64` and the reduced documentation surface.
+- Important context: Build/test outputs are intentionally absent; rebuild when validation is needed.
+- Files to inspect first: `README.md`, `docs/START_HERE.md`, `docs/development/RELEASE_CHECKLIST.md`, and `.agent/NEXT_STEPS.md`.

@@ -92,4 +92,5 @@
   - Documentation cleanup reduced Markdown from 67 to 59 files: stale snapshots/plans, the optional sample, the mutable project-status snapshot, and duplicate release docs were removed; active remote-verifier operations docs remain.
   - Internal Markdown links are clean; graphify's failed semantic cache was removed.
   - Build passes with 0 warnings/errors; full tests pass Core 131/131 and CLI/server 80/80 after the documentation cleanup.
+  - Post-validation ignored outputs were removed again; `git clean -ndX` is empty.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.
