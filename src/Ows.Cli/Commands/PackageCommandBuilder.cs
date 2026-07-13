@@ -3,6 +3,7 @@ using System.Text.Json;
 using Ows.Core;
 using Ows.Core.Agent;
 using Ows.Core.Notarization;
+using Ows.Core.Packaging;
 
 namespace Ows.Cli.Commands;
 
@@ -16,8 +17,13 @@ public static class PackageCommandBuilder {
     /// <returns>The configured command.</returns>
     public static Command Build() {
         var command = new Command("package", "Create an OWS submission package.");
+        var signOption = new Option<bool>("--sign") {
+            Description = "Sign the package root with the local OWS signing key."
+        };
+        command.Options.Add(signOption);
 
         var uploadCommand = new Command("upload", "Upload the package to a live verifier.");
+        uploadCommand.Hidden = true;
         var packagePathOption = new Option<string?>("--package-path") {
             Description = "Path to the .owspkg file to upload."
         };
@@ -28,6 +34,7 @@ public static class PackageCommandBuilder {
         uploadCommand.Options.Add(serverOption);
 
         var statusCommand = new Command("status", "Query verification status of a package.");
+        statusCommand.Hidden = true;
         var packageIdOption = new Option<string?>("--package-id") {
             Description = "Durable package submission identifier."
         };
@@ -40,21 +47,34 @@ public static class PackageCommandBuilder {
         // Default action: Create package
         command.SetAction(async parseResult => {
             var useJson = parseResult.GetValue(SharedCliOptions.JsonOption);
+            var signPackage = parseResult.GetValue(signOption);
+            var previousSigningKeyPath = Environment.GetEnvironmentVariable("OWS_PACKAGE_SIGNING_KEY_PATH");
             var response = new OwsCliResponse();
             try {
+                if (signPackage) {
+                    Environment.SetEnvironmentVariable(
+                        "OWS_PACKAGE_SIGNING_KEY_PATH", OwsSigningKeyStore.GetDefaultKeyPath());
+                }
+
                 var projectRoot = Directory.GetCurrentDirectory();
                 var manager = new OwsWatchSessionManager();
                 if (!manager.IsProjectInitialized(projectRoot)) {
                     throw new InvalidOperationException("OWS project is not initialized. Run 'ows init' first.");
                 }
 
+                var agentFlushed = await OwsAgentIpcClient.TryFlushAsync(
+                    OwsProjectRegistry.GetDefaultRegistryPath(), projectRoot);
                 var path = await manager.PackageProjectAsync(projectRoot);
                 response.Success = true;
                 response.ProjectRoot = projectRoot;
-                response.Message = $"OWS package created successfully: {path}";
+                response.Message = agentFlushed
+                    ? $"OWS package created successfully after local Agent flush: {path}"
+                    : $"OWS package created successfully from local state (Agent unavailable): {path}";
             } catch (Exception ex) {
                 response.Success = false;
                 response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));
+            } finally {
+                Environment.SetEnvironmentVariable("OWS_PACKAGE_SIGNING_KEY_PATH", previousSigningKeyPath);
             }
 
             OwsCommandFactory.PrintResult(response, useJson);

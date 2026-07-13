@@ -1,9 +1,8 @@
 using System.Text.Json;
-using Ows.Core.Education;
 using Ows.Core.Notarization;
 using Ows.Core.Verification;
 
-namespace Ows.Verifier.Server;
+namespace Ows.Verifier.Server.Packages;
 
 /// <summary>
 /// Runs queued package verification jobs inside the verifier process.
@@ -18,11 +17,6 @@ internal sealed class PackageVerificationWorker : BackgroundService {
     /// The blob store used to read uploaded packages.
     /// </summary>
     private readonly IPackageBlobStore _blobStore;
-
-    /// <summary>
-    /// The education context store.
-    /// </summary>
-    private readonly IEducationStore _educationStore;
 
     /// <summary>
     /// The job store used to manage the verification queue status.
@@ -61,7 +55,6 @@ internal sealed class PackageVerificationWorker : BackgroundService {
     /// <param name="packageStore">The store holding submission metadata.</param>
     /// <param name="blobStore">The blob storage for package files.</param>
     /// <param name="storage">The verifier storage backend.</param>
-    /// <param name="educationStore">The education metadata store.</param>
     /// <param name="packageVerifier">The core verification service.</param>
     /// <param name="auditStore">The verifier audit trail store.</param>
     /// <param name="options">The storage and worker configuration options.</param>
@@ -71,7 +64,6 @@ internal sealed class PackageVerificationWorker : BackgroundService {
         IPackageSubmissionStore packageStore,
         IPackageBlobStore blobStore,
         IVerifierStorage storage,
-        IEducationStore educationStore,
         IPackageVerifier packageVerifier,
         IVerifierAuditStore auditStore,
         VerifierStorageOptions options,
@@ -80,7 +72,6 @@ internal sealed class PackageVerificationWorker : BackgroundService {
         _packageStore = packageStore;
         _blobStore = blobStore;
         _storage = storage;
-        _educationStore = educationStore;
         _packageVerifier = packageVerifier;
         _auditStore = auditStore;
         _options = options;
@@ -189,7 +180,7 @@ internal sealed class PackageVerificationWorker : BackgroundService {
                     SessionHasLeaseGap = verifierSession?.HasLeaseGap ?? false,
                     SessionMaxLeaseGapSeconds = verifierSession?.MaxLeaseGapSeconds ?? 0,
                     SessionFirstLeaseGapAt = verifierSession?.FirstLeaseGapAt,
-                    EducationContext = await ResolveEducationContextAsync(submission, cancellationToken)
+                    ExternalContext = BuildExternalContext(submission)
                 },
                 cancellationToken);
 
@@ -281,61 +272,21 @@ internal sealed class PackageVerificationWorker : BackgroundService {
     }
 
     /// <summary>
-    /// Resolves and builds a contextual education context report for verification.
+    /// Builds an opaque external context report for verification.
     /// </summary>
     /// <param name="submission">The package submission details.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The resolved education context report, or null if no relevant ids exist.</returns>
-    private async Task<ReportEducationContext?> ResolveEducationContextAsync(
-        VerifierPackageSubmissionResponse submission,
-        CancellationToken cancellationToken) {
+    /// <returns>The external context report, or null if no relevant ids exist.</returns>
+    private static ReportExternalContext? BuildExternalContext(VerifierPackageSubmissionResponse submission) {
         if (string.IsNullOrWhiteSpace(submission.InstitutionId) &&
             string.IsNullOrWhiteSpace(submission.AssessmentId) &&
             string.IsNullOrWhiteSpace(submission.StudentUserId)) {
             return null;
         }
 
-        Institution? institution = null;
-        if (!string.IsNullOrWhiteSpace(submission.InstitutionId)) {
-            institution =
-                await _educationStore.GetInstitutionAsync(new InstitutionId(submission.InstitutionId),
-                    cancellationToken);
-        }
-
-        Assessment? assessment = null;
-        Course? course = null;
-        CourseOffering? offering = null;
-        ClassGroup? classGroup = null;
-        if (!string.IsNullOrWhiteSpace(submission.AssessmentId)) {
-            assessment =
-                await _educationStore.GetAssessmentAsync(new AssessmentId(submission.AssessmentId), cancellationToken);
-            if (assessment is not null) {
-                offering = await _educationStore.GetCourseOfferingAsync(assessment.CourseOfferingId, cancellationToken);
-                if (offering is not null) {
-                    course = await _educationStore.GetCourseAsync(offering.CourseId, cancellationToken);
-                    classGroup = await _educationStore.GetClassGroupAsync(offering.ClassGroupId, cancellationToken);
-                }
-            }
-        }
-
-        User? student = null;
-        if (!string.IsNullOrWhiteSpace(submission.StudentUserId)) {
-            student = await _educationStore.GetUserAsync(new UserId(submission.StudentUserId), cancellationToken);
-        }
-
-        return new ReportEducationContext {
-            InstitutionId = institution?.Id.Value,
-            InstitutionName = institution?.Name,
-            CourseId = course?.Id.Value,
-            CourseCode = course?.Code,
-            CourseTitle = course?.Title,
-            ClassGroupId = offering?.ClassGroupId.Value,
-            ClassGroupName = classGroup?.Name,
-            AssessmentId = assessment?.Id.Value,
-            AssessmentTitle = assessment?.Title,
-            StudentUserId = student?.Id.Value,
-            StudentDisplayName = student?.DisplayName,
-            StudentExternalId = student?.ExternalId
+        return new ReportExternalContext {
+            InstitutionId = submission.InstitutionId,
+            AssessmentId = submission.AssessmentId,
+            StudentUserId = submission.StudentUserId
         };
     }
 

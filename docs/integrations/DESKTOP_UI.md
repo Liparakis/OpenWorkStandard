@@ -1,12 +1,12 @@
 # OWS Desktop UI Design Spec
 
-This spec outlines the design for the OWS Desktop Tray Application (`Ows.Desktop`) using the Avalonia UI framework.
+This deferred spec outlines a possible OWS Desktop Tray Application (`Ows.Desktop`) using the Avalonia UI framework. It is not an active implementation target.
 
 ---
 
 ## 1. Application Overview
 
-The desktop UI is a lightweight, cross-platform system tray icon/menu application that operates in the background, sharing the same `IOwsWatchSessionManager` foundation as the CLI and VS Code extension.
+The desktop UI is a lightweight, cross-platform system tray icon/menu application that operates in the background, sharing the same future local-agent foundation as the CLI. It remains deferred.
 
 ---
 

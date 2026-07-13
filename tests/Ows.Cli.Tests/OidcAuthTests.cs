@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
-using Ows.Core.Education;
 using Ows.Verifier.Server;
 
 namespace Ows.Cli.Tests;
@@ -195,30 +194,6 @@ public sealed class OidcAuthTests {
                 out var factory,
                 ConfigureTestBearerValidation);
             await using (factory) {
-                using (var createInstitution = new HttpRequestMessage(HttpMethod.Post, "/education/institutions")) {
-                    createInstitution.Headers.Add("X-OWS-Verifier-Key", operatorKey);
-                    createInstitution.Content = JsonContent.Create(new Institution(
-                        new InstitutionId("inst-1"),
-                        "Institution One",
-                        "inst-one",
-                        DateTimeOffset.UtcNow));
-                    var createResponse = await client.SendAsync(createInstitution);
-                    createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-                }
-
-                using (var createUser = new HttpRequestMessage(HttpMethod.Post, "/education/users")) {
-                    createUser.Headers.Add("X-OWS-Verifier-Key", operatorKey);
-                    createUser.Content = JsonContent.Create(new User(
-                        new UserId("student-1"),
-                        new InstitutionId("inst-1"),
-                        "Student One",
-                        "student-1",
-                        "student1@example.edu",
-                        DateTimeOffset.UtcNow));
-                    var createUserResponse = await client.SendAsync(createUser);
-                    createUserResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-                }
-
                 using var request = new HttpRequestMessage(HttpMethod.Post, "/sessions") {
                     Content = JsonContent.Create(new { institutionId = "inst-1", studentUserId = "student-1" })
                 };
@@ -245,18 +220,16 @@ public sealed class OidcAuthTests {
                 out var factory,
                 ConfigureTestBearerValidation);
             await using (factory) {
-                using (var createInstitution = new HttpRequestMessage(HttpMethod.Post, "/education/institutions")) {
-                    createInstitution.Headers.Add("X-OWS-Verifier-Key", operatorKey);
-                    createInstitution.Content = JsonContent.Create(new Institution(
-                        new InstitutionId("inst-1"),
-                        "Institution One",
-                        "inst-one",
-                        DateTimeOffset.UtcNow));
-                    var createResponse = await client.SendAsync(createInstitution);
-                    createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-                }
+                using var createSession = new HttpRequestMessage(HttpMethod.Post, "/sessions") {
+                    Content = JsonContent.Create(new { institutionId = "inst-1" })
+                };
+                createSession.Headers.Add("X-OWS-Verifier-Key", operatorKey);
+                var createSessionResponse = await client.SendAsync(createSession);
+                createSessionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                using var sessionDocument = JsonDocument.Parse(await createSessionResponse.Content.ReadAsStringAsync());
+                var sessionId = sessionDocument.RootElement.GetProperty("sessionId").GetString();
 
-                using var request = new HttpRequestMessage(HttpMethod.Get, "/education/institutions/inst-1");
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"/sessions/{sessionId}/packages");
                 request.Headers.Authorization = CreateBearerHeader(
                     new Claim("role", "InstructorReviewer"),
                     new Claim("institution", "inst-1"),
@@ -280,30 +253,6 @@ public sealed class OidcAuthTests {
                 out var factory,
                 ConfigureTestBearerValidation);
             await using (factory) {
-                using (var createInstitution = new HttpRequestMessage(HttpMethod.Post, "/education/institutions")) {
-                    createInstitution.Headers.Add("X-OWS-Verifier-Key", operatorKey);
-                    createInstitution.Content = JsonContent.Create(new Institution(
-                        new InstitutionId("inst-1"),
-                        "Institution One",
-                        "inst-one",
-                        DateTimeOffset.UtcNow));
-                    var createResponse = await client.SendAsync(createInstitution);
-                    createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-                }
-
-                using (var createUser = new HttpRequestMessage(HttpMethod.Post, "/education/users")) {
-                    createUser.Headers.Add("X-OWS-Verifier-Key", operatorKey);
-                    createUser.Content = JsonContent.Create(new User(
-                        new UserId("student-1"),
-                        new InstitutionId("inst-1"),
-                        "Student One",
-                        "student-1",
-                        "student1@example.edu",
-                        DateTimeOffset.UtcNow));
-                    var createUserResponse = await client.SendAsync(createUser);
-                    createUserResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-                }
-
                 using var request = new HttpRequestMessage(HttpMethod.Post, "/sessions") {
                     Content = JsonContent.Create(new { institutionId = "inst-1", studentUserId = "student-1" })
                 };

@@ -41,7 +41,11 @@ mkdir -p "$summary_root"
 summary_path="$summary_root/release-gate-summary.json"
 
 results_file="$(mktemp)"
-trap 'rm -f "$results_file"' EXIT
+cleanup() {
+  docker compose -f docker-compose.local.yml down >/dev/null 2>&1 || true
+  rm -f "$results_file"
+}
+trap cleanup EXIT
 
 add_step_result() {
   printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$results_file"
@@ -99,10 +103,7 @@ summary = {
     "automatedSteps": results,
     "latestDryRunSummaryPath": str(dry_run_summary_path),
     "latestDryRun": dry_run,
-    "manualChecks": [
-        "VS Code extension interactive smoke path in a trusted workspace remains manual.",
-        "Release candidate sign-off remains manual.",
-    ],
+    "manualChecks": ["Release candidate sign-off remains manual."],
 }
 if os.environ["SUMMARY_ERROR"]:
     summary["error"] = os.environ["SUMMARY_ERROR"]
@@ -118,8 +119,6 @@ SUMMARY_ERROR=""
 invoke_step "dotnet restore" "dotnet restore OWS.sln -nologo --configfile ./NuGet.Config" dotnet restore OWS.sln -nologo --configfile ./NuGet.Config
 invoke_step "dotnet build" "dotnet build OWS.sln -nologo --no-restore" dotnet build OWS.sln -nologo --no-restore
 invoke_step "dotnet test" "dotnet test OWS.sln -nologo --no-build --no-restore" dotnet test OWS.sln -nologo --no-build --no-restore
-invoke_step "VS Code compile" "./src/ows-vscode/node_modules/.bin/tsc -p ./" bash -lc 'cd src/ows-vscode && ./node_modules/.bin/tsc -p ./'
-
 if [[ "$skip_compose_validation" == true ]]; then
   add_step_result "compose config validation" "Skipped" "docker compose -f docker-compose.local.yml config" "Skipped by switch."
 else

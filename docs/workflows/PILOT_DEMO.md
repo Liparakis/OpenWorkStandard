@@ -1,16 +1,15 @@
 # OWS Pilot Demo
 
-This is the end-to-end pilot walkthrough for showing Open Work Standard to a professor or sysadmin. It validates the current CLI, VS Code, verifier, education context, package upload, report, audit, and diagnostics flow before adding more UI surfaces.
+This is the end-to-end pilot walkthrough for showing Open Work Standard to a professor or sysadmin. It validates the current CLI, verifier, opaque external context metadata, package upload, report, audit, and diagnostics flow.
 
 > [!NOTE]
-> OWS defines a broader event vocabulary for future IDE/desktop integrations. The current MVP emits file-system and session/package events only where explicitly documented. Reserved event types are not currently used as trust evidence. Additionally, OWS packages a `version_graph.json` placeholder today; real graph nodes, edges, validation, and graph-derived trust signals are deferred.
+> OWS defines a broader event vocabulary for future host integrations. The current MVP emits file-system and session/package events only where explicitly documented. Reserved event types are not currently used as trust evidence. Additionally, OWS packages a `version_graph.json` placeholder today; real graph nodes, edges, validation, and graph-derived trust signals are deferred.
 
 ## Preconditions
 
 - PostgreSQL-backed verifier is running.
 - `OWS_VERIFIER_API_KEY` is set to an Operator key in the operator shell.
 - `dotnet build OWS.sln -nologo` has completed.
-- For VS Code smoke testing, `src/ows-vscode` dependencies are installed and compiled.
 
 Start the local verifier path:
 
@@ -37,9 +36,8 @@ Use this when you want the shortest path that is already known to pass locally:
 
 1. Run `dotnet build OWS.sln -nologo`.
 2. Run `dotnet test OWS.sln -nologo`.
-3. Run `src/ows-vscode/node_modules/.bin/tsc.cmd -p ./` from `src/ows-vscode`.
-4. Run `.\scripts\windows\run-release-regression-gate.ps1` or `.\scripts\windows\run-live-pilot-dry-run.ps1`.
-5. Check `artifacts/pilot-demo/live-dry-run-summary.json`.
+3. Run `./scripts/windows/run-release-regression-gate.ps1` or `./scripts/windows/run-live-pilot-dry-run.ps1`.
+4. Check `artifacts/pilot-demo/live-dry-run-summary.json`.
 
 The current known-good summary must show:
 
@@ -61,15 +59,12 @@ Create the minimal pilot fixture:
 
 The script creates:
 
-- institution
-- course
-- class group
-- student user
-- course offering
-- enrollment
-- assessment
+- opaque institution, assessment, student, and course-offering identifiers
 - bound `StudentClient` API key
 - institution-scoped `InstructorReviewer` API key
+
+It does not create institutions, courses, rosters, enrollments, students, or
+assessments. Those records belong to a separate management system.
 
 It prints the raw delegated keys once. It writes non-secret metadata to `artifacts/pilot-demo/fixture-metadata.json`.
 
@@ -109,7 +104,7 @@ Store the student key only in the shell environment:
 $env:OWS_VERIFIER_API_KEY="<StudentClient key>"
 ```
 
-Start the session and watcher:
+Start the session and watcher for this remote-verifier rehearsal:
 
 ```powershell
 dotnet run --project "$repo\src\Ows.Cli" -- session start
@@ -151,23 +146,7 @@ dotnet run --project "$repo\src\Ows.Cli" -- package status --json
 
 Expected state: package submission ID returned, verification status eventually reaches `Completed`, and trust status is clear.
 
-## 5. VS Code Smoke Test
-
-Use the same assignment folder:
-
-1. Open `src/ows-vscode` in VS Code and press `F5`.
-2. In the Extension Development Host, open the assignment folder.
-3. Confirm the workspace is trusted.
-4. Set `ows.cliPath` to a working CLI command.
-5. Set `ows.verifierUrl`, `ows.institutionId`, `ows.assessmentId`, `ows.studentUserId`, and `ows.courseOfferingId`.
-6. Run `OWS: Configure Assessment Context` and enter the `StudentClient` key.
-7. Run `OWS: Initialize Project` if the folder is not initialized.
-8. Run `OWS: Start Watch Session`.
-9. Confirm the status bar changes to active tracking.
-10. Run `OWS: Package Submission`, `OWS: Upload Package`, and `OWS: Check Verification Status`.
-11. Confirm errors and output logs redact the raw key.
-
-## 6. Reviewer Flow
+## 5. Reviewer Flow
 
 Set the reviewer key:
 
@@ -184,20 +163,20 @@ curl -H "X-OWS-Verifier-Key: $env:REVIEWER_KEY" http://127.0.0.1:5078/packages/<
 
 Confirm:
 
-- report includes `Assessment Context`
+- report includes `External Context Metadata`
 - report includes a top-level `Status:` line
 - report is scoped to the reviewer institution
-- reviewer cannot mutate education metadata
+- reviewer cannot mutate verifier state or API-key management
 
 Negative mutation check:
 
 ```powershell
-curl -X POST -H "X-OWS-Verifier-Key: $env:REVIEWER_KEY" -H "Content-Type: application/json" -d "{}" http://127.0.0.1:5078/education/institutions
+curl -X POST -H "X-OWS-Verifier-Key: $env:REVIEWER_KEY" -H "Content-Type: application/json" -d '{"role":"Operator"}' http://127.0.0.1:5078/auth/api-keys
 ```
 
 Expected result: `403 Forbidden` or a rejected request.
 
-## 7. Operator Audit And Diagnostics
+## 6. Operator Audit And Diagnostics
 
 Use the Operator key:
 
@@ -215,18 +194,18 @@ Confirm:
 - raw API keys do not appear in logs or diagnostics
 - package blob count increases after upload
 
-## 8. Negative-Path Checklist
+## 7. Negative-Path Checklist
 
 Validate or document evidence for:
 
 - expired `StudentClient` key rejects
 - wrong institution rejects
 - wrong `studentUserId` rejects
-- missing assessment context warns before pilot use
+- missing external context metadata warns before pilot use
 - verifier offline maps to `VerifierOffline`
 - package too large rejects clearly
 - invalid package rejects clearly
-- reviewer cannot mutate education metadata
+- reviewer cannot mutate verifier state or API-key management
 - student cannot read another student report
 - duplicate watcher start is blocked
 - stale PID recovery works
@@ -237,8 +216,7 @@ Validate or document evidence for:
 - student CLI flow reaches uploaded package verification
 - heartbeat continues while watcher runs
 - heartbeat stops after watcher stop
-- VS Code status bar and commands work in a trusted workspace
-- reviewer can read the report and cannot mutate education state
+- reviewer can read the report and cannot mutate verifier state
 - diagnostics and audit evidence are available without leaking raw keys
 
 ## Live Dry Run Result
@@ -253,7 +231,7 @@ Observed result from `artifacts/pilot-demo/live-dry-run-summary.json`:
 
 - verifier `/health` = `Healthy`
 - verifier `/ready` = `Ready`
-- fixture creation succeeded with institution, course, class group, course offering, assessment, student user, and delegated student/reviewer keys
+- fixture creation succeeded with opaque external context metadata and delegated student/reviewer keys; no management records were created
 - student CLI flow reached `SessionActive`
 - heartbeat advanced while the watcher process stayed alive
 - checkpoint issuance succeeded

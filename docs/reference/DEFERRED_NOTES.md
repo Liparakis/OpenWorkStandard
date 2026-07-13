@@ -31,7 +31,7 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 - Do not add users, JWT/OIDC, or directory sync yet.
 - The current verifier auth path is persisted hash-only API keys plus bootstrap/config compatibility keys.
 - The implemented roles are `Operator` and institution-scoped `InstructorReviewer`.
-- `InstitutionAdmin` and `StudentClient` are still deferred.
+- Institutional management records and LMS integration remain deferred; verifier-scoped `InstitutionAdmin` and `StudentClient` roles are implemented without management storage.
 - Add real user identity, managed key lifecycle, and fuller institutional RBAC before exposing a verifier to broad institutional users.
 
 ## Package Submission
@@ -44,9 +44,10 @@ This file tracks explicit "not yet" decisions so they do not get reintroduced by
 
 ## Watcher / Hosts
 
-- Do not build full IDE plugins yet.
-- Do not build background service installation yet.
-- Add those only after the always-on watcher lifecycle is clearer.
+- IDE plugins are outside the OWS core product boundary; any future adapter must be a separate project.
+- Do not add additional service adapters or managed orchestration yet.
+- The Windows SCM setup/service exists; add more only
+  after the always-on watcher lifecycle needs them.
 
 ## Infrastructure
 

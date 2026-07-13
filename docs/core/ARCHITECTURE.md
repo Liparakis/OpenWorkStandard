@@ -2,16 +2,16 @@
 
 ## Positioning
 
-OWS is evolving from a purely local evidence packaging tool into an open, self-hostable assessment notarization protocol with an optional managed verifier service.
+OWS is a local-first proof-of-work protocol and toolchain with an optional remote verifier service.
 
 Core principle:
 
-- the client observes
-- the server notarizes
-- the final package proves
-- the professor decides
+- the local Agent observes
+- the package records hashes and optional signatures
+- an optional server provides remote receipts
+- a human reviewer interprets evidence
 
-OWS is not an AI detector, surveillance product, or automated misconduct judge. It is assessment provenance infrastructure designed to support manual review with tamper-evident evidence.
+OWS is not an AI detector, surveillance product, or automated misconduct judge. It is academic work provenance infrastructure designed to support manual review with tamper-evident evidence.
 
 ## Trust Boundary
 
@@ -20,33 +20,32 @@ The student machine is not trusted.
 That leads to the core security split:
 
 - the local client is an evidence collector
-- the remote verifier is the trust boundary
+- the remote verifier is an optional stronger trust anchor
 - the final package is the portable proof artifact
 
-OWS should not claim to prevent all cheating. It should claim that a clean verified package requires the local timeline to match the remote verifier's receipt chain.
+OWS should not claim to prevent all cheating. It can report package integrity and, when available, alignment with a remote receipt chain; local verification remains useful without that anchor.
 
 ## Current Repository State
 
 The current repository implements a thin but real local/reference slice:
 
 - `ows init` creates local `.ows` state
-- `ows watch` performs a one-shot scan
+- `ows init` registers a project with the local Agent
+- the Windows `Ows.Setup.exe` SCM service or `ows agent run` manages long-running observation
 - `ows package` creates real `.owspkg` archives
 - `ows verify` validates package integrity, event chains, and optional receipt chains
+- `ows inspect` provides a local reviewer summary
 - `ows report` writes a basic text report
 - receipt/session/checkpoint/receipt-chain domain models exist in `Ows.Core`
 
-What does not exist yet:
-
-- persistent host-owned watcher implementations
-- deployed validation of the PostgreSQL verifier storage adapter
-- background worker pipeline
-- deployed infrastructure manifests
+Remaining scope is tracked in `docs/development/PROJECT_STATUS.md` and
+`docs/development/ROADMAP_CHECKLIST.md`; Linux/macOS service adapters and
+production verifier deployment remain deferred.
 
 ## System Layers
 
 - `Ows.Core`: domain types, hashing, event chains, notarization models, packaging, verification, and reporting primitives
-- `Ows.Core.Agent`: local tracking shell and future watcher boundary
+- `Ows.Core.Agent`: local registry, watcher, recovery, and package-coordination boundary
 - `Ows.Core.Notarization`: session, checkpoint, receipt, and receipt-chain foundation
 - `Ows.Core.Packaging`: package assembly for `.owspkg`
 - `Ows.Core.Verification`: package validation, trust grading, and integrity findings
@@ -86,14 +85,12 @@ What does not exist yet:
 
 Current implemented flow:
 
-1. `ows init` creates local state.
-2. `ows watch` appends chained local events.
-3. `ows session start` can create a local or remote-backed receipt session, depending on transport wiring.
-4. `ows session checkpoint` can append a receipt to the current session, depending on transport wiring.
-5. `ows package` writes a real `.owspkg` archive.
-6. optional `session.json` and `receipts.json` are included when present locally.
-7. `ows verify` validates event-chain integrity, packaged session integrity, artifact integrity, and optional receipt-chain integrity, with optional live verifier cross-checking.
-8. `ows report` renders a basic text integrity report.
+1. `ows init` creates local state and registers the project with the Agent.
+2. The Agent appends chained local events while the project changes.
+3. `ows package` flushes the Agent when available and writes a real `.owspkg` archive.
+4. Optional `session.json` and `receipts.json` are included when present locally.
+5. `ows verify <package>` validates event-chain integrity, packaged session integrity, artifact integrity, and optional receipt-chain integrity, with optional live verifier cross-checking.
+6. `ows inspect <package>` and `ows report <package>` provide local reviewer views.
 
 Target flow:
 
@@ -122,11 +119,11 @@ Current implementation status:
 
 ## Storage Roles
 
-OWS should separate durable truth from caches and blobs.
+OWS should separate verifier durable truth from caches and blobs. OWS does not own institutions, courses, rosters, grading, or other management records.
 
 Durable source of truth:
 
-- PostgreSQL for institutions, users, roles, course structure, assessments, sessions, checkpoints, receipts, verification reports, package metadata, and audit events
+- PostgreSQL for verifier sessions, checkpoints, receipts, package metadata, verification results, opaque external context identifiers, and audit events
 
 Ephemeral shared state:
 
@@ -203,13 +200,13 @@ OWS should prefer:
 - minimal retained data
 - manual review rather than automated accusations
 
-The default design target is privacy-preserving assessment provenance, not invasive monitoring.
+The default design target is privacy-preserving academic work provenance, not invasive monitoring.
 
 ## Current Gaps
 
 The main missing architecture pieces are:
 
-- persistent host-owned watcher implementations
+- Linux/macOS installable Agent service adapters
 - verifier API and worker processes
 - PostgreSQL/Redis/object-storage adapters
 - lease/session lifecycle policy

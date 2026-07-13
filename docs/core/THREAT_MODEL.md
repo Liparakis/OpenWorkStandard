@@ -32,6 +32,7 @@ OWS does not aim to make a student-owned machine tamper-proof.
 - local receipt material in `.ows/receipts.json`
 - packaged artifacts inside `.owspkg`
 - package manifest, timeline, and version graph hashes
+- canonical package-root hash and optional public-key signature
 - verifier-issued receipt chains
 - durable verifier checkpoint history in PostgreSQL
 
@@ -41,7 +42,7 @@ OWS does not aim to make a student-owned machine tamper-proof.
 
 - student-owned workstation
 - local filesystem outside cryptographic validation
-- local long-running watcher process, if one exists later
+- local long-running watcher process, including the Windows LocalSystem SCM Agent
 - local verifier development environment
 
 ### Stronger trust boundary
@@ -67,6 +68,7 @@ OWS does not aim to make a student-owned machine tamper-proof.
 - stale or missing local verifier state during development
 - verifier storage outages or migration failures
 - trust overstatement when receipts are missing or incomplete
+- unauthorized expansion of the Windows Agent's watched roots through registry tampering
 
 ## Out-of-Scope Threats
 
@@ -81,6 +83,9 @@ OWS does not aim to make a student-owned machine tamper-proof.
 
 - chained local timeline events in `timeline.jsonl`
 - package manifest hashing
+- canonical package-root hashing independent of ZIP entry ordering and timestamps
+- optional offline RSA package signatures with public key and fingerprint in `signature.json`
+- user-local private key storage with restrictive Unix mode and Windows current-user DPAPI protection
 - artifact hash verification
 - packaged receipt-chain verification
 - live verifier cross-checking
@@ -93,17 +98,18 @@ OWS does not aim to make a student-owned machine tamper-proof.
 - idempotent checkpoint retry handling
 - app-owned verifier migrations
 - built-in per-endpoint rate limiting for public probes, auth management, package uploads, session writes, and diagnostics reads
-- dedicated rate limiting for education writes and scoped education reads
+- dedicated rate limiting for verifier writes, uploads, and diagnostics
 - multipart body length enforcement for package uploads
 - upload authorization checks before blob persistence
 - archive entry-count, path, duplicate-entry, expansion-size, and compression-ratio checks before package blobs are accepted
-- audit coverage for education writes and roster-like enrollment reads
+- audit coverage for verifier writes, package verification, and scoped reads
 
 ## Known Gaps
 
 - the verifier is not yet production-grade
 - auth and RBAC are implemented for the current verifier roles, but still API-first and pilot-grade
-- signing-key custody guidance is implemented, but key rotation remains manual
+- signing-key custody is local-user scoped; key rotation and revocation remain manual
+- unsigned packages remain structurally valid and must be treated as weaker than signed packages
 - retention enforcement is not implemented
 - a well-formed local snapshot can still be rewritten if an attacker also rewrites the local timeline and no stronger remote anchor exists
 - anonymous `/ready` and `/metrics` remain intentionally public and therefore rely on reverse-proxy network controls plus rate limiting, not authentication
@@ -114,6 +120,7 @@ OWS does not aim to make a student-owned machine tamper-proof.
 - snapshot baseline continuity can be checked when `SnapshotUpdated` commitments are present
 - receipt chains can be validated
 - local evidence can be tamper-evident
+- signed packages can be verified offline against their embedded public key
 - remote durable receipts improve trust
 
 ## What OWS Must Not Claim Today

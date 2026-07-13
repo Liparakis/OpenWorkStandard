@@ -21,11 +21,17 @@ public static class InitCommandBuilder {
                 var projectRoot = Directory.GetCurrentDirectory();
                 var manager = new OwsWatchSessionManager();
                 manager.InitializeProject(projectRoot);
+                var registered = new OwsProjectRegistry().Register(projectRoot);
+                var agentAvailable = OwsAgentIpcClient.TryPingAsync(OwsProjectRegistry.GetDefaultRegistryPath())
+                    .GetAwaiter().GetResult();
 
                 response.Success = true;
-                response.Status = "Ready";
+                response.Status = agentAvailable ? "Ready" : "AgentUnavailable";
                 response.ProjectRoot = projectRoot;
-                response.Message = $"OWS initialized at {Path.Combine(projectRoot, OwsConstants.LocalFolderName)}";
+                var registrationMessage = registered ? "registered" : "already registered";
+                response.Message = agentAvailable
+                    ? $"OWS initialized and {registrationMessage} with the local Agent at {Path.Combine(projectRoot, OwsConstants.LocalFolderName)}"
+                    : "OWS initialized and registered, but the local Agent is unavailable. Install/start the OWS Agent service or run 'ows agent run', then retry 'ows init'.";
             } catch (Exception ex) {
                 response.Success = false;
                 response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));

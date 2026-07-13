@@ -1,5 +1,4 @@
 using System.Text;
-using Ows.Core.Education;
 using Ows.Core.Notarization;
 
 namespace Ows.Verifier.Server;
@@ -19,7 +18,7 @@ internal static class VerifierMetricsEndpoints {
 
         app.MapGet("/metrics",
             async (HttpContext context, IVerifierAuditStore auditStore, IPackageVerificationJobStore jobStore,
-                IVerifierStorage storage, IEducationStore educationStore, IPackageBlobStore blobStore,
+                IVerifierStorage storage, IPackageBlobStore blobStore,
                 VerifierStorageOptions options, CancellationToken cancellationToken) => {
                     var summary = await auditStore.GetSummaryAsync(cancellationToken);
                     var jobSummary = await jobStore.GetSummaryAsync(cancellationToken);
@@ -27,14 +26,6 @@ internal static class VerifierMetricsEndpoints {
                     var storageReady = false;
                     try {
                         storageReady = await storage.CheckHealthAsync(cancellationToken);
-                    } catch {
-                        /*ignored*/
-                    }
-
-                    bool educationReady = false;
-                    try {
-                        educationReady =
-                            await VerifierServerHelpers.CheckEducationStoreReadyAsync(educationStore, cancellationToken);
                     } catch {
                         /*ignored*/
                     }
@@ -118,7 +109,6 @@ internal static class VerifierMetricsEndpoints {
                         "# HELP ows_ready_dependency_status Health readiness status of OWS verifier dependencies (1 = healthy, 0 = unhealthy).");
                     sb.AppendLine("# TYPE ows_ready_dependency_status gauge");
                     sb.AppendLine($"ows_ready_dependency_status{{dependency=\"storage\"}} {(storageReady ? 1 : 0)}");
-                    sb.AppendLine($"ows_ready_dependency_status{{dependency=\"education\"}} {(educationReady ? 1 : 0)}");
                     sb.AppendLine(
                         $"ows_ready_dependency_status{{dependency=\"packages\"}} {(packageStorageReady ? 1 : 0)}");
                     sb.AppendLine($"ows_ready_dependency_status{{dependency=\"signing\"}} {(signingConfigured ? 1 : 0)}");

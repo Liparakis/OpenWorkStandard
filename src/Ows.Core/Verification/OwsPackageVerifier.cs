@@ -27,7 +27,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
                 GeneratedAt = generatedAt,
                 Recommendation = "Reject as invalid package / request resubmission",
                 TrustExplanation = "The package, timeline, receipt chain, or hashes are broken or inconsistent.",
-                Education = request.EducationContext
+                ExternalContext = request.ExternalContext
             });
         }
 
@@ -39,12 +39,30 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
             errors.Add($"Failed to compute package hash: {ex.Message}");
         }
 
-        using var archive = ZipFile.OpenRead(request.PackagePath);
+        ZipArchive archive;
+        try {
+            archive = ZipFile.OpenRead(request.PackagePath);
+        } catch (Exception ex) {
+            errors.Add($"Package is not a readable ZIP archive: {ex.Message}");
+            return Task.FromResult(new VerificationResult {
+                IsSuccess = false,
+                TrustStatus = TrustStatus.Invalid,
+                Summary = "OWS verify failed.",
+                Errors = errors,
+                GeneratedAt = generatedAt,
+                Recommendation = "Reject as invalid package / request resubmission",
+                TrustExplanation = "The package container cannot be read as a valid OWS archive.",
+                ExternalContext = request.ExternalContext
+            });
+        }
+
+        using var archiveLease = archive;
 
         // 1. Structure Verification
         PackageStructureVerifier.VerifyRequiredEntries(archive, errors);
 
         OwsManifest? manifest = null;
+        var signatureStatus = "UnsignedLegacy";
         string? timelineHeadHash = null;
         var eventTimestamps = new List<DateTimeOffset>();
 
@@ -54,6 +72,9 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
 
         if (archive.GetEntry(OwsConstants.ManifestFileName) is not null) {
             manifest = PackageStructureVerifier.ValidateManifest(archive, errors);
+            if (manifest is not null) {
+                signatureStatus = PackageSignatureVerifier.Validate(archive, manifest, errors);
+            }
         }
 
         if (archive.GetEntry(OwsConstants.TimelineFileName) is not null) {
@@ -77,7 +98,11 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
         // Hash Validation Finding
         if (manifest is not null) {
             var initialErrorCount = errors.Count;
-            ArtifactHashVerifier.ValidateHashes(archive, manifest, errors);
+            ArtifactHashVerifier.ValidateHashes(
+                archive,
+                manifest,
+                errors,
+                request.TrustedReceiptChain is not null || request.TrustedSessionHead is not null);
             if (errors.Count > initialErrorCount) {
                 findings.Add(VerificationFindingFactory.PackageHashInvalidFinding);
             }
@@ -222,6 +247,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
         var packageInfo = new ReportPackageInfo {
             PackageId = manifest?.PackageId ?? "Unknown",
             PackageHash = packageHash,
+            PackageRootHash = manifest?.PackageRootHash ?? string.Empty,
             SessionId = sessionId
         };
 
@@ -276,6 +302,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
             Errors = errors,
             Findings = findings,
             VerifiedKeyFingerprints = verifiedKeyFingerprints,
+            SignatureStatus = signatureStatus,
             TrustExplanation = trustExplanation,
             Recommendation = recommendation,
             GeneratedAt = generatedAt,
@@ -284,7 +311,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
             Receipts = receiptsInfo,
             Lease = leaseInfo,
             Anchor = anchorInfo,
-            Education = request.EducationContext
+            ExternalContext = request.ExternalContext
         });
     }
 }

@@ -13,14 +13,14 @@
 ### Task 1: Add trust status to verification results and reports
 
 **Files:**
-- Create: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Verification\TrustStatus.cs`
-- Create: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Verification\VerificationFinding.cs`
-- Modify: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Verification\VerificationResult.cs`
-- Modify: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Verification\OwsPackageVerifier.cs`
-- Modify: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Reporting\OwsReportGenerator.cs`
-- Test: `C:\Users\Liparakis\Desktop\Open Work Standard\tests\Ows.Core.Tests\VerificationResultTests.cs`
-- Test: `C:\Users\Liparakis\Desktop\Open Work Standard\tests\Ows.Core.Tests\VerificationNamespaceTests.cs`
-- Test: `C:\Users\Liparakis\Desktop\Open Work Standard\tests\Ows.Core.Tests\ReportingNamespaceTests.cs`
+- Create: `src/Ows.Core/Verification/TrustStatus.cs`
+- Create: `src/Ows.Core/Verification/VerificationFinding.cs`
+- Modify: `src/Ows.Core/Verification/VerificationResult.cs`
+- Modify: `src/Ows.Core/Verification/OwsPackageVerifier.cs`
+- Modify: `src/Ows.Core/Reporting/OwsReportGenerator.cs`
+- Test: `tests/Ows.Core.Tests/VerificationResultTests.cs`
+- Test: `tests/Ows.Core.Tests/VerificationNamespaceTests.cs`
+- Test: `tests/Ows.Core.Tests/ReportingNamespaceTests.cs`
 
 - [ ] **Step 1: Write the failing trust-status tests**
 
@@ -156,12 +156,12 @@ git commit -m "feat: add trust grading to verification results"
 ### Task 2: Add remote receipt and session domain models
 
 **Files:**
-- Create: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Notarization\AssessmentSessionId.cs`
-- Create: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Notarization\ServerTimestamp.cs`
-- Create: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Notarization\Checkpoint.cs`
-- Create: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Notarization\CheckpointReceipt.cs`
-- Create: `C:\Users\Liparakis\Desktop\Open Work Standard\src\Ows.Core\Notarization\ReceiptChain.cs`
-- Test: `C:\Users\Liparakis\Desktop\Open Work Standard\tests\Ows.Core.Tests\NotarizationNamespaceTests.cs`
+- Create: `src/Ows.Core/Notarization/AssessmentSessionId.cs`
+- Create: `src/Ows.Core/Notarization/ServerTimestamp.cs`
+- Create: `src/Ows.Core/Notarization/Checkpoint.cs`
+- Create: `src/Ows.Core/Notarization/CheckpointReceipt.cs`
+- Create: `src/Ows.Core/Notarization/ReceiptChain.cs`
+- Test: `tests/Ows.Core.Tests/NotarizationNamespaceTests.cs`
 
 - [ ] **Step 1: Write the failing notarization model test**
 
@@ -265,10 +265,10 @@ git commit -m "feat: add remote receipt domain models"
 ### Task 3: Update stale docs to the remote trust boundary framing
 
 **Files:**
-- Modify: `C:\Users\Liparakis\Desktop\Open Work Standard\docs\CLI.md`
-- Modify: `C:\Users\Liparakis\Desktop\Open Work Standard\docs\ARCHITECTURE.md`
-- Modify: `C:\Users\Liparakis\Desktop\Open Work Standard\README.md`
-- Modify: `C:\Users\Liparakis\Desktop\Open Work Standard\docs\PROJECT_STATUS.md`
+- Modify: `docs/CLI.md`
+- Modify: `docs/ARCHITECTURE.md`
+- Modify: `README.md`
+- Modify: `docs/PROJECT_STATUS.md`
 
 - [ ] **Step 1: Write the doc assertions as a failing review checklist**
 
@@ -320,8 +320,8 @@ git commit -m "docs: reframe OWS around remote trust boundaries"
 ### Task 4: Final integration check and milestone commit
 
 **Files:**
-- Modify: `C:\Users\Liparakis\Desktop\Open Work Standard\OWS.sln` if needed only when new files are not included automatically by SDK globs
-- Review: `C:\Users\Liparakis\Desktop\Open Work Standard\git status`
+- Modify: `OWS.sln` if needed only when new files are not included automatically by SDK globs
+- Review: `git status`
 
 - [ ] **Step 1: Run the full solution verification**
 

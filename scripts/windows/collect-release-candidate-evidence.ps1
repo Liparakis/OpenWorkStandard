@@ -68,10 +68,7 @@ $manifest = [ordered]@{
         reviewerDeniedStatus = $dryRunSummary.reviewerDeniedStatus
         rawKeyLeakDetected = $dryRunSummary.rawKeyLeakDetected
     }
-    manualChecksRemaining = @(
-        "VS Code trusted-workspace interactive smoke path if the extension changed.",
-        "Operator release-candidate sign-off."
-    )
+    manualChecksRemaining = @("Operator release-candidate sign-off.")
 }
 
 $manifestPath = Join-Path $bundleRoot "evidence-manifest.json"
@@ -96,9 +93,8 @@ Files:
 - live-dry-run-summary.json
 - evidence-manifest.json
 
-Remaining manual checks:
+Remaining manual check:
 
-- VS Code trusted-workspace interactive smoke path if the extension changed.
 - Operator release-candidate sign-off.
 "@
 

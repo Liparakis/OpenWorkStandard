@@ -15,22 +15,21 @@ PostgreSQL is the durable source of truth.
 
 Expected responsibilities:
 
-- institutions
-- users
-- roles
-- class groups or departments
-- courses
-- course offerings
-- enrollments
-- assessments
-- assessment sessions
+- verifier API keys and roles
+- opaque external context identifiers supplied by callers
+- verifier sessions
 - checkpoints
 - checkpoint receipts
-- verifier sessions
 - verifier checkpoints
 - verification reports
 - package metadata
 - audit events
+
+OWS does not own institutions, users, courses, rosters, enrollments, or
+assessment-management records. A deployment may use opaque institution,
+assessment, student, or course-offering identifiers for authorization and
+report metadata, but those values are not resolved against an OWS management
+database.
 
 Do not store large `.owspkg` blobs directly in PostgreSQL.
 
@@ -45,7 +44,6 @@ Use cases:
 - rate limits
 - idempotency keys
 - distributed locks
-- live dashboard pub/sub
 - temporary checkpoint coordination
 
 Redis must never be treated as authoritative verified history.
@@ -115,18 +113,15 @@ For MVP:
 
 ## Self-Hosted Baseline
 
-Recommended self-hosted stack:
+Small local-first verifier baseline:
 
 - ASP.NET Core verifier API
 - background worker
 - PostgreSQL
-- Redis/Valkey
-- S3-compatible storage such as MinIO or S3
-- optional NATS JetStream
-- OpenTelemetry
-- Kubernetes + Helm
-- `cert-manager`
-- External Secrets Operator
+- local package blob storage
+
+Redis/Valkey, S3-compatible storage, NATS, and orchestration are deferred
+until the corresponding scale or deployment requirement exists.
 
 ## What Not To Do
 

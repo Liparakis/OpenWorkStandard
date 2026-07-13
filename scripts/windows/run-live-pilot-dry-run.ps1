@@ -144,7 +144,23 @@ try {
     }
 
     Add-Content -Path (Join-Path $assignmentRoot "draft.txt") -Value "`nSecond line at $(Get-Date -Format o)"
-    Start-Sleep -Seconds 3
+    Wait-Until -FailureMessage "Watcher did not record the pilot file modification before checkpoint." -Attempts 30 -DelaySeconds 1 -Condition {
+        $timelinePath = Join-Path $assignmentRoot ".ows\timeline.jsonl"
+        if (-not (Test-Path $timelinePath)) {
+            return $false
+        }
+
+        $events = Get-Content -Path $timelinePath | ForEach-Object {
+            try {
+                $_ | ConvertFrom-Json
+            } catch {
+                $null
+            }
+        }
+        return $events | Where-Object {
+            $_.EventType -eq "FileModified" -and $_.RelativePath -eq "draft.txt"
+        } | Select-Object -First 1
+    }
 
     $checkpoint = Invoke-OwsCliJson -WorkingDirectory $assignmentRoot -Arguments @("session", "checkpoint")
     if ($checkpoint.ExitCode -ne 0) {
@@ -173,6 +189,9 @@ try {
         return $statusResult.Json.Status -eq "Completed"
     }
     $lastPackageStatus = $script:lastPackageStatus
+    if ($lastPackageStatus.TrustStatus -ne "Verified") {
+        throw "Pilot package verification completed with trust status '$($lastPackageStatus.TrustStatus)' instead of 'Verified'."
+    }
 
     $env:OWS_VERIFIER_API_KEY = $reviewerKey
     $reviewerHeaders = @{ "X-OWS-Verifier-Key" = $reviewerKey }
@@ -181,7 +200,7 @@ try {
 
     $reviewerDeniedStatus = $null
     try {
-        Invoke-WebRequest -UseBasicParsing -Method Post -Headers $reviewerHeaders -ContentType "application/json" -Body "{}" -Uri "$BaseUrl/education/institutions" | Out-Null
+        Invoke-WebRequest -UseBasicParsing -Method Post -Headers $reviewerHeaders -ContentType "application/json" -Body '{"role":"Operator"}' -Uri "$BaseUrl/auth/api-keys" | Out-Null
         throw "Reviewer mutation unexpectedly succeeded."
     }
     catch {
@@ -237,7 +256,7 @@ try {
         trustStatus = $lastPackageStatus.TrustStatus
         reviewerDeniedStatus = $reviewerDeniedStatus
         reviewerPackageInstitutionId = $reviewerPackage.institutionId
-        reviewerReportHasAssessmentContext = $reviewerReport -match "Assessment Context"
+        reviewerReportHasExternalContextMetadata = $reviewerReport -match "External Context Metadata"
         reviewerReportHasStatusLine = $reviewerReport -match "Status:"
         diagnosticsBefore = $diagnosticsBefore
         diagnosticsAfter = $diagnosticsAfter

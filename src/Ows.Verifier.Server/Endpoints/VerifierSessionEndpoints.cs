@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Ows.Core.Education;
 using Ows.Core.Notarization;
+using Ows.Verifier.Server.Helpers;
 
 namespace Ows.Verifier.Server;
 
@@ -17,7 +17,7 @@ internal static class VerifierSessionEndpoints {
         var auditLogger = app.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit");
 
         app.MapPost("/sessions", async (HttpContext context, StartSessionRequest? body, IVerifierStorage storage,
-            IEducationStore educationStore, IVerifierAuditStore auditStore, CancellationToken cancellationToken) => {
+            IVerifierAuditStore auditStore, CancellationToken cancellationToken) => {
                 var callerAccess = VerifierAuthorizationHelpers.TryGetAccessContext(context);
                 var requestValidationError = ValidateStartSessionRequest(body);
                 if (requestValidationError is not null) {
@@ -50,43 +50,13 @@ internal static class VerifierSessionEndpoints {
                 string? assessmentId = body?.AssessmentId;
                 string? metadataJson = null;
 
-                // Validate education context when any field is supplied
+                // Preserve optional external context as opaque metadata; OWS does not own its source of truth.
                 if (!string.IsNullOrWhiteSpace(body?.InstitutionId)
                     || !string.IsNullOrWhiteSpace(body?.AssessmentId)
-                    || !string.IsNullOrWhiteSpace(body?.StudentUserId)) {
-                    // Validate institution exists
+                    || !string.IsNullOrWhiteSpace(body?.StudentUserId)
+                    || !string.IsNullOrWhiteSpace(body?.CourseOfferingId)) {
                     if (string.IsNullOrWhiteSpace(body.InstitutionId)) {
-                        return Results.BadRequest("InstitutionId is required when education context is supplied.");
-                    }
-
-                    var institution = await educationStore.GetInstitutionAsync(
-                        new InstitutionId(body.InstitutionId), cancellationToken);
-                    if (institution is null) {
-                        return Results.BadRequest($"Institution '{body.InstitutionId}' not found.");
-                    }
-
-                    // Validate assessment belongs to the institution when supplied
-                    if (!string.IsNullOrWhiteSpace(body.AssessmentId)) {
-                        var assessment = await educationStore.GetAssessmentAsync(
-                            new AssessmentId(body.AssessmentId), cancellationToken);
-                        if (assessment is null) {
-                            return Results.BadRequest($"Assessment '{body.AssessmentId}' not found.");
-                        }
-
-                        if (!string.Equals(assessment.InstitutionId.Value, body.InstitutionId,
-                                StringComparison.OrdinalIgnoreCase)) {
-                            return Results.BadRequest(
-                                $"Assessment '{body.AssessmentId}' does not belong to institution '{body.InstitutionId}'.");
-                        }
-                    }
-
-                    // Validate student exists when supplied
-                    if (!string.IsNullOrWhiteSpace(body.StudentUserId)) {
-                        var student = await educationStore.GetUserAsync(
-                            new UserId(body.StudentUserId), cancellationToken);
-                        if (student is null) {
-                            return Results.BadRequest($"Student user '{body.StudentUserId}' not found.");
-                        }
+                        return Results.BadRequest("InstitutionId is required when external context is supplied.");
                     }
 
                     metadataJson = JsonSerializer.Serialize(new {

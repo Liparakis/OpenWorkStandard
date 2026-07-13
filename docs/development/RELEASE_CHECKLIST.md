@@ -17,7 +17,6 @@ Expected automated checks:
 
 - `dotnet build OWS.sln -nologo`
 - `dotnet test OWS.sln -nologo`
-- VS Code extension compile via `src/ows-vscode/node_modules/.bin/tsc.cmd`
 - `docker compose -f docker-compose.local.yml config` when Docker is reachable
 - local verifier startup
 - `/health` and `/ready`
@@ -42,7 +41,6 @@ Artifacts:
 
 ## Manual Checks
 
-- VS Code trusted-workspace smoke path if the extension changed
 - operator sign-off that the latest dry run summary still matches expected trust and scope behavior
 - doc review for any changed user-facing setup steps
 
@@ -54,19 +52,18 @@ Current evidence bundle:
 
 Current status:
 
-- automated gate: passed on 2026-06-20
-- evidence bundle: collected on 2026-06-20
+- automated gate: passed on 2026-07-13
+- evidence bundle: collected on 2026-07-13
 - manual sign-off: pending
 
 Checklist:
 
-- [ ] confirm `artifacts/release-candidate/v0.1/release-gate-summary.json` is the latest passing gate summary
-- [ ] confirm `artifacts/release-candidate/v0.1/live-dry-run-summary.json` is the latest passing live dry-run summary
-- [ ] confirm the latest dry run still shows `packageStatus = Completed`
-- [ ] confirm the latest dry run still shows `trustStatus = Verified`
-- [ ] confirm the latest dry run still shows `reviewerDeniedStatus = 403`
-- [ ] confirm the latest dry run still shows `rawKeyLeakDetected = false`
-- [ ] run the VS Code trusted-workspace smoke path if the extension changed
+- [x] confirm `artifacts/release-candidate/v0.1/release-gate-summary.json` is the latest passing gate summary
+- [x] confirm `artifacts/release-candidate/v0.1/live-dry-run-summary.json` is the latest passing live dry-run summary
+- [x] confirm the latest dry run still shows `packageStatus = Completed`
+- [x] confirm the latest dry run still shows `trustStatus = Verified`
+- [x] confirm the latest dry run still shows `reviewerDeniedStatus = 403`
+- [x] confirm the latest dry run still shows `rawKeyLeakDetected = false`
 - [ ] record operator approval for the v0.1 release candidate
 
 ## Fixture Reset And Cleanup

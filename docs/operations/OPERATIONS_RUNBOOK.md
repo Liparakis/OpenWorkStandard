@@ -29,7 +29,6 @@ Expected `/ready` response shape:
   "dependencies": {
     "storageProvider": "postgres",
     "storageReady": true,
-    "educationStoreReady": true,
     "packageStorageConfigured": true,
     "packageStorageReady": true,
     "workerEnabled": true,
@@ -183,7 +182,7 @@ Do not try to invent a migration coordinator at this stage.
 
 ## 7. Auth Operations
 
-API keys remain the primary pilot mechanism for CLI, VS Code, watchers, and automation.
+API keys remain the primary pilot mechanism for CLI, watchers, and automation.
 
 Optional OIDC/JWT bearer notes:
 

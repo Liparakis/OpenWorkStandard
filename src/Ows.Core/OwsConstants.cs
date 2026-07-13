@@ -40,6 +40,11 @@ public static class OwsConstants {
     public const string SessionFileName = "session.json";
 
     /// <summary>
+    /// Gets the optional package signature metadata file name.
+    /// </summary>
+    public const string SignatureFileName = "signature.json";
+
+    /// <summary>
     /// Gets the last-observed file snapshot file name.
     /// </summary>
     public const string ObservedSnapshotFileName = "observed_snapshot.json";

@@ -44,9 +44,7 @@ public sealed class PostgresVerifierMigratorTests {
         GetSql(migrations[5]).Should().Contain("lease_expires_at");
         GetSql(migrations[5]).Should().Contain("has_lease_gap");
         GetVersion(migrations[6]).Should().Be(7);
-        GetName(migrations[6]).Should().Be("education-wiring");
-        GetSql(migrations[6]).Should().Contain("create table if not exists edu_institutions");
-        GetSql(migrations[6]).Should().Contain("create table if not exists edu_assessments");
+        GetName(migrations[6]).Should().Be("package-context");
         GetSql(migrations[6]).Should().Contain("institution_id");
         GetSql(migrations[6]).Should().Contain("assessment_id");
         GetSql(migrations[6]).Should().Contain("student_user_id");
@@ -64,9 +62,8 @@ public sealed class PostgresVerifierMigratorTests {
         GetName(migrations[9]).Should().Be("student-client");
         GetSql(migrations[9]).Should().Contain("student_user_id");
         GetVersion(migrations[10]).Should().Be(11);
-        GetName(migrations[10]).Should().Be("student-enrollment-model");
-        GetSql(migrations[10]).Should().Contain("student_user_id");
-        GetSql(migrations[10]).Should().Contain("drop column if exists role");
+        GetName(migrations[10]).Should().Be("compatibility-noop");
+        GetSql(migrations[10]).Should().Contain("select 1;");
     }
 
     /// <summary>

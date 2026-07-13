@@ -1,4 +1,3 @@
-using Ows.Core.Education;
 using Ows.Core.Notarization;
 
 namespace Ows.Verifier.Server;
@@ -8,7 +7,7 @@ namespace Ows.Verifier.Server;
 /// </summary>
 internal static class VerifierStorageRegistration {
     /// <summary>
-    /// Registers all data stores, including API keys, package submissions, blobs, audit logs, and education stores, using Postgres or JSON providers.
+    /// Registers verifier storage for API keys, package submissions, blobs, audit logs, and receipts using Postgres or JSON providers.
     /// </summary>
     /// <param name="services">The service collection to add registrations to.</param>
     /// <param name="normalizedStorageOptions">The storage options.</param>
@@ -86,16 +85,6 @@ internal static class VerifierStorageRegistration {
                 normalizedStorageOptions.ApplyMigrationsOnStartup),
             _ => throw new NotSupportedException(
                 $"Unsupported verifier storage provider: {normalizedStorageOptions.Provider}")
-        });
-
-        services.AddSingleton<IEducationStore>(_ => {
-            var storePath = Path.Combine(
-                Path.GetDirectoryName(normalizedStorageOptions.JsonStorePath) ?? environment.ContentRootPath,
-                "education.json");
-            return string.Equals(normalizedStorageOptions.Provider, "postgres", StringComparison.OrdinalIgnoreCase)
-                   && !string.IsNullOrWhiteSpace(normalizedStorageOptions.PostgresConnectionString)
-                ? new PostgresEducationStore(normalizedStorageOptions.PostgresConnectionString)
-                : new JsonFileEducationStore(storePath);
         });
     }
 }

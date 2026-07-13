@@ -96,19 +96,6 @@ try {
         }
     }
 
-    Invoke-Step -Name "VS Code compile" -Command ".\\src\\ows-vscode\\node_modules\\.bin\\tsc.cmd -p ./" -Action {
-        Push-Location (Join-Path $repoRoot "src\ows-vscode")
-        try {
-            & .\node_modules\.bin\tsc.cmd -p ./
-            if ($LASTEXITCODE -ne 0) {
-                throw "VS Code extension compile failed."
-            }
-        }
-        finally {
-            Pop-Location
-        }
-    }
-
     if ($SkipComposeValidation) {
         Add-StepResult -Name "compose config validation" -Status "Skipped" -Command "docker compose -f docker-compose.local.yml config" -Notes "Skipped by switch."
     }
@@ -148,10 +135,7 @@ try {
         automatedSteps = $results
         latestDryRunSummaryPath = $dryRunSummaryPath
         latestDryRun = $dryRunSummary
-        manualChecks = @(
-            "VS Code extension interactive smoke path in a trusted workspace remains manual.",
-            "Release candidate sign-off remains manual."
-        )
+        manualChecks = @("Release candidate sign-off remains manual.")
     }
 
     $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $summaryPath -Encoding utf8
@@ -174,15 +158,18 @@ catch {
         latestDryRunSummaryPath = $dryRunSummaryPath
         latestDryRun = $dryRunSummary
         error = Get-ExceptionDetail -ErrorRecord $_
-        manualChecks = @(
-            "VS Code extension interactive smoke path in a trusted workspace remains manual.",
-            "Release candidate sign-off remains manual."
-        )
+        manualChecks = @("Release candidate sign-off remains manual.")
     }
 
     $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $summaryPath -Encoding utf8
     throw
 }
 finally {
+    $cleanupErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    docker compose -f docker-compose.local.yml down 2>&1 | Out-Null
+    $ErrorActionPreference = $cleanupErrorAction
     $env:APPDATA = $originalAppData
 }
+
+exit 0

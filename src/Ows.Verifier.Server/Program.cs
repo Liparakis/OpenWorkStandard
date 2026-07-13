@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Ows.Core.Education;
 using Ows.Core.Notarization;
 using Ows.Verifier.Server;
+using Ows.Verifier.Server.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
@@ -91,7 +91,6 @@ LogStartupSummary();
 #region Eager Store Initialization
 
 await InitializeOptionalStorageAsync();
-await InitializeOptionalEducationStoreAsync();
 
 var apiKeyStore = app.Services.GetRequiredService<IVerifierApiKeyStore>();
 await InitializeApiKeyStoreAsync(apiKeyStore);
@@ -280,23 +279,6 @@ async Task InitializeOptionalStorageAsync() {
             normalizedStorageOptions.ApplyMigrationsOnStartup ? "database/migrations ready" : "database access ready");
     } catch (Exception ex) {
         startupLogger.LogError(ex, "Failed to initialize verifier storage.");
-        if (isProduction) {
-            throw;
-        }
-    }
-}
-
-async Task InitializeOptionalEducationStoreAsync() {
-    if (app.Services.GetService<IEducationStore>() is not { } educationStore) {
-        return;
-    }
-
-    try {
-        startupLogger.LogInformation("Initializing education store...");
-        await educationStore.InitializeAsync(CancellationToken.None);
-        startupLogger.LogInformation("Education store initialized successfully.");
-    } catch (Exception ex) {
-        startupLogger.LogError(ex, "Failed to initialize education store.");
         if (isProduction) {
             throw;
         }
@@ -573,7 +555,7 @@ public enum VerifierEnvironmentMode {
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 /// <summary>
-/// Represents the optional education context that may be supplied when starting a new verifier session.
+/// Represents optional external context metadata supplied when starting a new verifier session.
 /// </summary>
 public sealed record StartSessionRequest {
     /// <summary>Gets the optional institution identifier.</summary>

@@ -14,8 +14,8 @@ This document defines the Open Work Standard (OWS) event vocabulary, detailing w
 | `FileCreated` | **Active** | `ows watch` (file watcher & scan) | Yes (`timeline.jsonl`) | Yes | Yes (Fidelity), except `initial_baseline` records | Emitted when a new file is detected. Initial scan may also record pre-existing files as baseline metadata only. |
 | `FileModified` | **Active** | `ows watch` (file watcher) | Yes (`timeline.jsonl`) | Yes | Yes (Fidelity) | Emitted when a file change is saved or debounced. |
 | `FileDeleted` | **Active** | `ows watch` (file watcher) | Yes (`timeline.jsonl`) | Yes | Yes (Fidelity) | Emitted when a file is deleted from the tracked directory. |
-| `ProjectOpened` | **Active** | `ows watch start` / VS Code extension | Yes (`timeline.jsonl`) | Yes | Yes | Emitted when watcher state transitions from not-running to running. |
-| `ProjectClosed` | **Active** | `ows watch stop` / VS Code extension | Yes (`timeline.jsonl`) | Yes | Yes | Emitted when watcher state transitions from running to stopped by user. |
+| `ProjectOpened` | **Active** | `ows watch start` / local watcher host | Yes (`timeline.jsonl`) | Yes | Yes | Emitted when watcher state transitions from not-running to running. |
+| `ProjectClosed` | **Active** | `ows watch stop` / local watcher host | Yes (`timeline.jsonl`) | Yes | Yes | Emitted when watcher state transitions from running to stopped by user. |
 | `BuildStarted` | **Active** | `ows event build-started` CLI / hooks | Yes (`timeline.jsonl`) | Yes | Yes | Emitted explicitly on build initiation. |
 | `BuildSucceeded` | **Active** | `ows event build-succeeded` CLI / hooks | Yes (`timeline.jsonl`) | Yes | Yes | Emitted explicitly on build success. |
 | `BuildFailed` | **Active** | `ows event build-failed` CLI / hooks | Yes (`timeline.jsonl`) | Yes | Yes | Emitted explicitly on build failure. |

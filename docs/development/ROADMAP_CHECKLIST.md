@@ -9,7 +9,7 @@ Whenever a feature is added, changed, deferred, or completed, update this checkl
 
 ## Next Recommended Step
 
-Cut the v0.1 release-candidate evidence bundle from the latest green gate, then do manual sign-off before adding new UI surfaces or integrations.
+Reduce the public command and code surface now that package signing is available.
 
 **Next milestone:** Public Alpha Truth Audit and Release Candidate v0.1.
 
@@ -61,6 +61,13 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Packaged session metadata
 - [x] Packaged receipts
 - [x] Artifact hash verification
+- [x] Canonical logical package-root hash
+- [x] Optional local RSA package signing and offline verification
+- [x] Explicit signed, unsigned, and invalid signature states
+- [x] Shared `.owsignore` rules applied to package manifests and archives
+- [x] Ignored secrets/build/dependency/log paths excluded from packages
+- [x] Explicit binary artifacts remain opaque and hash-only
+- [x] Ignored-package integration test verifies locally
 - [x] Receipt chain verification
 - [x] Trust grades `Verified`, `Unverified`, and `Invalid`
 - [x] `Degraded` trust state exists and is integrated with lease gap policy
@@ -77,9 +84,16 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Observation Gap and Recovery Scan (gap duration, previous state tracking, exclusions, atomic snapshots, absolute deltas, trust degradation)
 - [x] Snapshot hash commitments in the timeline (`SnapshotUpdated`)
 - [x] Recovery snapshot mismatch/unbound degradation without misconduct verdicts
-- [ ] IDE-native build/test/run capture
+- [x] Explicit project registry stores only initialized project roots
+- [x] CLI-run agent host watches multiple registered projects and prunes missing roots
+- [x] Secure local IPC for CLI/agent coordination
+- [x] Windows-first installable OS service/host lifecycle with reversible scripts
+- [x] `.owsignore` created by `ows init` without overwriting existing project rules
+- [x] Centralized ignore matching for default rules, comments, directory patterns, wildcards, and normalized separators
+- [x] Ignore-engine unit coverage and initialization preservation coverage
+- [ ] Host-specific build/test/run capture in a separate adapter
 - [ ] Large insertion detection
-- [ ] IDE or host-managed long-running watcher lifecycle
+- [x] Host-managed long-running watcher lifecycle on Windows and foreground cross-platform host
 
 ## 6. Remote Verifier and Storage
 
@@ -111,7 +125,7 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] InstitutionAdmin role
 - [x] StudentClient role
 - [x] Institution scoping enforced for package metadata and verification resources
-- [x] Institution scoping enforced for education read endpoints
+- [x] Institution scoping enforced for verifier resources using opaque context metadata
 - [x] Reviewer read-only policy enforced
 - [x] Operator API key lifecycle endpoints
 - [x] Operator documentation for pilot key management
@@ -156,10 +170,10 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Package verification audit events
 - [x] Package verification diagnostics counters
 - [x] Built-in endpoint rate limiting
-- [x] Dedicated education endpoint rate limiting
+- [x] Dedicated scoped verifier-resource rate limiting
 - [x] Scoped upload authorization before blob persistence
 - [x] Archive hardening for entry count, duplicate paths, unsafe paths, and expansion limits
-- [x] Education write audit events
+- [x] Scoped verifier write audit events
 - [x] Enrollment roster-read audit events
 - [x] Bounded audit query limit (`GET /audit/events` max 500)
 
@@ -185,37 +199,20 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Production Compose packaging
 - [x] Self-hosting operator guide
 
-## 11. Multi-Tenant Education Model
+## 11. External Management Boundaries
 
-- [x] Institutions
-- [x] Courses
-- [x] Classes
-- [x] Students
-- [x] Multi-tenant policy model
+- [x] OWS does not own institutions, courses, classes, students, rosters, or LMS records.
+- [x] Session and package APIs accept optional opaque external context identifiers.
+- [x] Verifier scoping uses caller-supplied institution and student identifiers without resolving management records.
+- [x] Reports expose opaque context identifiers only; human-readable names and roster resolution belong to future projects.
+- [ ] Separate management/integration project, if needed
 
-## 12. Education Workflow Wiring v0.1
+## 13. Deferred UI and Host Boundaries
 
-- [x] `IEducationStore` interface (Json + Postgres backends)
-- [x] `POST /education/institutions`, `GET /education/institutions/{id}`
-- [x] `POST /education/courses`, `GET /education/courses/{id}`
-- [x] `POST /education/class-groups`, `GET /education/class-groups/{id}`
-- [x] `POST /education/course-offerings`, `GET /education/course-offerings/{id}`
-- [x] `POST /education/enrollments`, enrollment queries by user and offering
-- [x] `POST /education/assessments`, `GET /education/assessments/{id}`
-- [x] `POST /education/users`, `GET /education/users/{id}`
-- [x] `POST /sessions` accepts optional education context (`institutionId`, `assessmentId`, `studentUserId`, `courseOfferingId`)
-- [x] Institution, assessment-to-institution, and student validation on session start
-- [x] Education context propagated into `PackageVerificationRequest` on all three verification paths
-- [x] `ReportEducationContext` assembled from store lookups and embedded in verification reports
-- [x] `Assessment Context` section in JSON and text reports
-- [x] `EducationWiringTests` covering store round-trips and session validation logic
-
-## 13. Desktop and IDE Integrations
-
-- [x] Desktop UI v0.1 design spec (`docs/integrations/DESKTOP_UI.md`)
-- [x] VS Code integration v0.1 (`src/ows-vscode`)
-- [x] Rider integration v0.1 design (`docs/integrations/RIDER_INTEGRATION.md`)
-- [x] Host-specific watcher implementations via `IOwsWatchSessionManager`
+- [x] OWS Core and CLI remain independent of any IDE.
+- [x] `Ows.Desktop` remains a placeholder until explicitly requested.
+- [x] Host metadata remains generic and protocol-focused.
+- [ ] Optional host adapters, if ever needed, belong in separate projects.
 
 ## 14. Deferred and Future Technologies
 
@@ -243,18 +240,13 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] `docs/operations/SELF_HOSTED_COMPOSE.md` updated with operator resource cross-references
 - [x] `docs/operations/TROUBLESHOOTING.md` updated with restore/signing key failure modes
 
-## 16. Desktop and IDE Integrations v0.1
+## 16. IDE Drift Removal v0.1
 
-- [x] Host-managed watcher lifecycle abstraction (`IOwsWatchSessionManager`)
-- [x] Machine-readable CLI status/control (`--json` output format)
-- [x] Local project config (`.ows/config.json`)
-- [x] VS Code extension commands
-- [x] VS Code status bar showing active watcher/session status
-- [x] Secure API key storage (VS Code `SecretStorage` and OS Keychain integration)
-- [x] Package creation and upload from IDE
-- [x] Remote verification status query from IDE
-- [x] Minimal Desktop Tray/Status UI spec (`docs/integrations/DESKTOP_UI.md`)
-- [x] Rider integration design (`docs/integrations/RIDER_INTEGRATION.md`)
+- [x] Removed the VS Code extension from the active repository.
+- [x] Removed Rider/IntelliJ integration design from active documentation.
+- [x] Removed IDE compilation from the release regression gate.
+- [x] Removed IDE workflow and status UI claims from student and pilot documentation.
+- [x] CLI/Core workflows remain independently buildable and testable.
 
 ## 17. Student Workflow Hardening v0.1
 
@@ -265,12 +257,8 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Offline verifier background heartbeat loop and state persistence
 - [x] Heartbeat and checkpoint error state tracking
 - [x] Package upload timeout (60 seconds) and specific HTTP error code parsing (400, 413, 401, 403)
-- [x] CLI/extension status mapping (WatchingLocalOnly, SessionActive, VerifierOffline, HeartbeatFailing, Degraded, Error)
+- [x] CLI status mapping (WatchingLocalOnly, SessionActive, VerifierOffline, HeartbeatFailing, Degraded, Error)
 - [x] Student-friendly exception translation
-- [x] VS Code workspace trust checking
-- [x] VS Code multi-folder support (silent fallback vs quickpick vs active editor)
-- [x] VS Code spawn error detection (ENOENT)
-- [x] VS Code API key and environment variable redactions in logs and error displays
 - [x] Comprehensive watcher and CLI status/redaction tests
 - [x] Updated troubleshooting and student workflow documentation
 
@@ -279,7 +267,6 @@ Cut the v0.1 release-candidate evidence bundle from the latest green gate, then 
 - [x] Pilot fixture setup scripts (`scripts/windows/setup-pilot-fixture.ps1`, `scripts/unix/setup-pilot-fixture.sh`)
 - [x] Main professor/sysadmin walkthrough (`docs/workflows/PILOT_DEMO.md`)
 - [x] Student CLI workflow validation documented
-- [x] Student VS Code workflow validation documented
 - [x] StudentClient session/package/upload validation documented
 - [x] Reviewer report workflow validation documented
 - [x] Audit and diagnostics workflow validation documented

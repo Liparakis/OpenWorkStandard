@@ -39,6 +39,7 @@ submission.owspkg
 |- version_graph.json
 |- session.json              (optional)
 |- receipts.json             (optional)
+|- signature.json            (optional)
 `- artifacts/
 ```
 
@@ -59,6 +60,9 @@ The manifest currently carries:
 - `versionGraphHash`
 - `sessionStateHash`
 - `artifactHashes`
+- `packageRootHash`
+- `receiptChainHash`
+- `signatureAlgorithm` and `signatureKeyFingerprint` when signed
 
 Current behavior:
 
@@ -66,6 +70,9 @@ Current behavior:
 - `versionGraphHash` is the SHA-256 hash of the packaged `version_graph.json`
 - `sessionStateHash` is empty when `session.json` is absent
 - `artifactHashes` maps archive paths such as `artifacts/src/Program.cs` to SHA-256 content hashes
+- `packageRootHash` is the SHA-256 hash of the canonical logical root bytes
+- `receiptChainHash` is the SHA-256 hash of `receipts.json` when present
+- signature fields identify the optional public-key signature
 
 ### `timeline.jsonl`
 
@@ -91,15 +98,32 @@ Current behavior:
 
 ### `artifacts/...`
 
-- packaged project files outside `.ows/`
+- packaged project files outside `.ows/` and the paths excluded by `.owsignore`
 - the output `.owspkg` itself is excluded
 - archive paths are rooted under `artifacts/`
+- explicitly included binary files are opaque and represented by their path and hash
+
+### `signature.json`
+
+- optional RSA-SHA256-PKCS1-v1_5 signature over the canonical logical package-root bytes
+- contains the root hash, public key, key fingerprint, algorithm, and Base64 signature
+- contains no private key material
+
+### Canonical package root
+
+The root is independent of ZIP entry ordering and ZIP timestamps. The current
+`OWS-PACKAGE-ROOT-V1` canonicalizer
+serializes the manifest with root/signature self-reference fields blank, then
+appends sorted logical content-hash lines for the timeline, version graph,
+session, receipts, and artifacts using UTF-8 LF bytes under the
+`OWS-PACKAGE-ROOT-V1` format marker.
 
 ## Exclusions
 
 The current package builder excludes:
 
 - files under `.ows/`
+- paths matched by the shared `.owsignore` rules, including common build, dependency, secret, and log paths
 - the output package file itself
 
 ## Reserved But Not Implemented
@@ -108,7 +132,6 @@ These are not part of the implemented MVP package format today:
 
 - `deltas/`
 - `metadata/`
-- `signature.json`
 
 Do not treat those as present or required until the code actually emits and verifies them.
 
@@ -123,6 +146,8 @@ Current package verification checks:
 - manifest hashes match packaged timeline, version graph, session state, and artifact contents
 - packaged receipt chains verify when present
 - live verifier cross-checking can be performed when a verifier URL is supplied
+- canonical package-root hashes are checked when present
+- signed packages are verified offline; unsigned packages remain valid with an explicit unsigned signature state
 
 ## Compatibility Rule
 

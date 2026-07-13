@@ -55,6 +55,26 @@ public sealed record OwsManifest {
     public string SessionStateHash { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the SHA-256 hash of the canonical logical package root.
+    /// </summary>
+    public string PackageRootHash { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the SHA-256 hash of the packaged receipt chain when present.
+    /// </summary>
+    public string ReceiptChainHash { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the signing algorithm identifier when the package is signed.
+    /// </summary>
+    public string SignatureAlgorithm { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the signer public-key fingerprint when the package is signed.
+    /// </summary>
+    public string SignatureKeyFingerprint { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets the SHA-256 hashes of packaged artifact entries keyed by archive path.
     /// </summary>
     public IReadOnlyDictionary<string, string> ArtifactHashes { get; init; } = new Dictionary<string, string>();

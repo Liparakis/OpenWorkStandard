@@ -2,6 +2,7 @@ using System.Text.Json;
 using Ows.Core.Notarization;
 using Ows.Core.Reporting;
 using Ows.Core.Verification;
+using Ows.Verifier.Server.Helpers;
 
 
 namespace Ows.Verifier.Server;

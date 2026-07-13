@@ -58,6 +58,25 @@ finally:
 PY
 }
 
+wait_for_postgres_ready() {
+  local timeout_seconds="${1:-60}"
+  local health
+  for _ in $(seq 1 "$timeout_seconds"); do
+    health="$(docker inspect --format '{{.State.Health.Status}}' ows-postgres 2>/dev/null || true)"
+    if [[ "$health" == "healthy" ]]; then
+      return 0
+    fi
+
+    if [[ -z "$health" ]] && test_tcp_port_open "127.0.0.1" 5432 >/dev/null 2>&1; then
+      return 0
+    fi
+
+    sleep 1
+  done
+
+  return 1
+}
+
 test_verifier_http_ready() {
   local base_url="$1"
   local status auth_headers=()

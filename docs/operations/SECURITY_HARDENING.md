@@ -144,8 +144,6 @@ Current built-in controls:
 - endpoint-scoped fixed-window rate limits are enabled by default through `VerifierRateLimiting__*`
 - auth management endpoints use a stricter limiter than read endpoints
 - package upload endpoints use a separate low-volume limiter
-- education write endpoints use a dedicated admin-write limiter
-- education read endpoints use a dedicated scoped-read limiter
 - `/ready` and `/metrics` stay public for monitoring, but they are still rate-limited
 - multipart request parsing is capped from `VerifierStorage__MaxPackageSizeBytes`
 
@@ -157,8 +155,6 @@ Default minute buckets:
 - session writes: `30`
 - authenticated reads: `120`
 - diagnostics/audit reads: `30`
-- education writes: `20`
-- education reads: `60`
 
 Current package-admission checks:
 
@@ -175,7 +171,7 @@ Known limits:
 
 - JSON endpoint body limits are still the default ASP.NET Core limits; only package multipart uploads have an explicit server-side cap today
 - public probes remain intentionally unauthenticated and should sit behind a reverse proxy if broad internet exposure is expected
-- education audit coverage in v0.1 is intentionally focused on successful writes, explicit endpoint-level denials, and roster-like enrollment reads rather than every education GET
+- audit coverage in v0.1 is focused on verifier writes, package verification, and scoped reads rather than management-system operations
 
 Audit query limits:
 

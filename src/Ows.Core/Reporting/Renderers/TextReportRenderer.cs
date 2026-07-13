@@ -18,6 +18,7 @@ internal static class TextReportRenderer {
         builder.AppendLine(
             "Event presence is evidence of recorded activity. Event absence is not proof of misconduct.");
         builder.AppendLine($"Status: {res.TrustStatus}");
+        builder.AppendLine($"Package Signature: {res.SignatureStatus}");
         builder.AppendLine($"Recommendation: {res.Recommendation}");
         builder.AppendLine();
 
@@ -26,27 +27,16 @@ internal static class TextReportRenderer {
         builder.AppendLine($"Trust Grade Explanation: {res.TrustExplanation}");
         builder.AppendLine();
 
-        builder.AppendLine("Assessment Context:");
-        if (res.Education == null ||
-            (string.IsNullOrEmpty(res.Education.InstitutionId) &&
-             string.IsNullOrEmpty(res.Education.CourseId) &&
-             string.IsNullOrEmpty(res.Education.ClassGroupId) &&
-             string.IsNullOrEmpty(res.Education.AssessmentId) &&
-             string.IsNullOrEmpty(res.Education.StudentUserId))) {
-            builder.AppendLine("Assessment context was not provided.");
+        builder.AppendLine("External Context Metadata:");
+        if (res.ExternalContext == null ||
+            (string.IsNullOrEmpty(res.ExternalContext.InstitutionId) &&
+             string.IsNullOrEmpty(res.ExternalContext.AssessmentId) &&
+             string.IsNullOrEmpty(res.ExternalContext.StudentUserId))) {
+            builder.AppendLine("External context metadata was not provided.");
         } else {
-            builder.AppendLine(
-                $"- Institution: {res.Education.InstitutionName ?? "Unknown"} (ID: {res.Education.InstitutionId ?? "Unknown"})");
-            builder.AppendLine(
-                $"- Course: {res.Education.CourseCode ?? "Unknown"} - {res.Education.CourseTitle ?? "Unknown"} (ID: {res.Education.CourseId ?? "Unknown"})");
-            builder.AppendLine(
-                $"- Class/Group: {res.Education.ClassGroupName ?? "Unknown"} (ID: {res.Education.ClassGroupId ?? "Unknown"})");
-            builder.AppendLine(
-                $"- Assessment: {res.Education.AssessmentTitle ?? "Unknown"} (ID: {res.Education.AssessmentId ?? "Unknown"})");
-            builder.AppendLine(
-                $"- Student: {res.Education.StudentDisplayName ?? "Unknown"} (External ID: {res.Education.StudentExternalId ?? "Unknown"}) (ID: {res.Education.StudentUserId ?? "Unknown"})");
-            builder.AppendLine($"- Session ID: {res.Package.SessionId}");
-            builder.AppendLine($"- Package ID: {res.Package.PackageId}");
+            AppendContextValue(builder, "Institution ID", res.ExternalContext.InstitutionId);
+            AppendContextValue(builder, "Assessment ID", res.ExternalContext.AssessmentId);
+            AppendContextValue(builder, "Student ID", res.ExternalContext.StudentUserId);
         }
 
         builder.AppendLine();
@@ -54,6 +44,7 @@ internal static class TextReportRenderer {
         builder.AppendLine("Verification Scope:");
         builder.AppendLine($"- Package ID: {res.Package.PackageId}");
         builder.AppendLine($"- Package Hash: {res.Package.PackageHash}");
+        builder.AppendLine($"- Package Root Hash: {res.Package.PackageRootHash}");
         builder.AppendLine($"- Session ID: {res.Package.SessionId}");
         builder.AppendLine();
 
@@ -148,6 +139,12 @@ internal static class TextReportRenderer {
         if (t.Minutes > 0) parts.Add($"{t.Minutes}m");
         if (t.Seconds > 0 || parts.Count == 0) parts.Add($"{t.Seconds}s");
         return string.Join(" ", parts);
+    }
+
+    private static void AppendContextValue(StringBuilder builder, string label, string? value) {
+        if (!string.IsNullOrWhiteSpace(value)) {
+            builder.AppendLine($"- {label}: {value}");
+        }
     }
 
     /// <summary>

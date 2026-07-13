@@ -66,7 +66,7 @@ Optional metadata may include:
 - command name
 - build target
 - test suite name
-- editor or IDE name
+- host or tool name
 - line or byte thresholds for `LargeInsert`
 - `snapshotHash`, `fileCount`, `observedAt`, `reason`, and optional `previousSnapshotHash` for `SnapshotUpdated`
 
@@ -81,7 +81,7 @@ Optional metadata must remain project-scoped and must not introduce surveillance
   "eventType": "FileModified",
   "projectId": "sample-project",
   "relativePath": "src/Program.cs",
-  "toolName": "rider",
+  "toolName": "cli",
   "hashAfter": "abc123",
   "previousEventHash": "",
   "eventHash": "def456",

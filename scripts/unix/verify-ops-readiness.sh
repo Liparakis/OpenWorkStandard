@@ -86,7 +86,7 @@ echo "--- 2. Readiness Dependencies ---"
 mapfile -t ready_response < <(invoke_safe_get "$base_url/ready")
 ready_code="${ready_response[0]}"
 ready_body="$(printf '%s\n' "${ready_response[@]:1}")"
-write_check "/ready returns 200" "$([[ "$ready_code" == "200" ]] && echo true || echo false)" "Storage or education store is unhealthy."
+write_check "/ready returns 200" "$([[ "$ready_code" == "200" ]] && echo true || echo false)" "Verifier storage or package storage is unhealthy."
 if [[ -n "$ready_body" ]]; then
   READY_BODY="$ready_body" run_python - <<'PY'
 import json
@@ -96,7 +96,7 @@ try:
 except Exception:
     raise SystemExit(0)
 deps = data.get("dependencies", {})
-for key in ("storageReady", "educationStoreReady", "packageStorageReady", "signingConfigured"):
+for key in ("storageReady", "packageStorageReady", "signingConfigured"):
     print(f"{key}={str(deps.get(key)).lower()}")
 if deps.get("authMode"):
     print(f"authMode={deps['authMode']}")
@@ -104,7 +104,6 @@ PY
 fi | while IFS='=' read -r key value; do
   case "$key" in
     storageReady) write_check "storageReady" "$([[ "$value" == "true" ]] && echo true || echo false)" "PostgreSQL is not ready." ;;
-    educationStoreReady) write_check "educationStoreReady" "$([[ "$value" == "true" ]] && echo true || echo false)" "Education store is not ready." ;;
     packageStorageReady) write_check "packageStorageReady" "$([[ "$value" == "true" ]] && echo true || echo false)" "Package storage is not accessible." ;;
     signingConfigured) write_check "signingConfigured" "$([[ "$value" == "true" ]] && echo true || echo false)" "Receipt signing key is not configured." ;;
     authMode) write_info "Auth mode: $value" ;;

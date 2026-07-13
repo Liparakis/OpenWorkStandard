@@ -5,7 +5,7 @@ namespace Ows.Core.Notarization;
 /// </summary>
 public interface IVerifierStorage {
     /// <summary>
-    /// Creates and persists a new verifier session with optional educational metadata.
+    /// Creates and persists a new verifier session with optional external context metadata.
     /// </summary>
     /// <param name="clientId">Optional client / user ID associated with the session.</param>
     /// <param name="assessmentId">Optional assessment ID associated with the session.</param>

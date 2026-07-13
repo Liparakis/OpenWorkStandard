@@ -111,7 +111,7 @@ Write-Host ""
 Write-Host "--- 2. Readiness Dependencies ---"
 $ready = Invoke-SafeGet -Url "$BaseUrl/ready"
 $readyOk = $ready.Code -eq 200
-$ok = Write-Check -Label "/ready returns 200" -Pass $readyOk -Note "Storage or education store is unhealthy."
+$ok = Write-Check -Label "/ready returns 200" -Pass $readyOk -Note "Verifier storage or package storage is unhealthy."
 $allPassed = $allPassed -and $ok
 
 $readyJson = $null
@@ -123,9 +123,6 @@ if ($readyJson -and $readyJson.dependencies) {
     $deps = $readyJson.dependencies
 
     $ok = Write-Check -Label "storageReady" -Pass ($deps.storageReady -eq $true) -Note "PostgreSQL is not ready."
-    $allPassed = $allPassed -and $ok
-
-    $ok = Write-Check -Label "educationStoreReady" -Pass ($deps.educationStoreReady -eq $true) -Note "Education store is not ready."
     $allPassed = $allPassed -and $ok
 
     $ok = Write-Check -Label "packageStorageReady" -Pass ($deps.packageStorageReady -eq $true) -Note "Package blob storage is not accessible."

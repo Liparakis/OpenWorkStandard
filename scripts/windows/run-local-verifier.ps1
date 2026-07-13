@@ -19,9 +19,18 @@ if ($state.State -eq "port_in_use" -or $state.State -eq "unreachable") {
 }
 
 Write-Host "Starting local PostgreSQL..."
-docker compose -f docker-compose.local.yml up -d
-if ($LASTEXITCODE -ne 0 -and -not (Test-TcpPortOpen -HostName "127.0.0.1" -Port 5432)) {
-    throw "docker compose failed and PostgreSQL is not reachable on localhost:5432. Start docker-compose.local.yml or point OWS_VERIFIER_CONNECTION_STRING at a reachable PostgreSQL instance."
+$composeErrorAction = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    $composeOutput = docker compose -f docker-compose.local.yml up -d 2>&1
+}
+finally {
+    $ErrorActionPreference = $composeErrorAction
+}
+$composeExitCode = $LASTEXITCODE
+$composeOutput | Out-Host
+if (-not (Wait-OwsPostgresReady)) {
+    throw "PostgreSQL did not become ready on localhost:5432 (docker compose exit code $composeExitCode). Start docker-compose.local.yml or point OWS_VERIFIER_CONNECTION_STRING at a reachable PostgreSQL instance."
 }
 
 Write-Host "Running verifier migrations..."

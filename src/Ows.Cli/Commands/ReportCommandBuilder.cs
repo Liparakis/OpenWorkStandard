@@ -15,13 +15,18 @@ public static class ReportCommandBuilder {
     /// <returns>The configured command.</returns>
     public static Command Build() {
         var command = new Command("report", "Generate an OWS verification report.");
+        var packageArgument = new Argument<string?>("package") {
+            Description = "Path to the local .owspkg file; defaults to the current project package.",
+            Arity = ArgumentArity.ZeroOrOne
+        };
         var formatOption = new Option<string?>("--format") {
             Description = "Report output format. Supported values: text, json."
         };
+        command.Arguments.Add(packageArgument);
         command.Options.Add(formatOption);
         command.SetAction(async parseResult => {
             var projectRoot = Directory.GetCurrentDirectory();
-            var packagePath = Path.Combine(projectRoot,
+            var packagePath = parseResult.GetValue(packageArgument) ?? Path.Combine(projectRoot,
                 $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             var verifier = new OwsPackageVerifier();
             var verificationResult = await verifier.VerifyAsync(
@@ -52,7 +57,9 @@ public static class ReportCommandBuilder {
                 ReportFormat.Json => "json",
                 _ => throw new NotSupportedException($"Report format '{format}' is not supported by the CLI yet.")
             };
-            var reportPath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}.report.{extension}");
+            var packageDirectory = Path.GetDirectoryName(Path.GetFullPath(packagePath)) ?? projectRoot;
+            var packageName = Path.GetFileNameWithoutExtension(packagePath);
+            var reportPath = Path.Combine(packageDirectory, $"{packageName}.report.{extension}");
             await File.WriteAllTextAsync(reportPath, reportResult.Content);
             Console.WriteLine($"OWS report created at {reportPath}");
             return 0;

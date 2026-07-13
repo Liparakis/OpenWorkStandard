@@ -14,13 +14,11 @@ What it automates:
 
 - solution build
 - solution tests
-- VS Code extension compile
 - Compose config validation when Docker is available
 - full local PostgreSQL-backed live pilot dry run
 
 What stays manual:
 
-- interactive VS Code smoke validation in an Extension Development Host
 - release-candidate sign-off
 
 ## Pass Criteria

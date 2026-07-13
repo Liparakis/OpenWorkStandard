@@ -15,11 +15,13 @@ public static class OwsCommandFactory {
         var rootCommand = new RootCommand("Open Work Standard command-line interface")
         {
             InitCommandBuilder.Build(),
+            AgentCommandBuilder.Build(),
             StatusCommandBuilder.Build(),
             SessionCommandBuilder.Build(),
             WatchCommandBuilder.Build(),
             PackageCommandBuilder.Build(),
             VerifyCommandBuilder.Build(),
+            InspectCommandBuilder.Build(),
             ReportCommandBuilder.Build(),
             EventCommandBuilder.Build()
         };
@@ -53,7 +55,7 @@ public static class OwsCommandFactory {
             (msg.Contains("institutionId", StringComparison.OrdinalIgnoreCase) &&
              msg.Contains("required", StringComparison.OrdinalIgnoreCase))) {
             return
-                "Assessment context is missing (Institution ID, Assessment ID, or Student User ID). Please configure the project context.";
+                "External context metadata is missing (Institution ID, Assessment ID, or Student User ID). Please configure the project context.";
         }
 
         if (msg.Contains("OWS_VERIFIER_API_KEY", StringComparison.OrdinalIgnoreCase) ||

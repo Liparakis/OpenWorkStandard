@@ -53,14 +53,13 @@ This guide contains a troubleshooting matrix to resolve common configuration and
 
 ### 2. How to Recover from a Stale Watcher
 If you see an error saying the watcher is already running, or if the watcher crashes:
-1. Run `ows watch stop` in the terminal, or select `OWS: Stop Watch Session` in VS Code.
+1. Run `ows watch stop` in the terminal.
 2. If it still fails, OWS will automatically recover on the next start by checking if the process ID (PID) stored in `.ows/watcher.json` belongs to an active OWS/dotnet process. If the process is dead, OWS safely deletes the stale lock file.
 3. You can also manually delete `.ows/watcher.json` and `.ows/watcher.stop` if you need to force a reset.
 
-### 3. Reconfiguring Assessment Context
-If you entered the wrong Student ID, Assessment ID, or Verifier URL:
-- Run `OWS: Configure Assessment Context` in VS Code to enter new values.
-- Or run `ows init` again, then edit `.ows/config.json` manually.
+### 3. Reconfiguring External Context
+If you entered the wrong opaque context ID or Verifier URL:
+- Run `ows init` again, then edit `.ows/config.json` manually.
 
 ### 4. Safely Resetting Local State
 If your local state becomes corrupt or you want to start fresh:

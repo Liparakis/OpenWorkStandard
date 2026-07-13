@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Ows.Core.Ignore;
 
 namespace Ows.Core.Init;
 
@@ -21,6 +22,7 @@ public sealed class OwsProjectInitializer {
 
         var configPath = Path.Combine(localFolderPath, "config.json");
         var timelinePath = Path.Combine(localFolderPath, OwsConstants.TimelineFileName);
+        var ignorePath = Path.Combine(projectRootPath, ".owsignore");
 
         var config = new {
             owsVersion = "0.1",
@@ -34,6 +36,10 @@ public sealed class OwsProjectInitializer {
 
         if (!File.Exists(timelinePath)) {
             File.WriteAllText(timelinePath, string.Empty);
+        }
+
+        if (!File.Exists(ignorePath)) {
+            File.WriteAllText(ignorePath, OwsIgnoreEngine.DefaultFileContents);
         }
 
         return new OwsInitializationResult {

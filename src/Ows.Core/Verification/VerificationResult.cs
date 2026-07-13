@@ -35,6 +35,11 @@ public sealed record VerificationResult {
     public IReadOnlyList<string> VerifiedKeyFingerprints { get; init; } = [];
 
     /// <summary>
+    /// Gets the offline package signature state: Valid, Unsigned, UnsignedLegacy, or Invalid.
+    /// </summary>
+    public string SignatureStatus { get; init; } = "UnsignedLegacy";
+
+    /// <summary>
     /// Creates a successful verification result.
     /// </summary>
     /// <param name="summary">The result summary.</param>
@@ -118,9 +123,9 @@ public sealed record VerificationResult {
     public ReportAnchorInfo Anchor { get; init; } = new();
 
     /// <summary>
-    /// Gets the optional educational context metadata.
+    /// Gets the optional external context metadata.
     /// </summary>
-    public ReportEducationContext? Education { get; init; }
+    public ReportExternalContext? ExternalContext { get; init; }
 }
 
 /// <summary>
@@ -136,6 +141,11 @@ public sealed record ReportPackageInfo {
     /// Gets the SHA-256 hash of the package.
     /// </summary>
     public string PackageHash { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the canonical logical package-root hash.
+    /// </summary>
+    public string PackageRootHash { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the session ID.
@@ -244,66 +254,21 @@ public sealed record ReportAnchorInfo {
 }
 
 /// <summary>
-/// Structured educational context for verification reports.
+/// Structured external context metadata for verification reports.
 /// </summary>
-public sealed record ReportEducationContext {
+public sealed record ReportExternalContext {
     /// <summary>
     /// Gets the unique institution identifier.
     /// </summary>
     public string? InstitutionId { get; init; }
 
     /// <summary>
-    /// Gets the name of the institution.
-    /// </summary>
-    public string? InstitutionName { get; init; }
-
-    /// <summary>
-    /// Gets the unique course identifier.
-    /// </summary>
-    public string? CourseId { get; init; }
-
-    /// <summary>
-    /// Gets the academic course code.
-    /// </summary>
-    public string? CourseCode { get; init; }
-
-    /// <summary>
-    /// Gets the course title.
-    /// </summary>
-    public string? CourseTitle { get; init; }
-
-    /// <summary>
-    /// Gets the unique class group identifier.
-    /// </summary>
-    public string? ClassGroupId { get; init; }
-
-    /// <summary>
-    /// Gets the class group cohort name.
-    /// </summary>
-    public string? ClassGroupName { get; init; }
-
-    /// <summary>
-    /// Gets the unique assessment identifier.
+    /// Gets the optional assessment identifier.
     /// </summary>
     public string? AssessmentId { get; init; }
 
     /// <summary>
-    /// Gets the assessment title.
-    /// </summary>
-    public string? AssessmentTitle { get; init; }
-
-    /// <summary>
-    /// Gets the unique student user identifier.
+    /// Gets the optional student identifier.
     /// </summary>
     public string? StudentUserId { get; init; }
-
-    /// <summary>
-    /// Gets the student's display name.
-    /// </summary>
-    public string? StudentDisplayName { get; init; }
-
-    /// <summary>
-    /// Gets the student's external identifier.
-    /// </summary>
-    public string? StudentExternalId { get; init; }
 }

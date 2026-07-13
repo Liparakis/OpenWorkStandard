@@ -14,9 +14,10 @@ public static class EventCommandBuilder {
     /// <returns>The configured command.</returns>
     public static Command Build() {
         var command = new Command("event", "Record explicit OWS timeline events.");
+        command.Hidden = true;
 
         var hostOption = new Option<string?>("--host") {
-            Description = "Host application or environment identifier (e.g. cli, vscode, rider)."
+            Description = "Host application or environment identifier (for example, cli or another local host)."
         };
         var labelOption = new Option<string?>("--label") {
             Description = "Safe label or command name (secrets will be redacted)."

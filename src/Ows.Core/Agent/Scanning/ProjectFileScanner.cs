@@ -1,4 +1,5 @@
 using Ows.Core.Hashing;
+using Ows.Core.Ignore;
 
 namespace Ows.Core.Agent;
 
@@ -7,74 +8,34 @@ namespace Ows.Core.Agent;
 /// </summary>
 internal static class ProjectFileScanner {
     /// <summary>
-    /// Default list of relative directory paths to exclude from scanning.
-    /// </summary>
-    private static readonly string[] DefaultExclusions =
-    [
-        ".ows",
-        ".git",
-        "bin",
-        "obj",
-        "node_modules",
-        "dist",
-        "build",
-        ".vs",
-        "target",
-        "coverage"
-    ];
-
-    /// <summary>
-    /// Determines whether a given absolute file path should be excluded based on default exclusions and configured exclusions.
+    /// Determines whether a given absolute file path should be excluded by the loaded ignore rules.
     /// </summary>
     /// <param name="absolutePath">The absolute path of the file to inspect.</param>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
-    /// <param name="excludeDirectories">An optional list of additional directory names to exclude.</param>
+    /// <param name="ignoreEngine">The loaded OWS ignore engine.</param>
     /// <returns><see langword="true"/> if the file path should be excluded; otherwise, <see langword="false"/>.</returns>
-    public static bool ShouldExclude(string absolutePath, string projectRoot, IEnumerable<string>? excludeDirectories) {
-        // Check local .ows folder
-        if (absolutePath.Contains(
-                $"{Path.DirectorySeparatorChar}{OwsConstants.LocalFolderName}{Path.DirectorySeparatorChar}",
-                StringComparison.Ordinal) ||
-            absolutePath.Contains($"/{OwsConstants.LocalFolderName}/", StringComparison.Ordinal)) {
-            return true;
-        }
-
-        // Parse path segments to check exclusions
+    public static bool ShouldExclude(string absolutePath, string projectRoot, OwsIgnoreEngine ignoreEngine) {
+        ArgumentNullException.ThrowIfNull(ignoreEngine);
         var relative = Path.GetRelativePath(projectRoot, absolutePath);
-        var segments = relative.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-            StringSplitOptions.RemoveEmptyEntries);
-
-        // Get exclusion list
-        var exclusions = new List<string>(DefaultExclusions);
-        if (excludeDirectories != null) {
-            exclusions.AddRange(excludeDirectories);
-        }
-
-        foreach (var segment in segments) {
-            foreach (var exclusion in exclusions) {
-                if (string.Equals(segment, exclusion, StringComparison.OrdinalIgnoreCase)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        var isDirectory = Directory.Exists(absolutePath);
+        return ignoreEngine.IsIgnored(relative, isDirectory) ||
+               (!File.Exists(absolutePath) && ignoreEngine.IsIgnored(relative, isDirectory: true));
     }
 
     /// <summary>
     /// Scans the current project files and generates observed states containing size, hashes, and line estimates.
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
-    /// <param name="excludeDirectories">An optional list of directory names to exclude.</param>
+    /// <param name="ignoreEngine">The loaded OWS ignore engine.</param>
     /// <param name="hashService">The hash service to compute file SHA-256 signatures.</param>
     /// <returns>A dictionary mapping relative file paths to their <see cref="ObservedFileState"/> details.</returns>
     public static Dictionary<string, ObservedFileState> ScanCurrentFiles(string projectRoot,
-        IEnumerable<string>? excludeDirectories, Sha256HashService hashService) {
+        OwsIgnoreEngine ignoreEngine, Sha256HashService hashService) {
         var files = new Dictionary<string, ObservedFileState>(StringComparer.OrdinalIgnoreCase);
 
         var trackedFiles = Directory
             .EnumerateFiles(projectRoot, "*", SearchOption.AllDirectories)
-            .Where(path => !ShouldExclude(path, projectRoot, excludeDirectories))
+            .Where(path => !ShouldExclude(path, projectRoot, ignoreEngine))
             .ToList();
 
         var now = DateTimeOffset.UtcNow;

@@ -1,5 +1,5 @@
-using Ows.Core.Education;
 using Ows.Core.Notarization;
+using Ows.Verifier.Server.Helpers;
 
 namespace Ows.Verifier.Server;
 
@@ -16,7 +16,7 @@ internal static class VerifierDiagnosticsEndpoints {
         var auditLogger = app.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Ows.Verifier.Audit");
 
         app.MapGet("/ready",
-            async (HttpContext context, IVerifierStorage storage, IEducationStore educationStore,
+            async (HttpContext context, IVerifierStorage storage,
                 IVerifierApiKeyStore apiKeyStore, IPackageBlobStore blobStore, VerifierStorageOptions options,
                 VerifierSecurityOptions securityOptions, VerifierAuthOptions authOptions,
                 IConfiguration configuration, IWebHostEnvironment environment, CancellationToken cancellationToken) => {
@@ -30,11 +30,9 @@ internal static class VerifierDiagnosticsEndpoints {
                             configuredApiKeys.Count > 0, cancellationToken);
                         var oidc = VerifierServerHelpers.DescribeOidcStatus(authOptions.Oidc);
                         var healthy = await storage.CheckHealthAsync(cancellationToken);
-                        var educationReady =
-                            await VerifierServerHelpers.CheckEducationStoreReadyAsync(educationStore, cancellationToken);
                         var packageStorageReady = await blobStore.CheckHealthAsync(cancellationToken);
                         var warnings = VerifierServerHelpers.BuildDeploymentWarnings(options, packageStorageReady);
-                        if (!healthy || !educationReady || !packageStorageReady) {
+                        if (!healthy || !packageStorageReady) {
                             await VerifierAuditHelpers.WriteAuditEventAsync(
                                 context.RequestServices.GetRequiredService<IVerifierAuditStore>(),
                                 auditLogger,
@@ -44,7 +42,6 @@ internal static class VerifierDiagnosticsEndpoints {
                                 metadata: VerifierAuditHelpers.CreateMetadata(
                                     ("storageProvider", options.Provider),
                                     ("storageReady", healthy.ToString()),
-                                    ("educationStoreReady", educationReady.ToString()),
                                     ("packageStorageReady", packageStorageReady.ToString()),
                                     ("workerEnabled", options.PackageWorkerEnabled.ToString()),
                                     ("instanceMode", instanceMode),
@@ -65,7 +62,6 @@ internal static class VerifierDiagnosticsEndpoints {
                                 dependencies = new {
                                     storageProvider = options.Provider,
                                     storageReady = healthy,
-                                    educationStoreReady = educationReady,
                                     packageStorageConfigured,
                                     packageStorageReady,
                                     workerEnabled = options.PackageWorkerEnabled,
@@ -91,7 +87,6 @@ internal static class VerifierDiagnosticsEndpoints {
                             dependencies = new {
                                 storageProvider = options.Provider,
                                 storageReady = true,
-                                educationStoreReady = true,
                                 packageStorageConfigured,
                                 packageStorageReady = true,
                                 workerEnabled = options.PackageWorkerEnabled,
@@ -140,7 +135,6 @@ internal static class VerifierDiagnosticsEndpoints {
                             dependencies = new {
                                 storageProvider = options.Provider,
                                 storageReady = false,
-                                educationStoreReady = false,
                                 packageStorageConfigured,
                                 packageStorageReady,
                                 workerEnabled = options.PackageWorkerEnabled,

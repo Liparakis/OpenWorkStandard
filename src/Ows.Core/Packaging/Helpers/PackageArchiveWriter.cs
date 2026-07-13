@@ -16,7 +16,8 @@ internal static class PackageArchiveWriter {
         string receiptsPath,
         string sessionPath,
         bool hasSession,
-        Dictionary<string, string> artifactHashes) {
+        Dictionary<string, string> artifactHashes,
+        OwsPackageSignature? signature) {
         if (File.Exists(outputPackagePath)) {
             File.Delete(outputPackagePath);
         }
@@ -44,6 +45,12 @@ internal static class PackageArchiveWriter {
 
         if (hasSession && File.Exists(sessionPath)) {
             archive.CreateEntryFromFile(sessionPath, OwsConstants.SessionFileName);
+        }
+
+        if (signature is not null) {
+            var signatureEntry = archive.CreateEntry(OwsConstants.SignatureFileName);
+            using var signatureWriter = new StreamWriter(signatureEntry.Open());
+            signatureWriter.Write(JsonSerializer.Serialize(signature, new JsonSerializerOptions { WriteIndented = true }));
         }
 
         foreach (var artifactPath in artifactHashes.Keys) {

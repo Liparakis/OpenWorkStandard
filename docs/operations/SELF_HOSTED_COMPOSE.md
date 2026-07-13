@@ -76,7 +76,7 @@ curl -f http://localhost:5078/health
 ```
 
 ### 2. `/ready` Endpoint
-Checks safe dependency state for storage, education store reachability, package storage, signing configuration, auth mode, OIDC/JWT bearer status, worker mode, and migration mode:
+Checks safe dependency state for storage, package storage, signing configuration, auth mode, OIDC/JWT bearer status, worker mode, and migration mode:
 ```bash
 curl -f http://localhost:5078/ready
 # Returns: { "status": "Ready", "storage": "postgres", ... } (or HTTP 503 if dependencies are unhealthy)
@@ -132,7 +132,7 @@ See [OBSERVABILITY.md](OBSERVABILITY.md) for the optional stack.
 > 1. **TLS / HTTPS Termination**: The OWS Verifier does NOT handle TLS termination natively in the container. **You must run a reverse proxy (e.g. Nginx, Traefik, Caddy, or an AWS ALB) in front of the Compose stack to enforce HTTPS.**
 > 2. **Secret Privacy**: Never commit the `.env` file to version control.
 > 3. **API Key Guard limits**: The bootstrap key (`VerifierSecurity__ApiKey`) is compatibility/bootstrap-only. Persisted operator/reviewer keys are preferred for pilots, and they still do not replace full OAuth/OIDC authentication or fine-grained institutional RBAC.
-> 4. **OIDC/JWT bearer is optional**: `VerifierAuth__Oidc__Enabled=false` remains the default. API keys stay the primary pilot path for CLI, VS Code, watchers, and automation.
+> 4. **OIDC/JWT bearer is optional**: `VerifierAuth__Oidc__Enabled=false` remains the default. API keys stay the primary pilot path for CLI, watchers, and automation.
 > 5. **No dual-auth requests**: Requests that send both `X-OWS-Verifier-Key` and `Authorization: Bearer` are rejected with `400 Bad Request` and a safe audit event.
 > 4. **No Dev Keys**: Double-check that dev-mode default signing keys are not active in production environments.
 > 5. **Observability scope**: `GET /diagnostics/summary` and `GET /audit/events` remain built-in pilot-grade operator tools. Prometheus/Grafana/Loki/Promtail are optional external helpers, not required infrastructure.

@@ -1,10 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Ows.Core.Education;
 using Ows.Core.Notarization;
 
-namespace Ows.Verifier.Server;
+namespace Ows.Verifier.Server.Helpers;
 
 /// <summary>
 /// Provides helper methods for authentication and authorization logic on the OWS Verifier Server.
@@ -270,29 +269,6 @@ internal static class VerifierAuthorizationHelpers {
                 cancellationToken);
         }
 
-        if (segments.Length >= 2 && string.Equals(segments[0], "education", StringComparison.OrdinalIgnoreCase)) {
-            var educationStore = context.RequestServices.GetRequiredService<IEducationStore>();
-
-            if (isWrite) {
-                if (!isAdmin) return false;
-
-                if (segments.Length == 2) {
-                    return true;
-                }
-
-                var institutionId =
-                    await ResolveEducationInstitutionIdAsync(segments, educationStore, cancellationToken);
-                return !string.IsNullOrWhiteSpace(institutionId) &&
-                       string.Equals(institutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase);
-            }
-
-            if (!isAdmin && !isReviewer) return false;
-            var resolvedInstitutionId =
-                await ResolveEducationInstitutionIdAsync(segments, educationStore, cancellationToken);
-            return !string.IsNullOrWhiteSpace(resolvedInstitutionId) &&
-                   string.Equals(resolvedInstitutionId, access.InstitutionId, StringComparison.OrdinalIgnoreCase);
-        }
-
         return false;
     }
 
@@ -438,35 +414,4 @@ internal static class VerifierAuthorizationHelpers {
         }
     }
 
-    /// <summary>
-    /// Resolves the institution ID scope for a given education API route segment.
-    /// </summary>
-    /// <param name="segments">The split path segments array.</param>
-    /// <param name="educationStore">The education store.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The institution ID, or null if not resolvable.</returns>
-    private static async Task<string?> ResolveEducationInstitutionIdAsync(
-        string[] segments,
-        IEducationStore educationStore,
-        CancellationToken cancellationToken) {
-        return segments switch {
-            ["education", "institutions", var institutionIdSegment] => institutionIdSegment,
-            ["education", "courses", var courseId] => (await educationStore.GetCourseAsync(new CourseId(courseId),
-                cancellationToken))?.InstitutionId.Value,
-            ["education", "class-groups", var classGroupId] => (await educationStore.GetClassGroupAsync(
-                new ClassGroupId(classGroupId), cancellationToken))?.InstitutionId.Value,
-            ["education", "course-offerings", var offeringId] => (await educationStore.GetCourseOfferingAsync(
-                new CourseOfferingId(offeringId), cancellationToken))?.InstitutionId.Value,
-            ["education", "assessments", var assessmentId] => (await educationStore.GetAssessmentAsync(
-                new AssessmentId(assessmentId), cancellationToken))?.InstitutionId.Value,
-            ["education", "users", var userId] => (await educationStore.GetUserAsync(new UserId(userId),
-                cancellationToken))?.InstitutionId.Value,
-            ["education", "enrollments", "user", var enrollmentUserId] => (await educationStore.GetUserAsync(
-                new UserId(enrollmentUserId), cancellationToken))?.InstitutionId.Value,
-            ["education", "enrollments", "offering", var enrollmentOfferingId] =>
-                (await educationStore.GetCourseOfferingAsync(new CourseOfferingId(enrollmentOfferingId),
-                    cancellationToken))?.InstitutionId.Value,
-            _ => null
-        };
-    }
 }

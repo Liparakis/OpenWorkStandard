@@ -1,0 +1,78 @@
+# Current Task
+
+- Phase: Phase 9 — Prepare public open-source release
+- Objective: leave a clean, documented release candidate and identify the exact manual owner actions still required before publication.
+- Agreed scope:
+  - Implement and validate a Windows `Ows.Setup.exe` that installs the OWS Agent into Program Files, registers a silent SCM service, starts it, and can remove the installed service/files.
+  - Preserve local-first/offline behavior and all accepted privacy/product boundaries.
+  - Do not tag, push, publish, or create a GitHub release without explicit authorization.
+- Explicit non-goals:
+  - No automatic publication, branch/commit creation, external coordination, or release announcement.
+  - No cloud installer, MSI framework, desktop management UI, or cross-platform installer in this phase.
+- Relevant existing architecture:
+  - OWS Core/CLI provide local initialization, Agent observation, packaging, signing, verification, and inspection.
+  - The Windows-only setup executable owns SCM installation and hosts the silent service; platform-independent Agent behavior remains in `Ows.Core`.
+  - Optional remote verifier and pilot scripts remain available but are not required for local workflows.
+  - Root release entry points link to detailed canonical docs under docs/.
+- Files currently being inspected or changed:
+  - README.md, GETTING_STARTED.md, SPEC.md, CLI_REFERENCE.md, AGENT_DESIGN.md, SECURITY.md, CONTRIBUTING.md, RELEASE.md, CHANGELOG.md
+  - .github/ISSUE_TEMPLATE/*, .github/pull_request_template.md
+  - docs/development/RELEASE_READINESS.md, docs/core/ARCHITECTURE.md
+  - docs/development/ROADMAP_CHECKLIST.md, docs/workflows/PILOT_DEMO.md
+  - src/Ows.Core/Reporting/OwsReportGenerator.cs
+  - src/Ows.Cli/Commands/InspectCommandBuilder.cs, VerifyCommandBuilder.cs, ReportCommandBuilder.cs
+  - scripts/windows/run-release-regression-gate.ps1, scripts/unix/run-release-regression-gate.sh
+  - scripts/windows/build-ows-setup.ps1
+  - src/Ows.Setup/Ows.Setup.csproj, Program.cs, app.manifest
+  - scripts/windows/build-ows-setup.ps1
+  - tests/Ows.Core.Tests/OwsAgentHostTests.cs
+  - tests/Ows.Cli.Tests/ReviewerPackageArgumentTests.cs
+  - .agent/CURRENT_TASK.md, .agent/NEXT_STEPS.md, .agent/DECISIONS.md, .agent/WORK_LOG.md
+- Implementation checklist:
+  - [x] Complete Phases 1–8 and reconcile continuity notes.
+  - [x] Validate clean build and full tests.
+  - [x] Validate release regression gate and stop local verifier dependencies afterward.
+  - [x] Validate package signing, offline verification, and tamper handling.
+  - [x] Protect new Windows signing keys with current-user DPAPI; retain Unix user-only mode.
+  - [x] Hide legacy ceremony/remote commands from default CLI help while preserving pilot compatibility.
+  - [x] Validate remote pilot timing and assert completed trust is Verified.
+  - [x] Validate documentation, changelog, security process, and contribution templates.
+  - [x] Add a tracked text-first sample project and logical-root reproducibility coverage.
+  - [x] Scan for personal paths, credentials, stale active education/IDE implementation residue, and generated artifacts.
+  - [x] Align reviewer commands with documented positional package paths and expand local inspect metadata.
+  - [x] Remove absolute developer paths from tracked historical planning documentation and classify synthetic local-dev credentials.
+  - [x] Build the single-file Windows setup executable, fix SCM argument handling, and register Windows uninstall metadata.
+  - [x] Harden service stop/delete ordering and add an explicit shared-data uninstall choice.
+  - [x] Add a regression check for cross-process registry lock contention.
+  - [ ] Reconcile stale reviewer/management wording in the active release surface.
+  - [ ] Run the Add/Remove Programs uninstall action and confirm complete installed-file cleanup.
+  - [ ] Owner performs final history/license/manual sign-off review.
+- Tests required before completion:
+  - dotnet build OWS.sln -nologo.
+  - dotnet test OWS.sln -nologo.
+  - Release regression gate with live pilot.
+  - PowerShell/Bash syntax checks and git diff --check.
+  - Manual release review of generated artifacts, history, license, and the SCM service/setup lifecycle.
+- Blockers, uncertainties, and risks:
+  - The worktree contains broad pre-existing user changes from Phases 1–8 and remains intentionally uncommitted.
+  - The old visible Scheduled Tasks are transitional residue and must be removed; the requested product path is SCM only.
+  - SCM installation requires UAC elevation, but the service will run as LocalSystem and must use a machine-scoped explicit-project registry rather than a user-only registry.
+  - Uninstall/reinstall must wait for the SCM process to stop before deleting the installed executable.
+  - Release candidate evidence still requires human sign-off; passing tests do not make OWS institutional-grade.
+  - The event timeline is intentionally append-only; chain-preserving retention/compaction is not part of the current package format, so very long-lived projects may grow `.ows/timeline.jsonl`.
+- Current build/test state:
+  - Build passed with 0 warnings and 0 errors.
+  - Full tests passed after the shared-registry retry fix: Core 131/131 and CLI/server 80/80.
+  - Focused package-signing/integrity tests passed: 11/11.
+  - Final release-gate summary passed: restore, build, tests, Compose validation, and live pilot dry run with PilotTrust=Verified.
+  - PowerShell syntax passed for 16 scripts; the prior release gate passed Bash syntax; git diff --check passed.
+  - PostgreSQL verifier container was stopped; ports 5078 and 5432 are clear.
+  - Final post-bootstrap validation passed: build 0 warnings/errors, full tests 211/211, and PowerShell syntax 16/16.
+  - Reviewer package-path/inspect regression tests passed: 2/2; malformed-package inspection returned a structured invalid result and exit code 1.
+  - Release gate rerun passed after these changes: live pilot trust Verified, reviewer denial 403, raw-key leak false; verifier cleanup completed.
+  - Previous Scheduled Task smoke checks passed but are superseded by the requested SCM setup path.
+  - First setup attempt copied the payload then failed because `sc.exe create` received malformed quoted arguments; the published setup now uses `ProcessStartInfo.ArgumentList` and displays failures.
+  - The first setup also lacked Add/Remove Programs metadata; the installer now registers `Open Work Standard` under the Windows uninstall registry and schedules safe self-removal.
+  - The installer now waits for the SCM service to stop before deletion and prompts whether shared Agent data should be removed.
+  - The current shell is not elevated, so destructive uninstall smoke testing requires a UAC-approved run.
+  - Live machine evidence: `OwsAgent` is Running, Automatic, LocalSystem, and points to `C:\Program Files\Open Work Standard\Ows.Setup.exe --service`; the process has no main window. The uninstall registry entry is present.

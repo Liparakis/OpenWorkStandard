@@ -97,9 +97,7 @@ public enum OwsEventType {
     /// <summary>
     /// A large file change was detected during an unobserved gap.
     /// </summary>
-    LargeUnobservedChangeDetected
-
-    ,
+    LargeUnobservedChangeDetected,
 
     /// <summary>
     /// The observed recovery snapshot state was committed to the timeline.

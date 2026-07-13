@@ -14,7 +14,12 @@ internal static class ArtifactHashVerifier {
     /// <param name="archive">The ZIP archive container of the package.</param>
     /// <param name="manifest">The manifest object declaring expected hashes.</param>
     /// <param name="errors">The list of error messages to accumulate verification failures.</param>
-    public static void ValidateHashes(ZipArchive archive, OwsManifest manifest, List<string> errors) {
+    /// <param name="allowMissingReceiptChain">Whether a trusted remote anchor may replace packaged receipts.</param>
+    public static void ValidateHashes(
+        ZipArchive archive,
+        OwsManifest manifest,
+        List<string> errors,
+        bool allowMissingReceiptChain) {
         var hashService = new Sha256HashService();
 
         var timelineEntry = archive.GetEntry(OwsConstants.TimelineFileName);
@@ -54,6 +59,22 @@ internal static class ArtifactHashVerifier {
 
                 if (!string.Equals(actualSessionHash, manifest.SessionStateHash, StringComparison.OrdinalIgnoreCase)) {
                     errors.Add("Session state hash does not match manifest.");
+                }
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(manifest.ReceiptChainHash)) {
+            var receiptsEntry = archive.GetEntry(OwsConstants.ReceiptsFileName);
+            if (receiptsEntry is null) {
+                if (!allowMissingReceiptChain) {
+                    errors.Add($"Missing receipt chain entry declared in manifest: {OwsConstants.ReceiptsFileName}");
+                }
+            } else {
+                using var receiptsReader = new StreamReader(receiptsEntry.Open());
+                var receiptsText = receiptsReader.ReadToEnd();
+                var actualReceiptsHash = hashService.ComputeHash(receiptsText);
+                if (!string.Equals(actualReceiptsHash, manifest.ReceiptChainHash, StringComparison.OrdinalIgnoreCase)) {
+                    errors.Add("Receipt chain hash does not match manifest.");
                 }
             }
         }

@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Ows.Core.Education;
 using Ows.Core.Notarization;
 using Ows.Core.Verification;
 using Ows.Verifier.Server;
@@ -764,100 +763,6 @@ public sealed class VerifierServerTests {
 
             if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Verifies that reviewer keys remain read-only for education metadata and API key management.
-    /// </summary>
-    [Fact]
-    public async Task ReviewerApiKey_ShouldRejectEducationMutationAndApiKeyManagement() {
-        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
-        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try {
-            var config = new Dictionary<string, string?>
-            {
-                { "VerifierEnvironment", "Local" },
-                { "VerifierStorage__Provider", "json" },
-                { "VerifierStorage__JsonStorePath", tempDbPath },
-                { "VerifierSecurity__ApiKeys__0__Key", "reviewer-test-api-key-1234" },
-                { "VerifierSecurity__ApiKeys__0__Role", "reviewer" },
-                { "VerifierSecurity__ApiKeys__0__InstitutionId", "inst-1" }
-            };
-
-            using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory) {
-                var institution = new Institution(new InstitutionId("inst-1"), "Institution One", "inst-one",
-                    DateTimeOffset.UtcNow);
-                using var institutionRequest = new HttpRequestMessage(HttpMethod.Post, "/education/institutions");
-                institutionRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
-                institutionRequest.Content = JsonContent.Create(institution);
-                var institutionResponse = await client.SendAsync(institutionRequest);
-                institutionResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-
-                using var keyRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/api-keys");
-                keyRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
-                keyRequest.Content = JsonContent.Create(new { role = "Operator" });
-                var keyResponse = await client.SendAsync(keyRequest);
-                keyResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-            }
-        } finally {
-            if (Directory.Exists(tempDbDir)) {
-                Directory.Delete(tempDbDir, recursive: true);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Verifies that reviewer keys can read education data for their institution but not another institution.
-    /// </summary>
-    [Fact]
-    public async Task ReviewerApiKey_ShouldRespectEducationInstitutionScope() {
-        var tempDbDir = Path.Combine(Path.GetTempPath(), $"ows-verifier-{Guid.NewGuid():N}");
-        var tempDbPath = Path.Combine(tempDbDir, "receipts.json");
-        try {
-            var config = new Dictionary<string, string?>
-            {
-                { "VerifierEnvironment", "Local" },
-                { "VerifierStorage__Provider", "json" },
-                { "VerifierStorage__JsonStorePath", tempDbPath },
-                { "VerifierSecurity__ApiKeys__0__Key", "operator-test-api-key-1234" },
-                { "VerifierSecurity__ApiKeys__0__Role", "operator" },
-                { "VerifierSecurity__ApiKeys__1__Key", "reviewer-test-api-key-1234" },
-                { "VerifierSecurity__ApiKeys__1__Role", "reviewer" },
-                { "VerifierSecurity__ApiKeys__1__InstitutionId", "inst-1" }
-            };
-
-            using var client = CreateClientWithEnv(config, out var factory);
-            await using (factory) {
-                foreach (var institution in new[]
-                         {
-                             new Institution(new InstitutionId("inst-1"), "Institution One", "inst-one",
-                                 DateTimeOffset.UtcNow),
-                             new Institution(new InstitutionId("inst-2"), "Institution Two", "inst-two",
-                                 DateTimeOffset.UtcNow)
-                         }) {
-                    using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/education/institutions");
-                    createRequest.Headers.Add("X-OWS-Verifier-Key", "operator-test-api-key-1234");
-                    createRequest.Content = JsonContent.Create(institution);
-                    var createResponse = await client.SendAsync(createRequest);
-                    createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-                }
-
-                using var allowedRequest = new HttpRequestMessage(HttpMethod.Get, "/education/institutions/inst-1");
-                allowedRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
-                var allowedResponse = await client.SendAsync(allowedRequest);
-                allowedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-                using var deniedRequest = new HttpRequestMessage(HttpMethod.Get, "/education/institutions/inst-2");
-                deniedRequest.Headers.Add("X-OWS-Verifier-Key", "reviewer-test-api-key-1234");
-                var deniedResponse = await client.SendAsync(deniedRequest);
-                deniedResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-            }
-        } finally {
-            if (Directory.Exists(tempDbDir)) {
-                Directory.Delete(tempDbDir, recursive: true);
             }
         }
     }

@@ -24,9 +24,12 @@ internal static class PackageCreationCoordinator {
         var packagePath = Path.Combine(projectRoot,
             $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
         var builder = new OwsPackageBuilder();
+        var signingKeyPath = Environment.GetEnvironmentVariable("OWS_PACKAGE_SIGNING_KEY_PATH");
         var result = await builder.CreatePackageAsync(new PackageCreationRequest {
             ProjectRootPath = projectRoot,
-            OutputPackagePath = packagePath
+            OutputPackagePath = packagePath,
+            SignPackage = !string.IsNullOrWhiteSpace(signingKeyPath),
+            SigningKeyPath = signingKeyPath
         }, CancellationToken.None);
 
         if (!result.Created) {

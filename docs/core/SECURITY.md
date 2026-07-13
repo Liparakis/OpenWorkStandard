@@ -43,6 +43,13 @@ The relevant threat model includes:
 
 The student machine is not the final authority.
 
+On Windows, `Ows.Setup.exe` installs the Agent as a LocalSystem SCM service.
+That service account avoids storing a user password, but it increases the
+importance of the explicit project registry boundary. The installer grants
+local users modification access only to `%ProgramData%\OpenWorkStandard`; the
+Agent still watches only roots recorded by `ows init`. UAC approval is required
+for SCM installation, and uninstall preserves project `.ows` data by default.
+
 That means:
 
 - local capture is evidence collection

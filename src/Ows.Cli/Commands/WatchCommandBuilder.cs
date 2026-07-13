@@ -13,6 +13,7 @@ public static class WatchCommandBuilder {
     /// <returns>The configured command.</returns>
     public static Command Build() {
         var command = new Command("watch", "Start the persistent local file-system tracking agent.");
+        command.Hidden = true;
 
         var pollOption = new Option<bool>("--poll") {
             Description = "Use the polling fallback instead of native OS file-system signals."

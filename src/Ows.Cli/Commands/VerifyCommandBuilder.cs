@@ -18,13 +18,18 @@ public static class VerifyCommandBuilder {
     /// <returns>The configured command.</returns>
     public static Command Build() {
         var command = new Command("verify", "Verify an OWS submission package.");
+        var packageArgument = new Argument<string?>("package") {
+            Description = "Path to the local .owspkg file; defaults to the current project package.",
+            Arity = ArgumentArity.ZeroOrOne
+        };
         var serverOption = new Option<string?>("--server") {
             Description = "Cross-check packaged receipts against a live verifier API."
         };
+        command.Arguments.Add(packageArgument);
         command.Options.Add(serverOption);
         command.SetAction(async parseResult => {
             var projectRoot = Directory.GetCurrentDirectory();
-            var packagePath = Path.Combine(projectRoot,
+            var packagePath = parseResult.GetValue(packageArgument) ?? Path.Combine(projectRoot,
                 $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
             var verifier = new OwsPackageVerifier();
             var verifierUrl = parseResult.GetValue(serverOption);

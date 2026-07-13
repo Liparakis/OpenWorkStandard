@@ -16,6 +16,7 @@ public static class SessionCommandBuilder {
     /// <returns>The configured command.</returns>
     public static Command Build() {
         var command = new Command("session", "Manage local OWS session state.");
+        command.Hidden = true;
         command.Subcommands.Add(BuildSessionStartCommand());
         command.Subcommands.Add(BuildCheckpointCommand());
         command.Subcommands.Add(BuildSessionHeartbeatCommand());

@@ -36,7 +36,6 @@ Returns the status of all local and external dependencies.
     "dependencies": {
       "storageProvider": "postgres",
       "storageReady": true,
-      "educationStoreReady": true,
       "packageStorageReady": true,
       "signingConfigured": true,
       "authMode": "persistent"
@@ -54,15 +53,16 @@ Exposes Prometheus-compatible metrics.
 ## 3. Session Endpoints
 
 ### 3.1 POST `/sessions`
-Starts a new assessment tracking session.
+Starts a new provenance session.
 - **Allowed Roles**: `Operator`, `InstitutionAdmin`, `StudentClient`
 - **Scoping**: Non-operators must match the `institutionId` parameter. Bound `StudentClient` keys must also match the `studentUserId` parameter.
-- **Request Body**:
+- **Request Body**: Optional identifiers are opaque external context metadata. OWS stores and scopes them but does not resolve institutions, courses, rosters, or assessments.
   ```json
   {
     "institutionId": "inst-1",
     "assessmentId": "assess-1",
-    "studentUserId": "student-123"
+    "studentUserId": "student-123",
+    "courseOfferingId": "offering-1"
   }
   ```
 - **Response**:

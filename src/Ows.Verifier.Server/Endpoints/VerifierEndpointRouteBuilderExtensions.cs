@@ -13,7 +13,6 @@ public static class VerifierEndpointRouteBuilderExtensions {
         app.MapVerifierAuthEndpoints();
         app.MapVerifierSessionEndpoints();
         app.MapVerifierPackageEndpoints();
-        app.MapVerifierEducationEndpoints();
         app.MapVerifierAuditEndpoints();
         app.MapVerifierDiagnosticsEndpoints();
         app.MapVerifierMetricsEndpoints();

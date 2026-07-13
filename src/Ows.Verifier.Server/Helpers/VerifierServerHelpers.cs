@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Ows.Core.Education;
 
 namespace Ows.Verifier.Server;
 
@@ -135,21 +134,6 @@ internal static class VerifierServerHelpers {
         });
     }
 
-    /// <summary>
-    /// Performs a simple read probe against the education store to verify readiness.
-    /// </summary>
-    /// <param name="educationStore">The education store.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>True if the store is reachable and ready; otherwise false.</returns>
-    public static async Task<bool> CheckEducationStoreReadyAsync(IEducationStore educationStore,
-        CancellationToken cancellationToken) {
-        try {
-            _ = await educationStore.GetInstitutionAsync(new InstitutionId("__ready_probe__"), cancellationToken);
-            return true;
-        } catch {
-            return false;
-        }
-    }
 
     /// <summary>
     /// Resolves whether the package verification background worker is enabled.

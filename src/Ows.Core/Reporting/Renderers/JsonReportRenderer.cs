@@ -24,6 +24,8 @@ internal static class JsonReportRenderer {
                 package = new {
                     packageId = res.Package.PackageId,
                     packageHash = res.Package.PackageHash,
+                    packageRootHash = res.Package.PackageRootHash,
+                    signatureStatus = res.SignatureStatus,
                     sessionId = res.Package.SessionId
                 },
                 timeline = new {
@@ -58,20 +60,11 @@ internal static class JsonReportRenderer {
                     technicalDetail = finding.TechnicalDetail,
                     reviewerAction = finding.ReviewerAction
                 }),
-                education = res.Education != null
+                context = res.ExternalContext != null
                     ? new {
-                        institutionId = res.Education.InstitutionId,
-                        institutionName = res.Education.InstitutionName,
-                        courseId = res.Education.CourseId,
-                        courseCode = res.Education.CourseCode,
-                        courseTitle = res.Education.CourseTitle,
-                        classGroupId = res.Education.ClassGroupId,
-                        classGroupName = res.Education.ClassGroupName,
-                        assessmentId = res.Education.AssessmentId,
-                        assessmentTitle = res.Education.AssessmentTitle,
-                        studentUserId = res.Education.StudentUserId,
-                        studentDisplayName = res.Education.StudentDisplayName,
-                        studentExternalId = res.Education.StudentExternalId
+                        institutionId = res.ExternalContext.InstitutionId,
+                        assessmentId = res.ExternalContext.AssessmentId,
+                        studentUserId = res.ExternalContext.StudentUserId
                     }
                     : (object?) null
             },

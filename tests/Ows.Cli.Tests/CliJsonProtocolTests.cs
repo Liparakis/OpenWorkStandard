@@ -49,7 +49,8 @@ public sealed class CliJsonProtocolTests {
                 var output = ExtractJson(sw.ToString());
                 var doc = JsonDocument.Parse(output);
                 doc.RootElement.GetProperty("Success").GetBoolean().Should().BeTrue();
-                doc.RootElement.GetProperty("Status").GetString().Should().Be("Ready");
+                doc.RootElement.GetProperty("Status").GetString().Should().Be("AgentUnavailable");
+                doc.RootElement.GetProperty("Message").GetString().Should().Contain("local Agent is unavailable");
                 doc.RootElement.GetProperty("ProjectRoot").GetString().Should().Be(projectRoot);
             }
 
@@ -75,7 +76,9 @@ public sealed class CliJsonProtocolTests {
                 // Trigger a validation failure that logs the environment variable or test string
                 // In this case, we call status with an invalid option that should throw/error,
                 // or we just check if OwsCommandFactory's RedactApiKey replaces the key correctly.
-                var parseResult = OwsCommandFactory.BuildRootCommand().Parse(["session", "start", "--server", "http://[invalid-url]-secret-api-key-value-12345", "--json"]);
+                var parseResult = OwsCommandFactory.BuildRootCommand().Parse(
+                    ["session", "start", "--server", "http://[invalid-url]-secret-api-key-value-12345", "--json"]
+                );
                 await parseResult.InvokeAsync();
 
                 var output = sw.ToString();
@@ -88,7 +91,10 @@ public sealed class CliJsonProtocolTests {
             Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", null);
 
             if (Directory.Exists(projectRoot)) {
-                try { Directory.Delete(projectRoot, recursive: true); } catch { }
+                try {
+                    Directory.Delete(projectRoot, recursive: true);
+                } catch {
+                }
             }
         }
     }
@@ -99,6 +105,7 @@ public sealed class CliJsonProtocolTests {
         if (startIdx >= 0 && endIdx > startIdx) {
             return text.Substring(startIdx, endIdx - startIdx + 1);
         }
+
         return text;
     }
 }

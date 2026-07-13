@@ -3,6 +3,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Ows.Core.Events;
 using Ows.Core.Hashing;
+using Ows.Core.Ignore;
 
 namespace Ows.Core.Agent;
 
@@ -22,6 +23,11 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
     private readonly SemaphoreSlim _timelineLock = new(1, 1);
 
     /// <summary>
+    /// The ignore rules shared by recovery scans and the active watcher.
+    /// </summary>
+    private OwsIgnoreEngine _ignoreEngine = new();
+
+    /// <summary>
     /// The currently tracked observed snapshot state containing the project files, hashes, sizes, and timestamps.
     /// </summary>
     private ObservedSnapshot _currentSnapshot = new();
@@ -36,6 +42,8 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         cancellationToken.ThrowIfCancellationRequested();
 
         _options = options;
+        _ignoreEngine = OwsIgnoreEngine.Load(options.ProjectRootPath,
+            options.WatcherOptions.ExcludeDirectories);
         _ = new SqliteConnectionStringBuilder { DataSource = options.DatabasePath }.ToString();
         Status = TrackingAgentStatus.Ready;
 
@@ -89,7 +97,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
         var hashService = new Sha256HashService();
 
         var currentFiles = ProjectFileScanner.ScanCurrentFiles(_options.ProjectRootPath,
-            _options.WatcherOptions.ExcludeDirectories, hashService);
+            _ignoreEngine, hashService);
 
         var loadResult = await ObservedSnapshotStore.LoadSnapshotAsync(snapshotPath, logger, cancellationToken);
         var previousSnapshot = loadResult.Snapshot;
@@ -482,8 +490,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
     }
 
     private bool ShouldExclude(string absolutePath) {
-        return ProjectFileScanner.ShouldExclude(absolutePath, _options!.ProjectRootPath,
-            _options.WatcherOptions.ExcludeDirectories);
+        return ProjectFileScanner.ShouldExclude(absolutePath, _options!.ProjectRootPath, _ignoreEngine);
     }
 
     private static string DeterminePreviousWatcherState(string timelinePath, bool wasInterrupted) {

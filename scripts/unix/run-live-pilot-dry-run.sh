@@ -212,7 +212,7 @@ export OWS_VERIFIER_API_KEY="$reviewer_key"
 reviewer_package="$(curl -fsS -H "X-OWS-Verifier-Key: $reviewer_key" "$base_url/packages/$package_id")"
 reviewer_report="$(curl -fsS -H "X-OWS-Verifier-Key: $reviewer_key" "$base_url/packages/$package_id/report")"
 
-reviewer_denied_status="$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "X-OWS-Verifier-Key: $reviewer_key" -H "Content-Type: application/json" -d "{}" "$base_url/education/institutions" || true)"
+reviewer_denied_status="$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "X-OWS-Verifier-Key: $reviewer_key" -H "Content-Type: application/json" -d '{"role":"Operator"}' "$base_url/auth/api-keys" || true)"
 
 export OWS_VERIFIER_API_KEY="$operator_key"
 diagnostics_after="$(curl -fsS -H "X-OWS-Verifier-Key: $operator_key" "$base_url/diagnostics/summary")"
@@ -272,7 +272,7 @@ summary = {
     "trustStatus": last_package_status["TrustStatus"],
     "reviewerDeniedStatus": int(os.environ["REVIEWER_DENIED_STATUS"]),
     "reviewerPackageInstitutionId": reviewer_package.get("institutionId"),
-    "reviewerReportHasAssessmentContext": "Assessment Context" in reviewer_report,
+    "reviewerReportHasExternalContextMetadata": "External Context Metadata" in reviewer_report,
     "reviewerReportHasStatusLine": "Status:" in reviewer_report,
     "diagnosticsBefore": diagnostics_before,
     "diagnosticsAfter": diagnostics_after,

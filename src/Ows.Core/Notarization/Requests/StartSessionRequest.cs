@@ -1,7 +1,7 @@
 namespace Ows.Core.Notarization;
 
 /// <summary>
-/// Represents the request body for starting a verifier session with optional education context.
+/// Represents the request body for starting a verifier session with optional external context metadata.
 /// </summary>
 public sealed record StartSessionRequest {
     /// <summary>Gets the optional institution identifier.</summary>

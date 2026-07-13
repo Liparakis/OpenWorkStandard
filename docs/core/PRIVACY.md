@@ -4,6 +4,12 @@ Last reviewed: 2026-06-20
 
 # Privacy Boundaries
 
+On Windows, the installed LocalSystem Agent reads only the machine-scoped
+registry at `%ProgramData%\OpenWorkStandard\projects.json`. Users add roots
+through `ows init`; the service does not discover or scan arbitrary directories.
+The setup grants local users access to this registry so the CLI and service can
+share explicit registrations. Uninstall does not delete project `.ows` data.
+
 ## What OWS collects
 
 OWS is intended to collect only project-scoped provenance, such as:

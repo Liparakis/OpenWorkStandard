@@ -40,9 +40,10 @@ esac
 mkdir -p "$runtime_directory"
 
 echo "Starting local PostgreSQL..."
-docker compose -f docker-compose.local.yml up -d || true
-if ! test_tcp_port_open "127.0.0.1" 5432 >/dev/null 2>&1; then
-  echo "PostgreSQL is not reachable on localhost:5432. Start docker-compose.local.yml or point OWS_VERIFIER_CONNECTION_STRING at a reachable PostgreSQL instance." >&2
+compose_status=0
+docker compose -f docker-compose.local.yml up -d || compose_status=$?
+if ! wait_for_postgres_ready 60; then
+  echo "PostgreSQL did not become ready on localhost:5432 (docker compose exit code $compose_status). Start docker-compose.local.yml or point OWS_VERIFIER_CONNECTION_STRING at a reachable PostgreSQL instance." >&2
   exit 1
 fi
 

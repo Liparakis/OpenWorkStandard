@@ -4,7 +4,7 @@ This document describes the current Open Work Standard verifier OIDC/JWT bearer 
 
 What this milestone does:
 
-- keeps API keys as the primary auth mechanism for CLI, VS Code, watcher, and automation clients
+- keeps API keys as the primary auth mechanism for CLI, watcher, and automation clients
 - adds optional JWT bearer validation for verifier API access
 - maps validated bearer claims into the same internal verifier access context used by API keys
 - reuses the existing RBAC rules for `Operator`, `InstitutionAdmin`, `InstructorReviewer`, and `StudentClient`

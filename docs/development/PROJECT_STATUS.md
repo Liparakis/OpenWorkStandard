@@ -1,10 +1,10 @@
 Status: Active  
 Audience: Developer, Operator  
-Last reviewed: 2026-06-20
+Last reviewed: 2026-07-13
 
 # OWS Project Status
 
-Last updated: 2026-06-20
+Last updated: 2026-07-13
 
 Checklist source of truth:
 
@@ -22,11 +22,16 @@ Open Work Standard now has a real end-to-end reference flow, not just placeholde
 What works today:
 
 - local project initialization
+- local project registry, secure local IPC, and multi-project agent host (`ows agent run`)
+- Windows self-contained `Ows.Setup.exe` installs a silent LocalSystem SCM service with reversible uninstall.
+- Windows service setup uses a machine-scoped explicit-project registry under `%ProgramData%`.
 - persistent file-system watcher with native OS signals and polling fallback
 - v0.1 event emitters for ProjectOpened, ProjectClosed, PackageCreated, and explicit build/test/program commands
 - local or remote-backed session start and checkpoint issuance
 - real `.owspkg` package creation
+- canonical package-root hashing with optional offline RSA signatures
 - package verification with trust grading
+- explicit signed, unsigned, and invalid package signature states
 - optional live verifier cross-checking during verification
 - text report generation
 - a minimal ASP.NET Core verifier server with selectable JSON or PostgreSQL storage
@@ -41,10 +46,9 @@ What works today:
 - optional OIDC/JWT bearer foundation for future human-facing verifier access, without removing API keys
 - unified OwsWatchSessionManager lifecycle foundation library for host integrations
 - machine-readable CLI commands with global `--json` option and API key redaction
-- minimal VS Code extension supporting full student watch/session/package lifecycle and secure key storage
 - documented pilot demo path covering operator setup, student workflow, reviewer report access, diagnostics, audit, and negative-path checks
 - repo-owned live pilot dry run script that validates the full local PostgreSQL-backed pilot path and writes a machine-readable summary artifact
-- repo-owned release regression gate script that composes build, test, VS Code compile, and live pilot dry run into one release check
+- repo-owned release regression gate script that composes build, test, and live pilot dry run into one release check
 - repo-owned release-candidate evidence script that copies the latest passing gate and dry-run summaries into one bundle
 - current v0.1 release-candidate evidence bundle at `artifacts/release-candidate/v0.1/`
 - current v0.1 manual sign-off status: pending
@@ -68,9 +72,8 @@ Test projects:
 Notes:
 
 - `Ows.Core` remains the collapsed MVP domain project
-- `Ows.Desktop` is still placeholder-only (design specs detailed in `docs/integrations/DESKTOP_UI.md`)
+- `Ows.Desktop` remains placeholder-only and is outside the active roadmap phase
 - `Ows.Verifier.Server` is intentionally small and self-hostable, not production-ready
-- `src/ows-vscode` is the VS Code extension codebase
 
 ## Implemented Capabilities
 
@@ -81,6 +84,8 @@ What works:
 - creates `.ows/`
 - creates `.ows/config.json`
 - creates `.ows/timeline.jsonl`
+- creates `.owsignore` with safe default exclusions without overwriting an existing file
+- package collection applies the same `.owsignore` and configured directory exclusions used by tracking
 
 Status:
 
@@ -106,7 +111,7 @@ What works:
 - `--debounce <ms>` controls the quiet-time window
 
 What does not work yet:
-- no daemon-based background service (the CLI process must stay open, though VS Code extension spawns it as a background child process).
+- no equivalent installable service adapter is provided yet for Linux or macOS.
 
 Status:
 - working persistent watcher
@@ -242,16 +247,14 @@ PostgreSQL setup model today:
 - request logs include `X-Request-Id`, method, path, status code, elapsed time, role, institution scope, and key prefix
 - `GET /audit/events` exposes operator-only audit queries with simple filters for institution, session, package, event type, and time
 - `GET /diagnostics/summary` exposes lightweight safe counters instead of a full monitoring stack
-- `/ready` now reports safe dependency state for storage, education store reachability, package storage, signing configuration, auth mode, and OIDC/JWT bearer status
+- `/ready` now reports safe dependency state for storage, package storage, signing configuration, auth mode, and OIDC/JWT bearer status
 - `/ready` and `GET /diagnostics/summary` now also report instance mode, worker enablement, package storage provider, migration mode, and safe deployment warnings
 - `/metrics` now also exposes verification success/failure totals plus worker-enabled and instance-mode metrics for external dashboards
 - audit events cover API key lifecycle, auth failures, access denials, session creation, checkpoint/heartbeat acceptance, lease-gap detection, package submission, package verification, and report reads
 - package uploads stream into local durable blob storage with server-side content-addressed object keys
 - built-in per-endpoint rate limiting now covers public probes, auth, uploads, writes, and diagnostics
-- education endpoints now have dedicated read/write rate-limit buckets
 - package uploads are authorized against institution/student scope before blob persistence
 - archive admission now rejects unsafe paths, duplicate entries, oversized expansion, and suspicious compression ratios
-- education writes now emit safe audit events, and enrollment roster-like reads are audited
 - `GET /audit/events` now clamps caller limits to a maximum of `500`
 - package submissions persist package SHA-256, package size, verification job id, and latest verification error
 - package submission retries can use `Idempotency-Key`
@@ -374,20 +377,21 @@ Recent uncommitted/working-tree progress:
 - package uploads now store real `.owspkg` bytes on local verifier disk behind a blob-store abstraction
 - package verification now runs through a durable job store and in-process worker instead of inline-only handling
 - package verification results and reports persist across verifier restarts
-- `InstitutionAdmin` and `StudentClient` RBAC roles are implemented with strict institution and ownership validation scoping
+- `InstitutionAdmin` and `StudentClient` RBAC roles are implemented with strict opaque institution and ownership metadata scoping
 - Prometheus-compatible `/metrics` endpoint is exposed for scraping without key requirements
 - operational runbooks, backup/restore order, recovery failure modes, and restore drills are fully documented
 - `docs/workflows/PILOT_DEMO.md` now provides the main pilot walkthrough for professors and sysadmins
-- `scripts/windows/setup-pilot-fixture.ps1` and `scripts/unix/setup-pilot-fixture.sh` create a minimal institution/course/student/assessment fixture and delegated student/reviewer keys
+- `scripts/windows/setup-pilot-fixture.ps1` and `scripts/unix/setup-pilot-fixture.sh` create opaque pilot metadata and delegated student/reviewer keys without management records
 - `scripts/windows/run-live-pilot-dry-run.ps1` and `scripts/unix/run-live-pilot-dry-run.sh` execute the end-to-end pilot rehearsal and write `artifacts/pilot-demo/live-dry-run-summary.json`
 - `scripts/windows/run-release-regression-gate.ps1` and `scripts/unix/run-release-regression-gate.sh` execute the automated release gate and write `artifacts/release-gate/release-gate-summary.json`
 - `scripts/windows/collect-release-candidate-evidence.ps1` and `scripts/unix/collect-release-candidate-evidence.sh` write `artifacts/release-candidate/v0.1/` from the latest passing gate and dry run
-- the current `artifacts/release-candidate/v0.1/` bundle was refreshed on 2026-06-20 from a passing gate and passing live dry run; manual sign-off is still pending
+- local verifier helpers wait for healthy PostgreSQL readiness and clean up the managed verifier process tree on shutdown
+- the current `artifacts/release-candidate/v0.1/` bundle was refreshed on 2026-07-13 from a passing cold-start gate and passing live dry run; manual sign-off is still pending
 - camelCase `.ows/config.json` fields are now honored by `ows session start` and related config-backed flows
 - PostgreSQL audit-event queries now bind nullable filters safely
 - receipt timestamps are normalized before hashing so PostgreSQL round-trips preserve valid verifier receipt chains
-- the live pilot dry run completed on 2026-06-20 with `trustStatus = Verified`, reviewer write rejection `403`, package blob count growth, audit coverage, and no raw API key leakage in logs
-- the release regression gate completed on 2026-06-20 with build, tests, VS Code compile, and the full live dry run passing
+- the live pilot dry run completed on 2026-07-13 with `trustStatus = Verified`, reviewer write rejection `403`, package blob count growth, audit coverage, and no raw API key leakage in logs
+- the release regression gate completed on 2026-07-13 with restore, build, tests, compose validation, and the full live dry run passing
 
 Net result:
 
@@ -396,13 +400,13 @@ Net result:
 - the package format now carries enough session context to resolve remote anchors
 - verifier-side package intake now survives restart and exposes operator/reviewer status endpoints
 - OWS has a hardened production-readiness operational baseline with multi-institution scoping and monitoring support
-- OWS has a documented end-to-end pilot validation path before adding Rider, desktop polish, or LMS integration
+- OWS has a documented CLI-first pilot validation path before adding future management integrations
 
 ## Current Gaps
 
 The main missing pieces are:
 
-- platform-specific hosts for VS Code, Rider, and desktop
+- portable service adapters for Linux and macOS
 - Kubernetes/queue/object-storage-grade distributed verifier deployment
 - hardened institutional monitoring, alerting, and hosted observability integrations
 - desktop UI beyond placeholder state
@@ -423,7 +427,7 @@ What is solid:
 
 What is still weak:
 
-- capture fidelity (OWS defines a broader event vocabulary for future IDE/desktop integrations. The current MVP emits file-system and session/package events only where explicitly documented. Reserved event types are not currently used as trust evidence.)
+- capture fidelity (OWS defines a broader event vocabulary for future host integrations. The current MVP emits file-system and session/package events only where explicitly documented. Reserved event types are not currently used as trust evidence.)
 - long-running tracking
 - operational trust guarantees beyond the current shared-path pilot multi-instance model
 - hardened observability beyond the current optional pilot overlay
@@ -437,7 +441,7 @@ Best next steps, in order:
 
 1. Keep the release regression gate green whenever verifier/session/package behavior changes.
 2. Use `scripts/windows/collect-release-candidate-evidence.ps1` or `scripts/unix/collect-release-candidate-evidence.sh` after a green gate, then do manual sign-off.
-3. Defer Rider, desktop polish, and LMS integration until the pilot path is boring.
+3. Defer desktop polish and LMS/management integration until the protocol workflow is boring.
 
 ## Bottom Line
 

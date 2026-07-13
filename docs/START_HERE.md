@@ -15,14 +15,15 @@ OWS does not run automated misconduct judgment or AI cheating detection. Unobser
 
 - [Student Workflow](workflows/STUDENT_WORKFLOW.md)
 - [Local Demo](workflows/LOCAL_DEMO.md)
-- [VS Code Extension](integrations/VS_CODE_EXTENSION.md)
 - [CLI Reference](development/CLI.md)
+- [Getting Started](../GETTING_STARTED.md)
 
 ## I am a professor or reviewer
 
 - [Review Guidance](workflows/REVIEW_GUIDANCE.md)
 - [Pilot Demo](workflows/PILOT_DEMO.md)
 - [Package Format](core/PACKAGE_FORMAT.md)
+- [Local Inspect](../CLI_REFERENCE.md)
 - [Event Catalog](core/EVENT_CATALOG.md)
 
 ## I am an institution operator or admin
@@ -38,6 +39,7 @@ OWS does not run automated misconduct judgment or AI cheating detection. Unobser
 
 - [Core Overview](core/OVERVIEW.md)
 - [Architecture](core/ARCHITECTURE.md)
+- [Agent Design](../AGENT_DESIGN.md)
 - [API Specification](development/API.md)
 - [Project Status](development/PROJECT_STATUS.md)
 - [Roadmap Checklist](development/ROADMAP_CHECKLIST.md)

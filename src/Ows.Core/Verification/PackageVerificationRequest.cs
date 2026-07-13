@@ -50,7 +50,7 @@ public sealed record PackageVerificationRequest {
     public int SignificantGapSeconds { get; init; } = 300;
 
     /// <summary>
-    /// Gets the optional educational context for reporting and display.
+    /// Gets the optional external context metadata for reporting and display.
     /// </summary>
-    public ReportEducationContext? EducationContext { get; init; }
+    public ReportExternalContext? ExternalContext { get; init; }
 }

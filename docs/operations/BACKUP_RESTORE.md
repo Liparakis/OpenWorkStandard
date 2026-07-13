@@ -150,7 +150,7 @@ Restore in this exact order. Skipping steps or reversing order can leave the dat
    ```bash
    curl -f http://localhost:5078/ready
    ```
-   Confirm `storageReady`, `educationStoreReady`, and `packageStorageReady` are all `true`.
+   Confirm `storageReady` and `packageStorageReady` are both `true`.
 
 9. **Run diagnostics summary**
    ```bash
@@ -233,7 +233,7 @@ Perform this drill after any restore, and optionally as a scheduled quarterly ex
     curl -H "X-OWS-Verifier-Key: <key>" \
       http://localhost:5078/packages/<submissionId>/verification
     ```
-13. Confirm the report trust status and assessment context match the pre-backup state.
+13. Confirm the report trust status and opaque external context identifiers match the pre-backup state.
 
 ### Drill pass criteria
 

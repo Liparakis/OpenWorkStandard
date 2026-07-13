@@ -104,6 +104,28 @@ function Test-TcpPortOpen {
     }
 }
 
+function Wait-OwsPostgresReady {
+    param(
+        [int]$TimeoutSeconds = 60
+    )
+
+    for ($attempt = 0; $attempt -lt $TimeoutSeconds; $attempt++) {
+        $health = (docker inspect --format '{{.State.Health.Status}}' ows-postgres 2>$null | Out-String).Trim()
+        if ($health -eq "healthy") {
+            return $true
+        }
+
+        if ([string]::IsNullOrWhiteSpace($health) -and
+            (Test-TcpPortOpen -HostName "127.0.0.1" -Port 5432)) {
+            return $true
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    return $false
+}
+
 function Test-VerifierHttpReady {
     param(
         [string]$BaseUrl
@@ -189,6 +211,30 @@ function Get-VerifierState {
         PortBound = $portBound
         HttpReady = $httpReady
     }
+}
+
+function Get-OwsVerifierProcessIds {
+    param(
+        [pscustomobject]$RuntimeInfo
+    )
+
+    $verifierPath = $RuntimeInfo.VerifierDllPath
+    @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -and $_.CommandLine -like "*$verifierPath*" } |
+        Select-Object -ExpandProperty ProcessId)
+}
+
+function Stop-OwsProcessTree {
+    param(
+        [int]$ProcessId
+    )
+
+    $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $ProcessId" -ErrorAction SilentlyContinue)
+    foreach ($child in $children) {
+        Stop-OwsProcessTree -ProcessId ([int]$child.ProcessId)
+    }
+
+    Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
 }
 
 function Show-VerifierLogs {

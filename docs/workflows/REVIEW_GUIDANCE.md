@@ -105,15 +105,15 @@ Reviewer rule:
 - do not treat `Unverified` as guilt
 - do not treat `Invalid` as enough by itself for disciplinary action
 - do not ignore the distinction between missing evidence and broken evidence
-- do not overclaim what a one-shot watcher can prove
+- do not overclaim what filesystem observation can prove; event absence is not proof of misconduct
 
 ## Current MVP Limitation
 
 The current repository still has major review limitations:
 
-- `ows watch` is one-shot only
+- local verification remains useful without a running Agent, but continuous observation requires an initialized project and an available Agent host
 - `Degraded` is not a mature policy state
-- there is no dedicated professor-facing UI
+- there is no dedicated reviewer-facing UI
 - reports are file outputs, not a case-management workflow
 
 That means reviewers should use OWS as supporting provenance evidence, not as an automated verdict system.

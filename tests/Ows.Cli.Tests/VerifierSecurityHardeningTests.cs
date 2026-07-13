@@ -6,8 +6,6 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Ows.Core;
-using Ows.Core.Education;
-using Xunit;
 
 namespace Ows.Cli.Tests;
 
@@ -110,10 +108,6 @@ public sealed class VerifierSecurityHardeningTests {
 
             using var client = CreateClientWithEnv(config, out var factory);
             await using (factory) {
-                await CreateInstitutionAsync(client, "inst-1");
-                await CreateUserAsync(client, "inst-1", "student-1");
-                await CreateUserAsync(client, "inst-1", "student-2");
-
                 var studentKey = await CreateStudentKeyAsync(client, "inst-1", "student-1");
                 var sessionId = await StartSessionAsync(client, "bootstrap-operator-key-1234", "inst-1", "student-2");
 
@@ -181,32 +175,6 @@ public sealed class VerifierSecurityHardeningTests {
                 Directory.Delete(tempDbDir, recursive: true);
             }
         }
-    }
-
-    private static async Task CreateInstitutionAsync(HttpClient client, string institutionId) {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/education/institutions");
-        request.Headers.Add("X-OWS-Verifier-Key", "bootstrap-operator-key-1234");
-        request.Content = JsonContent.Create(new Institution(
-            new InstitutionId(institutionId),
-            institutionId,
-            institutionId,
-            DateTimeOffset.UtcNow));
-        var response = await client.SendAsync(request);
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
-    private static async Task CreateUserAsync(HttpClient client, string institutionId, string userId) {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/education/users");
-        request.Headers.Add("X-OWS-Verifier-Key", "bootstrap-operator-key-1234");
-        request.Content = JsonContent.Create(new User(
-            new UserId(userId),
-            new InstitutionId(institutionId),
-            userId,
-            userId,
-            $"{userId}@example.edu",
-            DateTimeOffset.UtcNow));
-        var response = await client.SendAsync(request);
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     private static async Task<string> CreateStudentKeyAsync(HttpClient client, string institutionId, string studentUserId) {

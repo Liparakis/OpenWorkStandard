@@ -29,7 +29,7 @@ public sealed class HttpsReceiptTransport(
     }
 
     /// <summary>
-    /// Gets or sets the optional education context request payload.
+    /// Gets or sets the optional external context request payload.
     /// </summary>
     public StartSessionRequest? StartSessionRequest { get; init; }
 

@@ -23,16 +23,34 @@ switch ($state.State) {
     }
     "unreachable" {
         if (-not $state.ProcessRunning) {
-            Write-Host "Verifier is unreachable and not managed by the PID file."
-            exit 1
+            $orphanedProcessIds = @(Get-OwsVerifierProcessIds -RuntimeInfo $runtimeInfo)
+            if ($orphanedProcessIds.Count -eq 0) {
+                Write-Host "Verifier is unreachable and not managed by the PID file."
+                exit 1
+            }
+
+            foreach ($orphanedProcessId in $orphanedProcessIds) {
+                Stop-OwsProcessTree -ProcessId ([int]$orphanedProcessId)
+            }
+            Write-Host "Stopped orphaned verifier process(es)."
+            exit 0
         }
     }
     "port_in_use" {
-        Write-Host "Verifier port is in use by another process and no managed PID file exists."
-        exit 1
+        $orphanedProcessIds = @(Get-OwsVerifierProcessIds -RuntimeInfo $runtimeInfo)
+        if ($orphanedProcessIds.Count -eq 0) {
+            Write-Host "Verifier port is in use by another process and no managed PID file exists."
+            exit 1
+        }
+
+        foreach ($orphanedProcessId in $orphanedProcessIds) {
+            Stop-OwsProcessTree -ProcessId ([int]$orphanedProcessId)
+        }
+        Write-Host "Stopped orphaned verifier process(es)."
+        exit 0
     }
 }
 
-Stop-Process -Id ([int]$state.Pid) -Force
+Stop-OwsProcessTree -ProcessId ([int]$state.Pid)
 Remove-Item $runtimeInfo.PidFilePath -Force -ErrorAction SilentlyContinue
 Write-Host "Verifier stopped."
