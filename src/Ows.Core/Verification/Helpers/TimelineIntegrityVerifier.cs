@@ -14,14 +14,14 @@ internal static class TimelineIntegrityVerifier {
     /// </summary>
     /// <param name="archive">The ZIP package container containing the timeline file.</param>
     /// <param name="errors">The list to accumulate verification errors.</param>
-    /// <param name="eventTimestamps">Output list containing all validated event timestamps.</param>
+    /// <param name="validatedEvents">Output list containing all validated events.</param>
     /// <returns>The hash of the last event in the timeline chain, or genesis if broken/missing.</returns>
     public static string ValidateTimeline(
         ZipArchive archive,
         List<string> errors,
-        out List<DateTimeOffset> eventTimestamps
+        out List<OwsEvent> validatedEvents
     ) {
-        eventTimestamps = [];
+        validatedEvents = [];
         var entry = archive.GetEntry(OwsConstants.TimelineFileName);
         if (entry is null) {
             errors.Add($"Missing required entry: {OwsConstants.TimelineFileName}");
@@ -44,8 +44,6 @@ internal static class TimelineIntegrityVerifier {
                 var owsEvent = JsonSerializer.Deserialize<OwsEvent>(line)
                                ?? throw new JsonException("Timeline event deserialized to null.");
 
-                eventTimestamps.Add(owsEvent.TimestampUtc);
-
                 if (!string.Equals(owsEvent.PreviousEventHash, expectedPreviousHash, StringComparison.Ordinal)) {
                     errors.Add($"Broken event chain in {OwsConstants.TimelineFileName} at line {lineNumber}");
                     return OwsEventChain.GenesisPreviousEventHash;
@@ -57,6 +55,7 @@ internal static class TimelineIntegrityVerifier {
                     return OwsEventChain.GenesisPreviousEventHash;
                 }
 
+                validatedEvents.Add(owsEvent);
                 expectedPreviousHash = owsEvent.EventHash;
                 lastEventHash = owsEvent.EventHash;
             } catch (JsonException) {

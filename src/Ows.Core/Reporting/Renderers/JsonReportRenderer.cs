@@ -36,6 +36,18 @@ internal static class JsonReportRenderer {
                     eventCount = res.Timeline.EventCount,
                     headEventHash = res.Timeline.HeadEventHash
                 },
+                activity = new {
+                    meaningfulEventCount = res.Activity.MeaningfulEventCount,
+                    distinctFileCount = res.Activity.DistinctFileCount,
+                    createdFileCount = res.Activity.CreatedFileCount,
+                    revisedFileCount = res.Activity.RevisedFileCount,
+                    firstActivityUtc = res.Activity.FirstActivityUtc,
+                    lastActivityUtc = res.Activity.LastActivityUtc,
+                    activitySpanSeconds = res.Activity.ActivitySpanSeconds,
+                    largestBurstEventCount = res.Activity.LargestBurstEventCount,
+                    largestBurstSpanSeconds = res.Activity.LargestBurstSpanSeconds,
+                    largestCreationWindowFileCount = res.Activity.LargestCreationWindowFileCount
+                },
                 findings = res.Findings.Select(finding => new {
                     code = finding.Code,
                     severity = finding.Severity,

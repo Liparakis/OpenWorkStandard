@@ -9,17 +9,19 @@ OWS does:
 - package evidence into `.owspkg`
 - optionally seal packages with a canonical root hash and offline RSA signature
 - verify package hashes, timeline integrity, and optional offline signatures
-- surface neutral review signals for continuity gaps
+- surface neutral review signals for continuity gaps, concentrated activity patterns, and explicit authorship markers
 
 OWS does not:
 - run AI cheating detection
 - make automated misconduct decisions
 - treat missing events as proof of misconduct
 - collect keylogging, webcam, microphone, or unrelated personal data
+- identify AI or LLM use from a package
 - act as an LMS or manage courses, rosters, students, or assessments
 
 Core invariant:
 Event presence is evidence of recorded activity. Event absence is not proof of misconduct.
+Activity-pattern signals are review prompts, not proof of misconduct or AI use.
 
 Quick demo path:
 1. `dotnet build OWS.sln -nologo`

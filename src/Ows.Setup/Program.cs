@@ -281,7 +281,7 @@ internal static class Program {
                         ?? throw new InvalidOperationException("Could not create the Windows uninstall entry.");
         var uninstallCommand = $"\"{servicePath}\" --uninstall";
         key.SetValue("DisplayName", "Open Work Standard");
-        key.SetValue("DisplayVersion", "0.1.0");
+        key.SetValue("DisplayVersion", "0.1.1");
         key.SetValue("Publisher", "Open Work Standard");
         key.SetValue("InstallLocation", GetInstallDirectory());
         key.SetValue("UninstallString", uninstallCommand);

@@ -36,6 +36,15 @@ internal static class TextReportRenderer {
         builder.AppendLine($"- Total Events: {res.Timeline.EventCount}");
         builder.AppendLine($"- Head Event Hash: {res.Timeline.HeadEventHash}");
         builder.AppendLine();
+        builder.AppendLine("Activity Pattern:");
+        builder.AppendLine($"- Meaningful File Events: {res.Activity.MeaningfulEventCount}");
+        builder.AppendLine($"- Distinct Files: {res.Activity.DistinctFileCount}");
+        builder.AppendLine($"- Created Files: {res.Activity.CreatedFileCount}");
+        builder.AppendLine($"- Revised Files: {res.Activity.RevisedFileCount}");
+        builder.AppendLine($"- Activity Span: {FormatSeconds(res.Activity.ActivitySpanSeconds)}");
+        builder.AppendLine($"- Largest One-Minute Burst: {res.Activity.LargestBurstEventCount} events");
+        builder.AppendLine($"- Largest One-Minute Creation Window: {res.Activity.LargestCreationWindowFileCount} files");
+        builder.AppendLine();
         builder.AppendLine("Findings:");
         if (res.Findings.Count == 0) {
             builder.AppendLine("- None");
@@ -50,7 +59,7 @@ internal static class TextReportRenderer {
         }
 
         builder.AppendLine("Manual Review Suggestions:");
-        foreach (var suggestion in GetReviewSuggestions(res.TrustStatus)) {
+        foreach (var suggestion in GetReviewSuggestions(res.TrustStatus, res.Findings)) {
             builder.AppendLine(suggestion);
         }
 
@@ -74,7 +83,15 @@ internal static class TextReportRenderer {
     /// </summary>
     /// <returns>A read-only list of string suggestions.</returns>
     /// <param name="status">The trust status of the verification result.</param>
-    private static IReadOnlyList<string> GetReviewSuggestions(TrustStatus status) {
+    /// <param name="findings">The verification findings to use for review suggestions.</param>
+    private static IReadOnlyList<string> GetReviewSuggestions(
+        TrustStatus status,
+        IReadOnlyList<VerificationFinding> findings
+    ) {
+        if (status == TrustStatus.Verified && findings.Any(IsAuthorshipOrActivityFinding)) {
+            return ["- Review the authorship/activity signals above; they are not proof of misconduct or AI use."];
+        }
+
         return status switch {
             TrustStatus.Verified => ["- None. The package is locally verified."],
             TrustStatus.Degraded => ["- Review the timeline around the reported observation gap."],
@@ -83,4 +100,22 @@ internal static class TextReportRenderer {
             _ => ["- Request a resubmission and investigate the reported integrity errors."]
         };
     }
+
+    /// <summary>
+    ///     Formats activity seconds for the text report.
+    /// </summary>
+    /// <param name="seconds">The number of seconds.</param>
+    /// <returns>A compact duration string.</returns>
+    private static string FormatSeconds(double seconds) => seconds < 60
+        ? $"{seconds:0.0} seconds"
+        : $"{seconds / 60:0.0} minutes";
+
+    /// <summary>
+    ///     Determines whether a finding is an authorship or activity review signal.
+    /// </summary>
+    /// <param name="finding">The verification finding.</param>
+    /// <returns><see langword="true" /> when the finding requests behavioral review.</returns>
+    private static bool IsAuthorshipOrActivityFinding(VerificationFinding finding) =>
+        finding.Code.StartsWith("activity.", StringComparison.Ordinal) ||
+        finding.Code.StartsWith("authorship.", StringComparison.Ordinal);
 }

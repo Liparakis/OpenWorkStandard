@@ -86,6 +86,7 @@ public static class InspectCommandBuilder {
                             status = result.TrustStatus.ToString(),
                             signatureStatus = result.SignatureStatus,
                             packageRootHash = result.Package.PackageRootHash,
+                            activity = result.Activity,
                             artifacts,
                             timeline = result.Timeline,
                             timelineEvents,
@@ -108,6 +109,11 @@ public static class InspectCommandBuilder {
                 }
 
                 Console.WriteLine($"Timeline: {result.Timeline.Integrity} ({result.Timeline.EventCount} events)");
+                Console.WriteLine(
+                    $"Activity pattern: {result.Activity.MeaningfulEventCount} file events across " +
+                    $"{result.Activity.DistinctFileCount} files; largest burst " +
+                    $"{result.Activity.LargestBurstEventCount} events"
+                );
                 Console.WriteLine($"Inferred activity periods: {activityPeriods.Length}");
                 if (archiveError is not null) {
                     Console.WriteLine($"Archive inspection error: {archiveError}");

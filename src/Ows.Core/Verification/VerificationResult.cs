@@ -60,6 +60,11 @@ public sealed record VerificationResult {
     public ReportTimelineInfo Timeline { get; init; } = new();
 
     /// <summary>
+    ///     Gets measurable activity metrics and non-authoritative review signals.
+    /// </summary>
+    public ActivityPatternInfo Activity { get; init; } = new();
+
+    /// <summary>
     ///     Creates a successful verification result.
     /// </summary>
     /// <param name="summary">The result summary.</param>

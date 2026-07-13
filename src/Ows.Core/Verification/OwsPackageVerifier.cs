@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using Ows.Core.Events;
 using Ows.Core.Hashing;
 using Ows.Core.Packaging;
 using Ows.Core.Verification.Helpers;
@@ -53,19 +54,24 @@ public sealed class OwsPackageVerifier {
                 manifest = PackageStructureVerifier.ValidateManifest(archive, errors);
                 if (manifest is not null) {
                     signatureStatus = PackageSignatureVerifier.Validate(archive, manifest, errors);
+                    findings.AddRange(ArtifactAuthorshipAnalyzer.Analyze(archive, manifest));
                 }
             }
 
             string? timelineHeadHash = null;
-            var eventTimestamps = new List<DateTimeOffset>();
+            var validatedEvents = new List<OwsEvent>();
+            var activityInfo = new ActivityPatternInfo();
             var sawObservationGap = false;
             var sawLargeUnobservedChange = false;
             var sawUnobservedChange = false;
 
             if (archive.GetEntry(OwsConstants.TimelineFileName) is not null) {
                 timelineHeadHash = TimelineIntegrityVerifier.ValidateTimeline(
-                    archive, errors, out eventTimestamps
+                    archive, errors, out validatedEvents
                 );
+                var activityAnalysis = OwsActivityPatternAnalyzer.Analyze(validatedEvents);
+                activityInfo = activityAnalysis.Info;
+                findings.AddRange(activityAnalysis.Findings);
                 ObservationContinuityAnalyzer.AnalyzeTimelineContinuity(
                     archive, findings, out sawObservationGap, out sawLargeUnobservedChange, out sawUnobservedChange
                 );
@@ -110,7 +116,7 @@ public sealed class OwsPackageVerifier {
             };
             var timelineInfo = new ReportTimelineInfo {
                 Integrity = timelineValid ? "Valid" : "Broken",
-                EventCount = eventTimestamps.Count,
+                EventCount = validatedEvents.Count,
                 HeadEventHash = timelineHeadHash ?? "None"
             };
             var isSuccess = trustStatus != TrustStatus.Invalid;
@@ -124,10 +130,11 @@ public sealed class OwsPackageVerifier {
                     Findings = findings,
                     SignatureStatus = signatureStatus,
                     TrustExplanation = GetTrustExplanation(trustStatus),
-                    Recommendation = GetRecommendation(trustStatus),
+                    Recommendation = GetRecommendation(trustStatus, findings),
                     GeneratedAt = generatedAt,
                     Package = packageInfo,
-                    Timeline = timelineInfo
+                    Timeline = timelineInfo,
+                    Activity = activityInfo
                 }
             );
         } catch (Exception ex) {
@@ -191,7 +198,14 @@ public sealed class OwsPackageVerifier {
     /// </summary>
     /// <returns>A text recommendation string.</returns>
     /// <param name="status">The trust status.</param>
-    private static string GetRecommendation(TrustStatus status) {
+    /// <param name="findings">The findings that may require activity review.</param>
+    private static string GetRecommendation(TrustStatus status, IReadOnlyList<VerificationFinding> findings) {
+        if (status == TrustStatus.Verified && findings.Any(IsAuthorshipOrActivityFinding)) {
+            return findings.Any(finding => finding.Code.StartsWith("authorship.", StringComparison.Ordinal))
+                ? "Cryptographically verified; authorship review recommended"
+                : "Cryptographically verified; activity review recommended";
+        }
+
         return status switch {
             TrustStatus.Verified => "Accept as verified",
             TrustStatus.Degraded => "Manual review recommended",
@@ -199,4 +213,13 @@ public sealed class OwsPackageVerifier {
             _ => "Reject as invalid package / request resubmission"
         };
     }
+
+    /// <summary>
+    ///     Determines whether a finding is a non-authoritative authorship or activity review signal.
+    /// </summary>
+    /// <param name="finding">The verification finding.</param>
+    /// <returns><see langword="true" /> when the finding requests behavioral review.</returns>
+    private static bool IsAuthorshipOrActivityFinding(VerificationFinding finding) =>
+        finding.Code.StartsWith("activity.", StringComparison.Ordinal) ||
+        finding.Code.StartsWith("authorship.", StringComparison.Ordinal);
 }
