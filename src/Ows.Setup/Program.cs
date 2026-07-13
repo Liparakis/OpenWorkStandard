@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Win32;
@@ -59,24 +61,18 @@ internal static class Program {
     /// </summary>
     /// <returns>The exit code of the program (0 for success, 1 for failure).</returns>
     /// <param name="args">Command-line arguments.</param>
+    [STAThread]
     public static async Task<int> Main(string[] args) {
         try {
             if (args.Any(argument => string.Equals(argument, "--service", StringComparison.OrdinalIgnoreCase))) {
                 return await RunServiceAsync();
             }
 
-            if (args.Any(argument => string.Equals(argument, "--uninstall", StringComparison.OrdinalIgnoreCase))) {
-                Uninstall(
-                    args.Any(argument => string.Equals(argument, "--purge-data", StringComparison.OrdinalIgnoreCase))
-                );
-                return 0;
-            }
-
-            Install();
-            ShowMessage(
-                "OWS Agent installed and running silently.\n\nIt is available in Services as 'OWS Agent'.",
-                "Open Work Standard"
-            );
+            ApplicationConfiguration.Initialize();
+            Application.Run(new SetupForm(
+                args.Any(argument => string.Equals(argument, "--uninstall", StringComparison.OrdinalIgnoreCase)),
+                args.Any(argument => string.Equals(argument, "--purge-data", StringComparison.OrdinalIgnoreCase))
+            ));
             return 0;
         } catch (Exception exception) {
             ShowMessage($"OWS Setup failed:\n\n{exception.Message}", "Open Work Standard Setup Error", 0x00000010);
@@ -100,21 +96,45 @@ internal static class Program {
     /// <summary>
     ///     Installs the program files and registers/starts the Windows Service.
     /// </summary>
-    private static void Install() {
-        var installDirectory = GetInstallDirectory();
+    /// <param name="installDirectory">The selected installation directory.</param>
+    /// <param name="addCliToPath">Whether the OWS CLI should be added to the machine PATH.</param>
+    /// <param name="startAgentAutomatically">Whether the Windows service should start after installation.</param>
+    /// <param name="reinstallExistingFiles">Whether an existing installation directory should be deleted first.</param>
+    /// <param name="report">Receives the current installation step.</param>
+    internal static void Install(
+        string installDirectory,
+        bool addCliToPath,
+        bool startAgentAutomatically,
+        bool reinstallExistingFiles,
+        Action<string>? report = null
+    ) {
         var servicePath = Path.Combine(installDirectory, AgentExecutableName);
 
+        report?.Invoke("Stopping existing OWS Agent");
         RemoveService();
-        if (Directory.Exists(installDirectory)) {
+        if (reinstallExistingFiles && Directory.Exists(installDirectory)) {
+            report?.Invoke("Removing existing installation files");
             Directory.Delete(installDirectory, true);
         }
 
+        report?.Invoke("Preparing installation files");
         Directory.CreateDirectory(installDirectory);
         ExtractPayload(installDirectory);
-        RegisterCliPath(installDirectory);
+        report?.Invoke("Registering OWS CLI");
+        if (addCliToPath) {
+            RegisterCliPath(installDirectory);
+        }
+
+        report?.Invoke("Preparing shared data");
         PrepareSharedDataDirectory();
+        report?.Invoke("Registering Windows service");
         CreateService(servicePath);
-        RunTool("sc.exe", $"start {ServiceName}");
+        if (startAgentAutomatically) {
+            report?.Invoke("Starting OWS Agent");
+            RunTool("sc.exe", $"start {ServiceName}");
+        }
+
+        report?.Invoke("Registering installed application");
         RegisterUninstallEntry(servicePath);
     }
 
@@ -122,33 +142,25 @@ internal static class Program {
     ///     Stops and removes the Windows Service, deletes the uninstall registry entry, and removes files.
     /// </summary>
     /// <param name="purgeData">Whether the shared data folder should also be deleted.</param>
-    private static void Uninstall(bool purgeData) {
-        if (!purgeData) {
-            var choice = MessageBox(
-                IntPtr.Zero,
-                "Remove the shared OWS Agent data too?\n\nYes removes the Agent registry. No preserves it. Cancel leaves OWS installed.",
-                "Uninstall Open Work Standard",
-                0x00000033
-            );
-            if (choice == 2) {
-                return;
-            }
-
-            purgeData = choice == 6;
+    /// <param name="report">Receives the current cleanup step.</param>
+    internal static void Uninstall(bool purgeData, Action<string>? report = null) {
+        if (!IsInstalled()) {
+            throw new InvalidOperationException("No Open Work Standard installation was found.");
         }
 
-        RemoveService();
-        RemoveUninstallEntry();
         var installDirectory = GetInstallDirectory();
+        report?.Invoke("Force-stopping OWS processes");
+        ForceTerminateInstalledProcesses(installDirectory);
+        report?.Invoke("Stopping OWS Agent");
+        RemoveService();
+        ForceTerminateInstalledProcesses(installDirectory);
+        report?.Invoke("Removing CLI from PATH");
         RemoveCliPath(installDirectory);
+        report?.Invoke("Removing installed application entry");
+        RemoveUninstallEntry();
+        report?.Invoke("Removing installed files");
         ScheduleRemoval(installDirectory, purgeData ? GetDataDirectory() : null);
-
-        ShowMessage(
-            purgeData
-                ? "OWS Agent, installed files, and shared Agent data are being removed. Project .ows folders are not touched."
-                : "OWS Agent and installed files are being removed. Shared Agent data is preserved.",
-            "Open Work Standard"
-        );
+        report?.Invoke("Verifying cleanup");
     }
 
     /// <summary>
@@ -222,6 +234,59 @@ internal static class Program {
 
         WaitForProcessExit(processId);
         RunTool("sc.exe", $"delete {ServiceName}", true);
+    }
+
+    /// <summary>
+    ///     Forcefully terminates OWS processes whose executable is inside the installation directory.
+    /// </summary>
+    /// <param name="installDirectory">The installation directory to clean.</param>
+    private static void ForceTerminateInstalledProcesses(string installDirectory) {
+        var root = Path.GetFullPath(installDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var processIds = new HashSet<int>();
+        var serviceProcessId = GetServiceProcessId();
+        if (serviceProcessId is > 0) {
+            processIds.Add(serviceProcessId.Value);
+        }
+
+        foreach (var process in Process.GetProcesses()) {
+            try {
+                if (process.Id == Environment.ProcessId) {
+                    continue;
+                }
+
+                var executablePath = process.MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(executablePath) &&
+                    Path.GetFullPath(executablePath).StartsWith(root, StringComparison.OrdinalIgnoreCase)) {
+                    processIds.Add(process.Id);
+                }
+            } catch (ArgumentException) {
+                // The process exited while it was being inspected.
+            } catch (InvalidOperationException) {
+                // The process exited while it was being inspected.
+            } catch (System.ComponentModel.Win32Exception) {
+                // Windows denied inspection of an unrelated protected process.
+            } finally {
+                process.Dispose();
+            }
+        }
+
+        foreach (var processId in processIds) {
+            if (processId == Environment.ProcessId) {
+                continue;
+            }
+
+            try {
+                using var process = Process.GetProcessById(processId);
+                if (!process.HasExited) {
+                    process.Kill(true);
+                    process.WaitForExit(5000);
+                }
+            } catch (ArgumentException) {
+                // The process exited before it could be terminated.
+            } catch (InvalidOperationException) {
+                // The process exited before it could be terminated.
+            }
+        }
     }
 
     /// <summary>
@@ -405,15 +470,34 @@ internal static class Program {
     ///     Gets the absolute installation path within Program Files.
     /// </summary>
     /// <returns>The absolute directory path string.</returns>
-    private static string GetInstallDirectory() {
+    internal static string GetInstallDirectory() {
+        using var key = Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OpenWorkStandard"
+        );
+        var registeredPath = key?.GetValue("InstallLocation") as string;
+        if (!string.IsNullOrWhiteSpace(registeredPath)) {
+            return registeredPath;
+        }
+
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), InstallDirectoryName);
+    }
+
+    /// <summary>
+    ///     Determines whether the Windows uninstall registration exists.
+    /// </summary>
+    /// <returns><see langword="true" /> when OWS is registered as installed.</returns>
+    internal static bool IsInstalled() {
+        using var key = Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OpenWorkStandard"
+        );
+        return key is not null;
     }
 
     /// <summary>
     ///     Gets the absolute shared data path within CommonApplicationData.
     /// </summary>
     /// <returns>The absolute directory path string.</returns>
-    private static string GetDataDirectory() {
+    internal static string GetDataDirectory() {
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), DataDirectoryName
         );
