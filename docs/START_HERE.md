@@ -16,7 +16,6 @@ OWS does not run automated misconduct judgment or AI cheating detection. Unobser
 - [Student Workflow](workflows/STUDENT_WORKFLOW.md)
 - [Local Demo](workflows/LOCAL_DEMO.md)
 - [CLI Reference](development/CLI.md)
-- [Getting Started](../GETTING_STARTED.md)
 
 ## I am a professor or reviewer
 

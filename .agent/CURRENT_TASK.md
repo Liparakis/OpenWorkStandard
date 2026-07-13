@@ -13,9 +13,9 @@
   - OWS Core/CLI provide local initialization, Agent observation, packaging, signing, verification, and inspection.
   - The Windows-only setup executable owns SCM installation and hosts the silent service; platform-independent Agent behavior remains in `Ows.Core`.
   - Optional remote verifier and pilot scripts remain available but are not required for local workflows.
-  - Root release entry points link to detailed canonical docs under docs/.
+  - Canonical product and release documentation lives under `docs/`; the repository root keeps `README.md`, `LICENSE`, and required build/configuration files.
 - Files currently being inspected or changed:
-  - README.md, GETTING_STARTED.md, SPEC.md, CLI_REFERENCE.md, AGENT_DESIGN.md, SECURITY.md, CONTRIBUTING.md, RELEASE.md, CHANGELOG.md
+  - README.md, docs/START_HERE.md, docs/core/SECURITY.md, docs/development/CLI.md
   - .github/ISSUE_TEMPLATE/*, .github/pull_request_template.md
   - docs/development/RELEASE_READINESS.md, docs/core/ARCHITECTURE.md
   - docs/development/ROADMAP_CHECKLIST.md, docs/workflows/PILOT_DEMO.md
@@ -38,8 +38,8 @@
   - [x] Protect new Windows signing keys with current-user DPAPI; retain Unix user-only mode.
   - [x] Hide legacy ceremony/remote commands from default CLI help while preserving pilot compatibility.
   - [x] Validate remote pilot timing and assert completed trust is Verified.
-  - [x] Validate documentation, changelog, security process, and contribution templates.
-  - [x] Add a tracked text-first sample project and logical-root reproducibility coverage.
+  - [x] Validate canonical documentation, security guidance, and GitHub contribution templates.
+  - [x] Assess and remove the optional tracked text-first sample project; retain logical-root reproducibility coverage in tests.
   - [x] Scan for personal paths, credentials, stale active education/IDE implementation residue, and generated artifacts.
   - [x] Align reviewer commands with documented positional package paths and expand local inspect metadata.
   - [x] Remove absolute developer paths from tracked historical planning documentation and classify synthetic local-dev credentials.
@@ -63,10 +63,9 @@
   - PowerShell/Bash syntax checks and git diff --check.
   - Manual release review of generated artifacts, history, license, and the SCM service/setup lifecycle.
 - Blockers, uncertainties, and risks:
-  - The worktree contains broad pre-existing user changes from Phases 1–8 and remains intentionally uncommitted.
-  - The old visible Scheduled Tasks are transitional residue and must be removed; the requested product path is SCM only.
+  - One unrelated pre-existing modification remains in `tests/Ows.Core.Tests/AgentNamespaceTests.cs` and must not be staged or overwritten.
   - SCM installation requires UAC elevation, but the service will run as LocalSystem and must use a machine-scoped explicit-project registry rather than a user-only registry.
-  - Only final owner review and publication approval remain; the current shell is a non-administrator account.
+  - Only final owner review and publication approval remain; the Windows install → service → recovery → uninstall lifecycle was owner-validated.
   - Uninstall/reinstall must wait for the SCM process to stop before deleting the installed executable; the previous 10-second bound was reached during the owner smoke test.
   - Release candidate evidence still requires human sign-off; passing tests do not make OWS institutional-grade.
   - The event timeline is intentionally append-only; chain-preserving retention/compaction is not part of the current package format, so very long-lived projects may grow `.ows/timeline.jsonl`.
@@ -84,18 +83,17 @@
   - First setup attempt copied the payload then failed because `sc.exe create` received malformed quoted arguments; the published setup now uses `ProcessStartInfo.ArgumentList` and displays failures.
   - The first setup also lacked Add/Remove Programs metadata; the installer now registers `Open Work Standard` under the Windows uninstall registry and schedules safe self-removal.
   - The installer now waits for the SCM service to stop before deletion and prompts whether shared Agent data should be removed.
-  - The current shell is not elevated, so destructive uninstall smoke testing requires a UAC-approved run.
-  - Live machine evidence: `OwsAgent` is Running, Automatic, LocalSystem, and points to `C:\Program Files\Open Work Standard\Ows.Setup.exe --service`; the process has no main window. The uninstall registry entry is present.
-  - Repository state: source fix and continuity updates are committed in `3c79d8c`; the older uncommitted-status note above is historical.
-  - Installed payload has now been replaced by the corrected setup artifact; live `OwsAgent` is Running and `sc.exe qfailure OwsAgent` reports 86400 seconds with restart actions at 5000, 30000, and 60000 milliseconds.
-  - Source fix build and full tests pass; the corrected setup artifact was republished and successfully installed with UAC approval.
+  - Post-uninstall read-only checks confirmed `OwsAgent`, the Program Files install directory, and the uninstall registry entry are absent.
+  - The corrected setup artifact was owner-installed and validated, then removed from the workspace as generated output.
   - Read-only post-uninstall check confirms the `OwsAgent` service, Program Files install directory, and uninstall registry entry are absent.
   - Repository cleanup removed ignored generated outputs; `git clean -ndX` now reports no remaining ignored files.
-  - Documentation cleanup reduced Markdown from 67 to 59 files: stale snapshots/plans, the optional sample, the mutable project-status snapshot, and duplicate release docs were removed; active remote-verifier operations docs remain.
+  - Documentation cleanup reduced Markdown from 67 to 53 files: stale snapshots/plans, the optional sample, the mutable project-status snapshot, duplicate release docs, and root technical aliases were removed; active remote-verifier operations docs remain.
   - Internal Markdown links are clean; graphify's failed semantic cache was removed.
   - Build passes with 0 warnings/errors; full tests pass Core 131/131 and CLI/server 80/80 after the documentation cleanup.
   - Post-validation ignored outputs were removed again; `git clean -ndX` is empty.
-  - Root `AGENTS.md`, root `AGENT_DESIGN.md`, `.agent/PROJECT_RULES.md`, and `docs/core/AGENT_DESIGN.md` are gone; only the four required continuity files remain under `.agent/`.
-  - An unrelated pre-existing modification remains in `tests/Ows.Core.Tests/AgentNamespaceTests.cs` and is intentionally not staged.
-  - Root documentation now keeps only README, onboarding, security, contribution/legal/history files; technical aliases were removed.
+  - Root Agent documents and technical aliases are gone; only the four required continuity files remain under `.agent/`.
+  - A later owner cleanup commit removed the remaining root onboarding/security/contribution/history Markdown; README links now point only to canonical `docs/` files.
+  - Internal Markdown links are clean after that owner cleanup.
+  - The unrelated pre-existing modification in `tests/Ows.Core.Tests/AgentNamespaceTests.cs` remains intentionally unstaged.
+  - Generated build and setup outputs are intentionally absent after validation cleanup.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.

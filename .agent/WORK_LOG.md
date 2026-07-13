@@ -1599,3 +1599,55 @@
 - Exact next action: Review the reduced repository root and canonical docs under `docs/`.
 - Important context: Root technical aliases are gone; use `docs/core/`, `docs/development/`, and `docs/workflows/` as the canonical documentation locations.
 - Files to inspect first: `README.md`, `GETTING_STARTED.md`, `docs/START_HERE.md`, and `docs/development/RELEASE_CHECKLIST.md`.
+
+## 2026-07-13 — Continuity reconciliation after root cleanup
+
+### Completed
+- Reconciled current task notes with the authoritative repository state after service uninstall, sample removal, and root documentation cleanup.
+- Corrected stale references to deleted root aliases, the removed sample, pending uninstall work, and the old live-service state.
+
+### Changed
+- Added: None.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Last validated with 0 warnings and 0 errors before generated-output cleanup.
+- Targeted tests: Not rerun.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: Current root/docs state and single unrelated unstaged test modification reconciled against notes.
+
+### Remaining
+- Identify and implement the next code-level improvement that strengthens the small offline proof-of-work workflow.
+- Final owner release review remains separate from implementation work.
+
+### Handoff
+- Exact next action: Inspect the current CLI/Core surface and tests for unnecessary or misleading behavior before adding anything new.
+- Important context: Do not stage `tests/Ows.Core.Tests/AgentNamespaceTests.cs`; it is a pre-existing user modification.
+- Files to inspect first: `src/Ows.Cli`, `src/Ows.Core`, `tests/Ows.Core.Tests`, and `tests/Ows.Cli.Tests`.
+
+## 2026-07-13 — Reconcile owner root-doc removal
+
+### Completed
+- Reconciled owner commit `e8ca481`, which removed the remaining root onboarding/security/contribution/history Markdown.
+- Repaired the four broken links exposed by that removal; canonical `docs/` links now resolve.
+- Preserved the unrelated unstaged `tests/Ows.Core.Tests/AgentNamespaceTests.cs` modification.
+
+### Changed
+- Added: None.
+- Modified: `README.md`, `docs/START_HERE.md`, `.agent/CURRENT_TASK.md`, `.agent/WORK_LOG.md`.
+- Deleted: None in this work unit; the owner deletion is recorded in `e8ca481`.
+
+### Validation
+- Build: Not rerun; documentation-only link repair.
+- Targeted tests: Not rerun.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: Internal Markdown links clean; current root state matches the owner cleanup commit.
+
+### Remaining
+- Audit the optional verifier/session metadata against the accepted management-layer boundary before deciding whether code removal is justified.
+
+### Handoff
+- Exact next action: Trace `AssessmentSessionId`, institution/assessment metadata, and remote verifier call paths from CLI/Core/server tests.
+- Important context: Do not remove opaque verifier scoping metadata without proving it is management state rather than optional trust-boundary metadata.
+- Files to inspect first: `src/Ows.Core/Notarization`, `src/Ows.Cli/OwsSessionStore.cs`, `src/Ows.Verifier.Server`, and related tests.
