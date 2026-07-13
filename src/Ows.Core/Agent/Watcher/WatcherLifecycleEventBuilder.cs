@@ -24,23 +24,6 @@ internal static class WatcherLifecycleEventBuilder {
         };
     }
 
-    /// <summary>
-    /// Builds a WatcherStopped event.
-    /// </summary>
-    /// <param name="projectId">The identifier of the project.</param>
-    /// <param name="reason">The shutdown reason.</param>
-    /// <returns>A new <see cref="OwsEvent"/> representing the event.</returns>
-    public static OwsEvent BuildWatcherStopped(string projectId, string reason) {
-        return new OwsEvent {
-            EventType = OwsEventType.WatcherStopped,
-            ProjectId = projectId,
-            ToolName = "OWS Agent",
-            Metadata = new Dictionary<string, string>
-            {
-                { "reason", reason }
-            }
-        };
-    }
 
     /// <summary>
     /// Builds a WatcherInterrupted event.

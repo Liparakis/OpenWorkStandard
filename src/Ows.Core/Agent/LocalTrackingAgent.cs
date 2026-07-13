@@ -32,10 +32,8 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     /// </summary>
     private ObservedSnapshot _currentSnapshot = new();
 
-    /// <inheritdoc />
     public TrackingAgentStatus Status { get; private set; } = TrackingAgentStatus.Idle;
 
-    /// <inheritdoc />
     public Task<TrackingAgentOperationResult> PrepareAsync(TrackingAgentOptions options,
         CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(options);
@@ -55,7 +53,6 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
         });
     }
 
-    /// <inheritdoc />
     public async Task<TrackingAgentOperationResult> StartAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
 

@@ -293,3 +293,28 @@
 - Exact next action: owner reviews commit `6d7b7e6`; keep the unrelated Agent/scanning changes separate.
 - Important context: The local `hadSnapshotFile` variable remains required to detect and parse an existing snapshot; only the unused result accessor was removed.
 - Files to inspect first: `src/Ows.Core/Agent/Snapshot/ObservedSnapshotStore.cs` and `git status --short`.
+
+## 2026-07-13 - Remove dead watcher method and invalid XML docs
+
+### Completed
+- Confirmed `BuildWatcherStopped` had no caller and removed it.
+- Removed three invalid `inheritdoc` tags from concrete `LocalTrackingAgent` members.
+
+### Changed
+- Added: none.
+- Modified: `WatcherLifecycleEventBuilder.cs`, `LocalTrackingAgent.cs`, and continuity notes.
+- Deleted: one unused watcher event builder method and three invalid XML-doc tags.
+
+### Validation
+- Build: blocked by unrelated `OwsPackageBuilder.cs` import of unresolved `Ows.Core.Packaging.Helpers`.
+- Targeted tests: blocked by the same compile error.
+- Full tests: blocked by the same compile error.
+- Manual checks: no `BuildWatcherStopped` or `inheritdoc` references remain in the two affected files; `git diff --check` passes.
+
+### Remaining
+- Commit the scoped cleanup with the blocker recorded; resolve the unrelated packaging namespace issue separately before claiming a green build.
+
+### Handoff
+- Exact next action: review the unresolved `Ows.Core.Packaging.Helpers` import, then rerun validation.
+- Important context: unrelated Agent/watcher/scanning/packaging changes remain unstaged and were not reverted.
+- Files to inspect first: `src/Ows.Core/Packaging/OwsPackageBuilder.cs`, `src/Ows.Core/Packaging/Helpers/PackageArtifactCollector.cs`, and `git status --short`.

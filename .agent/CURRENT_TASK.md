@@ -1,36 +1,38 @@
 # Current Task
 
-- Phase: Phase 9 cleanup - remove dead snapshot result state
-- Objective: remove `LoadSnapshotResult.HadSnapshotFile` because no caller reads it.
+- Phase: Phase 9 cleanup - remove dead watcher code and invalid XML documentation
+- Objective: remove unused `BuildWatcherStopped` and invalid `inheritdoc` tags in `LocalTrackingAgent`.
 - Agreed scope:
-  - Delete the unused auto-property and its object-initializer assignment.
-  - Preserve the existing snapshot load behavior and all unrelated working-tree changes.
+  - Delete the unused watcher-stopped builder method.
+  - Delete the three invalid `inheritdoc` tags reported by the IDE.
+  - Preserve all existing watcher behavior and unrelated working-tree changes.
 - Explicit non-goals:
-  - Do not alter snapshot recovery, corruption handling, hashing, or namespace refactors already in progress.
-  - Do not add a replacement property or abstraction.
+  - Do not add replacement events, interfaces, or speculative documentation.
+  - Do not alter active lifecycle methods, namespace refactors, scanning changes, or tests already modified in the working tree.
 - Relevant existing architecture:
-  - `ObservedSnapshotStore.LoadSnapshotAsync` returns `LoadSnapshotResult`.
-  - `LocalTrackingAgent` consumes only `Snapshot`, `SnapshotUnreadable`, and `ComputedSnapshotHash`.
+  - `WatcherLifecycleEventBuilder` creates timeline events consumed by the Agent.
+  - `LocalTrackingAgent` is a concrete class with no base/interface contract for `Status`, `PrepareAsync`, or `StartAsync`.
 - Files currently being inspected or changed:
-  - `src/Ows.Core/Agent/Snapshot/ObservedSnapshotStore.cs`
+  - `src/Ows.Core/Agent/Watcher/WatcherLifecycleEventBuilder.cs`
+  - `src/Ows.Core/Agent/LocalTrackingAgent.cs`
   - `.agent/CURRENT_TASK.md`
   - `.agent/WORK_LOG.md`
   - `.agent/NEXT_STEPS.md`
 - Implementation checklist:
-  - [x] Remove `HadSnapshotFile` and its assignment.
-  - [x] Confirm no source/test references remain.
-  - [x] Run focused and full validation.
-  - [x] Commit only this cleanup and continuity notes; preserve unrelated user changes.
+  - [x] Remove `BuildWatcherStopped`.
+  - [x] Remove invalid `inheritdoc` tags.
+  - [x] Confirm no dead-method or invalid-tag references remain.
+  - [ ] Run focused and full validation after the unrelated compile blocker is resolved.
+  - [ ] Commit only these cleanups and continuity notes; preserve unrelated user changes.
 - Tests required before completion:
   - `dotnet test tests/Ows.Core.Tests/Ows.Core.Tests.csproj -nologo`
   - `dotnet test OWS.sln -nologo`
   - `dotnet build OWS.sln -c Release -nologo`
   - `git diff --check`
 - Blockers, uncertainties, and risks:
-  - The working tree contains unrelated Agent namespace/scanning changes; they must not be reverted or included accidentally.
-  - Removing an unread accessor should not change runtime behavior, but the current working tree still requires compilation validation.
+  - The working tree contains unrelated Agent, watcher, scanning, namespace, and test changes; they must not be reverted or included accidentally.
+  - These are deletion/documentation-only changes, but compilation must validate the current working tree.
 - Current build/test state:
-  - Core tests pass: 41/41.
-  - Full solution tests pass: Core 41/41 and CLI 10/10.
-  - Release build passes with 0 warnings/errors.
-  - `git diff --check` passes; cleanup committed as `6d7b7e6`; unrelated Agent/scanning changes remain unstaged.
+  - Prior validation passed before this documentation cleanup: Core 41/41, full suite 51/51, Release build 0 warnings/errors.
+  - Current validation is blocked by unrelated `Ows.PackageBuilder` import `Ows.Core.Packaging.Helpers`, which does not resolve in the current working tree.
+  - `git diff --check` passes; scoped cleanup remains staged while unrelated changes remain unstaged.
