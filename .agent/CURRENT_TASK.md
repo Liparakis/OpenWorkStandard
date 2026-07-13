@@ -42,11 +42,10 @@
   - Long-lived timelines remain append-only until a chain-preserving retention design exists.
   - Owner review is required before any publication action.
 - Current build/test state:
-  - Full tests pass: Core 41/41 and CLI 10/10.
   - Focused inspect test passes: 1/1.
   - Release build passed with 0 warnings/errors after the final CLI correction.
   - Full tests pass: Core 41/41 and CLI 10/10; focused inspect test passes 1/1.
   - Release-binary smoke passed: `init -> package -> verify -> inspect --json -> report --format json`.
   - Markdown relative links, `git diff --check`, and forbidden legacy-reference scans pass.
-  - Generated build outputs were removed; `git clean -ndX` is empty before the final notes commit.
+  - Generated build outputs were removed; `git clean -ndX` is empty.
   - Final correction committed as `624ed33`; the working tree is clean and owner review remains the next action.
