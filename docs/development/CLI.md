@@ -46,7 +46,7 @@ outputs.
 ## Windows Agent bootstrap
 
 - **Status**: Use Services.msc or `sc.exe query OwsAgent`.
-- **Behavior**: `OWS Agent` runs as a silent LocalSystem SCM service and watches only explicitly initialized projects.
+- **Behavior**: `OWS Agent` runs as a silent LocalSystem SCM service, watches only explicitly initialized projects, and SCM restarts it after an unexpected exit with 5/30/60-second delays.
 
 ---
 

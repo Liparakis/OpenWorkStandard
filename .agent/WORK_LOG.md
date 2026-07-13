@@ -1203,3 +1203,30 @@
 - Exact next action: Owner approves UAC reinstall from the current setup artifact, then completes the Installed apps cleanup check.
 - Important context: Automated hygiene is evidence, not a substitute for owner history/license/sign-off review.
 - Files to inspect first: `LICENSE`, `.agent/NEXT_STEPS.md`, and `docs/development/RELEASE_READINESS.md`.
+
+## 2026-07-13 — SCM failure recovery
+
+### Completed
+- Configured native SCM restart actions for unexpected Agent exits at 5, 30, and 60 seconds.
+- Updated the Windows setup, CLI, release-readiness, and Agent design documentation.
+- Republished the self-contained setup artifact.
+
+### Changed
+- Added: SCM failure recovery configuration in `src/Ows.Setup/Program.cs`.
+- Modified: `AGENT_DESIGN.md`, `docs/development/CLI.md`, `docs/development/RELEASE_READINESS.md`, and continuity notes.
+- Deleted: None.
+
+### Validation
+- Build: Passed with 0 warnings and 0 errors.
+- Targeted tests: Setup publish succeeded.
+- Full tests: Core 131/131 and CLI/server 80/80 passed.
+- Manual checks: Current artifact hash is `6A07E05F0699291CE310B767C8CD3DC0213150EFF76A377EBD959865C8E36D99`; installed service remains older and UAC reinstall is pending.
+
+### Remaining
+- Reinstall the current artifact with UAC and verify SCM recovery settings on the live service.
+- Run the Installed apps uninstall cleanup and complete human release sign-off.
+
+### Handoff
+- Exact next action: Double-click `artifacts\ows-setup\Ows.Setup.exe`, approve UAC, then inspect `sc.exe qfailure OwsAgent`.
+- Important context: The current installer configures restart actions; the currently running service does not contain this latest configuration until reinstall.
+- Files to inspect first: `src/Ows.Setup/Program.cs`, `artifacts/ows-setup/Ows.Setup.exe`, and `.agent/NEXT_STEPS.md`.

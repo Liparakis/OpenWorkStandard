@@ -16,3 +16,5 @@ SCM hosting remain in the Windows-only setup executable. The service runs as
 LocalSystem without a service-account password and watches only explicitly
 initialized roots in the shared registry. Setup requires UAC Administrator
 approval because Windows controls SCM installation.
+SCM failure actions restart the Agent after unexpected exits with bounded
+5/30/60-second delays.

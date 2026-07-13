@@ -59,7 +59,8 @@ Before release, build and run the Windows setup/service lifecycle smoke check:
 ~~~
 
 The setup executable requests UAC Administrator approval, installs `OWS Agent`
-as LocalSystem, starts it, and removes legacy Scheduled Tasks. The final step
+as LocalSystem, starts it, configures SCM restart actions after unexpected
+failure, and removes legacy Scheduled Tasks. The final step
 must remove the service and installed files while preserving project `.ows`
 folders; the uninstall prompt chooses whether shared registry deletion is also
 performed, or `--purge-data` can select it directly.

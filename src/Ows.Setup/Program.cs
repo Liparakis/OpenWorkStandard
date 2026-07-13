@@ -99,6 +99,11 @@ internal static class Program {
             "description", ServiceName,
             "Watches explicitly initialized Open Work Standard projects."
         });
+        RunTool("sc.exe", new[] {
+            "failure", ServiceName,
+            "reset=", "86400",
+            "actions=", "restart/5000/restart/30000/restart/60000"
+        });
     }
 
     private static void RemoveService() {
