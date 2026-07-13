@@ -1409,3 +1409,28 @@
 - Exact next action: Review release history, license, generated artifacts, and final worktree scope.
 - Important context: The Windows install → service → recovery → uninstall lifecycle is now validated; no publication has been performed.
 - Files to inspect first: `.agent/DECISIONS.md`, `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, and `docs/development/RELEASE_READINESS.md`.
+
+## 2026-07-13 — Temporary repository output cleanup
+
+### Completed
+- Removed ignored generated build/test outputs, release artifacts, verifier caches, IDE metadata, and the local solution user-settings file.
+- Removed the nested verifier cache found by the final dry-run.
+
+### Changed
+- Added: None.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/WORK_LOG.md`.
+- Deleted: Ignored temporary files only; no tracked project files.
+
+### Validation
+- Build: Not rerun; cleanup did not change tracked source.
+- Targeted tests: Not rerun.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: `git status --short` clean; `git clean -ndX` reports no remaining ignored files.
+
+### Remaining
+- Owner final review and explicit publication approval.
+
+### Handoff
+- Exact next action: Review the clean repository and release history before any publication decision.
+- Important context: Local build outputs and the generated setup artifact were intentionally removed; rebuild with the existing scripts when needed.
+- Files to inspect first: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.gitignore`, and `scripts/windows/build-ows-setup.ps1`.

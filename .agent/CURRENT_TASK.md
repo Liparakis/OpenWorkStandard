@@ -49,6 +49,7 @@
   - [x] Reconcile stale reviewer/management wording in the active release surface.
   - [x] Make setup reinstall/uninstall tolerate normal slow SCM shutdown and report stop permission failures clearly.
   - [x] Run the Add/Remove Programs uninstall action and confirm complete installed-file cleanup.
+  - [x] Remove ignored generated build, test, verifier, IDE, and release-output files after lifecycle validation.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
   - dotnet build OWS.sln -nologo.
@@ -84,4 +85,5 @@
   - Installed payload has now been replaced by the corrected setup artifact; live `OwsAgent` is Running and `sc.exe qfailure OwsAgent` reports 86400 seconds with restart actions at 5000, 30000, and 60000 milliseconds.
   - Source fix build and full tests pass; the corrected setup artifact was republished and successfully installed with UAC approval.
   - Read-only post-uninstall check confirms the `OwsAgent` service, Program Files install directory, and uninstall registry entry are absent.
+  - Repository cleanup removed ignored generated outputs; `git clean -ndX` now reports no remaining ignored files.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.
