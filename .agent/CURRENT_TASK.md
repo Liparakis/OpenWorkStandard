@@ -27,6 +27,7 @@
   - scripts/windows/build-ows-setup.ps1
   - tests/Ows.Core.Tests/OwsAgentHostTests.cs
   - tests/Ows.Cli.Tests/ReviewerPackageArgumentTests.cs
+  - src/Ows.Setup/Program.cs (SCM stop wait and failure reporting)
   - .agent/CURRENT_TASK.md, .agent/NEXT_STEPS.md, .agent/DECISIONS.md, .agent/WORK_LOG.md
 - Implementation checklist:
   - [x] Complete Phases 1–8 and reconcile continuity notes.
@@ -46,6 +47,7 @@
   - [x] Add a regression check for cross-process registry lock contention.
   - [x] Configure SCM failure recovery so an unexpected Agent exit restarts automatically.
   - [x] Reconcile stale reviewer/management wording in the active release surface.
+  - [x] Make setup reinstall/uninstall tolerate normal slow SCM shutdown and report stop permission failures clearly.
   - [ ] Run the Add/Remove Programs uninstall action and confirm complete installed-file cleanup.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
@@ -59,7 +61,7 @@
   - The old visible Scheduled Tasks are transitional residue and must be removed; the requested product path is SCM only.
   - SCM installation requires UAC elevation, but the service will run as LocalSystem and must use a machine-scoped explicit-project registry rather than a user-only registry.
   - The remaining lifecycle evidence is blocked on owner-approved UAC elevation; the current shell is a non-administrator account.
-  - Uninstall/reinstall must wait for the SCM process to stop before deleting the installed executable.
+  - Uninstall/reinstall must wait for the SCM process to stop before deleting the installed executable; the previous 10-second bound was reached during the owner smoke test.
   - Release candidate evidence still requires human sign-off; passing tests do not make OWS institutional-grade.
   - The event timeline is intentionally append-only; chain-preserving retention/compaction is not part of the current package format, so very long-lived projects may grow `.ows/timeline.jsonl`.
 - Current build/test state:
@@ -78,7 +80,9 @@
   - The installer now waits for the SCM service to stop before deletion and prompts whether shared Agent data should be removed.
   - The current shell is not elevated, so destructive uninstall smoke testing requires a UAC-approved run.
   - Live machine evidence: `OwsAgent` is Running, Automatic, LocalSystem, and points to `C:\Program Files\Open Work Standard\Ows.Setup.exe --service`; the process has no main window. The uninstall registry entry is present.
-  - Repository state: clean after the payload-freshness handoff commit; the older uncommitted-status note above is historical.
+  - Repository state: source changes are pending commit; the older uncommitted-status note above is historical.
   - Installed payload hash is `602C2510DF807A5A20012091BAADFA43D3E2732003594CD19D022EB5AC33EC02`; current setup artifact hash is `6A07E05F0699291CE310B767C8CD3DC0213150EFF76A377EBD959865C8E36D99`, so a UAC reinstall is still required.
   - Native command validation passed parsing; live `sc.exe qfailure OwsAgent` reports `RESET_PERIOD: 0`, so recovery actions are not live until reinstall.
+  - Owner setup smoke test reached service shutdown but reported the 10-second stop timeout; the service is now stopped and installed files were intentionally preserved.
+  - Source fix build and full tests pass; republishing is pending because the elevated setup error dialog still holds the existing artifact open.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.

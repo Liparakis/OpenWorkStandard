@@ -1282,3 +1282,29 @@
 - Exact next action: Owner runs the current setup artifact as Administrator, then checks `sc.exe qfailure OwsAgent` and the Installed apps uninstall path.
 - Important context: This goal is blocked on that external elevation; no further safe repository-side change can prove the live lifecycle.
 - Files to inspect first: `.agent/NEXT_STEPS.md`, `src/Ows.Setup/Program.cs`, and `docs/development/RELEASE_READINESS.md`.
+
+## 2026-07-13 — Setup shutdown timeout correction
+
+### Completed
+- Diagnosed the owner smoke-test failure: setup reached SCM shutdown, but the fixed 10-second wait expired before the service reported `STOPPED`.
+- Made stopped-service handling immediate, surfaced non-1062 stop failures, and extended the bounded stop wait to 30 seconds.
+
+### Changed
+- Added: None.
+- Modified: `src/Ows.Setup/Program.cs`, `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`.
+- Deleted: None.
+
+### Validation
+- Build: Passed with 0 warnings and 0 errors.
+- Targeted tests: Not applicable.
+- Full tests: Core 131/131 and CLI/server 80/80 passed.
+- Manual checks: Existing elevated setup error dialog still locks the old artifact; service is stopped and installed files remain in place.
+
+### Remaining
+- Close the elevated setup error dialog, republish the corrected setup, and rerun the UAC install smoke test.
+- Run the Installed apps uninstall cleanup and complete human release sign-off.
+
+### Handoff
+- Exact next action: Click OK on the open `Open Work Standard Setup Error` dialog, then run `.\scripts\windows\build-ows-setup.ps1`.
+- Important context: The source fix is complete and tested; the current artifact has not yet been regenerated because PID 24668 holds it open with elevation.
+- Files to inspect first: `src/Ows.Setup/Program.cs`, `.agent/CURRENT_TASK.md`, and `artifacts/ows-setup/Ows.Setup.exe`.

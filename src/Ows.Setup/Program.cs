@@ -12,6 +12,7 @@ internal static class Program {
     private const string DisplayName = "OWS Agent";
     private const string InstallDirectoryName = "Open Work Standard";
     private const string DataDirectoryName = "OpenWorkStandard";
+    private static readonly TimeSpan ServiceStopTimeout = TimeSpan.FromSeconds(30);
 
     public static async Task<int> Main(string[] args) {
         try {
@@ -112,8 +113,17 @@ internal static class Program {
             return;
         }
 
-        RunTool("sc.exe", $"stop {ServiceName}", allowFailure: true);
-        var deadline = DateTime.UtcNow.AddSeconds(10);
+        var currentState = query.Output.Contains("STOPPED", StringComparison.OrdinalIgnoreCase);
+        if (!currentState) {
+            var stop = RunTool("sc.exe", $"stop {ServiceName}", allowFailure: true);
+            if (stop.ExitCode != 0 && !stop.Output.Contains("1062", StringComparison.OrdinalIgnoreCase) &&
+                !stop.Error.Contains("1062", StringComparison.OrdinalIgnoreCase)) {
+                throw new InvalidOperationException(
+                    $"Could not stop the OWS Agent service. {stop.Error.Trim()} {stop.Output.Trim()}".Trim());
+            }
+        }
+
+        var deadline = DateTime.UtcNow.Add(ServiceStopTimeout);
         var stopped = false;
         while (DateTime.UtcNow < deadline) {
             var status = RunTool("sc.exe", $"query {ServiceName}", allowFailure: true);
@@ -126,7 +136,8 @@ internal static class Program {
         }
 
         if (!stopped) {
-            throw new InvalidOperationException("OWS Agent did not stop within 10 seconds; installed files were left in place.");
+            throw new InvalidOperationException(
+                $"OWS Agent did not stop within {ServiceStopTimeout.TotalSeconds:0} seconds; installed files were left in place.");
         }
 
         RunTool("sc.exe", $"delete {ServiceName}", allowFailure: true);
