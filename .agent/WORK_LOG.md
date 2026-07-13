@@ -199,3 +199,25 @@
 - Exact next action: owner reviews the local-only release candidate and Windows SCM lifecycle evidence.
 - Important context: No hosted verifier or remote anchor is required by v0.
 - Files to inspect first: `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, `README.md`, and `docs/core/SECURITY.md`.
+
+## 2026-07-13 - Validate real Agent recording path
+
+### Completed
+- Ran a release-binary runtime smoke with an isolated registry: `ows init`, background `ows agent run`, file change, package, verify, and inspect.
+- Confirmed the package contained a valid non-empty timeline with 8 events.
+
+### Changed
+- Added: none.
+- Modified: continuity notes only.
+- Deleted: temporary smoke project and Agent process after validation.
+
+### Validation
+- Release build passed with 0 warnings/errors; Agent smoke passed; no temporary Agent process or project remains.
+
+### Remaining
+- Owner review and explicit publication authorization.
+
+### Handoff
+- Exact next action: commit this runtime-evidence note and hand off the local-only release candidate.
+- Important context: The Agent records project evolution without requiring a server or manual checkpoint ceremony.
+- Files to inspect first: `src/Ows.Core/Agent/OwsAgentHost.cs`, `src/Ows.Core/Agent/OwsProjectAgent.cs`, and `.agent/NEXT_STEPS.md`.

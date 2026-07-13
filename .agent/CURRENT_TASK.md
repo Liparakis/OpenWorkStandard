@@ -51,6 +51,7 @@
   - Release build passed again after the final terminology correction.
   - Full tests pass: Core 41/41 and CLI 10/10; focused inspect test passes 1/1.
   - Release-binary smoke passed: `init -> package -> verify -> inspect --json -> report --format json`.
+  - Real Agent smoke passed: `init -> running Agent -> file change -> package -> valid non-empty timeline` (8 events observed).
   - Markdown relative links, `git diff --check`, and forbidden legacy-reference scans pass.
   - Generated build outputs were removed; `git clean -ndX` is empty.
   - Final terminology correction committed as `6001de1`; the working tree is clean and owner review remains the next action.
