@@ -54,4 +54,4 @@
   - Real Agent smoke passed: `init -> running Agent -> file change -> package -> valid non-empty timeline` (8 events observed).
   - Markdown relative links, `git diff --check`, and forbidden legacy-reference scans pass.
   - Generated build outputs were removed; `git clean -ndX` is empty.
-  - Final terminology correction committed as `6001de1`; the working tree is clean and owner review remains the next action.
+  - Final terminology correction committed as `6001de1`; runtime evidence notes committed as `8f9fc3b`; the working tree is clean and owner review remains the next action.

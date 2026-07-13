@@ -218,6 +218,6 @@
 - Owner review and explicit publication authorization.
 
 ### Handoff
-- Exact next action: commit this runtime-evidence note and hand off the local-only release candidate.
+- Exact next action: owner reviews the local-only release candidate and the runtime Agent evidence.
 - Important context: The Agent records project evolution without requiring a server or manual checkpoint ceremony.
 - Files to inspect first: `src/Ows.Core/Agent/OwsAgentHost.cs`, `src/Ows.Core/Agent/OwsProjectAgent.cs`, and `.agent/NEXT_STEPS.md`.

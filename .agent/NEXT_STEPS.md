@@ -1,6 +1,6 @@
 # Next Steps
 
-1. Owner reviews the committed local-only cleanup slice, history, license, and manual Windows Agent lifecycle evidence.
+1. Owner reviews commits `6001de1` and `8f9fc3b`, the history, license, and manual Windows Agent lifecycle evidence.
 2. Owner confirms the local tamper-detection boundary and release candidate.
 3. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
 
