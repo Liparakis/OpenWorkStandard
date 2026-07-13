@@ -1177,3 +1177,29 @@
 - Exact next action: Double-click `artifacts\ows-setup\Ows.Setup.exe`, approve UAC, and recheck the service path/hash.
 - Important context: Do not claim the current installer code is live until the hashes match; project `.ows` folders must remain untouched.
 - Files to inspect first: `.agent/NEXT_STEPS.md`, `src/Ows.Setup/Program.cs`, and `artifacts/ows-setup/Ows.Setup.exe`.
+
+## 2026-07-13 — Automated owner-review audit
+
+### Completed
+- Verified the MIT license is tracked and present.
+- Confirmed no tracked generated directories, binaries, archives, or private-key files are in the release baseline.
+- Confirmed the worktree is clean and recent commit history is inspectable.
+
+### Changed
+- Added: no product files.
+- Modified: `.agent/CURRENT_TASK.md` and `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Not rerun; owner-review audit only after the passing build.
+- Targeted tests: Not applicable.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: `LICENSE` present; tracked generated/binary/private-key scans clean; `git diff --check` passed.
+
+### Remaining
+- UAC reinstall/uninstall lifecycle test and human release sign-off.
+
+### Handoff
+- Exact next action: Owner approves UAC reinstall from the current setup artifact, then completes the Installed apps cleanup check.
+- Important context: Automated hygiene is evidence, not a substitute for owner history/license/sign-off review.
+- Files to inspect first: `LICENSE`, `.agent/NEXT_STEPS.md`, and `docs/development/RELEASE_READINESS.md`.
