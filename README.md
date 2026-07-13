@@ -24,8 +24,9 @@ Event presence is evidence of recorded activity. Event absence is not proof of m
 Quick demo path:
 1. `dotnet build OWS.sln -nologo`
 2. `dotnet test OWS.sln -nologo`
-3. Follow [docs/START_HERE.md](docs/START_HERE.md)
-4. For a walkthrough, use [docs/workflows/LOCAL_DEMO.md](docs/workflows/LOCAL_DEMO.md)
+3. Install the Windows Agent with `artifacts/ows-setup/Ows.Setup.exe`.
+4. In a project directory, run `ows init`.
+5. Work normally, then run `ows package` and `ows verify <package>`.
 
 Windows setup:
 - Run `scripts/windows/build-ows-setup.ps1`, then double-click `artifacts/ows-setup/Ows.Setup.exe`.
@@ -37,18 +38,9 @@ Current status:
 - observation gaps degrade continuity rather than implying misconduct
 - the semantic Work Version Graph is still scaffolded/deferred
 
-Documentation entry point:
-- [Start Here](docs/START_HERE.md)
-- [CLI Reference](docs/development/CLI.md)
-- [Security](docs/core/SECURITY.md)
-- [Architecture](docs/core/ARCHITECTURE.md)
-- [Package Format](docs/core/PACKAGE_FORMAT.md)
-- [Threat Model](docs/core/THREAT_MODEL.md)
-
-Key references:
-- [Review Guidance](docs/workflows/REVIEW_GUIDANCE.md)
-- [Project Specification](docs/core/OVERVIEW.md)
-- [Roadmap Checklist](docs/development/ROADMAP_CHECKLIST.md)
+CLI help:
+- Run `ows --help` for the available commands and options.
+- Run `ows <command> --help` for command-specific help.
 
 License:
 - [LICENSE](LICENSE)
