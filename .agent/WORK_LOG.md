@@ -1334,3 +1334,27 @@
 - Exact next action: Double-click `artifacts\ows-setup\Ows.Setup.exe`, approve UAC, then inspect Services and `sc.exe qfailure OwsAgent`.
 - Important context: The corrected installer waits up to 30 seconds for normal SCM shutdown and reports access-denied stop failures directly.
 - Files to inspect first: `src/Ows.Setup/Program.cs`, `artifacts/ows-setup/Ows.Setup.exe`, and `.agent/NEXT_STEPS.md`.
+
+## 2026-07-13 — Setup stop result hardening
+
+### Completed
+- Accepted SCM exit code 1062 directly for the race where a service becomes stopped between query and stop.
+
+### Changed
+- Added: None.
+- Modified: `src/Ows.Setup/Program.cs`, `.agent/CURRENT_TASK.md`, `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Passed with 0 warnings and 0 errors.
+- Targeted tests: Setup publish succeeded.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: Final setup SHA-256 is `D5C08EF73902B396CDCA56DDB3D1088347D88087D9B97411374A9EA33302E4EB`.
+
+### Remaining
+- Owner must run the final setup artifact with UAC approval, then verify service and uninstall behavior.
+
+### Handoff
+- Exact next action: Double-click `artifacts\ows-setup\Ows.Setup.exe`, approve UAC, and confirm the Agent appears Running in Services.
+- Important context: Current installed payload remains the older hash until that UAC-approved reinstall.
+- Files to inspect first: `src/Ows.Setup/Program.cs`, `artifacts/ows-setup/Ows.Setup.exe`, and `.agent/NEXT_STEPS.md`.

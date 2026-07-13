@@ -81,7 +81,7 @@
   - The current shell is not elevated, so destructive uninstall smoke testing requires a UAC-approved run.
   - Live machine evidence: `OwsAgent` is Running, Automatic, LocalSystem, and points to `C:\Program Files\Open Work Standard\Ows.Setup.exe --service`; the process has no main window. The uninstall registry entry is present.
   - Repository state: source fix and continuity updates are committed in `3c79d8c`; the older uncommitted-status note above is historical.
-  - Installed payload hash is `602C2510DF807A5A20012091BAADFA43D3E2732003594CD19D022EB5AC33EC02`; corrected setup artifact hash is `7D87D4EB4EF3198FF5367984B545BCC53970EB8731E193FE038D16B7E9CB85AD`, so a UAC reinstall is still required.
+  - Installed payload hash is `602C2510DF807A5A20012091BAADFA43D3E2732003594CD19D022EB5AC33EC02`; corrected setup artifact hash is `D5C08EF73902B396CDCA56DDB3D1088347D88087D9B97411374A9EA33302E4EB`, so a UAC reinstall is still required.
   - Native command validation passed parsing; live `sc.exe qfailure OwsAgent` reports `RESET_PERIOD: 0`, so recovery actions are not live until reinstall.
   - Owner setup smoke test reached service shutdown but reported the 10-second stop timeout; the service is now stopped and installed files were intentionally preserved.
   - Source fix build and full tests pass; the corrected setup artifact was republished after the elevated setup error dialog was closed.

@@ -116,7 +116,8 @@ internal static class Program {
         var currentState = query.Output.Contains("STOPPED", StringComparison.OrdinalIgnoreCase);
         if (!currentState) {
             var stop = RunTool("sc.exe", $"stop {ServiceName}", allowFailure: true);
-            if (stop.ExitCode != 0 && !stop.Output.Contains("1062", StringComparison.OrdinalIgnoreCase) &&
+            if (stop.ExitCode != 0 && stop.ExitCode != 1062 &&
+                !stop.Output.Contains("1062", StringComparison.OrdinalIgnoreCase) &&
                 !stop.Error.Contains("1062", StringComparison.OrdinalIgnoreCase)) {
                 throw new InvalidOperationException(
                     $"Could not stop the OWS Agent service. {stop.Error.Trim()} {stop.Output.Trim()}".Trim());
