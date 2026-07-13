@@ -24,12 +24,8 @@ public static class InspectCommandBuilder {
         var packagePathOption = new Option<string?>("--package-path") {
             Description = "Path to the local .owspkg file; defaults to the current project package."
         };
-        var jsonOption = new Option<bool>("--json") {
-            Description = "Write the inspection as JSON."
-        };
         command.Arguments.Add(packageArgument);
         command.Options.Add(packagePathOption);
-        command.Options.Add(jsonOption);
         command.SetAction(async parseResult => {
             var projectRoot = Directory.GetCurrentDirectory();
             var packagePath = parseResult.GetValue(packageArgument) ?? parseResult.GetValue(packagePathOption) ??
@@ -67,7 +63,7 @@ public static class InspectCommandBuilder {
                 archiveError = ex.Message;
             }
 
-            if (parseResult.GetValue(jsonOption)) {
+            if (parseResult.GetValue(SharedCliOptions.JsonOption)) {
                 Console.WriteLine(JsonSerializer.Serialize(new {
                     packagePath,
                     manifest,

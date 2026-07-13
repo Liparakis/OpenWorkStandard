@@ -1,99 +1,52 @@
 # Current Task
 
-- Phase: Phase 9 — Prepare public open-source release
-- Objective: leave a clean, documented release candidate and identify the exact manual owner actions still required before publication.
+- Phase: Phase 9 - Prepare public open-source release
+- Objective: leave a clean, documented, local-only release candidate for owner review.
 - Agreed scope:
-  - Implement and validate a Windows `Ows.Setup.exe` that installs the OWS Agent into Program Files, registers a silent SCM service, starts it, and can remove the installed service/files.
-  - Preserve local-first/offline behavior and all accepted privacy/product boundaries.
-  - Remove unreleased legacy commands, compatibility aliases, obsolete bootstrap paths, and documentation that does not support the current `ows init` → `ows package` → offline review workflow.
-  - Do not tag, push, publish, or create a GitHub release without explicit authorization.
+  - Keep OWS as a small local-first proof-of-work protocol/toolchain.
+  - Keep `ows init -> work normally -> ows package -> offline verify/inspect/report` as the primary workflow.
+  - Keep the Windows `Ows.Setup.exe` SCM service and native uninstall path.
+  - Remove unreleased remote, management, ceremony, compatibility, and deployment residue.
+  - Treat remote tamper anchoring as optional future enrichment, not an OWS v0 dependency.
 - Explicit non-goals:
-  - No automatic publication, branch/commit creation, external coordination, or release announcement.
-  - No cloud installer, MSI framework, desktop management UI, or cross-platform installer in this phase.
-  - No preservation of unreleased legacy behavior solely for backward compatibility.
-- Relevant existing architecture:
-  - OWS Core/CLI provide local initialization, Agent observation, packaging, signing, verification, and inspection.
-  - The Windows-only setup executable owns SCM installation and hosts the silent service; platform-independent Agent behavior remains in `Ows.Core`.
-  - No remote verifier is part of the active repository; offline review is the only verification contract.
-  - Canonical product and release documentation lives under `docs/`; the repository root keeps `README.md`, `LICENSE`, and required build/configuration files.
+  - No server, hosted verifier, LMS, management layer, IDE integration, desktop UI, or cloud installer.
+  - No public release, tag, push, or external coordination without explicit owner approval.
+  - No preservation of unreleased behavior solely for compatibility.
+- Relevant architecture:
+  - `Ows.Core` owns filesystem observation, project registration, package creation, signatures, and offline verification.
+  - `Ows.Cli` exposes seven local commands: `init`, `agent`, `status`, `package`, `verify`, `inspect`, `report`.
+  - `Ows.Setup` is the Windows-only SCM installer/service host; it does not move platform concerns into Core.
+  - The filesystem and explicitly initialized project roots are the observation boundary.
 - Files currently being inspected or changed:
-  - `src/Ows.Core/Agent/OwsProjectAgent.cs`, `OwsAgentHost.cs`, and watcher lifecycle helpers
-  - `src/Ows.Cli/Commands/{Init,Package,Status}CommandBuilder.cs`
-  - `src/Ows.Core/Verification`, `src/Ows.Setup/Program.cs`, and affected tests
-  - `docs/core/PACKAGE_FORMAT.md`, `docs/reference/GLOSSARY.md`
-  - `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, `.agent/WORK_LOG.md`
+  - `src/Ows.Cli/Commands/InspectCommandBuilder.cs`
+  - `docs/development/CLI.md`
+  - `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`
+  - `.agent/DECISIONS.md`, `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`
 - Implementation checklist:
-  - [x] Complete Phases 1–8 and reconcile continuity notes.
-  - [x] Validate clean build and full tests.
-  - [x] Validate the local build/test path without server dependencies.
-  - [x] Validate package signing, offline verification, and tamper handling.
-  - [x] Protect new Windows signing keys with current-user DPAPI; retain Unix user-only mode.
-  - [x] Remove unreleased ceremony, receipt, session, remote-verifier, and server behavior rather than preserving compatibility.
-  - [x] Validate canonical documentation, security guidance, and GitHub contribution templates.
-  - [x] Assess and remove the optional tracked text-first sample project; retain logical-root reproducibility coverage in tests.
-  - [x] Scan for personal paths, credentials, stale active education/IDE implementation residue, and generated artifacts.
-  - [x] Align reviewer commands with documented positional package paths and expand local inspect metadata.
-  - [x] Remove absolute developer paths from tracked historical planning documentation and classify synthetic local-dev credentials.
-  - [x] Build the single-file Windows setup executable, fix SCM argument handling, and register Windows uninstall metadata.
-  - [x] Harden service stop/delete ordering and add an explicit shared-data uninstall choice.
-  - [x] Add a regression check for cross-process registry lock contention.
-  - [x] Configure SCM failure recovery so an unexpected Agent exit restarts automatically.
-  - [x] Reconcile stale reviewer/management/remote-verifier wording in the active release surface.
-  - [x] Make setup reinstall/uninstall tolerate normal slow SCM shutdown and report stop permission failures clearly.
-  - [x] Run the Add/Remove Programs uninstall action and confirm complete installed-file cleanup.
-  - [x] Remove ignored generated build, test, verifier, IDE, and release-output files after lifecycle validation.
-  - [x] Audit Markdown references, overlap, stale snapshots, and future-scope documentation.
-  - [x] Apply the owner-approved documentation prune/merge plan.
-  - [x] Remove agent-oriented files and relocated Agent-specific documents from the repository.
-  - [x] Remove redundant root documentation aliases and point readers directly to canonical `docs/` files.
-  - [x] Reconcile the post-prune root surface; retain only active README/license and repository/build configuration files.
-  - [x] Remove the unreleased hidden CLI ceremony and remote package commands; keep the seven-command local surface.
-  - [x] Remove unreleased remote verifier implementation, scripts, docs, and legacy tests.
-  - [x] Remove the remaining tracked verifier deployment and observability stack.
-  - [x] Remove unreleased compatibility names, unsigned-package status aliases, old event labels, and setup migration paths.
+  - [x] Remove unreleased remote verifier, server, deployment, management, ceremony, and compatibility surfaces.
+  - [x] Keep local timeline, artifact, package-root, and optional signature tamper detection.
+  - [x] Validate Windows setup/service/uninstall behavior from the owner smoke test.
+  - [x] Keep docs aligned with the actual seven-command local CLI.
+  - [x] Remove redundant one-implementation interfaces and stale CLI JSON claims.
+  - [x] Validate build, tests, smoke workflow, syntax, links, and generated-output cleanup.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
-  - dotnet build OWS.sln -nologo.
-  - dotnet test OWS.sln -nologo.
-  - Local init/package/offline verification smoke path.
-  - PowerShell/Bash syntax checks and git diff --check.
-  - Manual release review of generated artifacts, history, license, and the SCM service/setup lifecycle.
+  - `dotnet build OWS.sln -c Release -nologo`
+  - `dotnet test OWS.sln -nologo`
+  - Local `init -> package -> verify -> inspect -> report` smoke path.
+  - Local tamper tests for changed, removed, and injected package entries.
+  - PowerShell syntax, Bash syntax when available, `git diff --check`, and `git clean -ndX`.
 - Blockers, uncertainties, and risks:
-  - SCM installation requires UAC elevation, but the service will run as LocalSystem and must use a machine-scoped explicit-project registry rather than a user-only registry.
-  - Only final owner review and publication approval remain; the Windows install → service → recovery → uninstall lifecycle was owner-validated.
-  - Uninstall/reinstall must wait for the SCM process to stop before deleting the installed executable; the previous 10-second bound was reached during the owner smoke test.
-  - Release candidate evidence still requires human sign-off; passing tests do not make OWS institutional-grade.
-  - The event timeline is intentionally append-only; chain-preserving retention/compaction is not part of the current package format, so very long-lived projects may grow `.ows/timeline.jsonl`.
+  - Windows SCM install requires UAC; manual service lifecycle evidence remains owner-provided.
+  - Bash/WSL is unavailable in this environment, so Unix syntax cannot be rerun here.
+  - Long-lived timelines remain append-only until a chain-preserving retention design exists.
+  - Owner review is required before any publication action.
 - Current build/test state:
-  - Build passed with 0 warnings and 0 errors after removing the server and legacy stack.
-  - Full tests passed: Core 41/41 and CLI 10/10.
-  - PowerShell syntax passed for 16 scripts; the prior release gate passed Bash syntax; git diff --check passed.
-  - PostgreSQL verifier container was stopped; ports 5078 and 5432 are clear.
-  - Final post-bootstrap validation passed: build 0 warnings/errors, full tests 211/211, and PowerShell syntax 16/16.
-  - Reviewer package-path/inspect regression tests passed: 2/2; malformed-package inspection returned a structured invalid result and exit code 1.
-  - Previous Scheduled Task smoke checks passed but are superseded by the requested SCM setup path.
-  - First setup attempt copied the payload then failed because `sc.exe create` received malformed quoted arguments; the published setup now uses `ProcessStartInfo.ArgumentList` and displays failures.
-  - The first setup also lacked Add/Remove Programs metadata; the installer now registers `Open Work Standard` under the Windows uninstall registry and schedules safe self-removal.
-  - The installer now waits for the SCM service to stop before deletion and prompts whether shared Agent data should be removed.
-  - Post-uninstall read-only checks confirmed `OwsAgent`, the Program Files install directory, and the uninstall registry entry are absent.
-  - The corrected setup artifact was owner-installed and validated, then removed from the workspace as generated output.
-  - Read-only post-uninstall check confirms the `OwsAgent` service, Program Files install directory, and uninstall registry entry are absent.
-  - Repository cleanup removed ignored generated outputs; `git clean -ndX` now reports no remaining ignored files.
-  - Documentation cleanup removed stale remote-verifier operations, pilot, API, deployment, and management docs; active docs now describe the local workflow.
-  - Internal Markdown links are clean; graphify's failed semantic cache was removed.
-  - Build and full tests pass after the documentation and server cleanup: Core 41/41 and CLI 10/10.
-  - Committed as `ca9152e`; working tree is clean and `git clean -ndX` is empty.
-  - Post-validation ignored outputs were removed again; `git clean -ndX` is empty.
-  - Root Agent documents and technical aliases are gone; only the four required continuity files remain under `.agent/`.
-  - A later owner cleanup commit removed the remaining root onboarding/security/contribution/history Markdown; README links now point only to canonical `docs/` files.
-  - Internal Markdown links are clean after that owner cleanup.
-  - Generated build and setup outputs are intentionally absent after validation cleanup.
-  - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.
-  - Legacy-removal slices build with 0 warnings/errors; the local test suite is reconciled to the reduced surface.
-  - Release build passed with 0 warnings/errors; full tests passed 41/41 Core and 10/10 CLI.
-  - Local CLI smoke path passed: `init` → `package` → offline `verify` → `inspect` → JSON `report`.
-  - Local tamper suite passed 10/10, including modified, removed, and injected archive entries.
-  - PowerShell syntax passed for 2 scripts; Bash validation was unavailable because Bash/WSL is not installed.
-  - `git diff --check` passed; ignored build/IDE outputs were removed and `git clean -ndX` is empty.
-  - Committed as `de61aa7`; the working tree is clean.
-  - Remaining work is owner review; no publication or push is authorized.
+  - Full tests pass: Core 41/41 and CLI 10/10.
+  - Focused inspect test passes: 1/1.
+  - Release build passed with 0 warnings/errors after the final CLI correction.
+  - Full tests pass: Core 41/41 and CLI 10/10; focused inspect test passes 1/1.
+  - Release-binary smoke passed: `init -> package -> verify -> inspect --json -> report --format json`.
+  - Markdown relative links, `git diff --check`, and forbidden legacy-reference scans pass.
+  - Generated build outputs were removed; `git clean -ndX` is empty before the final notes commit.
+  - Final tree has only continuity/docs/CLI edits pending commit; owner review remains the next action.

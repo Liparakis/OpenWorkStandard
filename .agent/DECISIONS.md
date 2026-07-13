@@ -123,12 +123,12 @@
 ## Local verifier readiness and shutdown own the full process lifecycle
 
 - Date: 2026-07-13
-- Status: Accepted
+- Status: Superseded
 - Context: A TCP-open PostgreSQL port can still be in crash recovery, and stopping the verifier wrapper can leave its `dotnet` child process listening on the configured port.
 - Decision: Local verifier helpers must wait for PostgreSQL health readiness before migrations and must stop the full managed verifier process tree, including verified orphaned verifier processes from this workspace.
 - Reasoning: Release and local development checks must be deterministic from cold startup and must not leave hidden processes that poison the next run.
 - Consequences: Windows and Unix helpers include bounded readiness waits; Windows shutdown matches only the workspace verifier DLL when cleaning an orphan.
-- Replaces: None; operational hardening decision.
+- Replaces: Superseded when the unreleased hosted verifier and its helpers were removed from OWS v0.
 
 ## IDE adapters are separate projects outside OWS core
 
@@ -143,12 +143,22 @@
 ## Agent registration is local, explicit, and project-root scoped
 
 - Date: 2026-07-13
-- Status: Accepted
+- Status: Superseded
 - Context: OWS needs transparent background observation without scanning unrelated personal files or making the verifier server mandatory.
 - Decision: `ows init` registers only that absolute project root in a user-local JSON registry. The agent host watches only registered initialized roots and prunes missing roots; the first host is exposed as the diagnostic `ows agent run` command.
 - Reasoning: A small local registry reuses the existing watcher/recovery pipeline and makes opt-in scope inspectable without adding a network service.
-- Consequences: Secure local IPC and OS service installation remain follow-up work; existing watch commands remain diagnostic compatibility controls until that boundary is tested.
-- Replaces: None; implements the explicit-project portion of the agent decision.
+- Consequences: Secure local IPC and OS service installation remain follow-up work; the current CLI exposes only `ows agent run` and `ows agent service` for Agent lifecycle diagnostics/hosting.
+- Replaces: Superseded by `Agent registration is local and service-compatible` below.
+
+## Agent registration is local and service-compatible
+
+- Date: 2026-07-13
+- Status: Accepted
+- Context: OWS must transparently observe only projects that the user explicitly initializes, including when the Windows SCM Agent runs as LocalSystem.
+- Decision: `ows init` registers only that absolute project root in the shared local registry. The Agent watches only registered initialized roots, prunes missing roots, and exposes `ows agent run` as the diagnostic host while `Ows.Setup.exe` provides the Windows service host.
+- Reasoning: One explicit registry and one project boundary keep observation local, inspectable, and compatible with the silent Windows service.
+- Consequences: Uninitialized directories remain outside observation; secure local IPC and non-Windows service adapters remain future work.
+- Replaces: `Agent registration is local, explicit, and project-root scoped`.
 
 ## Windows-first Agent service uses the real Service Control Manager host
 
@@ -203,12 +213,22 @@
 ## Package signatures are optional and offline-verifiable
 
 - Date: 2026-07-13
-- Status: Accepted
+- Status: Superseded
 - Context: OWS needs stronger package authenticity without making a verifier server or hosted key service mandatory, while existing unsigned packages must remain usable.
 - Decision: Packages always carry a canonical logical root hash when produced by the current builder; `ows package --sign` adds an RSA-SHA256 signature and public-key metadata. Offline verification reports `Valid`, `Unsigned`, `UnsignedLegacy`, or `Invalid` signature status while retaining existing trust grades.
 - Reasoning: Established RSA primitives provide a small, auditable authenticity layer; separating signature status from existing receipt/continuity trust preserves backward compatibility and honest semantics.
 - Consequences: ZIP order and timestamps do not affect the logical root; unsigned packages are weaker but valid; local key rotation/revocation remains manual and private keys remain user-local.
-- Replaces: None; extends the accepted local/offline verification boundary.
+- Replaces: Superseded by `Package signatures are optional and offline-verifiable in v0` below.
+
+## Package signatures are optional and offline-verifiable in v0
+
+- Date: 2026-07-13
+- Status: Accepted
+- Context: OWS needs package authenticity and tamper detection without a verifier server, hosted key service, or compatibility burden for unreleased package formats.
+- Decision: Packages carry a canonical logical root hash; `ows package --sign` adds an RSA-SHA256 signature and public-key metadata. Offline verification reports only `Valid`, `Unsigned`, or `Invalid` signature status alongside local timeline, artifact, and package-root integrity results.
+- Reasoning: The local hash/signature chain is sufficient for v0 integrity checks and keeps the proof-of-work path offline and auditable.
+- Consequences: Unsigned packages remain usable but weaker; hosted anchoring, key rotation, and revocation remain future work outside OWS Core.
+- Replaces: `Package signatures are optional and offline-verifiable`.
 
 ## Reviewer commands accept explicit package paths
 

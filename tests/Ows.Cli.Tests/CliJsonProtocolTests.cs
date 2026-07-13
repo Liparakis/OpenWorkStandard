@@ -72,8 +72,6 @@ public sealed class CliJsonProtocolTests {
             Console.SetOut(originalOut);
             Console.SetOut(originalError);
             Directory.SetCurrentDirectory(originalDirectory);
-            Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", null);
-
             if (Directory.Exists(projectRoot)) {
                 try {
                     Directory.Delete(projectRoot, recursive: true);
