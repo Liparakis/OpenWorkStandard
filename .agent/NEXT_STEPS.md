@@ -1,10 +1,8 @@
 # Next Steps
 
-1. Inspect the final diff and active Markdown links; remove any remaining stale remote/session wording.
-2. Clean ignored build/test outputs and verify the reduced root surface.
-3. Commit the completed legacy-removal slice.
-4. Owner reviews the reduced repository, confirms the release candidate, and explicitly authorizes publication.
-5. Only after approval: tag the selected version, push the tag, and create the GitHub release.
+1. Owner reviews commit `ca9152e`, the reduced root/docs surface, history, license, and manual Windows lifecycle evidence.
+2. Owner confirms the release candidate and explicitly authorizes publication.
+3. Only after approval: tag the selected version, push the tag, and create the GitHub release.
 
 Post-release roadmap:
 

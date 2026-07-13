@@ -91,6 +91,7 @@
   - Documentation cleanup removed stale remote-verifier operations, pilot, API, deployment, and management docs; active docs now describe the local workflow.
   - Internal Markdown links are clean; graphify's failed semantic cache was removed.
   - Build and full tests pass after the documentation and server cleanup: Core 41/41 and CLI 10/10.
+  - Committed as `ca9152e`; working tree is clean and `git clean -ndX` is empty.
   - Post-validation ignored outputs were removed again; `git clean -ndX` is empty.
   - Root Agent documents and technical aliases are gone; only the four required continuity files remain under `.agent/`.
   - A later owner cleanup commit removed the remaining root onboarding/security/contribution/history Markdown; README links now point only to canonical `docs/` files.

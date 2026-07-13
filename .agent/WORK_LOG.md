@@ -1734,3 +1734,28 @@
 - Exact next action: run the final link/generated-output audit, then stage only this cleanup and commit it.
 - Important context: Unreleased compatibility is explicitly disposable; the only active contract is local `ows init` → `ows package` → offline review.
 - Files to inspect first: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `README.md`, `docs/START_HERE.md`, and `git status`.
+
+## 2026-07-13 — Commit legacy-removal handoff
+
+### Completed
+- Committed the approved legacy-removal slice as `ca9152e`.
+- Confirmed the working tree is clean and ignored generated outputs are absent.
+
+### Changed
+- Added: None after the cleanup commit.
+- Modified: Continuity notes only for the post-commit handoff.
+- Deleted: None after the cleanup commit.
+
+### Validation
+- Build: Passed with 0 warnings and 0 errors before cleanup.
+- Targeted tests: Passed within the full suite.
+- Full tests: Core 41/41 and CLI 10/10.
+- Manual checks: Markdown links clean, `git diff --check` clean, `git clean -ndX` empty.
+
+### Remaining
+- Owner review and explicit publication authorization.
+
+### Handoff
+- Exact next action: owner reviews commit `ca9152e` and the final local-first release surface.
+- Important context: No public compatibility is being preserved; the reduced local workflow is the contract.
+- Files to inspect first: `README.md`, `docs/START_HERE.md`, `docs/core/ARCHITECTURE.md`, `docs/core/PACKAGE_FORMAT.md`, and `git show --stat ca9152e`.
