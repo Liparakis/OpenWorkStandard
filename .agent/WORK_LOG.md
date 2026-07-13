@@ -1230,3 +1230,29 @@
 - Exact next action: Double-click `artifacts\ows-setup\Ows.Setup.exe`, approve UAC, then inspect `sc.exe qfailure OwsAgent`.
 - Important context: The current installer configures restart actions; the currently running service does not contain this latest configuration until reinstall.
 - Files to inspect first: `src/Ows.Setup/Program.cs`, `artifacts/ows-setup/Ows.Setup.exe`, and `.agent/NEXT_STEPS.md`.
+
+## 2026-07-13 — SCM recovery syntax validation
+
+### Completed
+- Validated the installer’s `sc.exe failure` argument shape against the live service.
+- Confirmed the command parses and reaches service authorization; the non-admin shell receives expected access denied.
+- Queried the live service and confirmed `RESET_PERIOD: 0`, proving recovery actions remain unapplied until UAC reinstall.
+
+### Changed
+- Added: no product files.
+- Modified: `.agent/CURRENT_TASK.md` and `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Not rerun; native command validation only.
+- Targeted tests: Not applicable.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: `sc.exe failure` syntax accepted; live service remains Running/Automatic/LocalSystem with no recovery actions.
+
+### Remaining
+- UAC reinstall current artifact, verify `sc.exe qfailure OwsAgent`, then test uninstall cleanup.
+
+### Handoff
+- Exact next action: Run the current `artifacts\ows-setup\Ows.Setup.exe` as Administrator.
+- Important context: Expected post-install recovery output should show three restart actions at 5000, 30000, and 60000 milliseconds.
+- Files to inspect first: `src/Ows.Setup/Program.cs`, `.agent/NEXT_STEPS.md`, and `docs/development/RELEASE_READINESS.md`.

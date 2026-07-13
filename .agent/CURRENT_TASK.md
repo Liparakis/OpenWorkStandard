@@ -79,4 +79,5 @@
   - Live machine evidence: `OwsAgent` is Running, Automatic, LocalSystem, and points to `C:\Program Files\Open Work Standard\Ows.Setup.exe --service`; the process has no main window. The uninstall registry entry is present.
   - Repository state: clean after the payload-freshness handoff commit; the older uncommitted-status note above is historical.
   - Installed payload hash is `602C2510DF807A5A20012091BAADFA43D3E2732003594CD19D022EB5AC33EC02`; current setup artifact hash is `6A07E05F0699291CE310B767C8CD3DC0213150EFF76A377EBD959865C8E36D99`, so a UAC reinstall is still required.
+  - Native command validation passed parsing; live `sc.exe qfailure OwsAgent` reports `RESET_PERIOD: 0`, so recovery actions are not live until reinstall.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.
