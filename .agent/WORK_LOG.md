@@ -312,7 +312,7 @@
 - Manual checks: no `BuildWatcherStopped` or `inheritdoc` references remain in the two affected files; `git diff --check` passes.
 
 ### Remaining
-- Commit the scoped cleanup with the blocker recorded; resolve the unrelated packaging namespace issue separately before claiming a green build.
+- None for this cleanup; resolve the unrelated packaging namespace issue before claiming a green build.
 
 ### Handoff
 - Exact next action: review the unresolved `Ows.Core.Packaging.Helpers` import, then rerun validation.

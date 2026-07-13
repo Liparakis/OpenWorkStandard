@@ -23,7 +23,7 @@
   - [x] Remove invalid `inheritdoc` tags.
   - [x] Confirm no dead-method or invalid-tag references remain.
   - [ ] Run focused and full validation after the unrelated compile blocker is resolved.
-  - [ ] Commit only these cleanups and continuity notes; preserve unrelated user changes.
+  - [x] Commit only these cleanups and continuity notes; preserve unrelated user changes.
 - Tests required before completion:
   - `dotnet test tests/Ows.Core.Tests/Ows.Core.Tests.csproj -nologo`
   - `dotnet test OWS.sln -nologo`
@@ -35,4 +35,4 @@
 - Current build/test state:
   - Prior validation passed before this documentation cleanup: Core 41/41, full suite 51/51, Release build 0 warnings/errors.
   - Current validation is blocked by unrelated `Ows.PackageBuilder` import `Ows.Core.Packaging.Helpers`, which does not resolve in the current working tree.
-  - `git diff --check` passes; scoped cleanup remains staged while unrelated changes remain unstaged.
+  - `git diff --check` passes; scoped cleanup committed as `ff77cc5`; unrelated changes remain unstaged.
