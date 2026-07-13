@@ -243,3 +243,28 @@
 - Exact next action: commit this dead-field cleanup.
 - Important context: Verification trust remains correctly sourced from `Ows.Core.VerificationResult`; it was never part of the project-state CLI response.
 - Files to inspect first: `src/Ows.Cli/OwsCliResponse.cs` and `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`.
+
+## 2026-07-13 - Audit dead-field commit
+
+### Completed
+- Audited commit `6856367` and confirmed the requested dead-field removal is present.
+- Preserved unrelated CLI cleanup already captured in that commit and left the separate `OwsCommandFactory.cs` working-tree edit untouched.
+
+### Changed
+- Added: continuity updates only.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`.
+- Deleted: none.
+
+### Validation
+- Build: Release build passed with 0 warnings/errors.
+- Targeted tests: CLI JSON regression passed.
+- Full tests: Core 41/41 and CLI 10/10 passed.
+- Manual checks: `git diff --check` passed; `git clean -ndX` showed only generated outputs and `.idea/`.
+
+### Remaining
+- Owner review of `6856367` and the separate uncommitted `OwsCommandFactory.cs` edit.
+
+### Handoff
+- Exact next action: review the dead-field commit and decide whether to retain the separate factory edit before the next commit.
+- Important context: Core verification trust status remains active and is used by package verification, inspect, and reports.
+- Files to inspect first: `src/Ows.Cli/OwsCliResponse.cs`, `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`, and `src/Ows.Cli/OwsCommandFactory.cs`.

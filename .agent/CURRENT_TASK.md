@@ -18,9 +18,9 @@
   - `Ows.Setup` is the Windows-only SCM installer/service host; it does not move platform concerns into Core.
   - The filesystem and explicitly initialized project roots are the observation boundary.
 - Files currently being inspected or changed:
-  - `src/Ows.Cli/Commands/InspectCommandBuilder.cs`
   - `src/Ows.Cli/OwsCliResponse.cs`
   - `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`
+  - `src/Ows.Cli/OwsCommandFactory.cs` (separate pre-existing working-tree edit; not changed by this fix)
   - `src/Ows.Core/Agent/LocalTrackingAgent.cs`
   - `src/Ows.Core/Verification/Helpers/{VerificationFindingFactory,ObservationContinuityAnalyzer}.cs`
   - `tests/Ows.Core.Tests/OwsIgnoreEngineTests.cs`
@@ -55,8 +55,8 @@
   - Full tests pass: Core 41/41 and CLI 10/10; focused inspect test passes 1/1.
   - Release-binary smoke passed: `init -> package -> verify -> inspect --json -> report --format json`.
   - Real Agent smoke passed: `init -> running Agent -> file change -> package -> valid non-empty timeline` (8 events observed).
-  - Dead-field cleanup passed the focused CLI JSON test and Release build with 0 warnings/errors.
+  - Dead-field cleanup is committed as `6856367`; focused CLI JSON test and Release build pass with 0 warnings/errors.
   - Markdown relative links, `git diff --check`, and forbidden legacy-reference scans pass.
   - Generated build outputs were removed; `git clean -ndX` is empty.
-  - Final terminology correction committed as `6001de1`; runtime evidence notes committed as `8f9fc3b`; the working tree is clean and owner review remains the next action.
-  - Current dead-field cleanup is pending validation.
+  - Final terminology correction committed as `6001de1`; runtime evidence notes committed as `8f9fc3b`; dead CLI trust field committed as `6856367`.
+  - A separate uncommitted `src/Ows.Cli/OwsCommandFactory.cs` edit remains untouched for owner review; it is outside the dead-field fix.

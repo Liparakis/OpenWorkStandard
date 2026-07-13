@@ -1,8 +1,9 @@
 # Next Steps
 
-1. Owner reviews commits `6001de1` and `8f9fc3b`, the history, license, and manual Windows Agent lifecycle evidence.
-2. Owner confirms the local tamper-detection boundary and release candidate.
-3. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
+1. Owner reviews commits `6001de1`, `8f9fc3b`, and `6856367`, plus the history, license, and manual Windows Agent lifecycle evidence.
+2. Decide whether the separate uncommitted `src/Ows.Cli/OwsCommandFactory.cs` edit should be retained and committed; it is not part of the dead-field fix.
+3. Owner confirms the local tamper-detection boundary and release candidate.
+4. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
 
 Current phase remaining:
 
