@@ -53,4 +53,4 @@
   - Release-binary smoke passed: `init -> package -> verify -> inspect --json -> report --format json`.
   - Markdown relative links, `git diff --check`, and forbidden legacy-reference scans pass.
   - Generated build outputs were removed; `git clean -ndX` is empty.
-  - Final correction committed as `624ed33`; the working tree is clean and owner review remains the next action.
+  - Final terminology correction committed as `6001de1`; the working tree is clean and owner review remains the next action.

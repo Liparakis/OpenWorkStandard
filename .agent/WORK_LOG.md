@@ -172,9 +172,30 @@
 - Active source/test/docs scan contains no legacy compatibility implementation names or `UnsignedLegacy`.
 
 ### Remaining
-- Commit this final terminology correction and await owner review.
+- Owner review and explicit publication authorization.
 
 ### Handoff
-- Exact next action: commit the final terminology correction, clean generated outputs, and verify the tree.
+- Exact next action: owner reviews commit `6001de1`, then confirms the release candidate.
 - Important context: Remaining server/session mentions are intentional negative-boundary documentation, not active features.
 - Files to inspect first: `src/Ows.Core/Agent/LocalTrackingAgent.cs`, `src/Ows.Core/Verification/Helpers`, and `.agent/CURRENT_TASK.md`.
+
+## 2026-07-13 - Commit final terminology correction
+
+### Completed
+- Committed the final active-code terminology cleanup as `6001de1`.
+
+### Changed
+- Added: none after the commit.
+- Modified: continuity notes only for the post-commit handoff.
+- Deleted: none after the commit.
+
+### Validation
+- Full tests 41/41 Core and 10/10 CLI; Release build 0 warnings/errors; legacy scan clean; generated outputs absent.
+
+### Remaining
+- Owner review and explicit publication authorization.
+
+### Handoff
+- Exact next action: owner reviews the local-only release candidate and Windows SCM lifecycle evidence.
+- Important context: No hosted verifier or remote anchor is required by v0.
+- Files to inspect first: `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, `README.md`, and `docs/core/SECURITY.md`.
