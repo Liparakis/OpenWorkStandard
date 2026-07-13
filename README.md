@@ -29,7 +29,7 @@ Quick demo path:
 
 Windows setup:
 - Run `scripts/windows/build-ows-setup.ps1`, then double-click `artifacts/ows-setup/Ows.Setup.exe`.
-- UAC approval installs the silent `OWS Agent` SCM service and registers Open Work Standard in Installed apps.
+- UAC approval installs the silent `OWS Agent` SCM service, installs the `ows` CLI, and registers Open Work Standard in Installed apps.
 - Uninstall from Installed apps; choose whether to remove shared Agent data. Project `.ows` folders are never removed.
 
 Current status:

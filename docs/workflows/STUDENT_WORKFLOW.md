@@ -23,10 +23,11 @@ explicitly initialized roots. If the Agent is unavailable, initialization and
 registration are retained and the command reports how to start or install it.
 
 On Windows, double-click the published `Ows.Setup.exe` once. It requests UAC
-approval, installs `OWS Agent` in the Windows Services console, and starts it
-silently. No Windows account password is requested. On Linux/macOS, the
-installable service adapter is deferred and `ows agent run` is a foreground
-diagnostic fallback.
+approval, installs `OWS Agent` in the Windows Services console, installs the
+`ows` CLI, and starts the Agent silently. Open a new terminal after setup so
+the updated PATH is loaded. No Windows account password is requested. On Linux/macOS, the
+installable service adapter is deferred; packaging can continue from local
+state while the Agent is unavailable.
 
 Edit .owsignore only for project-specific exclusions. OWS does not collect raw
 keystrokes, passwords, browser content, webcam or microphone data, or
@@ -63,8 +64,8 @@ status, artifact count, timeline summary, and review findings.
 
 ## Troubleshooting
 
-- AgentUnavailable: run the Windows Agent bootstrap or `ows agent run`;
-  retrying ows init is safe.
+- AgentUnavailable: run or start the Windows Agent bootstrap; retrying
+  `ows init` is safe.
 - Package creation continues from local state when the Agent is unavailable.
 - ows verify works without a verifier server.
 - Missing events or continuity gaps require human interpretation and do not

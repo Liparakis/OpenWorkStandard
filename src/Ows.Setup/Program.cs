@@ -1,4 +1,7 @@
+using System.IO.Compression;
+using System.Reflection;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,18 +18,36 @@ internal static class Program {
     /// The name of the OWS Agent Windows Service.
     /// </summary>
     private const string ServiceName = "OwsAgent";
+
     /// <summary>
     /// The display name of the OWS Agent Windows Service.
     /// </summary>
     private const string DisplayName = "OWS Agent";
+
     /// <summary>
     /// The directory name where the OWS Agent program files are installed.
     /// </summary>
     private const string InstallDirectoryName = "Open Work Standard";
     /// <summary>
+    /// The filename of the installed OWS Agent executable.
+    /// </summary>
+    private const string AgentExecutableName = "OwsAgent.exe";
+
+    /// <summary>
+    /// The directory containing the installed OWS CLI executable.
+    /// </summary>
+    private const string CliDirectoryName = "cli";
+
+    /// <summary>
+    /// The embedded ZIP resource containing the published service payload.
+    /// </summary>
+    private const string PayloadResourceName = "ows-payload.zip";
+
+    /// <summary>
     /// The directory name where the OWS Agent shared data is stored.
     /// </summary>
     private const string DataDirectoryName = "OpenWorkStandard";
+
     /// <summary>
     /// The timeout duration allowed for stopping the OWS Agent service.
     /// </summary>
@@ -79,10 +100,8 @@ internal static class Program {
     /// Installs the program files and registers/starts the Windows Service.
     /// </summary>
     private static void Install() {
-        var sourcePath = Environment.ProcessPath ??
-                         throw new InvalidOperationException("Could not locate Ows.Setup.exe.");
         var installDirectory = GetInstallDirectory();
-        var servicePath = Path.Combine(installDirectory, "Ows.Setup.exe");
+        var servicePath = Path.Combine(installDirectory, AgentExecutableName);
 
         RemoveService();
         if (Directory.Exists(installDirectory)) {
@@ -90,7 +109,8 @@ internal static class Program {
         }
 
         Directory.CreateDirectory(installDirectory);
-        File.Copy(sourcePath, servicePath, overwrite: true);
+        ExtractPayload(installDirectory);
+        RegisterCliPath(installDirectory);
         PrepareSharedDataDirectory();
         CreateService(servicePath);
         RunTool("sc.exe", $"start {ServiceName}");
@@ -119,6 +139,7 @@ internal static class Program {
         RemoveService();
         RemoveUninstallEntry();
         var installDirectory = GetInstallDirectory();
+        RemoveCliPath(installDirectory);
         ScheduleRemoval(installDirectory, purgeData ? GetDataDirectory() : null);
 
         ShowMessage(
@@ -167,6 +188,7 @@ internal static class Program {
             return;
         }
 
+        var processId = GetServiceProcessId();
         var currentState = query.Output.Contains("STOPPED", StringComparison.OrdinalIgnoreCase);
         if (!currentState) {
             var stop = RunTool("sc.exe", $"stop {ServiceName}", allowFailure: true);
@@ -197,7 +219,54 @@ internal static class Program {
             );
         }
 
+        WaitForProcessExit(processId);
         RunTool("sc.exe", $"delete {ServiceName}", allowFailure: true);
+    }
+
+    /// <summary>
+    /// Gets the process identifier currently owned by the Windows Service Control Manager service entry.
+    /// </summary>
+    /// <returns>The service process identifier, or null when no process is active.</returns>
+    private static int? GetServiceProcessId() {
+        var query = RunTool("sc.exe", $"queryex {ServiceName}", allowFailure: true);
+        if (query.ExitCode != 0) {
+            return null;
+        }
+
+        var match = Regex.Match(query.Output, @"PID\s*:\s*(?<pid>\d+)", RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups["pid"].Value, out var processId) && processId > 0
+            ? processId
+            : null;
+    }
+
+    /// <summary>
+    /// Waits for the stopped service process to release its executable and dependency files.
+    /// </summary>
+    /// <param name="processId">The process identifier captured before the service was stopped.</param>
+    private static void WaitForProcessExit(int? processId) {
+        if (processId is not > 0) {
+            return;
+        }
+
+        var deadline = DateTime.UtcNow.Add(ServiceStopTimeout);
+        while (DateTime.UtcNow < deadline) {
+            try {
+                using var process = Process.GetProcessById(processId.Value);
+                if (process.HasExited) {
+                    return;
+                }
+            } catch (ArgumentException) {
+                return;
+            } catch (InvalidOperationException) {
+                return;
+            }
+
+            Thread.Sleep(250);
+        }
+
+        throw new InvalidOperationException(
+            $"OWS Agent process {processId.Value} did not exit within {ServiceStopTimeout.TotalSeconds:0} seconds; installed files were left in place."
+        );
     }
 
     /// <summary>
@@ -262,6 +331,66 @@ internal static class Program {
         var dataDirectory = GetDataDirectory();
         Directory.CreateDirectory(dataDirectory);
         RunTool("icacls.exe", $"\"{dataDirectory}\" /grant *S-1-5-32-545:(OI)(CI)M /T");
+    }
+
+    /// <summary>
+    /// Extracts the embedded published application payload into the installation directory.
+    /// </summary>
+    /// <param name="installDirectory">The directory where the application files are installed.</param>
+    private static void ExtractPayload(string installDirectory) {
+        var root = Path.GetFullPath(installDirectory);
+        using var payload = Assembly.GetExecutingAssembly().GetManifestResourceStream(PayloadResourceName)
+                            ?? throw new InvalidOperationException("The installer payload is missing.");
+        using var archive = new ZipArchive(payload, ZipArchiveMode.Read);
+
+        foreach (var entry in archive.Entries) {
+            var destination = Path.GetFullPath(Path.Combine(root, entry.FullName));
+            if (!destination.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(destination, root, StringComparison.OrdinalIgnoreCase)) {
+                throw new InvalidOperationException("The installer payload contains an invalid path.");
+            }
+
+            if (string.IsNullOrEmpty(entry.Name)) {
+                Directory.CreateDirectory(destination);
+                continue;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? root);
+            using var input = entry.Open();
+            using var output = File.Create(destination);
+            input.CopyTo(output);
+        }
+    }
+
+    /// <summary>
+    /// Adds the installed CLI directory to the machine PATH if it is not already present.
+    /// </summary>
+    /// <param name="installDirectory">The directory where the application files are installed.</param>
+    private static void RegisterCliPath(string installDirectory) {
+        var cliDirectory = Path.Combine(installDirectory, CliDirectoryName);
+        var machinePath = Environment.GetEnvironmentVariable("Path", EnvironmentVariableTarget.Machine) ?? string.Empty;
+        var entries = machinePath.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (entries.Any(entry => string.Equals(entry.TrimEnd('\\'), cliDirectory.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))) {
+            return;
+        }
+
+        var updatedPath = string.IsNullOrWhiteSpace(machinePath)
+            ? cliDirectory
+            : machinePath.TrimEnd(';') + ";" + cliDirectory;
+        Environment.SetEnvironmentVariable("Path", updatedPath, EnvironmentVariableTarget.Machine);
+    }
+
+    /// <summary>
+    /// Removes the installed CLI directory from the machine PATH.
+    /// </summary>
+    /// <param name="installDirectory">The directory where the application files were installed.</param>
+    private static void RemoveCliPath(string installDirectory) {
+        var cliDirectory = Path.Combine(installDirectory, CliDirectoryName);
+        var machinePath = Environment.GetEnvironmentVariable("Path", EnvironmentVariableTarget.Machine) ?? string.Empty;
+        var entries = machinePath.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(entry => !string.Equals(entry.TrimEnd('\\'), cliDirectory.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        Environment.SetEnvironmentVariable("Path", string.Join(';', entries), EnvironmentVariableTarget.Machine);
     }
 
     /// <summary>

@@ -1,44 +1,40 @@
 # Current Task
 
-- Phase: Phase 10 - documentation analyzer and audit
-- Objective: install and configure StyleCop.Analyzers, audit every undocumented C# element, safely add obvious XML documentation, and leave a zero-error solution build.
+- Phase: Windows Agent IPC reliability
+- Objective: allow the interactive Windows user to complete `ows init` against the silently running LocalSystem Agent without weakening project or registry boundaries.
 - Agreed scope:
-  - Apply StyleCop centrally to all C# projects through `Directory.Build.props`.
-  - Enable documentation diagnostics for public, protected, internal, and private code, including all requested declaration kinds.
-  - Generate `docs/audits/documentation-audit.md` from the full analyzer result.
-  - Add only documentation that describes existing behavior; leave TODO markers for unclear intent.
+  - Correct the Windows named-pipe access control used by `OwsAgentIpcServer`.
+  - Preserve local-only IPC and the existing explicit-project validation.
+  - Keep the CLI's recoverable initialization behavior intact.
 - Explicit non-goals:
-  - No runtime behavior changes, refactors, new abstractions, or invented API semantics.
-  - Do not suppress missing-element diagnostics merely to make the build quiet; style/format diagnostics remain outside this focused phase.
-  - Do not use the prerelease StyleCop package unless the stable package cannot analyze this solution.
+  - Do not change project registration, service identity, or the user workflow.
+  - Do not hide `UnauthorizedAccessException` as a substitute for fixing the pipe ACL.
+  - Do not add remote verification, authentication, or unrelated installer behavior.
 - Relevant existing architecture:
-  - `Directory.Build.props` already enables nullable analysis and XML documentation generation for every project.
-  - The solution contains `Ows.Core`, `Ows.Cli`, `Ows.Setup`, and two test projects.
-  - Test projects currently suppress `CS1591`; StyleCop documentation diagnostics will be audited separately.
+  - The Windows Agent runs as LocalSystem through SCM.
+  - `ows init` writes `.ows` metadata and registers the project in the shared ProgramData registry before pinging the Agent.
+  - `OwsAgentIpcServer` uses a Windows named pipe and Unix domain sockets elsewhere; the pipe must grant local interactive users access.
 - Files currently being inspected or changed:
-  - `Directory.Build.props`
-  - `.editorconfig`
-  - `stylecop.json`
-  - `docs/audits/documentation-audit.md`
-  - C# files reported by the analyzer
+  - `src/Ows.Core/Agent/OwsAgentIpc.cs`
+  - `src/Ows.Core/Ows.Core.csproj` if the platform ACL API requires a package reference
   - `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`
 - Implementation checklist:
-  - [x] Add stable `StyleCop.Analyzers` package centrally.
-  - [x] Configure StyleCop documentation rules and all requested visibility scopes.
-  - [x] Run a full solution analyzer pass and capture diagnostics.
-  - [x] Safely add obvious XML documentation.
-  - [x] Replace all remaining XML documentation TODO markers with accurate comments.
-  - [x] Isolate CLI tests from global registry state via a custom xUnit fixture to prevent write conflicts.
-  - [x] Generate the Markdown audit with totals, breakdowns, paths, lines, signatures, and priority.
-  - [x] Rebuild and verify zero errors.
+  - [x] Confirm the available .NET named-pipe ACL API and avoid an unnecessary dependency.
+  - [x] Create the pipe with an ACL that permits local users to connect.
+  - [x] Keep the server's command validation unchanged.
+  - [x] Rebuild the solution and setup payload.
+  - [ ] Run diff checks.
+  - [ ] Install the rebuilt service and verify end to end.
 - Tests required before completion:
-  - Full `dotnet build OWS.sln -nologo` with analyzers enabled.
-  - Full `dotnet test OWS.sln -nologo` after documentation edits.
-  - `git diff --check` and audit-report existence/content checks.
+  - Full Release solution build.
+  - Full Release solution tests.
+  - Rebuild `artifacts/ows-setup/Ows.Setup.exe` with the updated Agent payload.
+  - `git diff --check`.
 - Blockers, uncertainties, and risks:
-  - None remain.
+  - The currently installed service contains the old pipe creation code; a rebuilt setup must be installed to test the end-to-end fix.
+  - The ACL should permit intended local users while retaining a local-only named-pipe boundary.
 - Current build/test state:
-  - Release solution build with StyleCop succeeds with 0 warnings and 0 errors.
+  - Release solution build succeeds with 0 warnings and 0 errors.
   - Full solution tests pass: 51/51, 0 failed, 0 skipped.
-  - `git diff --check` and audit-report checks pass.
-  - No blockers remain for this phase.
+  - Setup payload rebuild succeeds.
+  - The installed service still needs replacement before end-to-end verification.

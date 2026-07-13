@@ -5,7 +5,6 @@ The CLI is intentionally small and local-first.
 ## Commands
 
 - `ows init`: initialize the current project and register its explicit root.
-- `ows agent run`: run the local Agent host.
 - `ows status`: show local initialization and Agent state.
 - `ows package [--output path] [--sign]`: create a `.owspkg` package.
 - `ows verify [package]`: verify a package offline.

@@ -1,7 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-
 namespace Ows.Cli;
 
 /// <summary>
@@ -14,14 +10,8 @@ public static class Program {
     /// <param name="args">The process arguments.</param>
     /// <returns>The process exit code.</returns>
     public static async Task<int> Main(string[] args) {
-        var builder = Host.CreateApplicationBuilder(args);
-        builder.Logging.AddSimpleConsole();
-
-        using var host = builder.Build();
-        var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("OWS");
-        logger.LogInformation("Starting OWS CLI.");
-
-        var parseResult = OwsCommandFactory.BuildRootCommand().Parse(args);
+        var rootCommand = OwsCommandFactory.BuildRootCommand();
+        var parseResult = rootCommand.Parse(args.Length == 0 ? ["--help"] : args);
         return await parseResult.InvokeAsync();
     }
 }

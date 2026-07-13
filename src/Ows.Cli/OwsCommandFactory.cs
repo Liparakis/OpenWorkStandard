@@ -12,9 +12,8 @@ public static class OwsCommandFactory {
     /// </summary>
     /// <returns>The configured root command.</returns>
     public static RootCommand BuildRootCommand() {
-        var rootCommand = new RootCommand("Open Work Standard command-line interface") {
+        var rootCommand = new RootCommand("Local-first OWS toolchain") {
             InitCommandBuilder.Build(),
-            AgentCommandBuilder.Build(),
             StatusCommandBuilder.Build(),
             PackageCommandBuilder.Build(),
             VerifyCommandBuilder.Build(),

@@ -15,7 +15,7 @@ public sealed class OwsCommandFactoryTests {
         var rootCommand = OwsCommandFactory.BuildRootCommand();
 
         rootCommand.Subcommands.Select(command => command.Name).Should().BeEquivalentTo(
-            ["init", "agent", "status", "package", "verify", "inspect", "report"]);
+            ["init", "status", "package", "verify", "inspect", "report"]);
         rootCommand.Subcommands.Single(command => command.Name == "package").Subcommands.Should().BeEmpty();
     }
 }

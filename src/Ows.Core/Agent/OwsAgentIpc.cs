@@ -1,6 +1,9 @@
 using System.IO.Pipes;
 using System.Net.Sockets;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
+using System.Security.Principal;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 
@@ -62,16 +65,43 @@ public sealed class OwsAgentIpcServer {
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the named pipe listener loop.</returns>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    [SupportedOSPlatform("windows")]
     private async Task RunNamedPipeAsync(CancellationToken cancellationToken) {
         var pipeName = OwsAgentIpcEndpoint.Get(_registry.RegistryPath);
         while (!cancellationToken.IsCancellationRequested) {
-            await using var server = new NamedPipeServerStream(
-                pipeName, PipeDirection.InOut, 1,
-                PipeTransmissionMode.Byte, PipeOptions.Asynchronous
+            await using var server = NamedPipeServerStreamAcl.Create(
+                pipeName,
+                PipeDirection.InOut,
+                1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous,
+                0,
+                0,
+                CreatePipeSecurity()
             );
             await server.WaitForConnectionAsync(cancellationToken);
             await HandleAsync(server, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Creates the local security descriptor for the Windows Agent pipe.
+    /// </summary>
+    /// <returns>A security descriptor allowing local users to connect to the Agent.</returns>
+    [SupportedOSPlatform("windows")]
+    private static PipeSecurity CreatePipeSecurity() {
+        var security = new PipeSecurity();
+        security.AddAccessRule(new PipeAccessRule(
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+            PipeAccessRights.FullControl,
+            AccessControlType.Allow
+        ));
+        security.AddAccessRule(new PipeAccessRule(
+            new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
+            PipeAccessRights.ReadWrite | PipeAccessRights.CreateNewInstance,
+            AccessControlType.Allow
+        ));
+        return security;
     }
 
     /// <summary>

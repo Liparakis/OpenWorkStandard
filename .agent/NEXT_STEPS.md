@@ -1,28 +1,27 @@
 # Next Steps
 
-1. Owner reviews the generated XML documentation, specifically the replaced TODO markers across src and tests, for semantic accuracy.
-2. Owner reviews the CLI test isolation fixture (CliFixture in CliCommandCollection.cs) that addresses the local machine permission/access conflicts.
-3. Keep the current changes unstaged unless the owner explicitly requests a commit.
+1. Run `artifacts/ows-setup/Ows.Setup.exe` with UAC approval to replace the installed Agent service.
+2. In a fresh project directory, run `ows init` and confirm it no longer reports Access denied.
+3. Confirm `Get-Service OwsAgent` is Running and the service responds to the user CLI.
+4. Keep the current changes unstaged unless the owner explicitly requests a commit.
 
 Current phase remaining:
 
-- Documentation analyzer and audit phase is complete; only owner review remains.
+- End-to-end validation requires installing the rebuilt service on the machine.
 
 Next roadmap phase:
 
-- None; begin a new phase only from an explicit owner request.
+- Resume the normal product roadmap after the Windows bootstrap smoke test.
 
 Prerequisites for the next phase:
 
-- Owner review of the generated documentation and analyzer scope.
+- Updated `OwsAgent.exe` installed and `ows init` verified from a new project directory.
 
 Deferred:
 
-- StyleCop formatting/style diagnostics, file-header policy, hosted verification or tamper anchoring, desktop UI, IDE adapters, management layers, signing-key rotation/revocation automation, and chain-preserving timeline retention/compaction.
+- StyleCop formatting/style diagnostics, hosted verification or tamper anchoring, desktop UI, IDE adapters, management layers, signing-key rotation/revocation automation, and chain-preserving timeline retention/compaction.
 
 Owner review:
 
-- Confirm generated summaries and replaced TODO markers do not overstate behavior.
-- Confirm the CLI test fixture is acceptable.
-- Confirm the documentation analyzer should remain documentation-focused in this phase.
-- Confirm the audit report is ready to keep as an operational artifact.
+- Confirm the rebuilt setup replaces the service and `ows init` succeeds as the interactive user.
+- Confirm setup extracts the payload and Services.msc points to the extracted executable.

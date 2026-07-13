@@ -396,6 +396,184 @@
 - Important context: the executable is self-contained; the installed service can use the copied single-file executable.
 - Files to inspect first: `artifacts/ows-setup/Ows.Setup.exe` and `src/Ows.Setup/Program.cs`.
 
+## 2026-07-13 — Windows setup embedded payload
+
+### Completed
+- Changed the setup build to publish a self-contained multi-file service payload first.
+- Embedded that payload as a ZIP resource in the single-file bootstrap.
+- Changed installation to safely extract the payload into Program Files before registering the service.
+
+### Changed
+- Added: embedded payload resource configuration and extraction logic.
+- Modified: `src/Ows.Setup/Ows.Setup.csproj`, `src/Ows.Setup/Program.cs`, and `scripts/windows/build-ows-setup.ps1`.
+- Deleted: none.
+
+### Validation
+- Build: solution Release build passed with 0 warnings and 0 errors.
+- Targeted tests: not run separately.
+- Full tests: 51/51 passed, 0 failed, 0 skipped.
+- Manual checks: setup publish succeeded; final bootstrap is 104.9 MB and includes the embedded payload.
+
+### Remaining
+- Run the installer with UAC and verify the extracted files, service start, Installed Apps registration, and uninstall flow.
+
+### Handoff
+- Exact next action: double-click `artifacts/ows-setup/Ows.Setup.exe`, then inspect `C:\Program Files\Open Work Standard` and Services.msc.
+- Important context: the bootstrap remains one EXE; the installed service now runs the extracted payload executable and dependencies.
+- Files to inspect first: `scripts/windows/build-ows-setup.ps1`, `src/Ows.Setup/Program.cs`, and `src/Ows.Setup/Ows.Setup.csproj`.
+
+## 2026-07-13 — Rename Windows Agent executable
+
+### Completed
+- Renamed the published bootstrap and extracted service executable to `OwsAgent.exe`.
+- Kept `--service` and `--uninstall` behavior unchanged.
+
+### Changed
+- Added: conditional setup-project assembly naming for publish output.
+- Modified: `Program.cs`, `Ows.Setup.csproj`, the Windows publish script, README, and student workflow documentation.
+- Deleted: none.
+
+### Validation
+- Build: Release solution build passed with 0 warnings and 0 errors.
+- Targeted tests: not run separately.
+- Full tests: 51/51 passed, 0 failed, 0 skipped.
+- Manual checks: publish output contains `OwsAgent.exe` at 110.0 MB; no `Ows.Setup.exe` output remains.
+
+### Remaining
+- Run the renamed installer with UAC and verify service registration uses the extracted `OwsAgent.exe` path.
+
+### Handoff
+- Exact next action: double-click `artifacts/ows-setup/OwsAgent.exe` and inspect Services.msc.
+- Important context: the final bootstrap and payload service now share the `OwsAgent.exe` name.
+- Files to inspect first: `artifacts/ows-setup/OwsAgent.exe`, `scripts/windows/build-ows-setup.ps1`, and `src/Ows.Setup/Program.cs`.
+
+## 2026-07-13 — Separate setup and service executable names
+
+### Completed
+- Corrected the publish naming split: bootstrap is `Ows.Setup.exe`; extracted service payload is `OwsAgent.exe`.
+
+### Changed
+- Added: no new files.
+- Modified: conditional publish naming, Windows build script checks, README, and student workflow documentation.
+- Deleted: none.
+
+### Validation
+- Build: Release solution build passed with 0 warnings and 0 errors.
+- Targeted tests: not run separately.
+- Full tests: prior publish-compatible solution result was 51/51 passed.
+- Manual checks: final output contains `Ows.Setup.exe`; payload publish log produced `OwsAgent.dll` before packaging.
+
+### Remaining
+- Run the installer and verify the extracted service path is `OwsAgent.exe`.
+
+### Handoff
+- Exact next action: double-click `artifacts/ows-setup/Ows.Setup.exe` and inspect the installed service command path.
+- Important context: `Ows.Setup.exe` is the future-capable bootstrap; `OwsAgent.exe` is the extracted service executable.
+- Files to inspect first: `scripts/windows/build-ows-setup.ps1` and `src/Ows.Setup/Program.cs`.
+
+## 2026-07-13 — Install the `ows` CLI with the bootstrap
+
+### Completed
+- Added the CLI to the embedded installer payload as `ows.exe` under the installed `cli` directory.
+- Added machine PATH registration during install and PATH cleanup during uninstall.
+
+### Changed
+- Added: conditional CLI assembly naming for the Windows payload.
+- Modified: `src/Ows.Cli/Ows.Cli.csproj`, `src/Ows.Setup/Program.cs`, `scripts/windows/build-ows-setup.ps1`, README, and student workflow documentation.
+- Deleted: none.
+
+### Validation
+- Build: Release solution build passed with 0 warnings and 0 errors.
+- Targeted tests: not run separately.
+- Full tests: 51/51 passed, 0 failed, 0 skipped.
+- Manual checks: setup publish included a separate CLI payload publish and completed successfully; `git diff --check` passed.
+
+### Remaining
+- Install the rebuilt bootstrap, open a new terminal, and run `ows --help`.
+
+### Handoff
+- Exact next action: double-click `artifacts/ows-setup/Ows.Setup.exe`, reopen PowerShell, then run `ows --help`.
+- Important context: existing terminals do not receive machine PATH changes until reopened.
+- Files to inspect first: `scripts/windows/build-ows-setup.ps1`, `src/Ows.Setup/Program.cs`, and `src/Ows.Cli/Ows.Cli.csproj`.
+
+## 2026-07-13 — Simplify empty CLI invocation
+
+### Completed
+- Removed the startup information log from the CLI.
+- Made `ows` with no command display help directly instead of reporting a required-command error.
+- Shortened the root help description to `Local-first OWS toolchain`.
+- Rebuilt the installer so the quieter CLI is included in its payload.
+
+### Changed
+- Added: no new files.
+- Modified: `src/Ows.Cli/Program.cs`, `src/Ows.Cli/OwsCommandFactory.cs`, and the rebuilt ignored setup artifact.
+- Deleted: none.
+
+### Validation
+- Build: Release solution build passed with 0 warnings and 0 errors.
+- Targeted tests: empty CLI invocation manually printed help without the old messages.
+- Full tests: 51/51 passed, 0 failed, 0 skipped.
+- Manual checks: setup publish completed with the updated CLI payload.
+
+### Remaining
+- Reinstall the rebuilt setup to update the already-installed `ows` executable.
+
+### Handoff
+- Exact next action: run `artifacts/ows-setup/Ows.Setup.exe`, reopen the terminal, and execute `ows`.
+- Important context: existing installed copies are unchanged until reinstall.
+- Files to inspect first: `src/Ows.Cli/Program.cs` and `src/Ows.Cli/OwsCommandFactory.cs`.
+
+## 2026-07-13 — Remove public Agent CLI commands
+
+### Completed
+- Removed `ows agent run` and `ows agent service` from the public CLI.
+- Deleted the unused Agent command builder and its CLI-only hosting dependencies.
+- Updated CLI tests, user guidance, initialization messaging, and rebuilt the installer payload.
+
+### Changed
+- Added: no new files.
+- Modified: `OwsCommandFactory.cs`, `InitCommandBuilder.cs`, `Ows.Cli.csproj`, CLI tests, workflow/CLI docs, and the setup payload build.
+- Deleted: `src/Ows.Cli/Commands/AgentCommandBuilder.cs`.
+
+### Validation
+- Build: Release solution build passed with 0 warnings and 0 errors.
+- Targeted tests: command surface test updated and passed.
+- Full tests: 51/51 passed, 0 failed, 0 skipped.
+- Manual checks: no `ows agent` references remain in active CLI/docs; setup publish completed.
+
+### Remaining
+- Reinstall the rebuilt setup if the installed CLI still shows the old `agent` command.
+
+### Handoff
+- Exact next action: reinstall `artifacts/ows-setup/Ows.Setup.exe`, reopen the terminal, and run `ows --help`.
+- Important context: Agent lifecycle is now installer/service-owned; the CLI exposes only user workflow and review commands.
+- Files to inspect first: `src/Ows.Cli/OwsCommandFactory.cs`, `src/Ows.Cli/Ows.Cli.csproj`, and `src/Ows.Setup/Program.cs`.
+
+## 2026-07-13 — Fix locked DLL during setup replacement
+
+### Completed
+- Traced the setup failure to deleting the install directory immediately after SCM reported `STOPPED`.
+- Added a bounded wait for the service process itself to exit before replacing or deleting payload files.
+
+### Changed
+- Added: service PID lookup and process-exit wait in `src/Ows.Setup/Program.cs`.
+- Modified: rebuilt setup payload.
+- Deleted: none.
+
+### Validation
+- Build: Release solution build passed with 0 warnings and 0 errors.
+- Targeted tests: not run separately.
+- Full tests: 51/51 passed, 0 failed, 0 skipped.
+- Manual checks: setup publish completed; `git diff --check` passed.
+
+### Remaining
+- Install/update the rebuilt setup and confirm the previously locked DLL replacement succeeds on the affected machine.
+
+### Handoff
+- Exact next action: run `artifacts/ows-setup/Ows.Setup.exe` again with UAC approval.
+- Important context: SCM `STOPPED` is not treated as sufficient; the recorded service PID must also exit before payload deletion.
+- Files to inspect first: `src/Ows.Setup/Program.cs` and `scripts/windows/build-ows-setup.ps1`.
+
 ## 2026-07-13 — Replace XML Documentation TODOs and CLI Test Isolation
 
 ### Completed
@@ -420,3 +598,29 @@
 - Exact next action: owner reviews the changes and executes `dotnet test OWS.sln -c Release --no-restore -nologo` to verify.
 - Important context: all changes are kept unstaged; no runtime production behavior was altered.
 - Files to inspect first: `tests/Ows.Cli.Tests/CliCommandCollection.cs` and `tests/Ows.Cli.Tests/CliHardeningTests.cs`.
+
+## 2026-07-13 — Fix Windows Agent named-pipe access
+
+### Completed
+- Confirmed `ows init` created project metadata and shared registration before failing during the Agent ping.
+- Identified the failure as the interactive user being denied access to the LocalSystem Agent's named pipe.
+- Added an explicit Windows pipe ACL for local Users and LocalSystem.
+
+### Changed
+- Added: Windows named-pipe security descriptor in `src/Ows.Core/Agent/OwsAgentIpc.cs`.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`.
+- Deleted: none.
+
+### Validation
+- Build: Release solution passed with 0 warnings and 0 errors.
+- Targeted tests: existing Agent IPC tests passed as part of the full suite.
+- Full tests: 51/51 passed, 0 failed, 0 skipped.
+- Manual checks: setup payload rebuilt at `artifacts/ows-setup/Ows.Setup.exe`; `git diff --check` pending.
+
+### Remaining
+- Install the rebuilt setup so the service runs the corrected Agent binary, then retry `ows init` in a fresh directory.
+
+### Handoff
+- Exact next action: run `artifacts/ows-setup/Ows.Setup.exe`, approve UAC, then run `ows init` from a new project directory.
+- Important context: the current installed service still has the old named-pipe ACL until setup replacement completes; existing `.ows` metadata is safe to retry.
+- Files to inspect first: `src/Ows.Core/Agent/OwsAgentIpc.cs` and `src/Ows.Setup/Program.cs`.

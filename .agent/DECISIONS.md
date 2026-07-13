@@ -160,6 +160,16 @@
 - Consequences: Uninitialized directories remain outside observation; secure local IPC and non-Windows service adapters remain future work.
 - Replaces: `Agent registration is local, explicit, and project-root scoped`.
 
+## Windows Agent IPC grants local interactive users access
+
+- Date: 2026-07-13
+- Status: Accepted
+- Context: The Windows Agent runs as LocalSystem, while `ows init` runs as the interactive user and must ping the local Agent after registering a project.
+- Decision: The Windows named pipe grants the local Users group read/write and connection access, while LocalSystem retains full control; command validation remains in the Agent server.
+- Reasoning: The pipe is local-only coordination, not a project-data transport. An explicit ACL fixes the service/user boundary without storing credentials or weakening project registration checks.
+- Consequences: A rebuilt Agent service is required for the ACL to take effect; non-Windows IPC behavior is unchanged.
+- Replaces: None.
+
 ## Windows-first Agent service uses the real Service Control Manager host
 
 - Date: 2026-07-13

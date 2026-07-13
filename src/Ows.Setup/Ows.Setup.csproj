@@ -7,11 +7,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName Condition="'$(OwsAgentPayload)' == 'true'">OwsAgent</AssemblyName>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Ows.Core\Ows.Core.csproj" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.9" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Ows.Core\Ows.Core.csproj"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.9"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(PayloadArchivePath)' != '' and Exists('$(PayloadArchivePath)')">
+        <EmbeddedResource Include="$(PayloadArchivePath)" LogicalName="ows-payload.zip"/>
+    </ItemGroup>
 
 </Project>

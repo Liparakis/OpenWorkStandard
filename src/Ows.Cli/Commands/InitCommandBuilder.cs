@@ -31,7 +31,7 @@ public static class InitCommandBuilder {
                     var registrationMessage = registered ? "registered" : "already registered";
                     response.Message = agentAvailable
                         ? $"OWS initialized and {registrationMessage} with the local Agent at {Path.Combine(projectRoot, OwsConstants.LocalFolderName)}"
-                        : "OWS initialized and registered, but the local Agent is unavailable. Install/start the OWS Agent service or run 'ows agent run', then retry 'ows init'.";
+                        : "OWS initialized and registered, but the local Agent is unavailable. Install or start the OWS Agent, then retry 'ows init'.";
                 } catch (Exception ex) {
                     response.Success = false;
                     response.Errors.Add(OwsCommandFactory.GetFriendlyErrorMessage(ex));
