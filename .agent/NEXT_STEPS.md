@@ -1,21 +1,20 @@
 # Next Steps
 
-1. Run `artifacts/ows-setup/Ows.Setup.exe` with UAC approval to replace the installed Agent service.
-2. In a fresh project directory, run `ows init` and confirm it no longer reports Access denied.
-3. Confirm `Get-Service OwsAgent` is Running and the service responds to the user CLI.
+1. Review the deletion of `EventCatalogTests.cs`.
+2. Commit and push the CI cleanup when approved.
 4. Keep the current changes unstaged unless the owner explicitly requests a commit.
 
 Current phase remaining:
 
-- End-to-end validation requires installing the rebuilt service on the machine.
+- CI validation for this failure is complete; owner review remains.
 
 Next roadmap phase:
 
-- Resume the normal product roadmap after the Windows bootstrap smoke test.
+- Resume the normal product roadmap after CI is green.
 
 Prerequisites for the next phase:
 
-- Updated `OwsAgent.exe` installed and `ows init` verified from a new project directory.
+- Owner approval to commit and push.
 
 Deferred:
 
@@ -23,5 +22,4 @@ Deferred:
 
 Owner review:
 
-- Confirm the rebuilt setup replaces the service and `ows init` succeeds as the interactive user.
-- Confirm setup extracts the payload and Services.msc points to the extracted executable.
+- Confirm CI no longer references deleted documentation.

@@ -624,3 +624,28 @@
 - Exact next action: run `artifacts/ows-setup/Ows.Setup.exe`, approve UAC, then run `ows init` from a new project directory.
 - Important context: the current installed service still has the old named-pipe ACL until setup replacement completes; existing `.ows` metadata is safe to retry.
 - Files to inspect first: `src/Ows.Core/Agent/OwsAgentIpc.cs` and `src/Ows.Setup/Program.cs`.
+
+## 2026-07-13 — Remove stale event catalog tests
+
+### Completed
+- Traced the CI failure to two tests looking for documentation files removed by the intentional legacy-doc cleanup.
+- Removed the obsolete `EventCatalogTests` instead of restoring deleted documentation or coupling test output to repository docs.
+
+### Changed
+- Added: none.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`.
+- Deleted: `tests/Ows.Core.Tests/EventCatalogTests.cs`.
+
+### Validation
+- Build: Debug solution build passed with 0 warnings and 0 errors.
+- Targeted tests: not run separately.
+- Full tests: `dotnet test --no-build` passed 49/49, 0 failed, 0 skipped.
+- Manual checks: `git diff --check` passed.
+
+### Remaining
+- Owner review, then commit and push if approved.
+
+### Handoff
+- Exact next action: review the test deletion and commit/push the CI cleanup if approved.
+- Important context: `docs/core/EVENT_CATALOG.md` and `docs/core/EVENT_SCHEMA.md` were intentionally deleted in the legacy documentation cleanup.
+- Files to inspect first: `tests/Ows.Core.Tests/EventCatalogTests.cs` deletion and `.agent/CURRENT_TASK.md`.

@@ -1,40 +1,33 @@
 # Current Task
 
-- Phase: Windows Agent IPC reliability
-- Objective: allow the interactive Windows user to complete `ows init` against the silently running LocalSystem Agent without weakening project or registry boundaries.
+- Phase: CI cleanup after legacy documentation removal
+- Objective: restore CI by removing tests for documentation files intentionally deleted from the unreleased product.
 - Agreed scope:
-  - Correct the Windows named-pipe access control used by `OwsAgentIpcServer`.
-  - Preserve local-only IPC and the existing explicit-project validation.
-  - Keep the CLI's recoverable initialization behavior intact.
+  - Remove the stale `EventCatalogTests` that require deleted `docs/core/EVENT_CATALOG.md` and `docs/core/EVENT_SCHEMA.md`.
+  - Validate the exact no-build test workflow used by CI after rebuilding.
 - Explicit non-goals:
-  - Do not change project registration, service identity, or the user workflow.
-  - Do not hide `UnauthorizedAccessException` as a substitute for fixing the pipe ACL.
-  - Do not add remote verification, authentication, or unrelated installer behavior.
+  - Do not restore deleted legacy documentation.
+  - Do not copy repository documentation into test output.
+  - Do not alter runtime behavior.
 - Relevant existing architecture:
-  - The Windows Agent runs as LocalSystem through SCM.
-  - `ows init` writes `.ows` metadata and registers the project in the shared ProgramData registry before pinging the Agent.
-  - `OwsAgentIpcServer` uses a Windows named pipe and Unix domain sockets elsewhere; the pipe must grant local interactive users access.
+  - The repository intentionally removed unreleased legacy documentation under `docs/core`.
+  - CI runs tests from `bin/Debug/net9.0` with `dotnet test --no-build`.
 - Files currently being inspected or changed:
-  - `src/Ows.Core/Agent/OwsAgentIpc.cs`
-  - `src/Ows.Core/Ows.Core.csproj` if the platform ACL API requires a package reference
+  - `tests/Ows.Core.Tests/EventCatalogTests.cs`
   - `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`
 - Implementation checklist:
-  - [x] Confirm the available .NET named-pipe ACL API and avoid an unnecessary dependency.
-  - [x] Create the pipe with an ACL that permits local users to connect.
-  - [x] Keep the server's command validation unchanged.
-  - [x] Rebuild the solution and setup payload.
-  - [ ] Run diff checks.
-  - [ ] Install the rebuilt service and verify end to end.
+  - [x] Confirm the event catalog files were intentionally deleted.
+  - [x] Remove the stale test.
+  - [x] Rebuild the solution.
+  - [x] Run `dotnet test --no-build`.
+  - [x] Run diff checks.
 - Tests required before completion:
-  - Full Release solution build.
-  - Full Release solution tests.
-  - Rebuild `artifacts/ows-setup/Ows.Setup.exe` with the updated Agent payload.
+  - Solution build.
+  - `dotnet test --no-build` from the repository root.
   - `git diff --check`.
 - Blockers, uncertainties, and risks:
-  - The currently installed service contains the old pipe creation code; a rebuilt setup must be installed to test the end-to-end fix.
-  - The ACL should permit intended local users while retaining a local-only named-pipe boundary.
+  - None after the stale test is removed; this is a test/documentation consistency issue.
 - Current build/test state:
-  - Release solution build succeeds with 0 warnings and 0 errors.
-  - Full solution tests pass: 51/51, 0 failed, 0 skipped.
-  - Setup payload rebuild succeeds.
-  - The installed service still needs replacement before end-to-end verification.
+  - Build succeeds with 0 warnings and 0 errors.
+  - `dotnet test --no-build` passes 49/49 tests: Core 39, CLI 10.
+  - `git diff --check` passes.
