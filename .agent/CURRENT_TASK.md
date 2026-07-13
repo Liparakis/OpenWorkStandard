@@ -58,6 +58,7 @@
   - The worktree contains broad pre-existing user changes from Phases 1–8 and remains intentionally uncommitted.
   - The old visible Scheduled Tasks are transitional residue and must be removed; the requested product path is SCM only.
   - SCM installation requires UAC elevation, but the service will run as LocalSystem and must use a machine-scoped explicit-project registry rather than a user-only registry.
+  - The remaining lifecycle evidence is blocked on owner-approved UAC elevation; the current shell is a non-administrator account.
   - Uninstall/reinstall must wait for the SCM process to stop before deleting the installed executable.
   - Release candidate evidence still requires human sign-off; passing tests do not make OWS institutional-grade.
   - The event timeline is intentionally append-only; chain-preserving retention/compaction is not part of the current package format, so very long-lived projects may grow `.ows/timeline.jsonl`.

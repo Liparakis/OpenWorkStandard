@@ -1256,3 +1256,29 @@
 - Exact next action: Run the current `artifacts\ows-setup\Ows.Setup.exe` as Administrator.
 - Important context: Expected post-install recovery output should show three restart actions at 5000, 30000, and 60000 milliseconds.
 - Files to inspect first: `src/Ows.Setup/Program.cs`, `.agent/NEXT_STEPS.md`, and `docs/development/RELEASE_READINESS.md`.
+
+## 2026-07-13 — UAC-gated lifecycle handoff
+
+### Completed
+- Exhausted safe non-administrator checks for the installer lifecycle.
+- Confirmed the current service is healthy but still runs the older payload without recovery actions.
+- Preserved a precise owner handoff for the one remaining external validation path.
+
+### Changed
+- Added: no product files.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, and `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Last build passed with 0 warnings and 0 errors.
+- Targeted tests: Setup publish and native `sc.exe` argument parsing validated.
+- Full tests: Core 131/131 and CLI/server 80/80 passed.
+- Manual checks: Service Running/Automatic/LocalSystem; `RESET_PERIOD: 0`; current artifact and installed payload hashes differ; worktree clean.
+
+### Remaining
+- Owner-approved UAC reinstall, recovery-policy verification, Installed apps uninstall cleanup, and human release sign-off.
+
+### Handoff
+- Exact next action: Owner runs the current setup artifact as Administrator, then checks `sc.exe qfailure OwsAgent` and the Installed apps uninstall path.
+- Important context: This goal is blocked on that external elevation; no further safe repository-side change can prove the live lifecycle.
+- Files to inspect first: `.agent/NEXT_STEPS.md`, `src/Ows.Setup/Program.cs`, and `docs/development/RELEASE_READINESS.md`.

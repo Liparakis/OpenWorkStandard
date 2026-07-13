@@ -1,6 +1,6 @@
 # Next Steps
 
-1. Run the current `artifacts\ows-setup\Ows.Setup.exe` with UAC approval to replace the older installed payload.
+1. Owner action required: run the current `artifacts\ows-setup\Ows.Setup.exe` with UAC approval to replace the older installed payload.
 2. Confirm `OWS Agent` remains Running/Automatic/LocalSystem and points to the current payload.
 3. Use Add/Remove Programs to remove the service, installed payload, and uninstall entry; choose shared-data deletion only when intended.
 4. Owner reviews repository history, license, generated artifacts, and current worktree scope.
