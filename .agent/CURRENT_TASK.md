@@ -20,7 +20,7 @@
   - [x] Remove `HadSnapshotFile` and its assignment.
   - [x] Confirm no source/test references remain.
   - [x] Run focused and full validation.
-  - [ ] Commit only this cleanup and continuity notes; preserve unrelated user changes.
+  - [x] Commit only this cleanup and continuity notes; preserve unrelated user changes.
 - Tests required before completion:
   - `dotnet test tests/Ows.Core.Tests/Ows.Core.Tests.csproj -nologo`
   - `dotnet test OWS.sln -nologo`
@@ -33,4 +33,4 @@
   - Core tests pass: 41/41.
   - Full solution tests pass: Core 41/41 and CLI 10/10.
   - Release build passes with 0 warnings/errors.
-  - `git diff --check` passes; unrelated Agent/scanning changes remain unstaged.
+  - `git diff --check` passes; cleanup committed as `6d7b7e6`; unrelated Agent/scanning changes remain unstaged.

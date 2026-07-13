@@ -1,10 +1,9 @@
 # Next Steps
 
-1. Commit the scoped `HadSnapshotFile` cleanup and continuity notes without staging unrelated Agent/scanning changes.
-2. Owner reviews commits `6001de1`, `8f9fc3b`, `6856367`, and the new cleanup commit, plus the history, license, and manual Windows Agent lifecycle evidence.
-3. Decide separately whether the existing Agent/scanning working-tree changes should be retained and committed.
-4. Owner confirms the local tamper-detection boundary and release candidate.
-5. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
+1. Owner reviews commits `6001de1`, `8f9fc3b`, `6856367`, and `6d7b7e6`, plus the history, license, and manual Windows Agent lifecycle evidence.
+2. Decide separately whether the existing Agent/scanning working-tree changes should be retained and committed.
+3. Owner confirms the local tamper-detection boundary and release candidate.
+4. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
 
 Current phase remaining:
 

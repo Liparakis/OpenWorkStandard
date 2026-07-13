@@ -287,9 +287,9 @@
 - Manual checks: no source/test references remain; `git diff --check` passed.
 
 ### Remaining
-- Commit this scoped cleanup and notes; unrelated Agent/scanning changes remain unstaged.
+- None for this cleanup; unrelated Agent/scanning changes remain unstaged for separate review.
 
 ### Handoff
-- Exact next action: stage only `ObservedSnapshotStore.cs` and the continuity notes, then commit.
+- Exact next action: owner reviews commit `6d7b7e6`; keep the unrelated Agent/scanning changes separate.
 - Important context: The local `hadSnapshotFile` variable remains required to detect and parse an existing snapshot; only the unused result accessor was removed.
 - Files to inspect first: `src/Ows.Core/Agent/Snapshot/ObservedSnapshotStore.cs` and `git status --short`.
