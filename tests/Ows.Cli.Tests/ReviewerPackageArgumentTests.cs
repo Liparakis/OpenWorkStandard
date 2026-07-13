@@ -5,8 +5,15 @@ using Ows.Core.Packaging;
 
 namespace Ows.Cli.Tests;
 
+/// <summary>
+/// Represents the <see cref="ReviewerPackageArgumentTests"/> type.
+/// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class ReviewerPackageArgumentTests {
+    /// <summary>
+    /// Verifies that the reviewer commands (verify, inspect, report) accept a package file path located outside the current working directory.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task ReviewerCommands_ShouldAcceptPackagePathOutsideCurrentDirectory() {
         var packageRoot = Path.Combine(Path.GetTempPath(), $"ows-review-package-{Guid.NewGuid():N}");

@@ -3,9 +3,20 @@ using Ows.Core.Verification;
 
 namespace Ows.Core.Reporting.Renderers;
 
+/// <summary>
+/// Represents the <see cref="JsonReportRenderer"/> type.
+/// </summary>
 internal static class JsonReportRenderer {
+    /// <summary>
+    /// Serialization options configured for indented JSON report rendering.
+    /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
+    /// <summary>
+    /// Serializes a verification result into a structured JSON string.
+    /// </summary>
+    /// <returns>A JSON string containing the formatted verification report.</returns>
+    /// <param name="res">The verification result to serialize.</param>
     public static string BuildJsonReport(VerificationResult res) => JsonSerializer.Serialize(
         new {
             status = res.TrustStatus.ToString(),

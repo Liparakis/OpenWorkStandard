@@ -7,13 +7,36 @@ using Ows.Core.Agent;
 
 namespace Ows.Setup;
 
+/// <summary>
+/// Represents the <see cref="Program"/> type.
+/// </summary>
 internal static class Program {
+    /// <summary>
+    /// The name of the OWS Agent Windows Service.
+    /// </summary>
     private const string ServiceName = "OwsAgent";
+    /// <summary>
+    /// The display name of the OWS Agent Windows Service.
+    /// </summary>
     private const string DisplayName = "OWS Agent";
+    /// <summary>
+    /// The directory name where the OWS Agent program files are installed.
+    /// </summary>
     private const string InstallDirectoryName = "Open Work Standard";
+    /// <summary>
+    /// The directory name where the OWS Agent shared data is stored.
+    /// </summary>
     private const string DataDirectoryName = "OpenWorkStandard";
+    /// <summary>
+    /// The timeout duration allowed for stopping the OWS Agent service.
+    /// </summary>
     private static readonly TimeSpan ServiceStopTimeout = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// The entry point of the setup/installer program.
+    /// </summary>
+    /// <returns>The exit code of the program (0 for success, 1 for failure).</returns>
+    /// <param name="args">Command-line arguments.</param>
     public static async Task<int> Main(string[] args) {
         try {
             if (args.Any(argument => string.Equals(argument, "--service", StringComparison.OrdinalIgnoreCase))) {
@@ -39,6 +62,10 @@ internal static class Program {
         }
     }
 
+    /// <summary>
+    /// Runs the OWS Agent inside the application builder as a Windows Service.
+    /// </summary>
+    /// <returns>A task containing the exit code (always 0 on completion).</returns>
     private static async Task<int> RunServiceAsync() {
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddWindowsService(options => options.ServiceName = DisplayName);
@@ -48,6 +75,9 @@ internal static class Program {
         return 0;
     }
 
+    /// <summary>
+    /// Installs the program files and registers/starts the Windows Service.
+    /// </summary>
     private static void Install() {
         var sourcePath = Environment.ProcessPath ??
                          throw new InvalidOperationException("Could not locate Ows.Setup.exe.");
@@ -67,6 +97,10 @@ internal static class Program {
         RegisterUninstallEntry(servicePath);
     }
 
+    /// <summary>
+    /// Stops and removes the Windows Service, deletes the uninstall registry entry, and removes files.
+    /// </summary>
+    /// <param name="purgeData">Whether the shared data folder should also be deleted.</param>
     private static void Uninstall(bool purgeData) {
         if (!purgeData) {
             var choice = MessageBox(
@@ -95,6 +129,10 @@ internal static class Program {
         );
     }
 
+    /// <summary>
+    /// Registers the program as a Windows Service using sc.exe.
+    /// </summary>
+    /// <param name="servicePath">The path to the installed executable.</param>
     private static void CreateService(string servicePath) {
         RunTool(
             "sc.exe", [
@@ -120,6 +158,9 @@ internal static class Program {
         );
     }
 
+    /// <summary>
+    /// Stops and deletes the OWS Agent Windows Service if it exists.
+    /// </summary>
     private static void RemoveService() {
         var query = RunTool("sc.exe", $"query {ServiceName}", allowFailure: true);
         if (query.ExitCode != 0) {
@@ -159,6 +200,10 @@ internal static class Program {
         RunTool("sc.exe", $"delete {ServiceName}", allowFailure: true);
     }
 
+    /// <summary>
+    /// Writes registry keys to create an entry in the Windows Programs and Features uninstall list.
+    /// </summary>
+    /// <param name="servicePath">The path to the installed executable.</param>
     private static void RegisterUninstallEntry(string servicePath) {
         using var key = Registry.LocalMachine.CreateSubKey(
                             @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OpenWorkStandard"
@@ -175,6 +220,9 @@ internal static class Program {
         key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
     }
 
+    /// <summary>
+    /// Deletes the OWS Agent uninstall key tree from the Windows registry.
+    /// </summary>
     private static void RemoveUninstallEntry() {
         Registry.LocalMachine.DeleteSubKeyTree(
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OpenWorkStandard",
@@ -182,6 +230,11 @@ internal static class Program {
         );
     }
 
+    /// <summary>
+    /// Launches a background process that waits for this process to exit before deleting directories.
+    /// </summary>
+    /// <param name="installDirectory">The installation directory path.</param>
+    /// <param name="dataDirectory">The data directory path, or null to preserve it.</param>
     private static void ScheduleRemoval(string installDirectory, string? dataDirectory) {
         var commands = new List<string> {
             "timeout /t 2 /nobreak >nul",
@@ -202,18 +255,36 @@ internal static class Program {
         );
     }
 
+    /// <summary>
+    /// Creates the shared data directory and configures its access permissions.
+    /// </summary>
     private static void PrepareSharedDataDirectory() {
         var dataDirectory = GetDataDirectory();
         Directory.CreateDirectory(dataDirectory);
         RunTool("icacls.exe", $"\"{dataDirectory}\" /grant *S-1-5-32-545:(OI)(CI)M /T");
     }
 
+    /// <summary>
+    /// Gets the absolute installation path within Program Files.
+    /// </summary>
+    /// <returns>The absolute directory path string.</returns>
     private static string GetInstallDirectory() =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), InstallDirectoryName);
 
+    /// <summary>
+    /// Gets the absolute shared data path within CommonApplicationData.
+    /// </summary>
+    /// <returns>The absolute directory path string.</returns>
     private static string GetDataDirectory() =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), DataDirectoryName);
 
+    /// <summary>
+    /// Launches a command-line tool synchronously with redirect inputs and returns the execution results.
+    /// </summary>
+    /// <returns>The execution result containing exit code, standard output, and standard error.</returns>
+    /// <param name="fileName">The executable name or path.</param>
+    /// <param name="arguments">The command-line argument string.</param>
+    /// <param name="allowFailure">Whether a non-zero exit code is allowed without throwing an exception.</param>
     private static ToolResult RunTool(string fileName, string arguments, bool allowFailure = false) {
         return RunTool(
             new ProcessStartInfo {
@@ -227,6 +298,12 @@ internal static class Program {
         );
     }
 
+    /// <summary>
+    /// Launches a command-line tool with a list of arguments and throws on failure if disallowed.
+    /// </summary>
+    /// <param name="fileName">The executable name or path.</param>
+    /// <param name="arguments">The list of arguments to pass to the executable.</param>
+    /// <param name="allowFailure">Whether a non-zero exit code is allowed without throwing an exception.</param>
     private static void RunTool(
         string fileName,
         IReadOnlyCollection<string> arguments,
@@ -246,6 +323,12 @@ internal static class Program {
         RunTool(startInfo, allowFailure);
     }
 
+    /// <summary>
+    /// Core helper that starts a process, reads output synchronously, waits for exit, and returns the result.
+    /// </summary>
+    /// <returns>The execution result containing exit code, standard output, and standard error.</returns>
+    /// <param name="startInfo">The process start configuration.</param>
+    /// <param name="allowFailure">Whether a non-zero exit code is allowed without throwing an exception.</param>
     private static ToolResult RunTool(ProcessStartInfo startInfo, bool allowFailure) {
         using var process = Process.Start(startInfo) ??
                             throw new InvalidOperationException($"Could not start {startInfo.FileName}.");
@@ -262,15 +345,37 @@ internal static class Program {
         return result;
     }
 
+    /// <summary>
+    /// Shows a message box dialogue with the specified message and caption.
+    /// </summary>
+    /// <param name="message">The message text to display.</param>
+    /// <param name="caption">The window title caption.</param>
+    /// <param name="type">The message box window style/type.</param>
     private static void ShowMessage(string message, string caption, uint type = 0x00000040) =>
         MessageBox(IntPtr.Zero, message, caption, type);
 
+    /// <summary>
+    /// Native Win32 MessageBox function from user32.dll.
+    /// </summary>
+    /// <returns>The button identifier clicked by the user.</returns>
+    /// <param name="hWnd">Handle to the owner window.</param>
+    /// <param name="text">The message to display.</param>
+    /// <param name="caption">The dialog title.</param>
+    /// <param name="type">The message box style flags.</param>
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
 
     private sealed record ToolResult(int ExitCode, string Output, string Error);
 
+    /// <summary>
+    /// Represents the <see cref="WindowsAgentHostedService"/> type.
+    /// </summary>
     private sealed class WindowsAgentHostedService : BackgroundService {
+        /// <summary>
+        /// Asynchronously executes the background hosted service by running the OWS Agent host.
+        /// </summary>
+        /// <returns>A <see cref="Task"/> representing the asynchronous service operation.</returns>
+        /// <param name="stoppingToken">A token triggered when the background service is stopped.</param>
         protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
             new OwsAgentHost(new OwsProjectRegistry()).RunAsync(stoppingToken);
     }

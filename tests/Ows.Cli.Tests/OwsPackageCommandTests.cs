@@ -11,6 +11,7 @@ public sealed class OwsPackageCommandTests {
     /// <summary>
     /// Verifies that the package command emits a .owspkg archive from local OWS state.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task PackageCommand_ShouldCreateOwsPackageInCurrentDirectory() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-package-{Guid.NewGuid():N}");

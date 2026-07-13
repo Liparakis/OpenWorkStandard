@@ -11,6 +11,7 @@ public sealed class OwsInitCommandTests {
     /// <summary>
     /// Verifies that the init command creates local OWS state in the current directory.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task InitCommand_ShouldCreateLocalOwsStateInCurrentDirectory() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-init-{Guid.NewGuid():N}");

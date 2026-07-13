@@ -48,6 +48,9 @@ public sealed class OwsIgnoreEngine {
         }.Concat(DefaultPatterns)
     ) + Environment.NewLine;
 
+    /// <summary>
+    /// The parsed ignore rules.
+    /// </summary>
     private readonly IgnoreRule[] _rules;
 
     /// <summary>
@@ -102,6 +105,11 @@ public sealed class OwsIgnoreEngine {
         return normalizedPath is not null && _rules.Any(rule => rule.Matches(normalizedPath, isDirectory));
     }
 
+    /// <summary>
+    /// Parses a raw rule string from an ignore file into an IgnoreRule instance.
+    /// </summary>
+    /// <returns>An <see cref="IgnoreRule"/> representing the parsed rule, or <see langword="null"/> if the rule is empty, a comment, or invalid.</returns>
+    /// <param name="rawRule">The raw ignore pattern string to parse.</param>
     private static IgnoreRule? ParseRule(string? rawRule) {
         if (string.IsNullOrWhiteSpace(rawRule)) {
             return null;
@@ -125,6 +133,11 @@ public sealed class OwsIgnoreEngine {
             : new IgnoreRule(pattern, rooted, directory);
     }
 
+    /// <summary>
+    /// Normalizes a relative path by replacing separators and stripping leading/trailing slashes.
+    /// </summary>
+    /// <returns>The normalized path string, or <see langword="null"/> if the path is invalid or references parent directories.</returns>
+    /// <param name="relativePath">The relative path to normalize.</param>
     private static string? NormalizeRelativePath(string relativePath) {
         if (string.IsNullOrWhiteSpace(relativePath) || Path.IsPathRooted(relativePath)) {
             return null;
@@ -140,9 +153,21 @@ public sealed class OwsIgnoreEngine {
             : normalized.Trim('/');
     }
 
+    /// <summary>
+    /// Represents the <see cref="IgnoreRule"/> type.
+    /// </summary>
     private sealed class IgnoreRule {
+        /// <summary>
+        /// The regular expression used to evaluate path matches for this rule.
+        /// </summary>
         private readonly Regex _regex;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IgnoreRule"/> class.
+        /// </summary>
+        /// <param name="pattern">The rule pattern.</param>
+        /// <param name="rooted">Indicates if the pattern is anchored to the root path.</param>
+        /// <param name="directory">Indicates if the pattern matches directories only.</param>
         public IgnoreRule(string pattern, bool rooted, bool directory) {
             Pattern = pattern;
             Rooted = rooted;
@@ -151,11 +176,29 @@ public sealed class OwsIgnoreEngine {
             _regex = new Regex(BuildRegex(pattern), RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         }
 
+        /// <summary>
+        /// Gets the <see cref="Pattern"/> value.
+        /// </summary>
         private string Pattern { get; }
+        /// <summary>
+        /// Gets the <see cref="Rooted"/> value.
+        /// </summary>
         private bool Rooted { get; }
+        /// <summary>
+        /// Gets the <see cref="Directory"/> value.
+        /// </summary>
         private bool Directory { get; }
+        /// <summary>
+        /// Gets the <see cref="HasSlash"/> value.
+        /// </summary>
         private bool HasSlash { get; }
 
+        /// <summary>
+        /// Evaluates if this ignore rule matches the specified normalized path.
+        /// </summary>
+        /// <returns><see langword="true"/> if the rule matches the path; otherwise, <see langword="false"/>.</returns>
+        /// <param name="normalizedPath">The normalized path to check.</param>
+        /// <param name="isDirectory">Whether the target path points to a directory.</param>
         public bool Matches(string normalizedPath, bool isDirectory) {
             var segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
             if (segments.Length == 0) {
@@ -190,6 +233,11 @@ public sealed class OwsIgnoreEngine {
             return fileSegments.Any(segment => _regex.IsMatch(segment));
         }
 
+        /// <summary>
+        /// Converts a wildcard pattern into a matching regular expression string.
+        /// </summary>
+        /// <returns>A regular expression string representation of the pattern.</returns>
+        /// <param name="pattern">The raw pattern containing wildcards.</param>
         private static string BuildRegex(string pattern) {
             var escaped = Regex.Escape(pattern)
                                .Replace("\\*", "[^/]*", StringComparison.Ordinal)

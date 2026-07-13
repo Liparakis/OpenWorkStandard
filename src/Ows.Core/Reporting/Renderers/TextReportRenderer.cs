@@ -3,7 +3,15 @@ using Ows.Core.Verification;
 
 namespace Ows.Core.Reporting.Renderers;
 
+/// <summary>
+/// Represents the <see cref="TextReportRenderer"/> type.
+/// </summary>
 internal static class TextReportRenderer {
+    /// <summary>
+    /// Builds a human-readable text verification report for a verification result.
+    /// </summary>
+    /// <returns>A formatted text report string.</returns>
+    /// <param name="res">The verification result to build the report for.</param>
     public static string BuildTextReport(VerificationResult res) {
         var builder = new StringBuilder();
         builder.AppendLine("OWS Verification Report");
@@ -61,6 +69,11 @@ internal static class TextReportRenderer {
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Returns a list of suggested reviewer actions based on the package's trust status.
+    /// </summary>
+    /// <returns>A read-only list of string suggestions.</returns>
+    /// <param name="status">The trust status of the verification result.</param>
     private static IReadOnlyList<string> GetReviewSuggestions(TrustStatus status) => status switch {
         TrustStatus.Verified => ["- None. The package is locally verified."],
         TrustStatus.Degraded => ["- Review the timeline around the reported observation gap."],

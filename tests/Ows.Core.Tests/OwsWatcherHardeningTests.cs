@@ -9,7 +9,14 @@ using Xunit;
 
 namespace Ows.Core.Tests;
 
+/// <summary>
+/// Represents the <see cref="OwsWatcherHardeningTests"/> type.
+/// </summary>
 public sealed class OwsWatcherHardeningTests {
+    /// <summary>
+    /// Verifies that the watcher process correctly detects and recovers from a stale PID lock file.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task Watcher_ShouldRecoverFromStalePidLock() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-stale-test-{Guid.NewGuid():N}");
@@ -57,6 +64,10 @@ public sealed class OwsWatcherHardeningTests {
         }
     }
 
+    /// <summary>
+    /// Verifies that starting a duplicate watcher on the same project root is prevented.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task Watcher_ShouldPreventDuplicateStarts() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-dup-test-{Guid.NewGuid():N}");
@@ -93,6 +104,10 @@ public sealed class OwsWatcherHardeningTests {
         }
     }
 
+    /// <summary>
+    /// Verifies that stopping a watcher that is not running completes cleanly.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task Watcher_ShouldStopCleanlyWhenAlreadyStopped() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-stop-test-{Guid.NewGuid():N}");

@@ -1,6 +1,12 @@
 namespace Ows.Core.Verification.Helpers;
 
+/// <summary>
+/// Represents the <see cref="VerificationFindingFactory"/> type.
+/// </summary>
 internal static class VerificationFindingFactory {
+    /// <summary>
+    /// Gets a verification finding indicating that the local timeline event chain is complete and unbroken.
+    /// </summary>
     public static readonly VerificationFinding TimelineChainValidFinding = new() {
         Code = "timeline.chain.valid",
         Severity = "Low",
@@ -10,6 +16,9 @@ internal static class VerificationFindingFactory {
         ReviewerAction = "No action required."
     };
 
+    /// <summary>
+    /// Gets a verification finding indicating that the local timeline event chain is broken or inconsistent.
+    /// </summary>
     public static readonly VerificationFinding TimelineChainBrokenFinding = new() {
         Code = "timeline.chain.broken",
         Severity = "Critical",
@@ -19,6 +28,9 @@ internal static class VerificationFindingFactory {
         ReviewerAction = "Request a resubmission. The evidence chain is incomplete."
     };
 
+    /// <summary>
+    /// Gets a verification finding indicating that package files have modified hashes that do not match the manifest.
+    /// </summary>
     public static readonly VerificationFinding PackageHashInvalidFinding = new() {
         Code = "package.hash.invalid",
         Severity = "Critical",
@@ -28,6 +40,9 @@ internal static class VerificationFindingFactory {
         ReviewerAction = "Reject the package as corrupted or modified. Request a resubmission."
     };
 
+    /// <summary>
+    /// Gets a verification finding indicating that the local recovery snapshot did not match the last committed snapshot state.
+    /// </summary>
     public static readonly VerificationFinding SnapshotMismatchFinding = new() {
         Code = "observation.snapshot_mismatch",
         Severity = "High",
@@ -37,6 +52,9 @@ internal static class VerificationFindingFactory {
         ReviewerAction = "Review the interval manually. This is not proof of misconduct."
     };
 
+    /// <summary>
+    /// Gets a verification finding indicating that a recovery snapshot was found that was not committed in the timeline.
+    /// </summary>
     public static readonly VerificationFinding SnapshotUnboundFinding = new() {
         Code = "observation.snapshot_unbound",
         Severity = "Medium",

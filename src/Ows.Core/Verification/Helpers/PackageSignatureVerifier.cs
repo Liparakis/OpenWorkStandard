@@ -6,7 +6,17 @@ using Ows.Core.Packaging;
 
 namespace Ows.Core.Verification.Helpers;
 
+/// <summary>
+/// Represents the <see cref="PackageSignatureVerifier"/> type.
+/// </summary>
 internal static class PackageSignatureVerifier {
+    /// <summary>
+    /// Validates the package signature against the manifest and archive contents.
+    /// </summary>
+    /// <returns>A string indicating the signature status ("Valid", "Unsigned", or "Invalid").</returns>
+    /// <param name="archive">The zip archive containing the package files.</param>
+    /// <param name="manifest">The package manifest.</param>
+    /// <param name="errors">A list to populate with signature validation error messages.</param>
     public static string Validate(
         ZipArchive archive,
         OwsManifest manifest,

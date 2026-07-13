@@ -10,6 +10,10 @@ namespace Ows.Cli.Tests;
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class OwsInspectCommandTests {
+    /// <summary>
+    /// Verifies that the inspect command exposes a local package summary as JSON when executed with the --json flag.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task InspectCommand_ShouldExposeLocalPackageSummaryAsJson() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-inspect-{Guid.NewGuid():N}");

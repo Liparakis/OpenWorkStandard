@@ -9,6 +9,9 @@ namespace Ows.Core.Tests;
 /// Tests explicit project registration and multi-project agent hosting.
 /// </summary>
 public sealed class OwsAgentHostTests {
+    /// <summary>
+    /// Verifies that the project registry registration is idempotent and correctly prunes missing directory roots.
+    /// </summary>
     [Fact]
     public void Registry_ShouldBeIdempotentAndPruneMissingRoots() {
         var workspace = CreateDirectory();
@@ -30,6 +33,10 @@ public sealed class OwsAgentHostTests {
         }
     }
 
+    /// <summary>
+    /// Verifies that the project registry registration retries and succeeds when the registry lock is temporarily held.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task Registry_ShouldRetryWhenTheRegistryLockIsHeld() {
         var workspace = CreateDirectory();
@@ -53,6 +60,10 @@ public sealed class OwsAgentHostTests {
         }
     }
 
+    /// <summary>
+    /// Verifies that the agent host watches all registered and initialized projects until cancellation.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task AgentHost_ShouldWatchAllRegisteredInitializedProjectsUntilCancelled() {
         var workspace = CreateDirectory();
@@ -99,6 +110,11 @@ public sealed class OwsAgentHostTests {
         }
     }
 
+    /// <summary>
+    /// Helper method to asynchronously poll a condition until it becomes true.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the polling operation.</returns>
+    /// <param name="condition">The condition function to evaluate.</param>
     private static async Task WaitUntilAsync(Func<bool> condition) {
         for (var attempt = 0; attempt < 50; attempt++) {
             if (condition()) {
@@ -111,12 +127,20 @@ public sealed class OwsAgentHostTests {
         condition().Should().BeTrue("the local agent did not start all registered project watchers");
     }
 
+    /// <summary>
+    /// Creates a unique temporary directory in the temp path.
+    /// </summary>
+    /// <returns>The path to the newly created directory.</returns>
     private static string CreateDirectory() {
         var path = Path.Combine(Path.GetTempPath(), $"ows-agent-{Guid.NewGuid():N}");
         Directory.CreateDirectory(path);
         return path;
     }
 
+    /// <summary>
+    /// Deletes the directory at the specified path if it exists.
+    /// </summary>
+    /// <param name="path">The path to the directory to delete.</param>
     private static void DeleteDirectory(string path) {
         if (Directory.Exists(path)) {
             Directory.Delete(path, recursive: true);

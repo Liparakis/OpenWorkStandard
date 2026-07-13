@@ -4,9 +4,20 @@ using Ows.Core.Hashing;
 
 namespace Ows.Core.Packaging;
 
+/// <summary>
+/// Represents the <see cref="PackageRootCanonicalizer"/> type.
+/// </summary>
 internal static class PackageRootCanonicalizer {
+    /// <summary>
+    /// The OWS package root format identifier string.
+    /// </summary>
     private const string Format = "OWS-PACKAGE-ROOT-V1";
 
+    /// <summary>
+    /// Formats a package manifest and its contents into a canonical byte representation for hashing and signing.
+    /// </summary>
+    /// <returns>A byte array containing the UTF-8 encoded canonical package representation.</returns>
+    /// <param name="manifest">The package manifest to serialize canonically.</param>
     public static byte[] BuildCanonicalBytes(OwsManifest manifest) {
         var canonicalManifest = manifest with {
             PackageId = string.Empty,
@@ -37,6 +48,11 @@ internal static class PackageRootCanonicalizer {
         return Encoding.UTF8.GetBytes(string.Join("\n", lines) + "\n");
     }
 
+    /// <summary>
+    /// Computes the SHA-256 hash of the canonical package representation.
+    /// </summary>
+    /// <returns>The hexadecimal SHA-256 digest of the canonical package.</returns>
+    /// <param name="manifest">The package manifest to hash.</param>
     public static string ComputeHash(OwsManifest manifest) =>
         Sha256HashService.ComputeHash(BuildCanonicalBytes(manifest));
 }

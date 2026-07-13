@@ -11,6 +11,7 @@ public static class VerifyCommandBuilder {
     /// <summary>
     /// Builds the verify command that validates an OWS package locally.
     /// </summary>
+    /// <returns>The constructed <see cref="Command"/> representing the verify command.</returns>
     public static Command Build() {
         var command = new Command("verify", "Verify an OWS package offline.");
         var packageArgument = new Argument<string?>("package") {

@@ -13,6 +13,8 @@ public static class OwsAgentIpcEndpoint {
     /// <summary>
     /// Gets the platform endpoint derived from the registry path.
     /// </summary>
+    /// <returns>A platform-specific named pipe name or Unix domain socket path.</returns>
+    /// <param name="registryPath">The path to the project registry.</param>
     public static string Get(string registryPath) {
         var identity = Path.GetFullPath(registryPath);
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..16].ToLowerInvariant();
@@ -28,12 +30,19 @@ public static class OwsAgentIpcEndpoint {
 /// project contents through this channel.
 /// </summary>
 public sealed class OwsAgentIpcServer {
+    /// <summary>
+    /// JSON serialization options used for Web/CamelCase formatting.
+    /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    /// <summary>
+    /// The project registry to look up registered projects.
+    /// </summary>
     private readonly OwsProjectRegistry _registry;
 
     /// <summary>
     /// Initializes a local IPC server for the supplied project registry.
     /// </summary>
+    /// <param name="registry">The project registry instance.</param>
     public OwsAgentIpcServer(OwsProjectRegistry registry) {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
     }
@@ -41,11 +50,18 @@ public sealed class OwsAgentIpcServer {
     /// <summary>
     /// Runs the local request loop until cancellation.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous server loop.</returns>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     public Task RunAsync(CancellationToken cancellationToken) =>
         OperatingSystem.IsWindows()
             ? RunNamedPipeAsync(cancellationToken)
             : RunUnixSocketAsync(cancellationToken);
 
+    /// <summary>
+    /// Runs the server loop using Windows Named Pipes.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the named pipe listener loop.</returns>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     private async Task RunNamedPipeAsync(CancellationToken cancellationToken) {
         var pipeName = OwsAgentIpcEndpoint.Get(_registry.RegistryPath);
         while (!cancellationToken.IsCancellationRequested) {
@@ -58,6 +74,11 @@ public sealed class OwsAgentIpcServer {
         }
     }
 
+    /// <summary>
+    /// Runs the server loop using Unix Domain Sockets on non-Windows platforms.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the unix socket listener loop.</returns>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     private async Task RunUnixSocketAsync(CancellationToken cancellationToken) {
         var socketPath = OwsAgentIpcEndpoint.Get(_registry.RegistryPath);
         var directory = Path.GetDirectoryName(socketPath)!;
@@ -86,6 +107,12 @@ public sealed class OwsAgentIpcServer {
         }
     }
 
+    /// <summary>
+    /// Processes an incoming client connection stream.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the connection handler operation.</returns>
+    /// <param name="stream">The connection stream.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
     private async Task HandleAsync(Stream stream, CancellationToken cancellationToken) {
         using var reader = new StreamReader(stream, leaveOpen: true);
         await using var writer = new StreamWriter(stream, leaveOpen: true) { AutoFlush = true };
@@ -103,6 +130,11 @@ public sealed class OwsAgentIpcServer {
         await writer.WriteLineAsync(JsonSerializer.Serialize(response, SerializerOptions));
     }
 
+    /// <summary>
+    /// Checks if the project path is registered and initialized locally.
+    /// </summary>
+    /// <returns><see langword="true"/> if the project is registered and initialized; otherwise, <see langword="false"/>.</returns>
+    /// <param name="projectRootPath">The project root directory path.</param>
     private bool IsRegisteredInitializedProject(string? projectRootPath) {
         if (string.IsNullOrWhiteSpace(projectRootPath)) {
             return false;
@@ -128,17 +160,27 @@ public sealed class OwsAgentIpcServer {
 /// Provides best-effort client operations for the local OWS Agent channel.
 /// </summary>
 public static class OwsAgentIpcClient {
+    /// <summary>
+    /// JSON serialization options used for client Web/CamelCase formatting.
+    /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>
     /// Checks whether the local Agent is available for the registry.
     /// </summary>
+    /// <returns>A task containing <see langword="true"/> if the ping succeeded; otherwise, <see langword="false"/>.</returns>
+    /// <param name="registryPath">The path to the project registry.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
     public static Task<bool> TryPingAsync(string registryPath, CancellationToken cancellationToken = default) =>
         SendAsync(registryPath, "ping", null, cancellationToken);
 
     /// <summary>
     /// Requests a safe journal flush for a registered project.
     /// </summary>
+    /// <returns>A task containing <see langword="true"/> if the flush request succeeded; otherwise, <see langword="false"/>.</returns>
+    /// <param name="projectRootPath">The project root path to flush.</param>
+    /// <param name="registryPath">The path to the project registry.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
     public static Task<bool> TryFlushAsync(
         string registryPath,
         string projectRootPath,
@@ -146,6 +188,14 @@ public static class OwsAgentIpcClient {
     ) =>
         SendAsync(registryPath, "flush", projectRootPath, cancellationToken);
 
+    /// <summary>
+    /// Sends an IPC command to the agent server.
+    /// </summary>
+    /// <returns>A task containing <see langword="true"/> if the command succeeded and was accepted; otherwise, <see langword="false"/>.</returns>
+    /// <param name="command">The command string to send.</param>
+    /// <param name="registryPath">The path to the project registry.</param>
+    /// <param name="projectRootPath">The project root path associated with the command, if any.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation.</param>
     private static async Task<bool> SendAsync(
         string registryPath,
         string command,
@@ -171,6 +221,12 @@ public static class OwsAgentIpcClient {
         }
     }
 
+    /// <summary>
+    /// Connects to the platform-specific IPC channel.
+    /// </summary>
+    /// <returns>A <see cref="Task{Stream}"/> returning the connected stream.</returns>
+    /// <param name="registryPath">The path to the project registry.</param>
+    /// <param name="cancellationToken">A token to cancel the connection.</param>
     private static async Task<Stream> ConnectAsync(string registryPath, CancellationToken cancellationToken) {
         var endpoint = OwsAgentIpcEndpoint.Get(registryPath);
         if (OperatingSystem.IsWindows()) {

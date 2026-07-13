@@ -12,12 +12,21 @@ namespace Ows.Core.Agent;
 /// Coordinates local project initialization, filesystem observation, and offline packaging.
 /// </summary>
 public sealed class OwsProjectAgent {
+    /// <summary>
+    /// Serialization options used for formatting and parsing project configuration files.
+    /// </summary>
     private static readonly JsonSerializerOptions ConfigSerializerOptions = new() {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
     };
 
+    /// <summary>
+    /// The active file tracking agent instance for the watched project, if running.
+    /// </summary>
     private LocalTrackingAgent? _activeAgent;
+    /// <summary>
+    /// The cancellation token source used to signal shutdown to the active tracking agent.
+    /// </summary>
     private CancellationTokenSource? _activeCts;
 
     /// <inheritdoc />
@@ -191,12 +200,26 @@ public sealed class OwsProjectAgent {
         return PackageCreationCoordinator.PackageProjectAsync(projectRoot, AppendEventToTimelineAsync);
     }
 
+    /// <summary>
+    /// Validates that the specified project root path exists.
+    /// </summary>
+    /// <param name="projectRoot">The project root directory path to validate.</param>
     private static void EnsureProjectDirectoryExists(string projectRoot) {
         if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot)) {
             throw new DirectoryNotFoundException($"Project directory not found at: {projectRoot}");
         }
     }
 
+    /// <summary>
+    /// Creates and appends a lifecycle or file change event to the project's timeline log.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    /// <param name="projectRoot">The project root directory path.</param>
+    /// <param name="eventType">The type of OWS event.</param>
+    /// <param name="relativePath">The relative path of the file associated with the event.</param>
+    /// <param name="toolName">The name of the tool causing the event.</param>
+    /// <param name="bytesChanged">The size change in bytes, if applicable.</param>
+    /// <param name="metadata">Additional metadata details associated with the event.</param>
     private static async Task AppendEventToTimelineAsync(
         string projectRoot,
         OwsEventType eventType,

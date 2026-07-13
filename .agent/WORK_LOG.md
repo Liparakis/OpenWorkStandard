@@ -343,3 +343,80 @@
 - Exact next action: review `chore: formatting` commit `31837f0`, then resolve the packaging namespace blocker.
 - Important context: this commit is broader than formatting despite the requested commit title; build status is not green.
 - Files to inspect first: `src/Ows.Core/Packaging/OwsPackageBuilder.cs` and `src/Ows.Core/Packaging/Helpers/PackageArtifactCollector.cs`.
+
+## 2026-07-13 — Phase 10 documentation analyzer and audit
+
+### Completed
+- Installed stable `StyleCop.Analyzers` centrally for all five solution projects.
+- Enabled documentation presence checks for exposed, internal, private, and private-field elements.
+- Added conservative XML summaries and TODO markers where behavior was not safely inferable.
+- Generated the documentation audit with zero remaining undocumented members.
+
+### Changed
+- Added: `stylecop.json`, `docs/audits/documentation-audit.md`.
+- Modified: `Directory.Build.props`, `.editorconfig`, and analyzer-reported C# files across Core, CLI, Setup, and tests.
+- Deleted: none.
+
+### Validation
+- Build: Release solution build passed with 0 warnings and 0 errors.
+- Targeted tests: not run separately.
+- Full tests: 51/51 passed, 0 failed, 0 skipped.
+- Manual checks: audit report exists; `git diff --check` passed.
+
+### Remaining
+- Owner review of generated TODO documentation and the documentation-focused analyzer scope.
+
+### Handoff
+- Exact next action: inspect `docs/audits/documentation-audit.md`, `.editorconfig`, and representative generated XML comments.
+- Important context: changes are intentionally unstaged; no runtime behavior was changed.
+- Files to inspect first: `docs/audits/documentation-audit.md`, `Directory.Build.props`, `stylecop.json`, and `src/Ows.Core/Agent/OwsAgentIpc.cs`.
+
+## 2026-07-13 — Windows setup self-contained publish
+
+### Completed
+- Ran `scripts/windows/build-ows-setup.ps1`.
+- Produced a self-contained single-file Windows setup executable.
+
+### Changed
+- Added: ignored build output under `artifacts/ows-setup/`.
+- Modified: none.
+- Deleted: previous setup artifact output was replaced by the publish script.
+
+### Validation
+- Build: publish succeeded.
+- Targeted tests: not run.
+- Full tests: not rerun; prior solution result was 51/51 passing.
+- Manual checks: `Ows.Setup.exe` is 70.6 MB and the publish output contains the executable plus symbols/XML documentation.
+
+### Remaining
+- Run the generated setup executable on Windows and verify install/service/uninstall behavior.
+
+### Handoff
+- Exact next action: double-click `artifacts/ows-setup/Ows.Setup.exe` and confirm the `OWS Agent` service appears and starts.
+- Important context: the executable is self-contained; the installed service can use the copied single-file executable.
+- Files to inspect first: `artifacts/ows-setup/Ows.Setup.exe` and `src/Ows.Setup/Program.cs`.
+
+## 2026-07-13 — Replace XML Documentation TODOs and CLI Test Isolation
+
+### Completed
+- Filled every remaining XML documentation TODO comment in `tests/Ows.Cli.Tests`, `tests/Ows.Core.Tests`, and `src/Ows.Setup/Program.cs` with descriptive documentation based on existing behavior.
+- Created `CliFixture` and implemented it on `CliCommandCollection` to isolate CLI tests from the machine-wide project registry path, resolving a file lock conflict with the background `Ows.Setup` service.
+- Verified that no warnings or errors remain under StyleCop's documentation rules.
+
+### Changed
+- Added: `CliFixture` in `tests/Ows.Cli.Tests/CliCommandCollection.cs`.
+- Modified: C# test files and setup entry point.
+- Deleted: none.
+
+### Validation
+- Build: Release build succeeded with 0 warnings and 0 errors.
+- Full tests: 51/51 tests passed, including all CLI and Core test suites.
+- Manual checks: `git diff` shows only documentation changes and the test collection fixture.
+
+### Remaining
+- Owner review of the replaced TODO documentation and the isolated CLI test collection fixture.
+
+### Handoff
+- Exact next action: owner reviews the changes and executes `dotnet test OWS.sln -c Release --no-restore -nologo` to verify.
+- Important context: all changes are kept unstaged; no runtime production behavior was altered.
+- Files to inspect first: `tests/Ows.Cli.Tests/CliCommandCollection.cs` and `tests/Ows.Cli.Tests/CliHardeningTests.cs`.

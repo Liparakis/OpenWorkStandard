@@ -36,8 +36,17 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     /// </summary>
     private ObservedSnapshot _currentSnapshot = new();
 
+    /// <summary>
+    /// Gets or sets the current status of the tracking agent.
+    /// </summary>
     private TrackingAgentStatus Status { get; set; } = TrackingAgentStatus.Idle;
 
+    /// <summary>
+    /// Prepares the tracking agent for a project by loading ignore rules and setting its ready state.
+    /// </summary>
+    /// <param name="options">The tracking and watcher options for the project.</param>
+    /// <param name="cancellationToken">The token used to cancel preparation.</param>
+    /// <returns>The result of preparing the tracking agent.</returns>
     public Task<TrackingAgentOperationResult> PrepareAsync(
         TrackingAgentOptions options,
         CancellationToken cancellationToken
@@ -63,6 +72,11 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
         );
     }
 
+    /// <summary>
+    /// Runs the recovery scan and watches the initialized project until cancellation.
+    /// </summary>
+    /// <param name="cancellationToken">The token used to stop the tracking agent.</param>
+    /// <returns>The result produced when the tracking agent stops.</returns>
     public async Task<TrackingAgentOperationResult> StartAsync(CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -100,6 +114,13 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
         };
     }
 
+    /// <summary>
+    /// Performs a recovery scan of the project files to detect and record changes that occurred since the last recorded snapshot.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous recovery scan operation.</returns>
+    /// <param name="projectId">The identifier of the project.</param>
+    /// <param name="timelinePath">The file path to the project's timeline log.</param>
+    /// <param name="cancellationToken">The token used to cancel the recovery scan.</param>
     private async Task PerformRecoveryScanAsync(
         string timelinePath,
         string projectId,
@@ -384,6 +405,15 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
         }
     }
 
+    /// <summary>
+    /// Appends watcher lifecycle events (such as interrupted, recovered, or started) to the timeline log during recovery.
+    /// </summary>
+    /// <returns>A <see cref="Task{TResult}"/> returning the hash of the last appended event.</returns>
+    /// <param name="gapDurationMsVal">The calculated inactivity gap duration in milliseconds.</param>
+    /// <param name="previousEventHash">The hash of the previous event in the timeline log.</param>
+    /// <param name="timelinePath">The file path to the timeline log.</param>
+    /// <param name="projectId">The identifier of the project.</param>
+    /// <param name="cancellationToken">The token used to cancel the operation.</param>
     private async Task<string> AppendRecoveryLifecycleEventsAsync(
         string timelinePath,
         string projectId,
@@ -416,6 +446,11 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
         );
     }
 
+    /// <summary>
+    /// Reads the timeline log in reverse to find the hash of the latest successfully committed snapshot.
+    /// </summary>
+    /// <returns>The latest committed snapshot hash as a string, or <see langword="null"/> if not found or the timeline does not exist.</returns>
+    /// <param name="timelinePath">The file path to the timeline log.</param>
     private static string? FindLatestCommittedSnapshotHash(string timelinePath) {
         if (!File.Exists(timelinePath)) {
             return null;
@@ -441,6 +476,14 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
         return null;
     }
 
+    /// <summary>
+    /// Maps a file watcher change event to an OWS timeline event, updates the snapshot, and appends the events to the timeline log.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    /// <param name="projectId">The identifier of the project.</param>
+    /// <param name="timelinePath">The file path to the timeline log.</param>
+    /// <param name="watchEvent">The file change event detected by the file watcher.</param>
+    /// <param name="cancellationToken">The token used to cancel the operation.</param>
     private async Task AppendWatchEventAsync(
         string timelinePath,
         string projectId,
@@ -528,10 +571,21 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
         }
     }
 
+    /// <summary>
+    /// Determines whether a file or directory at the specified absolute path should be excluded based on ignore rules.
+    /// </summary>
+    /// <returns><see langword="true"/> if the path should be excluded; otherwise, <see langword="false"/>.</returns>
+    /// <param name="absolutePath">The absolute path of the file or directory to check.</param>
     private bool ShouldExclude(string absolutePath) {
         return ProjectFileScanner.ShouldExclude(absolutePath, _options!.ProjectRootPath, _ignoreEngine);
     }
 
+    /// <summary>
+    /// Analyzes the timeline log to determine the last recorded state of the file watcher before the agent started.
+    /// </summary>
+    /// <returns>A string representing the previous watcher state.</returns>
+    /// <param name="timelinePath">The file path to the timeline log.</param>
+    /// <param name="wasInterrupted">A flag indicating if the agent was flagged as interrupted during preparation.</param>
     private static string DeterminePreviousWatcherState(string timelinePath, bool wasInterrupted) {
         if (wasInterrupted) {
             return "Interrupted";

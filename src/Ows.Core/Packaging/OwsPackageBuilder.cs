@@ -14,10 +14,10 @@ public sealed class OwsPackageBuilder {
     /// <summary>
     /// Creates an OWS package from the specified project root path and writes it to the output package path.
     /// </summary>
-    /// <param name="request"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentNullException"></exception>
+    /// <param name="request">The package creation request parameters.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A <see cref="Task{PackageCreationResult}"/> representing the asynchronous package creation operation.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="request"/> is null.</exception>
     public static Task<PackageCreationResult> CreatePackageAsync(
         PackageCreationRequest request,
         CancellationToken cancellationToken
@@ -79,6 +79,11 @@ public sealed class OwsPackageBuilder {
         );
     }
 
+    /// <summary>
+    /// Loads the ignore rules engine for the project, checking configuration files for exclude directories.
+    /// </summary>
+    /// <returns>An initialized <see cref="OwsIgnoreEngine"/> containing all active ignore rules.</returns>
+    /// <param name="projectRootPath">The root directory path of the project.</param>
     private static OwsIgnoreEngine LoadIgnoreEngine(string projectRootPath) {
         var configPath = Path.Combine(projectRootPath, OwsConstants.LocalFolderName, "config.json");
         var additionalDirectoryNames = Array.Empty<string>();

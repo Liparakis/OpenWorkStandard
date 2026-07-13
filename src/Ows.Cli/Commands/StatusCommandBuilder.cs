@@ -11,6 +11,7 @@ public static class StatusCommandBuilder {
     /// <summary>
     /// Builds the status command that reports local project and Agent state.
     /// </summary>
+    /// <returns>The constructed <see cref="Command"/> representing the status command.</returns>
     public static Command Build() {
         var command = new Command("status", "Show local OWS project and Agent status.");
         command.SetAction(parseResult => {

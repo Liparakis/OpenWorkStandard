@@ -1,28 +1,28 @@
 # Next Steps
 
-1. Resolve the packaging namespace blocker, then rerun Core/full tests and Release build.
-2. Owner reviews the new `chore: formatting` commit together with prior cleanup commits, history, license, and manual Windows Agent lifecycle evidence.
-3. Owner confirms the local tamper-detection boundary and release candidate.
-4. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
+1. Owner reviews the generated XML documentation, specifically the replaced TODO markers across src and tests, for semantic accuracy.
+2. Owner reviews the CLI test isolation fixture (CliFixture in CliCommandCollection.cs) that addresses the local machine permission/access conflicts.
+3. Keep the current changes unstaged unless the owner explicitly requests a commit.
 
 Current phase remaining:
 
-- Owner review of the local tamper-detection boundary and SCM setup lifecycle.
+- Documentation analyzer and audit phase is complete; only owner review remains.
 
 Next roadmap phase:
 
-- None until owner sign-off; future work begins only after this release candidate is accepted.
+- None; begin a new phase only from an explicit owner request.
 
 Prerequisites for the next phase:
 
-- Explicit owner approval of the current local-first contract.
-- A separately scoped decision for any hosted anchoring or remote review project.
+- Owner review of the generated documentation and analyzer scope.
 
 Deferred:
 
-- Hosted verification or tamper anchoring, desktop UI, IDE adapters, management layers, signing-key rotation/revocation automation, and chain-preserving timeline retention/compaction.
+- StyleCop formatting/style diagnostics, file-header policy, hosted verification or tamper anchoring, desktop UI, IDE adapters, management layers, signing-key rotation/revocation automation, and chain-preserving timeline retention/compaction.
 
 Owner review:
 
-- Confirm that local timeline chaining, artifact/package-root hashes, and optional offline signatures are sufficient for v0 tamper detection.
-- Confirm that the SCM setup/uninstall lifecycle and shared Agent-data preservation choice match the intended Windows experience.
+- Confirm generated summaries and replaced TODO markers do not overstate behavior.
+- Confirm the CLI test fixture is acceptable.
+- Confirm the documentation analyzer should remain documentation-focused in this phase.
+- Confirm the audit report is ready to keep as an operational artifact.

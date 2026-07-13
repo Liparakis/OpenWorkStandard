@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DotNetAnalyzers/StyleCopAnalyzers/master/StyleCop.Analyzers/StyleCop.Analyzers/Settings/stylecop.schema.json",
+  "settings": {
+    "documentationRules": {
+      "documentationCulture": "en-US",
+      "documentExposedElements": true,
+      "documentInterfaces": true,
+      "documentInternalElements": true,
+      "documentPrivateElements": true,
+      "documentPrivateFields": true,
+      "xmlHeader": false
+    }
+  }
+}

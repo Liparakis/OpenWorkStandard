@@ -13,6 +13,9 @@ public static class OwsEventChain {
     /// </summary>
     public const string GenesisPreviousEventHash = "";
 
+    /// <summary>
+    /// Serialization options configured for event chain serialization, including string-based enum converters.
+    /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new() {
         Converters = { new JsonStringEnumConverter() }
     };

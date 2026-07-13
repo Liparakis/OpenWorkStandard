@@ -13,6 +13,10 @@ namespace Ows.Cli.Tests;
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class CliJsonProtocolTests {
+    /// <summary>
+    /// Verifies that OWS CLI commands return valid JSON responses under various project states.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task CliCommands_ShouldReturnValidJsonResponses() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-json-{Guid.NewGuid():N}");
@@ -82,6 +86,11 @@ public sealed class CliJsonProtocolTests {
         }
     }
 
+    /// <summary>
+    /// Extracts the JSON object substring from the provided text.
+    /// </summary>
+    /// <returns>The extracted JSON string, or the original text if no JSON brackets are found.</returns>
+    /// <param name="text">The raw text content containing JSON.</param>
     private static string ExtractJson(string text) {
         var startIdx = text.IndexOf('{');
         var endIdx = text.LastIndexOf('}');

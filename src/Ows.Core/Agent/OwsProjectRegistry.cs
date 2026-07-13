@@ -6,8 +6,14 @@ namespace Ows.Core.Agent;
 /// Stores the explicitly initialized project roots that the local OWS Agent may watch.
 /// </summary>
 public sealed class OwsProjectRegistry {
+    /// <summary>
+    /// Static lock object to synchronize in-process access to the registry.
+    /// </summary>
     private static readonly object InProcessLock = new();
 
+    /// <summary>
+    /// Serialization options configured for registry serialization/deserialization.
+    /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new() {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
@@ -16,6 +22,7 @@ public sealed class OwsProjectRegistry {
     /// <summary>
     /// Initializes a registry backed by the supplied path or the platform default.
     /// </summary>
+    /// <param name="registryPath">An optional custom path to the registry file.</param>
     public OwsProjectRegistry(string? registryPath = null) {
         RegistryPath = registryPath ?? GetDefaultRegistryPath();
     }
@@ -28,6 +35,8 @@ public sealed class OwsProjectRegistry {
     /// <summary>
     /// Registers an existing initialized project root. Registration is idempotent.
     /// </summary>
+    /// <returns><see langword="true"/> if the project was newly registered; otherwise, <see langword="false"/> if it was already registered.</returns>
+    /// <param name="projectRootPath">The project root directory path to register.</param>
     public bool Register(string projectRootPath) {
         var normalizedPath = NormalizeProjectRoot(projectRootPath);
         lock (InProcessLock) {
@@ -51,6 +60,8 @@ public sealed class OwsProjectRegistry {
     /// <summary>
     /// Removes a project root from the registry.
     /// </summary>
+    /// <returns><see langword="true"/> if the project was removed; otherwise, <see langword="false"/> if it was not found.</returns>
+    /// <param name="projectRootPath">The project root directory path to unregister.</param>
     public bool Unregister(string projectRootPath) {
         var normalizedPath = Path.GetFullPath(projectRootPath);
         lock (InProcessLock) {
@@ -68,6 +79,7 @@ public sealed class OwsProjectRegistry {
     /// <summary>
     /// Reads all registered projects, including roots that no longer exist.
     /// </summary>
+    /// <returns>A read-only list of registered projects.</returns>
     public IReadOnlyList<RegisteredOwsProject> GetProjects() {
         lock (InProcessLock) {
             using var registryLock = AcquireLock();
@@ -78,6 +90,7 @@ public sealed class OwsProjectRegistry {
     /// <summary>
     /// Removes roots that no longer exist so moved or deleted projects are not watched.
     /// </summary>
+    /// <returns>The number of missing projects removed from the registry.</returns>
     public int RemoveMissingProjects() {
         lock (InProcessLock) {
             using var registryLock = AcquireLock();
@@ -95,6 +108,7 @@ public sealed class OwsProjectRegistry {
     /// Gets the default registry path for the current platform. Windows uses a
     /// machine-scoped location so the LocalSystem Agent service and CLI share it.
     /// </summary>
+    /// <returns>The default file path to the OWS agent project registry JSON file.</returns>
     public static string GetDefaultRegistryPath() {
         var configuredPath = Environment.GetEnvironmentVariable("OWS_AGENT_REGISTRY_PATH");
         if (!string.IsNullOrWhiteSpace(configuredPath)) {
@@ -114,6 +128,10 @@ public sealed class OwsProjectRegistry {
         return Path.Combine(localDataPath, "OpenWorkStandard", "projects.json");
     }
 
+    /// <summary>
+    /// Acquires a file-based lock on the registry to prevent concurrent multi-process access.
+    /// </summary>
+    /// <returns>A <see cref="FileStream"/> representing the acquired lock file.</returns>
     private FileStream AcquireLock() {
         var directory = Path.GetDirectoryName(RegistryPath);
         if (string.IsNullOrWhiteSpace(directory)) {
@@ -132,6 +150,10 @@ public sealed class OwsProjectRegistry {
         }
     }
 
+    /// <summary>
+    /// Reads the list of registered projects from the registry file.
+    /// </summary>
+    /// <returns>A list of registered <see cref="RegisteredOwsProject"/> objects.</returns>
     private List<RegisteredOwsProject> ReadProjects() {
         if (!File.Exists(RegistryPath)) {
             return [];
@@ -141,6 +163,10 @@ public sealed class OwsProjectRegistry {
         return JsonSerializer.Deserialize<List<RegisteredOwsProject>>(json, SerializerOptions) ?? [];
     }
 
+    /// <summary>
+    /// Writes the collection of registered projects to the registry file.
+    /// </summary>
+    /// <param name="projects">The collection of projects to serialize and write.</param>
     private void WriteProjects(IReadOnlyCollection<RegisteredOwsProject> projects) {
         var directory = Path.GetDirectoryName(RegistryPath)!;
         Directory.CreateDirectory(directory);
@@ -155,6 +181,11 @@ public sealed class OwsProjectRegistry {
         }
     }
 
+    /// <summary>
+    /// Normalizes the project root path and verifies that the directory exists.
+    /// </summary>
+    /// <returns>The normalized absolute path of the project root.</returns>
+    /// <param name="projectRootPath">The project root path to normalize.</param>
     private static string NormalizeProjectRoot(string projectRootPath) {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRootPath);
         var normalizedPath = Path.GetFullPath(projectRootPath);
@@ -165,6 +196,12 @@ public sealed class OwsProjectRegistry {
         return normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
+    /// <summary>
+    /// Compares two paths for equality using platform-specific case-sensitivity.
+    /// </summary>
+    /// <returns><see langword="true"/> if the paths are equal; otherwise, <see langword="false"/>.</returns>
+    /// <param name="left">The first path to compare.</param>
+    /// <param name="right">The second path to compare.</param>
     private static bool PathsEqual(string left, string right) =>
         string.Equals(
             left.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), right,

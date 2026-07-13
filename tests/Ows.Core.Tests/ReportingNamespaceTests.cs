@@ -12,6 +12,7 @@ public sealed class ReportingNamespaceTests {
     /// <summary>
     /// Verifies that the report generator emits a useful text summary.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task GenerateAsync_ShouldReturnTextSummary() {
         var generator = new OwsReportGenerator();
@@ -33,6 +34,7 @@ public sealed class ReportingNamespaceTests {
     /// <summary>
     /// Verifies that the text report surfaces findings for human review.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task GenerateAsync_ShouldIncludeFindingsInTextReport() {
         var generator = new OwsReportGenerator();
@@ -67,6 +69,7 @@ public sealed class ReportingNamespaceTests {
     /// <summary>
     /// Verifies that the report generator can emit JSON output.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task GenerateAsync_ShouldReturnJsonSummary() {
         var generator = new OwsReportGenerator();

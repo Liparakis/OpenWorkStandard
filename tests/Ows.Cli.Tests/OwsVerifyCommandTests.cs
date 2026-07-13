@@ -8,6 +8,10 @@ namespace Ows.Cli.Tests;
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class OwsVerifyCommandTests {
+    /// <summary>
+    /// Verifies that the verify command succeeds for a newly created OWS package.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task VerifyCommand_ShouldSucceedForCreatedPackage() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-verify-{Guid.NewGuid():N}");

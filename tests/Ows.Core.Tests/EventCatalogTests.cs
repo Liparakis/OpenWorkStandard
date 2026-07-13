@@ -7,6 +7,11 @@ namespace Ows.Core.Tests;
 /// Verifies the OWS event catalog and active/reserved mapping integrity.
 /// </summary>
 public sealed class EventCatalogTests {
+    /// <summary>
+    /// Searches upward from the execution directory to find the specified documentation file path.
+    /// </summary>
+    /// <returns>The absolute path of the found file.</returns>
+    /// <param name="filename">The name of the file to search for.</param>
     private static string FindCatalogPath(string filename) {
         var current = AppContext.BaseDirectory;
         while (!string.IsNullOrEmpty(current)) {
@@ -36,6 +41,9 @@ public sealed class EventCatalogTests {
         throw new FileNotFoundException($"Could not find {filename} up from {AppContext.BaseDirectory}");
     }
 
+    /// <summary>
+    /// Verifies that every event type in OwsEventType is documented in EVENT_CATALOG.md with its active or reserved status.
+    /// </summary>
     [Fact]
     public void EventCatalog_ShouldDocumentEveryOwsEventTypeWithCorrectStatus() {
         var catalogPath = FindCatalogPath("EVENT_CATALOG.md");
@@ -78,6 +86,9 @@ public sealed class EventCatalogTests {
         }
     }
 
+    /// <summary>
+    /// Verifies that every event type in OwsEventType is listed in EVENT_SCHEMA.md.
+    /// </summary>
     [Fact]
     public void EventSchema_ShouldListEveryOwsEventType() {
         var schemaPath = FindCatalogPath("EVENT_SCHEMA.md");

@@ -7,6 +7,9 @@ namespace Ows.Core.Tests;
 /// Tests the documented OWS ignore-rule subset.
 /// </summary>
 public sealed class OwsIgnoreEngineTests {
+    /// <summary>
+    /// Verifies that default OWS ignore patterns correctly match common folders, secrets, and binaries.
+    /// </summary>
     [Fact]
     public void DefaultRules_ShouldIgnoreGeneratedFoldersSecretsAndCommonBinaries() {
         var engine = new OwsIgnoreEngine(OwsIgnoreEngine.DefaultPatterns);
@@ -18,6 +21,9 @@ public sealed class OwsIgnoreEngineTests {
         engine.IsIgnored("src/Program.cs").Should().BeFalse();
     }
 
+    /// <summary>
+    /// Verifies that ignore rules correctly support comments, wildcards, directory boundaries, and root-relative anchors.
+    /// </summary>
     [Fact]
     public void Rules_ShouldSupportCommentsWildcardsDirectoryPatternsAndRootRelativePaths() {
         var engine = new OwsIgnoreEngine([
@@ -39,6 +45,9 @@ public sealed class OwsIgnoreEngineTests {
         engine.IsIgnored("src/main.cs").Should().BeFalse();
     }
 
+    /// <summary>
+    /// Verifies that OwsIgnoreEngine.Load correctly loads project rules files and respects custom exclusion directories.
+    /// </summary>
     [Fact]
     public void Load_ShouldReadProjectRulesAndRetainConfiguredDirectoryExclusions() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-ignore-{Guid.NewGuid():N}");

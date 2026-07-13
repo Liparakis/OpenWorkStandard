@@ -9,8 +9,15 @@ using Xunit;
 
 namespace Ows.Cli.Tests;
 
+/// <summary>
+/// Represents the <see cref="CliHardeningTests"/> type.
+/// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class CliHardeningTests {
+    /// <summary>
+    /// Verifies that the OWS status command returns an error status when the watcher has crashed.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task Cli_ShouldReturnErrorStatus_WhenWatcherCrashed() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-crash-{Guid.NewGuid():N}");
@@ -60,6 +67,11 @@ public sealed class CliHardeningTests {
         }
     }
 
+    /// <summary>
+    /// Extracts the JSON object substring from the provided text.
+    /// </summary>
+    /// <returns>The extracted JSON string, or the original text if no JSON brackets are found.</returns>
+    /// <param name="text">The raw text content containing JSON.</param>
     private static string ExtractJson(string text) {
         var startIdx = text.IndexOf('{');
         var endIdx = text.LastIndexOf('}');

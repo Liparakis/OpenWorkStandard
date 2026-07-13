@@ -11,6 +11,7 @@ public sealed class OwsReportCommandTests {
     /// <summary>
     /// Verifies that the report command writes a text report for a created package.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task ReportCommand_ShouldWriteTextReportInCurrentDirectory() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-report-{Guid.NewGuid():N}");
@@ -44,6 +45,7 @@ public sealed class OwsReportCommandTests {
     /// <summary>
     /// Verifies that the report command can write a JSON report for a created package.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task ReportCommand_ShouldWriteJsonReportInCurrentDirectory() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-report-json-{Guid.NewGuid():N}");

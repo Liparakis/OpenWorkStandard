@@ -17,6 +17,7 @@ public static class InspectCommandBuilder {
     /// <summary>
     /// Builds the inspect command.
     /// </summary>
+    /// <returns>The constructed <see cref="Command"/> representing the inspect CLI command.</returns>
     public static Command Build() {
         var command = new Command("inspect", "Inspect a local OWS package and its review signals.");
         var packageArgument = new Argument<string?>("package") {
@@ -127,6 +128,13 @@ public static class InspectCommandBuilder {
         return command;
     }
 
+    /// <summary>
+    /// Reads and deserializes a JSON entry from a zip archive.
+    /// </summary>
+    /// <returns>The deserialized object of type <typeparamref name="T"/>, or <see langword="default"/> if the entry is not found.</returns>
+    /// <typeparam name="T">The type to deserialize the entry content into.</typeparam>
+    /// <param name="archive">The <see cref="ZipArchive"/> containing the entry.</param>
+    /// <param name="entryName">The name of the entry to read.</param>
     private static T? ReadEntry<T>(ZipArchive archive, string entryName) {
         var entry = archive.GetEntry(entryName);
         if (entry is null) {
@@ -137,6 +145,11 @@ public static class InspectCommandBuilder {
         return JsonSerializer.Deserialize<T>(reader.ReadToEnd());
     }
 
+    /// <summary>
+    /// Reads and deserializes OWS events from the timeline file in the zip archive.
+    /// </summary>
+    /// <returns>A read-only list of deserialized <see cref="OwsEvent"/> objects.</returns>
+    /// <param name="archive">The <see cref="ZipArchive"/> containing the timeline entry.</param>
     private static IReadOnlyList<OwsEvent> ReadTimelineEvents(ZipArchive archive) {
         var entry = archive.GetEntry(OwsConstants.TimelineFileName);
         if (entry is null) {
@@ -157,6 +170,11 @@ public static class InspectCommandBuilder {
         return events;
     }
 
+    /// <summary>
+    /// Infers activity periods from a sequence of events based on an inactivity gap threshold.
+    /// </summary>
+    /// <returns>A list of inferred <see cref="ActivityPeriod"/> objects.</returns>
+    /// <param name="events">The sequence of events to analyze.</param>
     private static IReadOnlyList<ActivityPeriod> InferActivityPeriods(IReadOnlyList<OwsEvent> events) {
         const double inactivityMinutes = 30;
         var ordered = events.OrderBy(eventRecord => eventRecord.TimestampUtc).ToArray();

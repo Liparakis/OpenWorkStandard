@@ -10,6 +10,9 @@ namespace Ows.Core.Tests;
 /// Tests JSON serialization for core models.
 /// </summary>
 public sealed class SerializationTests {
+    /// <summary>
+    /// Serialization options configured for event string-based enum converters in tests.
+    /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new() {
         Converters = { new JsonStringEnumConverter() }
     };

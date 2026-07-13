@@ -16,6 +16,7 @@ internal static class OwsTestHelpers {
     /// 300 ms and the test does not hang waiting for a long-running watch loop.
     /// </summary>
     /// <param name="projectRoot">Absolute path to the project root.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation of running the initial scan.</returns>
     public static async Task RunInitialScanAsync(string projectRoot) {
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
         var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);

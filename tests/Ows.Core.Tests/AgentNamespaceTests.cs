@@ -20,10 +20,9 @@ public sealed class AgentNamespaceTests {
     }
 
     /// <summary>
-    /// Verifies that starting the agent appends file events for existing project files
-    /// and stops cleanly when the cancellation token is cancelled immediately after the
-    /// initial scan (before the watch loop can yield any additional events).
+    /// Verifies that starting the agent appends file events for existing project files and stops cleanly when cancelled.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task StartAsync_ShouldAppendExistingFilesToTimeline() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-watch-{Guid.NewGuid():N}");
@@ -81,10 +80,9 @@ public sealed class AgentNamespaceTests {
     }
 
     /// <summary>
-    /// Verifies that the continuous watch loop appends a <see cref="OwsEventType.FileModified"/>
-    /// event when a tracked file is written after the initial scan.
-    /// Uses polling fallback at 50 ms so the test does not depend on FileSystemWatcher availability.
+    /// Verifies that the continuous watch loop appends a FileModified event when a tracked file is written.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task WatchAsync_ShouldAppendModifiedFileEvent() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-watch-{Guid.NewGuid():N}");
@@ -150,10 +148,9 @@ public sealed class AgentNamespaceTests {
     }
 
     /// <summary>
-    /// Verifies that the continuous watch loop appends a <see cref="OwsEventType.FileDeleted"/>
-    /// event when a tracked file is removed after the initial scan.
-    /// Uses polling fallback at 50 ms so the test does not depend on FileSystemWatcher availability.
+    /// Verifies that the continuous watch loop appends a FileDeleted event when a tracked file is removed.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task WatchAsync_ShouldAppendDeletedFileEvent() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-watch-{Guid.NewGuid():N}");
