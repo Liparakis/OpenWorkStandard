@@ -30,16 +30,6 @@ public static class OwsConstants {
     public const string VersionGraphFileName = "version_graph.json";
 
     /// <summary>
-    /// Gets the receipt chain file name stored inside a package when receipts are available.
-    /// </summary>
-    public const string ReceiptsFileName = "receipts.json";
-
-    /// <summary>
-    /// Gets the session-state file name used locally and optionally stored inside a package.
-    /// </summary>
-    public const string SessionFileName = "session.json";
-
-    /// <summary>
     /// Gets the optional package signature metadata file name.
     /// </summary>
     public const string SignatureFileName = "signature.json";

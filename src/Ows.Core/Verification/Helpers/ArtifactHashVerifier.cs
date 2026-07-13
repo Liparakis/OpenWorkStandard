@@ -9,17 +9,15 @@ namespace Ows.Core.Verification;
 /// </summary>
 internal static class ArtifactHashVerifier {
     /// <summary>
-    /// Validates the SHA-256 hashes of standard files, session states, and custom artifacts in the zip archive against manifest entries.
+    /// Validates the SHA-256 hashes of standard files and custom artifacts in the zip archive against manifest entries.
     /// </summary>
     /// <param name="archive">The ZIP archive container of the package.</param>
     /// <param name="manifest">The manifest object declaring expected hashes.</param>
     /// <param name="errors">The list of error messages to accumulate verification failures.</param>
-    /// <param name="allowMissingReceiptChain">Whether a trusted remote anchor may replace packaged receipts.</param>
     public static void ValidateHashes(
         ZipArchive archive,
         OwsManifest manifest,
-        List<string> errors,
-        bool allowMissingReceiptChain) {
+        List<string> errors) {
         var hashService = new Sha256HashService();
 
         var timelineEntry = archive.GetEntry(OwsConstants.TimelineFileName);
@@ -45,37 +43,6 @@ internal static class ArtifactHashVerifier {
 
             if (!string.Equals(actualGraphHash, manifest.VersionGraphHash, StringComparison.OrdinalIgnoreCase)) {
                 errors.Add("Version graph hash does not match manifest.");
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(manifest.SessionStateHash)) {
-            var sessionEntry = archive.GetEntry(OwsConstants.SessionFileName);
-            if (sessionEntry is null) {
-                errors.Add($"Missing session state entry declared in manifest: {OwsConstants.SessionFileName}");
-            } else {
-                using var sessionReader = new StreamReader(sessionEntry.Open());
-                var sessionText = sessionReader.ReadToEnd();
-                var actualSessionHash = hashService.ComputeHash(sessionText);
-
-                if (!string.Equals(actualSessionHash, manifest.SessionStateHash, StringComparison.OrdinalIgnoreCase)) {
-                    errors.Add("Session state hash does not match manifest.");
-                }
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(manifest.ReceiptChainHash)) {
-            var receiptsEntry = archive.GetEntry(OwsConstants.ReceiptsFileName);
-            if (receiptsEntry is null) {
-                if (!allowMissingReceiptChain) {
-                    errors.Add($"Missing receipt chain entry declared in manifest: {OwsConstants.ReceiptsFileName}");
-                }
-            } else {
-                using var receiptsReader = new StreamReader(receiptsEntry.Open());
-                var receiptsText = receiptsReader.ReadToEnd();
-                var actualReceiptsHash = hashService.ComputeHash(receiptsText);
-                if (!string.Equals(actualReceiptsHash, manifest.ReceiptChainHash, StringComparison.OrdinalIgnoreCase)) {
-                    errors.Add("Receipt chain hash does not match manifest.");
-                }
             }
         }
 

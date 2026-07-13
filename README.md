@@ -1,6 +1,6 @@
 # Open Work Standard
 
-Open Work Standard (OWS) is local-first academic work provenance and notarization infrastructure. It records project-scoped evidence, packages that evidence into `.owspkg`, and supports later verification and human review without claiming automated misconduct judgment.
+Open Work Standard (OWS) is a local-first proof-of-work protocol and toolchain for academic projects. It records project-scoped evidence, packages that evidence into `.owspkg`, and supports offline verification and human review without claiming automated misconduct judgment.
 
 OWS does:
 - record project-scoped work evidence
@@ -8,9 +8,8 @@ OWS does:
 - register explicitly initialized projects with the local OWS Agent
 - package evidence into `.owspkg`
 - optionally seal packages with a canonical root hash and offline RSA signature
-- verify package hashes, timeline integrity, and optional remote receipts
+- verify package hashes, timeline integrity, and optional offline signatures
 - surface neutral review signals for continuity gaps
-- preserve optional opaque external context identifiers without owning institutional records
 
 OWS does not:
 - run AI cheating detection
@@ -35,9 +34,7 @@ Windows setup:
 
 Current status:
 - MVP reference flow is real
-- optional remote verifier path exists
 - observation gaps degrade continuity rather than implying misconduct
-- verifier v0.1 now includes built-in rate limiting, scoped upload rejection before blob persistence, and stricter `.owspkg` archive admission checks
 - the semantic Work Version Graph is still scaffolded/deferred
 
 Documentation entry point:

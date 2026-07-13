@@ -17,8 +17,6 @@ public sealed class OwsPackageBuilder : IPackageBuilder {
 
         var localFolder = Path.Combine(request.ProjectRootPath, OwsConstants.LocalFolderName);
         var timelinePath = Path.Combine(localFolder, OwsConstants.TimelineFileName);
-        var receiptsPath = Path.Combine(localFolder, OwsConstants.ReceiptsFileName);
-        var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
         var outputDirectory = Path.GetDirectoryName(request.OutputPackagePath);
         var hashService = new Sha256HashService();
 
@@ -28,15 +26,12 @@ public sealed class OwsPackageBuilder : IPackageBuilder {
 
         var timelineText = File.ReadAllText(timelinePath);
         const string versionGraphText = "{\"nodes\":[],\"edges\":[]}";
-        var sessionText = File.Exists(sessionPath) ? File.ReadAllText(sessionPath) : null;
-        var receiptsText = File.Exists(receiptsPath) ? File.ReadAllText(receiptsPath) : null;
-
         var artifactHashes = PackageArtifactCollector.CollectArtifacts(
             request.ProjectRootPath, request.OutputPackagePath, hashService,
             LoadIgnoreEngine(request.ProjectRootPath));
 
         var manifest = PackageManifestBuilder.BuildManifest(
-            request.ProjectRootPath, timelineText, versionGraphText, sessionText, receiptsText, artifactHashes, hashService);
+            request.ProjectRootPath, timelineText, versionGraphText, artifactHashes, hashService);
         manifest = manifest with { PackageRootHash = PackageRootCanonicalizer.ComputeHash(manifest) };
 
         OwsPackageSignature? signature = null;
@@ -61,9 +56,6 @@ public sealed class OwsPackageBuilder : IPackageBuilder {
             manifest,
             timelineText,
             versionGraphText,
-            receiptsPath,
-            sessionPath,
-            sessionText is not null,
             artifactHashes,
             signature);
 

@@ -1,41 +1,18 @@
-# OWS Provenance Data Model
+# OWS Data Model
 
-OWS models project-scoped evidence and verification state. Institutional systems may attach opaque identifiers, but OWS does not store or resolve institutions, courses, rosters, students, or assessments.
+OWS models project-scoped evidence and package integrity. The filesystem and `.ows/` directory are the primary local observation boundary.
 
-## Core evidence flow
+## Local project state
 
-```mermaid
-flowchart LR
-    Project[Initialized project folder] --> Events[Hash-chained event timeline]
-    Events --> Package[.owspkg package]
-    Package --> Verify[Local verifier]
-    Package --> Remote[Optional remote verifier]
-    Verify --> Report[Human-readable report]
-    Remote --> Report
-```
+- `.ows/config.json`: OWS version, absolute project root, initialization time, and watcher settings.
+- `.ows/timeline.jsonl`: append-only chained `OwsEvent` records.
+- `.ows/version_graph.json`: the current text-first graph placeholder.
+- `.ows/observed_snapshot.json`: local recovery state used to explain observation gaps.
 
-## Core records
+## Package state
 
-### Project configuration
+An `.owspkg` contains `manifest.json`, `timeline.jsonl`, `version_graph.json`, optional `signature.json`, and opaque `artifacts/...` entries. Manifest hashes and the canonical package-root hash make the logical contents independently checkable.
 
-`.ows/config.json` identifies an explicitly initialized project and may contain the verifier URL plus optional external context identifiers. These values are metadata, not OWS-managed entities.
+## Trust and privacy
 
-### Timeline event
-
-An event records project-scoped activity such as file changes, watcher lifecycle, builds, tests, runs, checkpoints, and recovery scans. Events form a hash chain and never imply that missing activity is misconduct.
-
-### Session
-
-A session links local evidence to optional receipt issuance. It may carry opaque `institutionId`, `assessmentId`, `studentUserId`, and `courseOfferingId` values for external scoping and reporting.
-
-### Package
-
-An `.owspkg` contains the manifest, event timeline, receipts, session metadata, and opaque artifact metadata required for offline verification. Binary files remain opaque and hash-only.
-
-### Verification result
-
-The verifier reports package integrity, timeline integrity, receipt alignment, lease continuity, anchor state, trust status, findings, and optional opaque context identifiers. It does not resolve names, enrollments, course structures, or assessment policies.
-
-## Boundary
-
-Authentication and authorization may use institution and student identifiers to scope verifier resources. That is a trust-boundary concern, not an education-management model. LMS integration, roster synchronization, grading, and institutional administration belong in separate future projects.
+Verification reports package integrity, timeline continuity, signature state, and neutral observation findings. OWS does not resolve institutions, courses, rosters, students, assessments, or grades. It never collects raw keystrokes, passwords, browser data, webcam/microphone data, or unrelated personal files.

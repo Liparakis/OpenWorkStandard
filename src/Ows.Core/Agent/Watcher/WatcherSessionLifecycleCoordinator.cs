@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Ows.Core.Notarization;
 
 namespace Ows.Core.Agent;
 
@@ -25,43 +24,6 @@ internal static class WatcherSessionLifecycleCoordinator {
                     await Task.Delay(500, token);
                 } catch (OperationCanceledException) {
                     break;
-                }
-            }
-        }, token);
-    }
-
-    /// <summary>
-    /// Starts a background periodic task that triggers session heartbeats to verify ongoing connectivity.
-    /// </summary>
-    /// <param name="sessionPath">The absolute path to the active session state file.</param>
-    /// <param name="projectRoot">The absolute path to the project root directory.</param>
-    /// <param name="sendHeartbeatAsync">Callback function to execute sending a heartbeat.</param>
-    /// <param name="token">A token to stop the periodic heartbeat checker.</param>
-    public static void StartHeartbeatPoller(string sessionPath, string projectRoot,
-        Func<string, Task> sendHeartbeatAsync, CancellationToken token) {
-        _ = Task.Run(async () => {
-            while (!token.IsCancellationRequested) {
-                try {
-                    await Task.Delay(30000, token);
-                } catch (OperationCanceledException) {
-                    break;
-                }
-
-                if (token.IsCancellationRequested) {
-                    break;
-                }
-
-                if (File.Exists(sessionPath)) {
-                    try {
-                        var content = await File.ReadAllTextAsync(sessionPath, token);
-                        var sessionState = JsonSerializer.Deserialize<SessionState>(content);
-                        if (sessionState != null && !string.IsNullOrWhiteSpace(sessionState.VerifierUrl)) {
-                            await sendHeartbeatAsync(projectRoot);
-                        }
-                    } catch (IOException) {
-                    } catch (UnauthorizedAccessException) {
-                    } catch (JsonException) {
-                    }
                 }
             }
         }, token);

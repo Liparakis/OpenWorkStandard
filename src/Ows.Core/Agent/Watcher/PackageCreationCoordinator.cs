@@ -1,8 +1,6 @@
 using System.IO.Compression;
-using System.Text.Json;
 using Ows.Core.Events;
 using Ows.Core.Hashing;
-using Ows.Core.Notarization;
 using Ows.Core.Packaging;
 
 namespace Ows.Core.Agent;
@@ -38,14 +36,6 @@ internal static class PackageCreationCoordinator {
 
         // Emit PackageCreated event locally
         try {
-            var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
-            var sessionPath = Path.Combine(localFolder, OwsConstants.SessionFileName);
-            string? sessionId = null;
-            if (File.Exists(sessionPath)) {
-                var state = JsonSerializer.Deserialize<SessionState>(await File.ReadAllTextAsync(sessionPath));
-                sessionId = state?.SessionId;
-            }
-
             var packageHash = string.Empty;
             long packageSize = 0;
             var artifactCount = 0;
@@ -66,10 +56,6 @@ internal static class PackageCreationCoordinator {
                 { "artifactCount", artifactCount.ToString() },
                 { "createdAt", DateTimeOffset.UtcNow.ToString("o") }
             };
-            if (sessionId is not null) {
-                metadata["sessionId"] = sessionId;
-            }
-
             var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
             await appendEventFunc(projectRoot, OwsEventType.PackageCreated, Path.GetFileName(packagePath),
                 host, 0, metadata);

@@ -24,8 +24,7 @@ Every valid MVP package must contain:
 
 A package may also contain:
 
-- `session.json`
-- `receipts.json`
+- `signature.json`
 - `artifacts/...`
 
 ## Current Archive Shape
@@ -37,8 +36,6 @@ submission.owspkg
 |- manifest.json
 |- timeline.jsonl
 |- version_graph.json
-|- session.json              (optional)
-|- receipts.json             (optional)
 |- signature.json            (optional)
 `- artifacts/
 ```
@@ -58,20 +55,16 @@ The manifest currently carries:
 - `trackedPath`
 - `timelineHash`
 - `versionGraphHash`
-- `sessionStateHash`
-- `artifactHashes`
-- `packageRootHash`
-- `receiptChainHash`
+  - `artifactHashes`
+  - `packageRootHash`
 - `signatureAlgorithm` and `signatureKeyFingerprint` when signed
 
 Current behavior:
 
 - `timelineHash` is the SHA-256 hash of the packaged `timeline.jsonl`
 - `versionGraphHash` is the SHA-256 hash of the packaged `version_graph.json`
-- `sessionStateHash` is empty when `session.json` is absent
 - `artifactHashes` maps archive paths such as `artifacts/src/Program.cs` to SHA-256 content hashes
 - `packageRootHash` is the SHA-256 hash of the canonical logical root bytes
-- `receiptChainHash` is the SHA-256 hash of `receipts.json` when present
 - signature fields identify the optional public-key signature
 
 ### `timeline.jsonl`
@@ -85,16 +78,6 @@ Current behavior:
 - current MVP placeholder graph document
 - current emitted content is an empty graph: `{"nodes":[],"edges":[]}`
 - this is still part of the package contract and is hash-checked
-
-### `session.json`
-
-- optional packaged session metadata
-- used to resolve a remote verifier session during verification when present
-
-### `receipts.json`
-
-- optional packaged receipt-chain snapshot
-- used for packaged receipt verification and optional live verifier cross-checking
 
 ### `artifacts/...`
 
@@ -114,8 +97,8 @@ Current behavior:
 The root is independent of ZIP entry ordering and ZIP timestamps. The current
 `OWS-PACKAGE-ROOT-V1` canonicalizer
 serializes the manifest with root/signature self-reference fields blank, then
-appends sorted logical content-hash lines for the timeline, version graph,
-session, receipts, and artifacts using UTF-8 LF bytes under the
+appends sorted logical content-hash lines for the timeline, version graph, and
+artifacts using UTF-8 LF bytes under the
 `OWS-PACKAGE-ROOT-V1` format marker.
 
 ## Exclusions
@@ -143,9 +126,7 @@ Current package verification checks:
 - `manifest.json` is valid JSON
 - `timeline.jsonl` is valid and its event chain recomputes correctly
 - `version_graph.json` is valid JSON
-- manifest hashes match packaged timeline, version graph, session state, and artifact contents
-- packaged receipt chains verify when present
-- live verifier cross-checking can be performed when a verifier URL is supplied
+- manifest hashes match packaged timeline, version graph, and artifact contents
 - canonical package-root hashes are checked when present
 - signed packages are verified offline; unsigned packages remain valid with an explicit unsigned signature state
 

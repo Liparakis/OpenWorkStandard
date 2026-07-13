@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Text.Json;
 using Ows.Core.Graph;
-using Ows.Core.Notarization;
 using Ows.Core.Packaging;
 
 namespace Ows.Core.Verification;
@@ -73,52 +72,4 @@ internal static class PackageStructureVerifier {
         }
     }
 
-    /// <summary>
-    /// Extracts and parses the <see cref="ReceiptChain"/> file from the package ZIP archive.
-    /// </summary>
-    /// <param name="archive">The target ZIP package.</param>
-    /// <param name="errors">The list to accumulate verification errors.</param>
-    /// <returns>The parsed receipt chain instance, or <see langword="null"/> if the file is absent or invalid.</returns>
-    public static ReceiptChain? ReadPackagedReceiptChain(ZipArchive archive, List<string> errors) {
-        var receiptsEntry = archive.GetEntry(OwsConstants.ReceiptsFileName);
-        if (receiptsEntry is null) {
-            return null;
-        }
-
-        try {
-            using var reader = new StreamReader(receiptsEntry.Open());
-            var receiptsText = reader.ReadToEnd();
-            return JsonSerializer.Deserialize<ReceiptChain>(receiptsText)
-                   ?? throw new JsonException("Receipt chain deserialized to null.");
-        } catch (JsonException) {
-            errors.Add($"Invalid JSON in {OwsConstants.ReceiptsFileName}");
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Attempts to parse the session identifier out of the session state descriptor inside the package.
-    /// </summary>
-    /// <param name="archive">The target ZIP package.</param>
-    /// <returns>The session ID string, or <see langword="null"/> if not found or unreadable.</returns>
-    public static string? ReadSessionId(ZipArchive archive) {
-        var entry = archive.GetEntry(OwsConstants.SessionFileName);
-        if (entry is null) return null;
-        try {
-            using var reader = new StreamReader(entry.Open());
-            var text = reader.ReadToEnd();
-            using var doc = JsonDocument.Parse(text);
-            if (doc.RootElement.TryGetProperty("SessionId", out var prop)) {
-                return prop.GetString();
-            }
-
-            if (doc.RootElement.TryGetProperty("sessionId", out prop)) {
-                return prop.GetString();
-            }
-        } catch {
-            // Ignore failures
-        }
-
-        return null;
-    }
 }

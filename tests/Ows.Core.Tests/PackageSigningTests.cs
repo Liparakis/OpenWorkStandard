@@ -118,28 +118,6 @@ public sealed class PackageSigningTests {
     }
 
     [Fact]
-    public async Task SignedPackage_ShouldRejectTamperedReceiptChainBytes() {
-        var fixture = CreateFixture();
-        var tamperedPath = Path.Combine(fixture.Root, "tampered-receipts.owspkg");
-        try {
-            Directory.CreateDirectory(Path.Combine(fixture.Root, OwsConstants.LocalFolderName));
-            File.WriteAllText(Path.Combine(fixture.Root, OwsConstants.LocalFolderName, OwsConstants.ReceiptsFileName), "{}");
-            await CreatePackageAsync(fixture, sign: true);
-            RewritePackage(fixture.PackagePath, tamperedPath, (entry, content) =>
-                entry == OwsConstants.ReceiptsFileName
-                    ? (entry, Encoding.UTF8.GetBytes("{\"tampered\":true}"))
-                    : (entry, content));
-
-            var result = await VerifyAsync(tamperedPath);
-
-            result.IsSuccess.Should().BeFalse();
-            result.TrustStatus.Should().Be(TrustStatus.Invalid);
-        } finally {
-            DeleteFixture(fixture);
-        }
-    }
-
-    [Fact]
     public async Task Verify_ShouldReturnInvalidForMalformedZipInput() {
         var packagePath = Path.Combine(Path.GetTempPath(), $"ows-malformed-{Guid.NewGuid():N}.owspkg");
         try {

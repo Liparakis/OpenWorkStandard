@@ -26,8 +26,6 @@ internal static class PackageRootCanonicalizer {
             $"manifest={new Sha256HashService().ComputeHash(manifestJson)}",
             $"timeline={manifest.TimelineHash}",
             $"version_graph={manifest.VersionGraphHash}",
-            $"session={manifest.SessionStateHash}",
-            $"receipts={manifest.ReceiptChainHash}"
         };
         lines.AddRange(manifest.ArtifactHashes.OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => $"artifact={pair.Key}={pair.Value}"));

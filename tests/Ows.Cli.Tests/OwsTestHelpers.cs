@@ -10,7 +10,7 @@ namespace Ows.Cli.Tests;
 internal static class OwsTestHelpers {
     /// <summary>
     /// Runs a one-shot initial file scan for the given project root, equivalent to what
-    /// <c>ows watch</c> used to do before it became a persistent watcher.
+    /// The local Agent uses the same preparation path before becoming a persistent watcher.
     /// Uses the polling fallback with a very short interval so the scan completes in under
     /// 300 ms and the test does not hang waiting for a long-running watch loop.
     /// </summary>

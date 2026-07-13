@@ -13,9 +13,6 @@ internal static class PackageArchiveWriter {
         OwsManifest manifest,
         string timelineText,
         string versionGraphText,
-        string receiptsPath,
-        string sessionPath,
-        bool hasSession,
         Dictionary<string, string> artifactHashes,
         OwsPackageSignature? signature) {
         if (File.Exists(outputPackagePath)) {
@@ -37,14 +34,6 @@ internal static class PackageArchiveWriter {
         var graphEntry = archive.CreateEntry(OwsConstants.VersionGraphFileName);
         using (var graphWriter = new StreamWriter(graphEntry.Open())) {
             graphWriter.Write(versionGraphText);
-        }
-
-        if (File.Exists(receiptsPath)) {
-            archive.CreateEntryFromFile(receiptsPath, OwsConstants.ReceiptsFileName);
-        }
-
-        if (hasSession && File.Exists(sessionPath)) {
-            archive.CreateEntryFromFile(sessionPath, OwsConstants.SessionFileName);
         }
 
         if (signature is not null) {

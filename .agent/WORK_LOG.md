@@ -1707,3 +1707,30 @@
 - Exact next action: Trace and delete `Ows.Core.Notarization`, `RemoteSessionCoordinator`, session fields in packaging/reporting, and `Ows.Verifier.Server`.
 - Important context: Unreleased compatibility is explicitly disposable; retain only local timeline, package integrity/signing, Agent observation, and offline review.
 - Files to inspect first: `src/Ows.Core/Verification`, `src/Ows.Core/Packaging`, `src/Ows.Core/Agent/OwsWatchSessionManager.cs`, and `src/Ows.Verifier.Server`.
+
+## 2026-07-13 — Remove unreleased server and remote-verifier stack
+
+### Completed
+- Removed the PostgreSQL/notarization model, receipts, sessions, leases, remote transports, hosted verifier server, auth/RBAC, upload worker, and related legacy tests.
+- Reduced package verification and reporting to local archive structure, hashes, timeline continuity, optional offline signatures, and neutral observation findings.
+- Pruned server/pilot/deployment/API/IDE/OIDC documentation, scripts, Compose configuration, and stale release guidance.
+
+### Changed
+- Added: None.
+- Modified: solution/project references, local verifier/reporting code, active README/docs, and reconciled tests.
+- Deleted: `src/Ows.Core/Notarization`, `src/Ows.Verifier.Server`, server/pilot scripts, server operations docs, and server-only tests.
+
+### Validation
+- Build: Passed with 0 warnings and 0 errors.
+- Targeted tests: Package signing and reporting coverage passed as part of the suite.
+- Full tests: Core 41/41 and CLI 10/10.
+- Manual checks: `git diff --check` passed; no remaining source references to the deleted server/notarization namespaces.
+
+### Remaining
+- Inspect final Markdown links and ignored generated output.
+- Commit this coherent legacy-removal slice.
+
+### Handoff
+- Exact next action: run the final link/generated-output audit, then stage only this cleanup and commit it.
+- Important context: Unreleased compatibility is explicitly disposable; the only active contract is local `ows init` → `ows package` → offline review.
+- Files to inspect first: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `README.md`, `docs/START_HERE.md`, and `git status`.

@@ -10,8 +10,6 @@ internal static class PackageManifestBuilder {
         string projectRootPath,
         string timelineText,
         string versionGraphText,
-        string? sessionText,
-        string? receiptsText,
         Dictionary<string, string> artifactHashes,
         Sha256HashService hashService) {
         return new OwsManifest {
@@ -20,8 +18,6 @@ internal static class PackageManifestBuilder {
             TrackedPath = projectRootPath,
             TimelineHash = hashService.ComputeHash(timelineText),
             VersionGraphHash = hashService.ComputeHash(versionGraphText),
-            SessionStateHash = sessionText is null ? string.Empty : hashService.ComputeHash(sessionText),
-            ReceiptChainHash = receiptsText is null ? string.Empty : hashService.ComputeHash(receiptsText),
             ArtifactHashes = artifactHashes
         };
     }

@@ -1,87 +1,20 @@
-# OWS v0.1 Release Checklist
+# OWS Release Checklist
 
-Use this before calling an Open Work Standard v0.1 build a release candidate.
+Use this before publishing a build.
 
-## Release Scope
-
-The candidate surface is the local `ows init` → `ows package` workflow, offline
-`verify`/`inspect`/`report`, and the Windows setup/service lifecycle. The remote
-verifier is optional and pilot-grade; it is never required for local creation or
-verification. Linux/macOS installable service adapters, key rotation/revocation,
-and chain-preserving timeline compaction remain deferred.
-
-## Automated Gate
-
-Run:
-
-```powershell
-$env:VerifierSecurity__ApiKey = "pilot-operator-key-12345"
-$env:OWS_VERIFIER_API_KEY = "pilot-operator-key-12345"
-$env:VerifierStorage__ReceiptSigningKey = "pilot-signing-key-12345"
-.\scripts\windows\run-release-regression-gate.ps1
-```
-
-Expected automated checks:
+## Automated checks
 
 - `dotnet build OWS.sln -nologo`
 - `dotnet test OWS.sln -nologo`
-- `docker compose -f docker-compose.local.yml config` when Docker is reachable
-- local verifier startup
-- `/health` and `/ready`
-- pilot fixture setup
-- `StudentClient` session start
-- heartbeat advancement while watcher is alive
-- checkpoint issuance
-- package creation
-- package upload
-- worker verification
-- reviewer report read
-- reviewer write rejection
-- operator diagnostics and audit query
-- request-id presence in logs
-- raw API key redaction sanity check
+- `git diff --check`
+- PowerShell syntax checks for Windows scripts
+- confirm `ows init` → `ows package` → `ows verify` works with a temporary project
+- confirm signed packages verify and tampered packages fail
 
-Artifacts:
+## Manual checks
 
-- gate summary: `artifacts/release-gate/release-gate-summary.json`
-- latest dry run summary: `artifacts/pilot-demo/live-dry-run-summary.json`
-- release-candidate evidence bundle: `.\scripts\windows\collect-release-candidate-evidence.ps1` writes `artifacts/release-candidate/v0.1/`
-
-## Manual Checks
-
-- operator sign-off that the latest dry run summary still matches expected trust and scope behavior
-- doc review for any changed user-facing setup steps
-
-## Manual Sign-Off
-
-Current evidence bundle:
-
-- `artifacts/release-candidate/v0.1/`
-
-Current status:
-
-- automated gate: passed on 2026-07-13
-- evidence bundle: collected on 2026-07-13
-- manual sign-off: pending
-
-Checklist:
-
-- [x] confirm `artifacts/release-candidate/v0.1/release-gate-summary.json` is the latest passing gate summary
-- [x] confirm `artifacts/release-candidate/v0.1/live-dry-run-summary.json` is the latest passing live dry-run summary
-- [x] confirm the latest dry run still shows `packageStatus = Completed`
-- [x] confirm the latest dry run still shows `trustStatus = Verified`
-- [x] confirm the latest dry run still shows `reviewerDeniedStatus = 403`
-- [x] confirm the latest dry run still shows `rawKeyLeakDetected = false`
-- [ ] record operator approval for the v0.1 release candidate
-
-## Fixture Reset And Cleanup
-
-`setup-pilot-fixture.ps1` is safe for repeated automation when you pass a unique `-Prefix`. That is what the dry-run and regression-gate scripts do.
-
-If you manually reuse the default `pilot` prefix, do one of these first:
-
-- choose a new `-Prefix`
-- reset the local dev database / package storage
-- recreate the local PostgreSQL data volume
-
-This is deliberate. Unique fixture ids are cheaper and safer than destructive cleanup logic.
+- review the package format and privacy boundaries
+- confirm no generated output, private key, credential, or personal path is tracked
+- on Windows, validate setup, SCM service start/recovery, and Installed apps uninstall
+- inspect the final history and MIT license
+- obtain owner authorization before tagging, pushing, or publishing

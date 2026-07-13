@@ -60,50 +60,6 @@ public sealed class CliHardeningTests {
         }
     }
 
-    [Fact]
-    public void Cli_ShouldRedactApiKey_InExceptionsAndFriendlyErrors() {
-        var secretKey = "api-key-to-redact-99999";
-        Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", secretKey);
-
-        var originalOut = Console.Out;
-        var originalError = Console.Error;
-
-        try {
-            // Trigger a dummy command or parse with the secret key in the argument to cause exception
-            var exception = new Exception($"Error: Unauthorized with {secretKey} API key.");
-
-            // Invoke the OwsCommandFactory's private/internal method or just invoke RedactApiKey indirectly.
-            // Since RedactApiKey is private, we can verify via PrintResult or error formatting.
-            // Let's trigger a command that is sure to fail and check the exception redaction:
-            var mockResponse = new OwsCliResponse();
-            mockResponse.Success = false;
-            mockResponse.Errors.Add($"Failed auth with key {secretKey}");
-
-            using (var sw = new StringWriter()) {
-                Console.SetOut(sw);
-                // Call a failing command or use PrintResult simulation
-                var parseResult = OwsCommandFactory.BuildRootCommand().Parse(["status", "invalid-option-args-here"]);
-                parseResult.Invoke();
-
-                // Test our RedactApiKey logic via actual command output
-                using (var swError = new StringWriter()) {
-                    Console.SetError(swError);
-                    var prMethod = typeof(OwsCommandFactory).GetMethod("PrintResult", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-                    prMethod.Should().NotBeNull();
-                    prMethod!.Invoke(null, new object[] { mockResponse, false });
-
-                    var errOut = swError.ToString();
-                    errOut.Should().NotContain(secretKey);
-                    errOut.Should().Contain("[REDACTED_API_KEY]");
-                }
-            }
-        } finally {
-            Console.SetOut(originalOut);
-            Console.SetError(originalError);
-            Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", null);
-        }
-    }
-
     private static string ExtractJson(string text) {
         var startIdx = text.IndexOf('{');
         var endIdx = text.LastIndexOf('}');

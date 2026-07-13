@@ -61,14 +61,6 @@ ows inspect --json
 ows inspect is reviewer-focused and reports the package root, signature
 status, artifact count, timeline summary, and review findings.
 
-## Optional pilot diagnostics
-
-Remote sessions, checkpoints, uploads, and explicit event emitters remain
-available for verifier pilot operations and integrations. They are optional
-diagnostic/remote surfaces, not prerequisites for the local student workflow.
-Use the detailed CLI reference in docs/development/CLI.md when operating those
-surfaces.
-
 ## Troubleshooting
 
 - AgentUnavailable: run the Windows Agent bootstrap or `ows agent run`;

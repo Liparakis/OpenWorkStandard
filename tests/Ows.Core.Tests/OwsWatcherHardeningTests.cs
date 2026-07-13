@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Ows.Core.Agent;
 using Ows.Core.Init;
-using Ows.Core.Notarization;
 using Xunit;
 
 namespace Ows.Core.Tests;

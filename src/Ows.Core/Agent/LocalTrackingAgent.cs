@@ -120,8 +120,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
 
             if (previousSnapshot == null && hadPriorTimeline) {
                 var now = DateTimeOffset.UtcNow;
-                var lastHeartbeat = GetLastHeartbeatTime(_options.ProjectRootPath);
-                var gapStartedAt = lastHeartbeat ?? now;
+                var gapStartedAt = now;
                 var gapDurationMsVal = (long) (now - gapStartedAt).TotalMilliseconds;
                 var previousStateVal = DeterminePreviousWatcherState(timelinePath, _options.WasInterrupted);
 
@@ -152,8 +151,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                         cancellationToken);
             } else if (snapshotHashMismatch || snapshotLegacyUnbound) {
                 var now = DateTimeOffset.UtcNow;
-                var lastHeartbeat = GetLastHeartbeatTime(_options.ProjectRootPath);
-                var gapStartedAt = lastHeartbeat ?? now;
+                var gapStartedAt = now;
                 var gapDurationMsVal = (long) (now - gapStartedAt).TotalMilliseconds;
                 var previousStateVal = DeterminePreviousWatcherState(timelinePath, _options.WasInterrupted);
 
@@ -201,11 +199,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                 var now = DateTimeOffset.UtcNow;
 
                 // Gap computation parameters
-                var lastHeartbeat = GetLastHeartbeatTime(_options.ProjectRootPath);
                 var gapStartedAt = previousSnapshot.ObservedAt;
-                if (lastHeartbeat.HasValue && lastHeartbeat.Value > gapStartedAt) {
-                    gapStartedAt = lastHeartbeat.Value;
-                }
 
                 var gapEndedAt = now;
                 var gapDurationMsVal = (long) (gapEndedAt - gapStartedAt).TotalMilliseconds;
@@ -386,24 +380,6 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                 }
             } catch {
                 return null;
-            }
-        }
-
-        return null;
-    }
-
-    private static DateTimeOffset? GetLastHeartbeatTime(string projectRoot) {
-        var sessionPath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, OwsConstants.SessionFileName);
-        if (File.Exists(sessionPath)) {
-            try {
-                var content = File.ReadAllText(sessionPath);
-                using var doc = JsonDocument.Parse(content);
-                if (doc.RootElement.TryGetProperty("lastHeartbeatAt", out var prop) &&
-                    prop.TryGetDateTimeOffset(out var dto)) {
-                    return dto;
-                }
-            } catch {
-                /*ignored*/
             }
         }
 

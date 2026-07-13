@@ -30,11 +30,6 @@ public sealed record VerificationResult {
     public IReadOnlyList<VerificationFinding> Findings { get; init; } = [];
 
     /// <summary>
-    /// Gets the list of verifier key fingerprints that signed the receipts in the package.
-    /// </summary>
-    public IReadOnlyList<string> VerifiedKeyFingerprints { get; init; } = [];
-
-    /// <summary>
     /// Gets the offline package signature state: Valid, Unsigned, UnsignedLegacy, or Invalid.
     /// </summary>
     public string SignatureStatus { get; init; } = "UnsignedLegacy";
@@ -45,19 +40,16 @@ public sealed record VerificationResult {
     /// <param name="summary">The result summary.</param>
     /// <param name="trustStatus">The trust grade assigned to the result.</param>
     /// <param name="findings">Optional verification findings.</param>
-    /// <param name="verifiedKeyFingerprints">Optional list of verified key fingerprints.</param>
     /// <returns>A successful verification result.</returns>
     public static VerificationResult Success(
         string summary,
         TrustStatus trustStatus = TrustStatus.Verified,
-        IReadOnlyList<VerificationFinding>? findings = null,
-        IReadOnlyList<string>? verifiedKeyFingerprints = null) =>
+        IReadOnlyList<VerificationFinding>? findings = null) =>
         new() {
             IsSuccess = true,
             TrustStatus = trustStatus,
             Summary = summary,
-            Findings = findings ?? [],
-            VerifiedKeyFingerprints = verifiedKeyFingerprints ?? []
+            Findings = findings ?? []
         };
 
     /// <summary>
@@ -66,20 +58,17 @@ public sealed record VerificationResult {
     /// <param name="summary">The result summary.</param>
     /// <param name="errors">The validation or verification errors.</param>
     /// <param name="findings">Optional verification findings.</param>
-    /// <param name="verifiedKeyFingerprints">Optional list of verified key fingerprints.</param>
     /// <returns>A failed verification result.</returns>
     public static VerificationResult Failure(
         string summary,
         IReadOnlyList<string>? errors = null,
-        IReadOnlyList<VerificationFinding>? findings = null,
-        IReadOnlyList<string>? verifiedKeyFingerprints = null) =>
+        IReadOnlyList<VerificationFinding>? findings = null) =>
         new() {
             IsSuccess = false,
             TrustStatus = TrustStatus.Invalid,
             Summary = summary,
             Errors = errors ?? [],
-            Findings = findings ?? [],
-            VerifiedKeyFingerprints = verifiedKeyFingerprints ?? []
+            Findings = findings ?? []
         };
 
     /// <summary>
@@ -107,25 +96,6 @@ public sealed record VerificationResult {
     /// </summary>
     public ReportTimelineInfo Timeline { get; init; } = new();
 
-    /// <summary>
-    /// Gets the remote receipt alignment metadata.
-    /// </summary>
-    public ReportReceiptsInfo Receipts { get; init; } = new();
-
-    /// <summary>
-    /// Gets the session lease continuity metadata.
-    /// </summary>
-    public ReportLeaseInfo Lease { get; init; } = new();
-
-    /// <summary>
-    /// Gets the package anchor status metadata.
-    /// </summary>
-    public ReportAnchorInfo Anchor { get; init; } = new();
-
-    /// <summary>
-    /// Gets the optional external context metadata.
-    /// </summary>
-    public ReportExternalContext? ExternalContext { get; init; }
 }
 
 /// <summary>
@@ -147,10 +117,6 @@ public sealed record ReportPackageInfo {
     /// </summary>
     public string PackageRootHash { get; init; } = string.Empty;
 
-    /// <summary>
-    /// Gets the session ID.
-    /// </summary>
-    public string SessionId { get; init; } = string.Empty;
 }
 
 /// <summary>
@@ -171,104 +137,4 @@ public sealed record ReportTimelineInfo {
     /// Gets the head event hash of the timeline.
     /// </summary>
     public string HeadEventHash { get; init; } = string.Empty;
-}
-
-/// <summary>
-/// Structured remote receipt alignment info for verification reports.
-/// </summary>
-public sealed record ReportReceiptsInfo {
-    /// <summary>
-    /// Gets the alignment status (e.g. Aligned, Misaligned, Missing).
-    /// </summary>
-    public string Alignment { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Gets the total number of receipts.
-    /// </summary>
-    public int ReceiptCount { get; init; }
-
-    /// <summary>
-    /// Gets the head receipt hash.
-    /// </summary>
-    public string HeadReceiptHash { get; init; } = string.Empty;
-}
-
-/// <summary>
-/// Structured session lease gap info.
-/// </summary>
-public sealed record ReportLeaseGapInfo {
-    /// <summary>
-    /// Gets the UTC start timestamp of the gap.
-    /// </summary>
-    public DateTimeOffset StartTime { get; init; }
-
-    /// <summary>
-    /// Gets the duration of the gap in seconds.
-    /// </summary>
-    public int DurationSeconds { get; init; }
-}
-
-/// <summary>
-/// Structured session lease continuity info.
-/// </summary>
-public sealed record ReportLeaseInfo {
-    /// <summary>
-    /// Gets the lease status (e.g. Active, Degraded, Unverified, None).
-    /// </summary>
-    public string Status { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Gets the last heartbeat timestamp.
-    /// </summary>
-    public string LastHeartbeatAt { get; init; } = "None";
-
-    /// <summary>
-    /// Gets the lease expiration timestamp.
-    /// </summary>
-    public string LeaseExpiresAt { get; init; } = "None";
-
-    /// <summary>
-    /// Gets the detected lease gaps.
-    /// </summary>
-    public IReadOnlyList<ReportLeaseGapInfo> Gaps { get; init; } = [];
-}
-
-/// <summary>
-/// Structured package anchor status.
-/// </summary>
-public sealed record ReportAnchorInfo {
-    /// <summary>
-    /// Gets the anchor status (e.g. Anchored, Missing, Mismatch).
-    /// </summary>
-    public string Status { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Gets the timestamp when anchored.
-    /// </summary>
-    public string AnchoredAt { get; init; } = "None";
-
-    /// <summary>
-    /// Gets the anchored session head timeline hash.
-    /// </summary>
-    public string AnchoredSessionHead { get; init; } = "None";
-}
-
-/// <summary>
-/// Structured external context metadata for verification reports.
-/// </summary>
-public sealed record ReportExternalContext {
-    /// <summary>
-    /// Gets the unique institution identifier.
-    /// </summary>
-    public string? InstitutionId { get; init; }
-
-    /// <summary>
-    /// Gets the optional assessment identifier.
-    /// </summary>
-    public string? AssessmentId { get; init; }
-
-    /// <summary>
-    /// Gets the optional student identifier.
-    /// </summary>
-    public string? StudentUserId { get; init; }
 }

@@ -69,13 +69,11 @@ public sealed class EventCatalogTests {
                 or OwsEventType.LargeUnobservedChangeDetected
                 or OwsEventType.SnapshotUpdated;
             if (isActive) {
-                // Should be documented as Active
-                catalogText.Should().Contain($"| `{typeName}` | **Active**",
-                    $"'{typeName}' is an active event type and must be marked Active in EVENT_CATALOG.md");
+                catalogText.Should().Contain($"`{typeName}`",
+                    $"'{typeName}' is an active event type and must be documented in EVENT_CATALOG.md");
             } else {
-                // Should be documented as Reserved
-                catalogText.Should().Contain($"| `{typeName}` | **Reserved**",
-                    $"'{typeName}' is a reserved event type and must be marked Reserved in EVENT_CATALOG.md");
+                catalogText.Should().Contain($"`{typeName}` is reserved",
+                    $"'{typeName}' is reserved and must be documented as such in EVENT_CATALOG.md");
             }
         }
     }

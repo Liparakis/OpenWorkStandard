@@ -5,7 +5,7 @@ namespace Ows.Core.Verification;
 /// </summary>
 public enum TrustStatus {
     /// <summary>
-    /// The evidence and remote receipts align with no meaningful integrity concerns.
+    /// The package signature and local evidence align with no meaningful integrity concerns.
     /// </summary>
     Verified,
 

@@ -47,21 +47,21 @@ public sealed class ReportingNamespaceTests {
                     [
                         new VerificationFinding
                         {
-                            Code = "receipt.chain.missing",
+                            Code = "observation.gap",
                             Severity = "Medium",
-                            Title = "Receipt chain missing",
-                            Detail = "No remote receipts were packaged.",
-                            TechnicalDetail = "No receipts found.",
-                            ReviewerAction = "Verify local-only mode."
+                            Title = "Observation gap",
+                            Detail = "The Agent was not observing the project for an interval.",
+                            TechnicalDetail = "An observation gap was recorded in the local timeline.",
+                            ReviewerAction = "Review the interval manually."
                         }
                     ])
             },
             CancellationToken.None);
 
-        result.Content.Should().Contain("[Medium] receipt.chain.missing");
-        result.Content.Should().Contain("Receipt chain missing: No remote receipts were packaged.");
-        result.Content.Should().Contain("Suggested Action: Verify local-only mode.");
-        result.Content.Should().Contain("Technical Details: No receipts found.");
+        result.Content.Should().Contain("[Medium] observation.gap");
+        result.Content.Should().Contain("Observation gap: The Agent was not observing the project for an interval.");
+        result.Content.Should().Contain("Suggested Action: Review the interval manually.");
+        result.Content.Should().Contain("Technical Details: An observation gap was recorded in the local timeline.");
     }
 
     /// <summary>
