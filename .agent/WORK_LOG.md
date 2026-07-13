@@ -1679,3 +1679,31 @@
 - Exact next action: Owner reviews the reduced root/docs surface, then authorizes or rejects publication.
 - Important context: Root `Directory.Build.props`, `NuGet.Config`, `docker-compose.local.yml`, `.editorconfig`, and `.gitignore` remain because they are active project configuration, not documentation clutter.
 - Files to inspect first: `README.md`, `docs/START_HERE.md`, `docs/development/RELEASE_CHECKLIST.md`, and `git log --oneline`.
+
+## 2026-07-13 — Remove unreleased legacy CLI surface
+
+### Completed
+- Removed hidden `session`, `watch`, and `event` root commands from the shipped CLI.
+- Removed hidden `package upload` and `package status` commands.
+- Reduced `verify` to offline package verification with no server option.
+- Simplified CLI status output to local project/Agent state and made crashed-Agent status return failure.
+- Deleted tests that only exercised removed ceremony or remote behavior.
+
+### Changed
+- Added: None.
+- Modified: `src/Ows.Cli/OwsCommandFactory.cs`, `src/Ows.Cli/Commands/PackageCommandBuilder.cs`, `src/Ows.Cli/Commands/VerifyCommandBuilder.cs`, `src/Ows.Cli/Commands/StatusCommandBuilder.cs`, `src/Ows.Cli/OwsCliResponse.cs`, and affected CLI tests.
+- Deleted: `src/Ows.Cli/Commands/SessionCommandBuilder.cs`, `WatchCommandBuilder.cs`, `EventCommandBuilder.cs`, `OwsSessionStore.cs`, `LocalReceiptTransport.cs`, and their obsolete tests.
+
+### Validation
+- Build: Passed with 0 warnings and 0 errors.
+- Targeted tests: CLI suite was reconciled after four stale command/status expectations; rerun pending.
+- Full tests: Not rerun.
+- Manual checks: Root command set is now `init`, `agent`, `status`, `package`, `verify`, `inspect`, `report`.
+
+### Remaining
+- Remove the now-unreachable session/receipt/remote-verifier core and server stack, then reconcile package verification/reporting around local evidence only.
+
+### Handoff
+- Exact next action: Trace and delete `Ows.Core.Notarization`, `RemoteSessionCoordinator`, session fields in packaging/reporting, and `Ows.Verifier.Server`.
+- Important context: Unreleased compatibility is explicitly disposable; retain only local timeline, package integrity/signing, Agent observation, and offline review.
+- Files to inspect first: `src/Ows.Core/Verification`, `src/Ows.Core/Packaging`, `src/Ows.Core/Agent/OwsWatchSessionManager.cs`, and `src/Ows.Verifier.Server`.

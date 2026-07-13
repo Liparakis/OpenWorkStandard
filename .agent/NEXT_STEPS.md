@@ -1,8 +1,9 @@
 # Next Steps
 
-1. Owner reviews the reduced documentation surface, retained root configuration files, repository history, license, and current worktree scope.
-2. Owner confirms the release candidate and explicitly authorizes publication.
-3. Only after approval: tag the selected version, push the tag, and create the GitHub release.
+1. Remove the remaining session/receipt/remote-verifier implementation and its tests, scripts, and docs; preserve local timeline/package verification.
+2. Run the full build/test and inspect the reduced CLI/package surface.
+3. Owner reviews the reduced repository, confirms the release candidate, and explicitly authorizes publication.
+4. Only after approval: tag the selected version, push the tag, and create the GitHub release.
 
 Post-release roadmap:
 

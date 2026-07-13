@@ -17,13 +17,10 @@ public static class OwsCommandFactory {
             InitCommandBuilder.Build(),
             AgentCommandBuilder.Build(),
             StatusCommandBuilder.Build(),
-            SessionCommandBuilder.Build(),
-            WatchCommandBuilder.Build(),
             PackageCommandBuilder.Build(),
             VerifyCommandBuilder.Build(),
             InspectCommandBuilder.Build(),
-            ReportCommandBuilder.Build(),
-            EventCommandBuilder.Build()
+            ReportCommandBuilder.Build()
         };
 
         rootCommand.Options.Add(SharedCliOptions.JsonOption);

@@ -68,22 +68,6 @@ public sealed class CliJsonProtocolTests {
                 doc.RootElement.GetProperty("WatcherRunning").GetBoolean().Should().BeFalse();
             }
 
-            // 4. Test API Key Redaction
-            Environment.SetEnvironmentVariable("OWS_VERIFIER_API_KEY", "super-secret-api-key-value-12345");
-            using (var sw = new StringWriter()) {
-                Console.SetOut(sw);
-
-                // Trigger a validation failure that logs the environment variable or test string
-                // In this case, we call status with an invalid option that should throw/error,
-                // or we just check if OwsCommandFactory's RedactApiKey replaces the key correctly.
-                var parseResult = OwsCommandFactory.BuildRootCommand().Parse(
-                    ["session", "start", "--server", "http://[invalid-url]-secret-api-key-value-12345", "--json"]
-                );
-                await parseResult.InvokeAsync();
-
-                var output = sw.ToString();
-                output.Should().NotContain("super-secret-api-key-value-12345");
-            }
         } finally {
             Console.SetOut(originalOut);
             Console.SetOut(originalError);

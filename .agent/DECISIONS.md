@@ -219,3 +219,13 @@
 - Reasoning: Dropping old events would make long-lived projects look cleaner by weakening the evidence model, and an unreviewed multi-file timeline format would be a larger security change than this release phase warrants.
 - Consequences: `.ows/timeline.jsonl` can grow for very long-lived projects; retention/compaction remains explicit future work and must update package verification together.
 - Replaces: None.
+
+## Unreleased legacy behavior is disposable
+
+- Date: 2026-07-13
+- Status: Accepted
+- Context: OWS has not been publicly released, but the repository still contains hidden ceremony commands, compatibility aliases, superseded bootstrap paths, and supporting documentation.
+- Decision: Treat the current local-first proof-of-work workflow as the only contract. Remove unreleased legacy behavior, aliases, obsolete bootstrap paths, and dead tests/docs instead of preserving compatibility for them.
+- Reasoning: Compatibility with an unreleased design adds surface area and ambiguity without protecting users; deletion makes `ows init` → `ows package` → offline verification the honest product path.
+- Consequences: Existing internal callers and tests must be migrated or deleted in the same change; public APIs may be reduced when their only purpose is legacy behavior.
+- Replaces: None.

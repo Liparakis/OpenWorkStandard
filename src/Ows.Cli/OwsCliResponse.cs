@@ -1,80 +1,32 @@
 namespace Ows.Cli;
 
 /// <summary>
-/// Unified JSON response structure returned by CLI when executing commands with the --json flag.
+/// Unified response structure returned by the local OWS CLI.
 /// </summary>
 public sealed class OwsCliResponse {
     /// <summary>Gets or sets whether the command succeeded.</summary>
     public bool Success { get; set; }
-
-    /// <summary>Gets or sets the status string (e.g. Ready, Watching, Session active, etc.).</summary>
+    /// <summary>Gets or sets the local command status.</summary>
     public string? Status { get; set; }
-
-    /// <summary>Gets or sets the current project root path.</summary>
+    /// <summary>Gets or sets the current project root.</summary>
     public string? ProjectRoot { get; set; }
-
-    /// <summary>Gets or sets the active session identifier.</summary>
-    public string? SessionId { get; set; }
-
-    /// <summary>Gets or sets the submission package identifier.</summary>
-    public string? PackageId { get; set; }
-
-    /// <summary>Gets or sets the verifier URL.</summary>
-    public string? VerifierUrl { get; set; }
-
-    /// <summary>Gets or sets the institution identifier.</summary>
-    public string? InstitutionId { get; set; }
-
-    /// <summary>Gets or sets the assessment identifier.</summary>
-    public string? AssessmentId { get; set; }
-
-    /// <summary>Gets or sets the student user identifier.</summary>
-    public string? StudentUserId { get; set; }
-
-    /// <summary>Gets or sets the course offering identifier.</summary>
-    public string? CourseOfferingId { get; set; }
-
-    /// <summary>Gets or sets the last checkpoint timestamp.</summary>
-    public DateTimeOffset? LastCheckpointAt { get; set; }
-
-    /// <summary>Gets or sets the last heartbeat timestamp.</summary>
-    public DateTimeOffset? LastHeartbeatAt { get; set; }
-
-    /// <summary>Gets or sets the trust status for package verification.</summary>
+    /// <summary>Gets or sets the package trust status.</summary>
     public string? TrustStatus { get; set; }
-
-    /// <summary>Gets or sets whether the file watcher is currently running.</summary>
+    /// <summary>Gets or sets whether the Agent watcher is running.</summary>
     public bool WatcherRunning { get; set; }
-
-    /// <summary>Gets or sets human-readable output messages.</summary>
+    /// <summary>Gets or sets the human-readable result message.</summary>
     public string? Message { get; set; }
-
-    /// <summary>Gets the list of errors encountered during execution.</summary>
+    /// <summary>Gets command errors.</summary>
     public List<string> Errors { get; } = [];
 
-    /// <summary>Gets the list of warnings encountered during execution.</summary>
-    private List<string> Warnings { get; } = [];
-
-    /// <summary>
-    /// Returns a serializer-friendly snapshot so JSON output reads the full response shape explicitly.
-    /// </summary>
+    /// <summary>Returns the response shape used by JSON output.</summary>
     public object ToSerializableModel() => new {
         Success,
         Status,
         ProjectRoot,
-        SessionId,
-        PackageId,
-        VerifierUrl,
-        InstitutionId,
-        AssessmentId,
-        StudentUserId,
-        CourseOfferingId,
-        LastCheckpointAt,
-        LastHeartbeatAt,
         TrustStatus,
         WatcherRunning,
         Message,
-        Errors,
-        Warnings
+        Errors
     };
 }

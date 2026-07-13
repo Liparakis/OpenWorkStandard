@@ -5,10 +5,12 @@
 - Agreed scope:
   - Implement and validate a Windows `Ows.Setup.exe` that installs the OWS Agent into Program Files, registers a silent SCM service, starts it, and can remove the installed service/files.
   - Preserve local-first/offline behavior and all accepted privacy/product boundaries.
+  - Remove unreleased legacy commands, compatibility aliases, obsolete bootstrap paths, and documentation that does not support the current `ows init` → `ows package` → offline review workflow.
   - Do not tag, push, publish, or create a GitHub release without explicit authorization.
 - Explicit non-goals:
   - No automatic publication, branch/commit creation, external coordination, or release announcement.
   - No cloud installer, MSI framework, desktop management UI, or cross-platform installer in this phase.
+  - No preservation of unreleased legacy behavior solely for backward compatibility.
 - Relevant existing architecture:
   - OWS Core/CLI provide local initialization, Agent observation, packaging, signing, verification, and inspection.
   - The Windows-only setup executable owns SCM installation and hosts the silent service; platform-independent Agent behavior remains in `Ows.Core`.
@@ -56,6 +58,7 @@
   - [x] Remove agent-oriented files and relocated Agent-specific documents from the repository.
   - [x] Remove redundant root documentation aliases and point readers directly to canonical `docs/` files.
   - [x] Reconcile the post-prune root surface; retain only active README/license and repository/build configuration files.
+  - [x] Remove the unreleased hidden CLI ceremony and remote package commands; keep the seven-command local surface.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
   - dotnet build OWS.sln -nologo.
@@ -98,3 +101,4 @@
   - The unrelated pre-existing modification in `tests/Ows.Core.Tests/AgentNamespaceTests.cs` remains intentionally unstaged.
   - Generated build and setup outputs are intentionally absent after validation cleanup.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.
+  - Legacy-removal slice 1 builds with 0 warnings/errors; CLI tests are being reconciled to the reduced command surface before the core/server deletion slice.

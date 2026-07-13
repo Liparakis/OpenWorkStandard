@@ -1,20 +1,13 @@
-using System.IO.Compression;
-using System.Text.Json;
 using FluentAssertions;
 using Ows.Core;
-using Ows.Core.Events;
-using Ows.Core.Notarization;
 
 namespace Ows.Cli.Tests;
 
 /// <summary>
-/// Tests the verify command behavior.
+/// Tests the offline verify command.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class OwsVerifyCommandTests {
-    /// <summary>
-    /// Verifies that the verify command succeeds for a package created by the CLI flow.
-    /// </summary>
     [Fact]
     public async Task VerifyCommand_ShouldSucceedForCreatedPackage() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-verify-{Guid.NewGuid():N}");
@@ -24,180 +17,15 @@ public sealed class OwsVerifyCommandTests {
 
         try {
             Directory.SetCurrentDirectory(projectRoot);
-
             (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
             await OwsTestHelpers.RunInitialScanAsync(projectRoot);
             (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
-
-            var verifyResult = await OwsCommandFactory.BuildRootCommand().Parse(["verify"]).InvokeAsync();
-
-            verifyResult.Should().Be(0);
+            (await OwsCommandFactory.BuildRootCommand().Parse(["verify"]).InvokeAsync()).Should().Be(0);
         } finally {
             Directory.SetCurrentDirectory(originalDirectory);
-
             if (Directory.Exists(projectRoot)) {
                 Directory.Delete(projectRoot, recursive: true);
             }
         }
     }
-
-    /// <summary>
-    /// Verifies that live verifier cross-check succeeds even when packaged receipts are omitted.
-    /// </summary>
-    [Fact]
-    public async Task VerifyCommand_WithServer_ShouldSucceedWhenRemoteReceiptsMatchPackageWithoutPackagedReceipts() {
-        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-verify-remote-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(projectRoot);
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "draft.txt"), "draft");
-        var originalDirectory = Directory.GetCurrentDirectory();
-        var sessionId = new AssessmentSessionId("verify-session-1");
-        var remoteReceiptChain = new ReceiptChain {
-            SessionId = sessionId,
-            Receipts = [CreateReceipt(sessionId, "stub-head")]
-        };
-        using var verifierServer = new StubVerifierServer((method, path) => path switch {
-            "sessions" when method == "POST" => new StartSessionResponse { SessionId = sessionId.Value },
-            _ when path == $"sessions/{sessionId}/checkpoints" && method == "POST" => CreateReceipt(sessionId,
-                "stub-head"),
-            _ when path == $"sessions/{sessionId}/receipts" && method == "GET" => remoteReceiptChain,
-            _ when path == $"sessions/{sessionId}/head" && method == "GET" => new SessionHeadResponse {
-                SessionId = sessionId.Value,
-                LastSequenceNumber = remoteReceiptChain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
-                LastTimelineHeadHash = remoteReceiptChain.Receipts.LastOrDefault()?.TimelineHeadHash ??
-                                       OwsEventChain.GenesisPreviousEventHash,
-                LastReceiptHash = remoteReceiptChain.Receipts.LastOrDefault()?.ReceiptHash ??
-                                  ReceiptChainVerifier.GenesisPreviousReceiptHash
-            },
-            _ => null
-        });
-
-        try {
-            Directory.SetCurrentDirectory(projectRoot);
-
-            (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
-            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["session", "start", "--server", verifierServer.BaseUrl])
-                .InvokeAsync()).Should().Be(0);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["session", "checkpoint"]).InvokeAsync()).Should().Be(0);
-            var actualTimelineHeadHash =
-                OwsEventChain.ReadLastEventHash(Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName));
-            remoteReceiptChain = new ReceiptChain {
-                SessionId = sessionId,
-                Receipts = [CreateReceipt(sessionId, actualTimelineHeadHash)]
-            };
-            await File.WriteAllTextAsync(
-                Path.Combine(projectRoot, ".ows", OwsConstants.ReceiptsFileName),
-                JsonSerializer.Serialize(remoteReceiptChain));
-            (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
-            var packagePath = Path.Combine(projectRoot,
-                $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
-            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update)) {
-                archive.GetEntry(OwsConstants.ReceiptsFileName)!.Delete();
-            }
-
-            var verifyResult = await OwsCommandFactory.BuildRootCommand()
-                .Parse(["verify", "--server", verifierServer.BaseUrl])
-                .InvokeAsync();
-
-            verifyResult.Should().Be(0);
-            verifierServer.RequestedPaths.Should().Contain($"sessions/{sessionId}/head");
-        } finally {
-            Directory.SetCurrentDirectory(originalDirectory);
-
-            if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Verifies that live verifier cross-check fails when packaged session metadata resolves a different remote head.
-    /// </summary>
-    [Fact]
-    public async Task VerifyCommand_WithServer_ShouldFailWhenPackagedSessionResolvesMismatchedRemoteChain() {
-        var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-verify-remote-mismatch-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(projectRoot);
-        File.WriteAllText(Path.Combine(projectRoot, "draft.txt"), "draft");
-        var originalDirectory = Directory.GetCurrentDirectory();
-        var sessionId = new AssessmentSessionId("verify-session-2");
-        var remoteReceiptChain = new ReceiptChain {
-            SessionId = sessionId,
-            Receipts = [CreateReceipt(sessionId, "stub-head")]
-        };
-        var chain = remoteReceiptChain;
-        using var verifierServer = new StubVerifierServer((method, path) => path switch {
-            "sessions" when method == "POST" => new StartSessionResponse { SessionId = sessionId.Value },
-            _ when path == $"sessions/{sessionId}/checkpoints" && method == "POST" => CreateReceipt(sessionId,
-                "stub-head"),
-            _ when path == $"sessions/{sessionId}/receipts" && method == "GET" => chain,
-            _ when path == $"sessions/{sessionId}/head" && method == "GET" => new SessionHeadResponse {
-                SessionId = sessionId.Value,
-                LastSequenceNumber = chain.Receipts.LastOrDefault()?.SequenceNumber ?? 0,
-                LastTimelineHeadHash = chain.Receipts.LastOrDefault()?.TimelineHeadHash ??
-                                       OwsEventChain.GenesisPreviousEventHash,
-                LastReceiptHash = chain.Receipts.LastOrDefault()?.ReceiptHash ??
-                                  ReceiptChainVerifier.GenesisPreviousReceiptHash
-            },
-            _ => null
-        });
-
-        try {
-            Directory.SetCurrentDirectory(projectRoot);
-
-            (await OwsCommandFactory.BuildRootCommand().Parse(["init"]).InvokeAsync()).Should().Be(0);
-            await OwsTestHelpers.RunInitialScanAsync(projectRoot);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["session", "start", "--server", verifierServer.BaseUrl])
-                .InvokeAsync()).Should().Be(0);
-            (await OwsCommandFactory.BuildRootCommand().Parse(["session", "checkpoint"]).InvokeAsync()).Should().Be(0);
-            var actualTimelineHeadHash =
-                OwsEventChain.ReadLastEventHash(Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName));
-            remoteReceiptChain = new ReceiptChain {
-                SessionId = sessionId,
-                Receipts = [CreateReceipt(sessionId, actualTimelineHeadHash)]
-            };
-            await File.WriteAllTextAsync(
-                Path.Combine(projectRoot, ".ows", OwsConstants.ReceiptsFileName),
-                JsonSerializer.Serialize(remoteReceiptChain));
-            (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
-
-            var packagePath = Path.Combine(projectRoot,
-                $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
-            using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Update)) {
-                archive.GetEntry(OwsConstants.ReceiptsFileName)!.Delete();
-                archive.GetEntry(OwsConstants.SessionFileName)!.Delete();
-                var tamperedSessionEntry = archive.CreateEntry(OwsConstants.SessionFileName);
-                await using var writer = new StreamWriter(tamperedSessionEntry.Open());
-                await writer.WriteAsync(JsonSerializer.Serialize(new SessionState {
-                    SessionId = "wrong-session",
-                    VerifierUrl = verifierServer.BaseUrl
-                }));
-            }
-
-            var verifyResult = await OwsCommandFactory.BuildRootCommand()
-                .Parse(["verify", "--server", verifierServer.BaseUrl]).InvokeAsync();
-
-            verifyResult.Should().Be(1);
-        } finally {
-            Directory.SetCurrentDirectory(originalDirectory);
-
-            if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Creates a stable test receipt for the supplied session.
-    /// </summary>
-    /// <param name="sessionId">The test session identifier.</param>
-    /// <param name="timelineHeadHash">The timeline head hash anchored by the receipt.</param>
-    /// <returns>The chained test receipt.</returns>
-    private static CheckpointReceipt CreateReceipt(AssessmentSessionId sessionId, string timelineHeadHash) =>
-        ReceiptChainVerifier.IssueReceipt(
-            new Checkpoint {
-                SessionId = sessionId,
-                SequenceNumber = 1,
-                TimelineHeadHash = timelineHeadHash
-            },
-            ReceiptChainVerifier.GenesisPreviousReceiptHash);
 }
