@@ -1384,3 +1384,28 @@
 - Exact next action: Open Settings → Apps → Installed apps → Open Work Standard → Uninstall.
 - Important context: The service install and recovery configuration are now owner-validated; choose shared-data deletion only if intended.
 - Files to inspect first: `src/Ows.Setup/Program.cs`, `.agent/NEXT_STEPS.md`, and `docs/development/RELEASE_READINESS.md`.
+
+## 2026-07-13 — Windows uninstall validation
+
+### Completed
+- Owner removed Open Work Standard through Windows Installed apps.
+- Confirmed the OWS Agent service, Program Files payload, and uninstall registry entry were removed.
+
+### Changed
+- Added: None.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Previously passed with 0 warnings and 0 errors.
+- Targeted tests: Setup publish succeeded.
+- Full tests: Previously passed Core 131/131 and CLI/server 80/80.
+- Manual checks: `OwsAgent` absent; `C:\Program Files\Open Work Standard` absent; uninstall registry entry absent.
+
+### Remaining
+- Final owner review and explicit publication approval.
+
+### Handoff
+- Exact next action: Review release history, license, generated artifacts, and final worktree scope.
+- Important context: The Windows install → service → recovery → uninstall lifecycle is now validated; no publication has been performed.
+- Files to inspect first: `.agent/DECISIONS.md`, `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, and `docs/development/RELEASE_READINESS.md`.

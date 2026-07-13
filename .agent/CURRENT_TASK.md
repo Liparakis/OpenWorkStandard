@@ -48,7 +48,7 @@
   - [x] Configure SCM failure recovery so an unexpected Agent exit restarts automatically.
   - [x] Reconcile stale reviewer/management wording in the active release surface.
   - [x] Make setup reinstall/uninstall tolerate normal slow SCM shutdown and report stop permission failures clearly.
-  - [ ] Run the Add/Remove Programs uninstall action and confirm complete installed-file cleanup.
+  - [x] Run the Add/Remove Programs uninstall action and confirm complete installed-file cleanup.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
   - dotnet build OWS.sln -nologo.
@@ -60,7 +60,7 @@
   - The worktree contains broad pre-existing user changes from Phases 1–8 and remains intentionally uncommitted.
   - The old visible Scheduled Tasks are transitional residue and must be removed; the requested product path is SCM only.
   - SCM installation requires UAC elevation, but the service will run as LocalSystem and must use a machine-scoped explicit-project registry rather than a user-only registry.
-  - Uninstall cleanup still requires one owner-approved Settings/Apps run; the current shell is a non-administrator account.
+  - Only final owner review and publication approval remain; the current shell is a non-administrator account.
   - Uninstall/reinstall must wait for the SCM process to stop before deleting the installed executable; the previous 10-second bound was reached during the owner smoke test.
   - Release candidate evidence still requires human sign-off; passing tests do not make OWS institutional-grade.
   - The event timeline is intentionally append-only; chain-preserving retention/compaction is not part of the current package format, so very long-lived projects may grow `.ows/timeline.jsonl`.
@@ -83,4 +83,5 @@
   - Repository state: source fix and continuity updates are committed in `3c79d8c`; the older uncommitted-status note above is historical.
   - Installed payload has now been replaced by the corrected setup artifact; live `OwsAgent` is Running and `sc.exe qfailure OwsAgent` reports 86400 seconds with restart actions at 5000, 30000, and 60000 milliseconds.
   - Source fix build and full tests pass; the corrected setup artifact was republished and successfully installed with UAC approval.
+  - Read-only post-uninstall check confirms the `OwsAgent` service, Program Files install directory, and uninstall registry entry are absent.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.

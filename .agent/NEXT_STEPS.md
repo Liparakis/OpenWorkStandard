@@ -1,9 +1,8 @@
 # Next Steps
 
-1. Use Settings → Apps → Installed apps to remove Open Work Standard.
-2. Confirm uninstall removes the OWS Agent service, installed Program Files payload, and uninstall entry while preserving project `.ows` folders.
-3. Owner reviews repository history, license, generated artifacts, and current worktree scope.
-4. Only after approval: tag the selected version, push the tag, and create the GitHub release.
+1. Owner reviews repository history, license, generated artifacts, and current worktree scope.
+2. Owner confirms the release candidate and explicitly authorizes publication.
+3. Only after approval: tag the selected version, push the tag, and create the GitHub release.
 
 Post-release roadmap:
 
