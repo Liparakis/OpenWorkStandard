@@ -12,8 +12,7 @@ public static class OwsCommandFactory {
     /// </summary>
     /// <returns>The configured root command.</returns>
     public static RootCommand BuildRootCommand() {
-        var rootCommand = new RootCommand("Open Work Standard command-line interface")
-        {
+        var rootCommand = new RootCommand("Open Work Standard command-line interface") {
             InitCommandBuilder.Build(),
             AgentCommandBuilder.Build(),
             StatusCommandBuilder.Build(),
@@ -57,11 +56,9 @@ public static class OwsCommandFactory {
             return "Local OWS database is locked by another process.";
         }
 
-        if (msg.Contains("Packaging failed", StringComparison.OrdinalIgnoreCase)) {
-            return msg;
-        }
-
-        return msg;
+        return msg.Contains("Packaging failed", StringComparison.OrdinalIgnoreCase)
+            ? "Packaging has crashed or is not running."
+            : msg;
     }
 
     /// <summary>
@@ -71,7 +68,9 @@ public static class OwsCommandFactory {
     /// <param name="useJson">Whether to format as JSON.</param>
     internal static void PrintResult(OwsCliResponse response, bool useJson) {
         if (useJson) {
-            var json = System.Text.Json.JsonSerializer.Serialize(response.ToSerializableModel(), new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            var json = System.Text.Json.JsonSerializer.Serialize(
+                response.ToSerializableModel(), new System.Text.Json.JsonSerializerOptions { WriteIndented = true }
+            );
             Console.WriteLine(json);
         } else {
             if (response.Errors.Count > 0) {
@@ -85,5 +84,4 @@ public static class OwsCommandFactory {
             }
         }
     }
-
 }
