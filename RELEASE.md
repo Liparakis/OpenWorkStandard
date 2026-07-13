@@ -1,8 +1,7 @@
 # Release
 
-The release checklist is [docs/development/RELEASE_CHECKLIST.md](docs/development/RELEASE_CHECKLIST.md).
-The automated gate is documented in
-[docs/development/REGRESSION_GATE.md](docs/development/REGRESSION_GATE.md).
+The release checklist and automated gate are documented in
+[docs/development/RELEASE_CHECKLIST.md](docs/development/RELEASE_CHECKLIST.md).
 
 On Windows, run:
 

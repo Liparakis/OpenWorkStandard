@@ -2,6 +2,14 @@
 
 Use this before calling an Open Work Standard v0.1 build a release candidate.
 
+## Release Scope
+
+The candidate surface is the local `ows init` → `ows package` workflow, offline
+`verify`/`inspect`/`report`, and the Windows setup/service lifecycle. The remote
+verifier is optional and pilot-grade; it is never required for local creation or
+verification. Linux/macOS installable service adapters, key rotation/revocation,
+and chain-preserving timeline compaction remain deferred.
+
 ## Automated Gate
 
 Run:

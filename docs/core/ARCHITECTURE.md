@@ -38,8 +38,7 @@ The current repository implements a thin but real local/reference slice:
 - `ows report` writes a basic text report
 - receipt/session/checkpoint/receipt-chain domain models exist in `Ows.Core`
 
-Remaining scope is tracked in `docs/development/PROJECT_STATUS.md` and
-`docs/development/ROADMAP_CHECKLIST.md`; Linux/macOS service adapters and
+Remaining scope is tracked in `docs/development/ROADMAP_CHECKLIST.md`; Linux/macOS service adapters and
 production verifier deployment remain deferred.
 
 ## System Layers

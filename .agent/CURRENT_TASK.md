@@ -52,7 +52,7 @@
   - [x] Run the Add/Remove Programs uninstall action and confirm complete installed-file cleanup.
   - [x] Remove ignored generated build, test, verifier, IDE, and release-output files after lifecycle validation.
   - [x] Audit Markdown references, overlap, stale snapshots, and future-scope documentation.
-  - [ ] Apply the owner-approved documentation prune/merge plan.
+  - [x] Apply the owner-approved documentation prune/merge plan.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
   - dotnet build OWS.sln -nologo.
@@ -89,6 +89,7 @@
   - Source fix build and full tests pass; the corrected setup artifact was republished and successfully installed with UAC approval.
   - Read-only post-uninstall check confirms the `OwsAgent` service, Program Files install directory, and uninstall registry entry are absent.
   - Repository cleanup removed ignored generated outputs; `git clean -ndX` now reports no remaining ignored files.
-  - Documentation audit found 67 Markdown files; several are canonical protocol docs, while remote-verifier operations, archive snapshots, release notes, and planning documents overlap or exceed the local-first v0 scope.
-  - No product Markdown was deleted during the audit; graphify's failed semantic cache was removed.
+  - Documentation cleanup reduced Markdown from 67 to 59 files: stale snapshots/plans, the optional sample, the mutable project-status snapshot, and duplicate release docs were removed; active remote-verifier operations docs remain.
+  - Internal Markdown links are clean; graphify's failed semantic cache was removed.
+  - Build passes with 0 warnings/errors; full tests pass Core 131/131 and CLI/server 80/80 after the documentation cleanup.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.

@@ -46,5 +46,3 @@ The verifier server is optional for local package creation and verification.
 Start with [docs/START_HERE.md](docs/START_HERE.md), then read the
 [student workflow](docs/workflows/STUDENT_WORKFLOW.md) or
 [CLI reference](docs/development/CLI.md).
-
-The tracked smoke fixture is [samples/minimal-project](samples/minimal-project).

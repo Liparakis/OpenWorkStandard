@@ -1469,3 +1469,31 @@
 - Archive or delete: `docs/archive/*`, `docs/superpowers/plans/*`, and placeholder/future integration docs (`docs/integrations/DESKTOP_UI.md`, `docs/integrations/OIDC_INTEGRATION.md`, `docs/reference/SECURITY_CHANNELS.md`) unless the remote-verifier roadmap is intentionally retained.
 - Scope decision: most `docs/operations/*`, `docs/workflows/LOCAL_DEMO.md`, and `docs/workflows/PILOT_DEMO.md` document the optional remote verifier/management layer; keep them only if that pilot remains an active v0 deliverable, otherwise move them to a separate future project or delete after preserving Git history.
 - Optional: delete `samples/minimal-project` and remove its two documentation references; it is not required by build, runtime, installer, or tests.
+
+## 2026-07-13 — Documentation prune and release-doc merge
+
+### Completed
+- Removed the optional `samples/minimal-project` fixture.
+- Removed stale archive snapshots, the completed remote-trust implementation plan, and the mutable `PROJECT_STATUS.md` snapshot.
+- Merged release scope and gate guidance into `docs/development/RELEASE_CHECKLIST.md`; removed duplicate `REGRESSION_GATE.md` and `RELEASE_READINESS.md`.
+- Repaired README, Start Here, architecture, roadmap, and release references.
+
+### Changed
+- Added: Release scope and honest limitations to `docs/development/RELEASE_CHECKLIST.md`.
+- Modified: `README.md`, `GETTING_STARTED.md`, `RELEASE.md`, `docs/START_HERE.md`, `docs/core/ARCHITECTURE.md`, `docs/development/ROADMAP_CHECKLIST.md`, `docs/development/RELEASE_CHECKLIST.md`.
+- Deleted: `samples/minimal-project/*`, `docs/archive/*`, `docs/superpowers/plans/2026-06-19-remote-trust-boundary-foundation.md`, `docs/development/PROJECT_STATUS.md`, `docs/development/REGRESSION_GATE.md`, and `docs/development/RELEASE_READINESS.md`.
+
+### Validation
+- Build: Passed with 0 warnings and 0 errors.
+- Targeted tests: Not applicable.
+- Full tests: Core 131/131 and CLI/server 80/80 passed.
+- Manual checks: Markdown reduced from 67 to 59 files; internal Markdown links clean; `git diff --check` clean.
+
+### Remaining
+- Final owner review and explicit publication approval.
+- Optional future decision: split or remove the active remote-verifier operations documentation if that surface moves to a separate project.
+
+### Handoff
+- Exact next action: Review the reduced Markdown surface and release checklist.
+- Important context: Active remote-verifier operations docs were intentionally preserved because they describe implemented optional code; only high-confidence stale/duplicate material was removed.
+- Files to inspect first: `README.md`, `docs/START_HERE.md`, `docs/development/RELEASE_CHECKLIST.md`, and `docs/core/ARCHITECTURE.md`.

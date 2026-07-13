@@ -53,7 +53,7 @@ Documentation entry point:
 Key references:
 - [Review Guidance](docs/workflows/REVIEW_GUIDANCE.md)
 - [Project Specification](SPEC.md)
-- [Project Status](docs/development/PROJECT_STATUS.md)
+- [Roadmap Checklist](docs/development/ROADMAP_CHECKLIST.md)
 
 License:
 - [LICENSE](LICENSE)

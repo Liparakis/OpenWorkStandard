@@ -276,7 +276,6 @@ Reduce the public command and code surface now that package signing is available
 ## 19. Regression Gate and Release Candidate v0.1
 
 - [x] `docs/development/RELEASE_CHECKLIST.md`
-- [x] `docs/development/REGRESSION_GATE.md`
 - [x] Automated release-gate scripts (`scripts/windows/run-release-regression-gate.ps1`, `scripts/unix/run-release-regression-gate.sh`)
 - [x] Release-candidate evidence scripts (`scripts/windows/collect-release-candidate-evidence.ps1`, `scripts/unix/collect-release-candidate-evidence.sh`)
 - [x] Known-good local pilot path documented
