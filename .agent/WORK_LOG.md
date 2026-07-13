@@ -1521,3 +1521,29 @@
 - Exact next action: Review commit `2c81f64` and the reduced documentation surface.
 - Important context: Build/test outputs are intentionally absent; rebuild when validation is needed.
 - Files to inspect first: `README.md`, `docs/START_HERE.md`, `docs/development/RELEASE_CHECKLIST.md`, and `.agent/NEXT_STEPS.md`.
+
+## 2026-07-13 — Root agent-file relocation
+
+### Completed
+- Removed root-level `AGENTS.md` and `AGENT_DESIGN.md`.
+- Preserved project rules in `.agent/PROJECT_RULES.md` and product Agent design in `docs/core/AGENT_DESIGN.md`.
+- Repaired `CONTRIBUTING.md` and `docs/START_HERE.md` references.
+
+### Changed
+- Added: `.agent/PROJECT_RULES.md`, `docs/core/AGENT_DESIGN.md`.
+- Modified: `CONTRIBUTING.md`, `docs/START_HERE.md`.
+- Deleted: Root `AGENTS.md`, root `AGENT_DESIGN.md`.
+
+### Validation
+- Build: Not rerun; documentation/layout-only change.
+- Targeted tests: Not rerun.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: No stale root-file references; `git diff --check` clean.
+
+### Remaining
+- Final owner review and explicit publication approval.
+
+### Handoff
+- Exact next action: Review the root directory and relocated rule/design files.
+- Important context: `tests/Ows.Core.Tests/AgentNamespaceTests.cs` contains an unrelated pre-existing user modification and must not be overwritten.
+- Files to inspect first: `.agent/PROJECT_RULES.md`, `docs/core/AGENT_DESIGN.md`, `CONTRIBUTING.md`, and `docs/START_HERE.md`.

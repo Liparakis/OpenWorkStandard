@@ -1,4 +1,4 @@
-# OWS Agent Instructions
+# OWS Project Rules
 
 ## Project identity
 
@@ -33,10 +33,10 @@ Open Work Standard (OWS) is a local-first academic work provenance system. Use t
 ## Documentation requirements
 
 - Update `README.md` when user-facing setup or status changes.
-- Any change that affects OWS capabilities, roadmap, or deferred scope must update `docs/ROADMAP_CHECKLIST.md`.
-- Keep `docs/SPEC.md` and `docs/ARCHITECTURE.md` aligned with the actual code direction.
-- New public-facing terms must be added to `docs/GLOSSARY.md`.
-- Privacy or data-collection changes must update `docs/PRIVACY.md` and `docs/SECURITY.md` in the same change.
+- Any change that affects OWS capabilities, roadmap, or deferred scope must update `docs/development/ROADMAP_CHECKLIST.md`.
+- Keep `SPEC.md` and `ARCHITECTURE.md` aligned with the actual code direction.
+- New public-facing terms must be added to `docs/reference/GLOSSARY.md`.
+- Privacy or data-collection changes must update `docs/core/PRIVACY.md` and `docs/core/SECURITY.md` in the same change.
 
 ## Testing requirements
 

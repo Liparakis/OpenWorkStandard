@@ -53,6 +53,7 @@
   - [x] Remove ignored generated build, test, verifier, IDE, and release-output files after lifecycle validation.
   - [x] Audit Markdown references, overlap, stale snapshots, and future-scope documentation.
   - [x] Apply the owner-approved documentation prune/merge plan.
+  - [x] Remove agent-oriented files from the repository root while preserving their project-rule and design content.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
   - dotnet build OWS.sln -nologo.
@@ -93,4 +94,6 @@
   - Internal Markdown links are clean; graphify's failed semantic cache was removed.
   - Build passes with 0 warnings/errors; full tests pass Core 131/131 and CLI/server 80/80 after the documentation cleanup.
   - Post-validation ignored outputs were removed again; `git clean -ndX` is empty.
+  - Root `AGENTS.md` and `AGENT_DESIGN.md` are gone; project rules now live in `.agent/PROJECT_RULES.md` and Agent design in `docs/core/AGENT_DESIGN.md`.
+  - An unrelated pre-existing modification remains in `tests/Ows.Core.Tests/AgentNamespaceTests.cs` and is intentionally not staged.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.
