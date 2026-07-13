@@ -7,7 +7,7 @@ namespace Ows.Core.Verification;
 /// <summary>
 /// Verifies OWS packages using only the package contents and local verification rules.
 /// </summary>
-public sealed class OwsPackageVerifier : IPackageVerifier {
+public sealed class OwsPackageVerifier {
     /// <inheritdoc />
     public Task<VerificationResult> VerifyAsync(PackageVerificationRequest request, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(request);
@@ -35,7 +35,7 @@ public sealed class OwsPackageVerifier : IPackageVerifier {
             PackageStructureVerifier.VerifyRequiredEntries(archive, errors);
 
             OwsManifest? manifest = null;
-            var signatureStatus = "UnsignedLegacy";
+            var signatureStatus = "Unsigned";
             if (archive.GetEntry(OwsConstants.ManifestFileName) is not null) {
                 manifest = PackageStructureVerifier.ValidateManifest(archive, errors);
                 if (manifest is not null) {

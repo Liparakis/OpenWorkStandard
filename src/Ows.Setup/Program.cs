@@ -48,7 +48,6 @@ internal static class Program {
         var installDirectory = GetInstallDirectory();
         var servicePath = Path.Combine(installDirectory, "Ows.Setup.exe");
 
-        RemoveLegacyScheduledTasks();
         RemoveService();
         if (Directory.Exists(installDirectory)) {
             Directory.Delete(installDirectory, recursive: true);
@@ -57,7 +56,6 @@ internal static class Program {
         Directory.CreateDirectory(installDirectory);
         File.Copy(sourcePath, servicePath, overwrite: true);
         PrepareSharedDataDirectory();
-        MigrateLegacyRegistry();
         CreateService(servicePath);
         RunTool("sc.exe", $"start {ServiceName}");
         RegisterUninstallEntry(servicePath);
@@ -77,7 +75,6 @@ internal static class Program {
             purgeData = choice == 6;
         }
 
-        RemoveLegacyScheduledTasks();
         RemoveService();
         RemoveUninstallEntry();
         var installDirectory = GetInstallDirectory();
@@ -144,12 +141,6 @@ internal static class Program {
         RunTool("sc.exe", $"delete {ServiceName}", allowFailure: true);
     }
 
-    private static void RemoveLegacyScheduledTasks() {
-        foreach (var taskName in new[] { "OwsAgent", "OwsAgent.User" }) {
-            RunTool("schtasks.exe", $"/delete /tn {taskName} /f", allowFailure: true);
-        }
-    }
-
     private static void RegisterUninstallEntry(string servicePath) {
         using var key = Registry.LocalMachine.CreateSubKey(
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OpenWorkStandard")
@@ -193,22 +184,6 @@ internal static class Program {
         var dataDirectory = GetDataDirectory();
         Directory.CreateDirectory(dataDirectory);
         RunTool("icacls.exe", $"\"{dataDirectory}\" /grant *S-1-5-32-545:(OI)(CI)M /T");
-    }
-
-    private static void MigrateLegacyRegistry() {
-        var legacyPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            DataDirectoryName,
-            "projects.json");
-        if (!File.Exists(legacyPath)) {
-            return;
-        }
-
-        var source = new OwsProjectRegistry(legacyPath);
-        var destination = new OwsProjectRegistry();
-        foreach (var project in source.GetProjects()) {
-            destination.Register(project.ProjectRootPath);
-        }
     }
 
     private static string GetInstallDirectory() =>

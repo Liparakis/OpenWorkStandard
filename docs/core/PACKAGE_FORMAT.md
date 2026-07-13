@@ -55,8 +55,8 @@ The manifest currently carries:
 - `trackedPath`
 - `timelineHash`
 - `versionGraphHash`
-  - `artifactHashes`
-  - `packageRootHash`
+- `artifactHashes`
+- `packageRootHash`
 - `signatureAlgorithm` and `signatureKeyFingerprint` when signed
 
 Current behavior:

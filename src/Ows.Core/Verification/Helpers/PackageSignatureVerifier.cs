@@ -17,7 +17,7 @@ internal static class PackageSignatureVerifier {
                 return "Invalid";
             }
 
-            return "UnsignedLegacy";
+            return "Unsigned";
         }
 
         var rootBytes = PackageRootCanonicalizer.BuildCanonicalBytes(manifest);

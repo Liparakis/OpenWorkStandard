@@ -16,7 +16,7 @@ public sealed class OwsWatcherHardeningTests {
         Directory.CreateDirectory(projectRoot);
 
         try {
-            var manager = new OwsWatchSessionManager();
+            var manager = new OwsProjectAgent();
             manager.InitializeProject(projectRoot);
 
             var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
@@ -63,7 +63,7 @@ public sealed class OwsWatcherHardeningTests {
         Directory.CreateDirectory(projectRoot);
 
         try {
-            var manager = new OwsWatchSessionManager();
+            var manager = new OwsProjectAgent();
             manager.InitializeProject(projectRoot);
 
             var watcherTask = Task.Run(() => manager.StartWatcherAsync(projectRoot, usePolling: true, debounceMs: 100));
@@ -99,7 +99,7 @@ public sealed class OwsWatcherHardeningTests {
         Directory.CreateDirectory(projectRoot);
 
         try {
-            var manager = new OwsWatchSessionManager();
+            var manager = new OwsProjectAgent();
             manager.InitializeProject(projectRoot);
 
             manager.IsWatcherRunning(projectRoot).Should().BeFalse();

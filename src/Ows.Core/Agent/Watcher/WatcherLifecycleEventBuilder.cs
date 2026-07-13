@@ -16,7 +16,7 @@ internal static class WatcherLifecycleEventBuilder {
         return new OwsEvent {
             EventType = OwsEventType.WatcherStarted,
             ProjectId = projectId,
-            ToolName = "ows watch",
+            ToolName = "OWS Agent",
             Metadata = new Dictionary<string, string>
             {
                 { "reason", reason }
@@ -34,7 +34,7 @@ internal static class WatcherLifecycleEventBuilder {
         return new OwsEvent {
             EventType = OwsEventType.WatcherStopped,
             ProjectId = projectId,
-            ToolName = "ows watch",
+            ToolName = "OWS Agent",
             Metadata = new Dictionary<string, string>
             {
                 { "reason", reason }
@@ -53,7 +53,7 @@ internal static class WatcherLifecycleEventBuilder {
         return new OwsEvent {
             EventType = OwsEventType.WatcherInterrupted,
             ProjectId = projectId,
-            ToolName = "ows watch",
+            ToolName = "OWS Agent",
             Metadata = new Dictionary<string, string>
             {
                 { "previousPid", previousPid ?? "unknown" },
@@ -73,7 +73,7 @@ internal static class WatcherLifecycleEventBuilder {
         return new OwsEvent {
             EventType = OwsEventType.WatcherRecovered,
             ProjectId = projectId,
-            ToolName = "ows watch",
+            ToolName = "OWS Agent",
             Metadata = new Dictionary<string, string>
             {
                 { "reason", reason },
@@ -126,7 +126,7 @@ internal static class WatcherLifecycleEventBuilder {
         return new OwsEvent {
             EventType = OwsEventType.ObservationGapDetected,
             ProjectId = projectId,
-            ToolName = "ows watch",
+            ToolName = "OWS Agent",
             Metadata = metadata
         };
     }
@@ -163,7 +163,7 @@ internal static class WatcherLifecycleEventBuilder {
         return new OwsEvent {
             EventType = OwsEventType.SnapshotUpdated,
             ProjectId = projectId,
-            ToolName = "ows watch",
+            ToolName = "OWS Agent",
             Metadata = metadata
         };
     }

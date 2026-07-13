@@ -64,7 +64,7 @@ public sealed class OwsIgnoreEngine {
     /// Loads default rules, project rules, and optional configured directory exclusions.
     /// </summary>
     /// <param name="projectRootPath">The project root containing <c>.owsignore</c>.</param>
-    /// <param name="additionalDirectoryNames">Legacy configured directory names to retain.</param>
+    /// <param name="additionalDirectoryNames">Additional configured directory names to exclude.</param>
     /// <returns>A loaded ignore engine.</returns>
     public static OwsIgnoreEngine Load(string projectRootPath,
         IEnumerable<string>? additionalDirectoryNames = null) {

@@ -11,7 +11,7 @@ namespace Ows.Core.Agent;
 /// Provides the local tracking agent that performs a project scan (baseline or recovery) and then
 /// watches for file-system changes, appending chained provenance events to the timeline.
 /// </summary>
-public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITrackingAgent {
+public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     /// <summary>
     /// The runtime options prepared for the tracking agent containing configuration settings such as paths, directories to exclude, and polling requirements.
     /// </summary>
@@ -162,7 +162,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                     gapDurationMsVal,
                     cancellationToken);
 
-                var baselineState = snapshotHashMismatch ? "snapshot_hash_mismatch" : "legacy_unbound_snapshot";
+                var baselineState = snapshotHashMismatch ? "snapshot_hash_mismatch" : "unbound_snapshot";
                 var gapEvent = WatcherLifecycleEventBuilder.BuildObservationGapDetected(
                     projectId, gapStartedAt, now, gapDurationMsVal, previousStateVal,
                     _options.WasInterrupted ? "crash_recovery" : "user_start", baselineState,
@@ -178,7 +178,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                         EventType = OwsEventType.FileCreated,
                         ProjectId = projectId,
                         RelativePath = fileState.RelativePath,
-                        ToolName = "ows watch",
+                        ToolName = "OWS Agent",
                         BytesChanged = fileState.Size,
                         Metadata = new Dictionary<string, string>
                         {
@@ -233,7 +233,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                                 : OwsEventType.UnobservedChangeDetected,
                             ProjectId = projectId,
                             RelativePath = file.RelativePath,
-                            ToolName = "ows watch",
+                            ToolName = "OWS Agent",
                             BytesChanged = file.Size,
                             Metadata = new Dictionary<string, string>
                             {
@@ -263,7 +263,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                                 : OwsEventType.UnobservedChangeDetected,
                             ProjectId = projectId,
                             RelativePath = curr.RelativePath,
-                            ToolName = "ows watch",
+                            ToolName = "OWS Agent",
                             BytesChanged = bytesDelta,
                             Metadata = new Dictionary<string, string>
                             {
@@ -295,7 +295,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                                 : OwsEventType.UnobservedChangeDetected,
                             ProjectId = projectId,
                             RelativePath = file.RelativePath,
-                            ToolName = "ows watch",
+                            ToolName = "OWS Agent",
                             BytesChanged = bytesDelta,
                             Metadata = new Dictionary<string, string>
                             {
@@ -413,7 +413,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) : ITr
                 EventType = eventType,
                 ProjectId = projectId,
                 RelativePath = watchEvent.RelativePath,
-                ToolName = "ows watch",
+                ToolName = "OWS Agent",
                 BytesChanged = bytesChanged
             };
 

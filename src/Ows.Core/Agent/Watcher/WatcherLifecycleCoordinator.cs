@@ -5,7 +5,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Coordinates background checking loops and manages cleaning up active watcher processes.
 /// </summary>
-internal static class WatcherSessionLifecycleCoordinator {
+internal static class WatcherLifecycleCoordinator {
     /// <summary>
     /// Starts a background polling loop that checks for a watcher.stop file to request clean cancellation of the watcher.
     /// </summary>

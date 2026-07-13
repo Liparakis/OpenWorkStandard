@@ -8,7 +8,7 @@ namespace Ows.Cli;
 /// </summary>
 public static class OwsCommandFactory {
     /// <summary>
-    /// Builds the root command and placeholder subcommands.
+    /// Builds the root command and local workflow commands.
     /// </summary>
     /// <returns>The configured root command.</returns>
     public static RootCommand BuildRootCommand() {
@@ -80,7 +80,7 @@ public static class OwsCommandFactory {
                 }
             } else {
                 if (!string.IsNullOrEmpty(response.Message)) {
-            Console.WriteLine(response.Message);
+                    Console.WriteLine(response.Message);
                 }
             }
         }

@@ -1759,3 +1759,29 @@
 - Exact next action: owner reviews commit `ca9152e` and the final local-first release surface.
 - Important context: No public compatibility is being preserved; the reduced local workflow is the contract.
 - Files to inspect first: `README.md`, `docs/START_HERE.md`, `docs/core/ARCHITECTURE.md`, `docs/core/PACKAGE_FORMAT.md`, and `git show --stat ca9152e`.
+
+## 2026-07-13 — Remove remaining legacy deployment and abstraction surface
+
+### Completed
+- Removed the tracked verifier deployment and observability stack after confirming it was still PostgreSQL/server-only residue.
+- Removed obsolete Agent/session names, unsigned-package compatibility status, old event labels, setup migration paths, and one-implementation interfaces.
+- Recorded that v0 tamper detection is local/offline; hosted anchoring is optional future enrichment.
+
+### Changed
+- Added: durable local tamper-detection decision and updated continuity handoff notes.
+- Modified: Agent naming, package verification status, setup lifecycle, active package documentation, and affected tests.
+- Deleted: `deploy/`, obsolete Agent/package/hash/report/verification interfaces, and the old session-manager interface.
+
+### Validation
+- Build: Release build passed with 0 warnings and 0 errors.
+- Targeted tests: Local package signing/tamper suite passed 10/10.
+- Full tests: Core 41/41 and CLI 10/10.
+- Manual checks: `init` → `package` → offline `verify` → `inspect` → JSON `report` passed; PowerShell syntax passed for 2 scripts; `git diff --check` passed; ignored outputs removed.
+
+### Remaining
+- Owner review and explicit publication authorization.
+
+### Handoff
+- Exact next action: review the staged cleanup slice, commit it, then hand off for owner review.
+- Important context: The remote verifier was an optional tamper anchor, not required for the local proof-of-work contract; no hosted stack remains in the tracked tree.
+- Files to inspect first: `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, `src/Ows.Core/Verification`, and `src/Ows.Setup/Program.cs`.

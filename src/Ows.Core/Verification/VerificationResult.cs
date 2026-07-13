@@ -30,9 +30,9 @@ public sealed record VerificationResult {
     public IReadOnlyList<VerificationFinding> Findings { get; init; } = [];
 
     /// <summary>
-    /// Gets the offline package signature state: Valid, Unsigned, UnsignedLegacy, or Invalid.
+    /// Gets the offline package signature state: Valid, Unsigned, or Invalid.
     /// </summary>
-    public string SignatureStatus { get; init; } = "UnsignedLegacy";
+    public string SignatureStatus { get; init; } = "Unsigned";
 
     /// <summary>
     /// Creates a successful verification result.

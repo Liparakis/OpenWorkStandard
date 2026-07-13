@@ -1,21 +1,27 @@
 # Next Steps
 
-1. Owner reviews commit `ca9152e`, the reduced root/docs surface, history, license, and manual Windows lifecycle evidence.
-2. Owner confirms the release candidate and explicitly authorizes publication.
-3. Only after approval: tag the selected version, push the tag, and create the GitHub release.
+1. Review and commit the validated local-only cleanup slice.
+2. Owner reviews the resulting release candidate, history, license, and manual Windows Agent lifecycle evidence.
+3. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
 
-Post-release roadmap:
+Current phase remaining:
 
-- Linux/macOS installable Agent service adapters.
-- Signing-key rotation/revocation automation.
-- Further reduction of optional diagnostic surface after owner review.
+- Owner review of the local tamper-detection boundary and SCM setup lifecycle.
+
+Next roadmap phase:
+
+- None until owner sign-off; future work begins only after this release candidate is accepted.
+
+Prerequisites for the next phase:
+
+- Explicit owner approval of the current local-first contract.
+- A separately scoped decision for any hosted anchoring or remote review project.
 
 Deferred:
 
-- Hosted verification/key management, desktop UI, IDE adapters, management layers, and automatic misconduct judgment.
-- Chain-preserving timeline retention/compaction design for projects that outlive the v0.1 package format.
+- Hosted verification or tamper anchoring, desktop UI, IDE adapters, management layers, signing-key rotation/revocation automation, and chain-preserving timeline retention/compaction.
 
 Owner review:
 
-- Confirm package format and the decision to keep signatures opt-in.
-- Confirm the LocalSystem service can read the machine-scoped explicit-project registry and that uninstall removes only installed/service files when the prompt selects preservation, unless `--purge-data` is explicit.
+- Confirm that local timeline chaining, artifact/package-root hashes, and optional offline signatures are sufficient for v0 tamper detection.
+- Confirm that the SCM setup/uninstall lifecycle and shared Agent-data preservation choice match the intended Windows experience.

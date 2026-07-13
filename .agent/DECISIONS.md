@@ -90,6 +90,16 @@
 - Consequences: Uninitialized directories and unrelated personal files remain outside OWS observation.
 - Replaces: None; baseline privacy boundary.
 
+## Tamper detection is local and offline in v0
+
+- Date: 2026-07-13
+- Status: Accepted
+- Context: The earlier remote verifier was an additional anchoring mechanism for detecting later tampering, but OWS has not been publicly released and must remain useful without hosted infrastructure.
+- Decision: OWS v0 detects package tampering locally through chained timeline hashes, artifact hashes, canonical package-root hashes, and optional offline package signatures. A remote verifier or server-side anchor is outside the v0 contract.
+- Reasoning: Local integrity checks preserve the core proof-of-work property without adding deployment, authentication, privacy, or availability dependencies.
+- Consequences: Offline verification is authoritative for package integrity; a future hosted project may add independent anchoring as optional enrichment without becoming an OWS Core dependency.
+- Replaces: None; clarifies the local/offline verification boundary.
+
 ## No manual start, stop, or checkpoint ceremony in the intended workflow
 
 - Date: 2026-07-13

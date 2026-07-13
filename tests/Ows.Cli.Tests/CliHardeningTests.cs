@@ -24,7 +24,7 @@ public sealed class CliHardeningTests {
             Directory.SetCurrentDirectory(projectRoot);
 
             // Initialize OWS
-            var manager = new OwsWatchSessionManager();
+            var manager = new OwsProjectAgent();
             manager.InitializeProject(projectRoot);
 
             // Write stale lock file to simulate watcher crash

@@ -1,7 +1,7 @@
 namespace Ows.Core.Agent;
 
 /// <summary>
-/// Runs one existing OWS watcher manager for each registered initialized project.
+/// Runs one OWS project Agent for each registered initialized project.
 /// </summary>
 public sealed class OwsAgentHost {
     private readonly OwsProjectRegistry _registry;
@@ -35,7 +35,7 @@ public sealed class OwsAgentHost {
                         continue;
                     }
 
-                    var manager = new OwsWatchSessionManager();
+                    var manager = new OwsProjectAgent();
                     running[project.ProjectRootPath] = new RunningProject(project.ProjectRootPath, manager,
                         manager.StartWatcherAsync(project.ProjectRootPath, _usePolling, _debounceMs));
                 }
@@ -86,9 +86,9 @@ public sealed class OwsAgentHost {
     private static StringComparer GetPathComparer() =>
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
-    private sealed class RunningProject(string projectRootPath, OwsWatchSessionManager manager, Task task) {
+    private sealed class RunningProject(string projectRootPath, OwsProjectAgent manager, Task task) {
         public string ProjectRootPath { get; } = projectRootPath;
-        public OwsWatchSessionManager Manager { get; } = manager;
+        public OwsProjectAgent Manager { get; } = manager;
         public Task Task { get; } = task;
     }
 }

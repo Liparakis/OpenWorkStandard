@@ -8,7 +8,7 @@ namespace Ows.Core.Packaging;
 /// <summary>
 /// Provides the OWS package builder that delegates to focused helper services.
 /// </summary>
-public sealed class OwsPackageBuilder : IPackageBuilder {
+public sealed class OwsPackageBuilder {
     /// <inheritdoc />
     public Task<PackageCreationResult> CreatePackageAsync(PackageCreationRequest request,
         CancellationToken cancellationToken) {

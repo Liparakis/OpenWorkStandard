@@ -59,7 +59,7 @@ internal static class ObservationContinuityAnalyzer {
                                 "Manual review recommended. Event presence is evidence of recorded activity. Event absence is not proof of misconduct."
                         });
 
-                        if (string.Equals(baselineState, "legacy_unbound_snapshot", StringComparison.Ordinal)) {
+                        if (string.Equals(baselineState, "unbound_snapshot", StringComparison.Ordinal)) {
                             findings.Add(VerificationFindingFactory.SnapshotUnboundFinding);
                         } else if (string.Equals(baselineState, "snapshot_hash_mismatch", StringComparison.Ordinal) ||
                                    string.Equals(baselineState, "corrupt_snapshot", StringComparison.Ordinal) ||

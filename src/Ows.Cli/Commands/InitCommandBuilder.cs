@@ -19,7 +19,7 @@ public static class InitCommandBuilder {
             var response = new OwsCliResponse();
             try {
                 var projectRoot = Directory.GetCurrentDirectory();
-                var manager = new OwsWatchSessionManager();
+                var manager = new OwsProjectAgent();
                 manager.InitializeProject(projectRoot);
                 var registered = new OwsProjectRegistry().Register(projectRoot);
                 var agentAvailable = OwsAgentIpcClient.TryPingAsync(OwsProjectRegistry.GetDefaultRegistryPath())

@@ -3,7 +3,7 @@ namespace Ows.Core.Reporting;
 /// <summary>
 /// Provides reviewer-facing report generation for verification outcomes by delegating to renderers.
 /// </summary>
-public sealed class OwsReportGenerator : IReportGenerator {
+public sealed class OwsReportGenerator {
     /// <inheritdoc />
     public Task<ReportGenerationResult> GenerateAsync(ReportRequest request, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(request);

@@ -17,21 +17,11 @@
   - No remote verifier is part of the active repository; offline review is the only verification contract.
   - Canonical product and release documentation lives under `docs/`; the repository root keeps `README.md`, `LICENSE`, and required build/configuration files.
 - Files currently being inspected or changed:
-  - README.md, docs/START_HERE.md, docs/core/SECURITY.md, docs/development/CLI.md
-  - .github/ISSUE_TEMPLATE/*, .github/pull_request_template.md
-  - docs/development/RELEASE_CHECKLIST.md, docs/core/ARCHITECTURE.md
-  - docs/development/ROADMAP_CHECKLIST.md, docs/workflows/PILOT_DEMO.md
-  - all tracked Markdown under `docs/`, root entry points, GitHub templates, and sample/test READMEs for the documentation prune audit
-  - src/Ows.Core/Reporting/OwsReportGenerator.cs
-  - src/Ows.Cli/Commands/InspectCommandBuilder.cs, VerifyCommandBuilder.cs, ReportCommandBuilder.cs
-  - scripts/windows/run-release-regression-gate.ps1, scripts/unix/run-release-regression-gate.sh
-  - scripts/windows/build-ows-setup.ps1
-  - src/Ows.Setup/Ows.Setup.csproj, Program.cs, app.manifest
-  - scripts/windows/build-ows-setup.ps1
-  - tests/Ows.Core.Tests/OwsAgentHostTests.cs
-  - tests/Ows.Cli.Tests/ReviewerPackageArgumentTests.cs
-  - src/Ows.Setup/Program.cs (SCM stop wait and failure reporting)
-  - .agent/CURRENT_TASK.md, .agent/NEXT_STEPS.md, .agent/DECISIONS.md, .agent/WORK_LOG.md
+  - `src/Ows.Core/Agent/OwsProjectAgent.cs`, `OwsAgentHost.cs`, and watcher lifecycle helpers
+  - `src/Ows.Cli/Commands/{Init,Package,Status}CommandBuilder.cs`
+  - `src/Ows.Core/Verification`, `src/Ows.Setup/Program.cs`, and affected tests
+  - `docs/core/PACKAGE_FORMAT.md`, `docs/reference/GLOSSARY.md`
+  - `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, `.agent/WORK_LOG.md`
 - Implementation checklist:
   - [x] Complete Phases 1–8 and reconcile continuity notes.
   - [x] Validate clean build and full tests.
@@ -59,6 +49,8 @@
   - [x] Reconcile the post-prune root surface; retain only active README/license and repository/build configuration files.
   - [x] Remove the unreleased hidden CLI ceremony and remote package commands; keep the seven-command local surface.
   - [x] Remove unreleased remote verifier implementation, scripts, docs, and legacy tests.
+  - [x] Remove the remaining tracked verifier deployment and observability stack.
+  - [x] Remove unreleased compatibility names, unsigned-package status aliases, old event labels, and setup migration paths.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
   - dotnet build OWS.sln -nologo.
@@ -67,7 +59,6 @@
   - PowerShell/Bash syntax checks and git diff --check.
   - Manual release review of generated artifacts, history, license, and the SCM service/setup lifecycle.
 - Blockers, uncertainties, and risks:
-  - One unrelated pre-existing modification remains in `tests/Ows.Core.Tests/AgentNamespaceTests.cs` and must not be staged or overwritten.
   - SCM installation requires UAC elevation, but the service will run as LocalSystem and must use a machine-scoped explicit-project registry rather than a user-only registry.
   - Only final owner review and publication approval remain; the Windows install → service → recovery → uninstall lifecycle was owner-validated.
   - Uninstall/reinstall must wait for the SCM process to stop before deleting the installed executable; the previous 10-second bound was reached during the owner smoke test.
@@ -96,7 +87,12 @@
   - Root Agent documents and technical aliases are gone; only the four required continuity files remain under `.agent/`.
   - A later owner cleanup commit removed the remaining root onboarding/security/contribution/history Markdown; README links now point only to canonical `docs/` files.
   - Internal Markdown links are clean after that owner cleanup.
-  - The unrelated pre-existing modification in `tests/Ows.Core.Tests/AgentNamespaceTests.cs` remains intentionally unstaged.
   - Generated build and setup outputs are intentionally absent after validation cleanup.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.
   - Legacy-removal slices build with 0 warnings/errors; the local test suite is reconciled to the reduced surface.
+  - Release build passed with 0 warnings/errors; full tests passed 41/41 Core and 10/10 CLI.
+  - Local CLI smoke path passed: `init` → `package` → offline `verify` → `inspect` → JSON `report`.
+  - Local tamper suite passed 10/10, including modified, removed, and injected archive entries.
+  - PowerShell syntax passed for 2 scripts; Bash validation was unavailable because Bash/WSL is not installed.
+  - `git diff --check` passed; ignored build/IDE outputs were removed and `git clean -ndX` is empty.
+  - Remaining work is owner review; no publication or push is authorized.

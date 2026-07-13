@@ -33,7 +33,7 @@ public static class PackageCommandBuilder {
                 }
 
                 var projectRoot = Directory.GetCurrentDirectory();
-                var manager = new OwsWatchSessionManager();
+                var manager = new OwsProjectAgent();
                 if (!manager.IsProjectInitialized(projectRoot)) {
                     throw new InvalidOperationException("OWS project is not initialized. Run 'ows init' first.");
                 }

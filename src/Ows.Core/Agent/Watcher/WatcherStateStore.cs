@@ -12,7 +12,7 @@ internal static class WatcherStateStore {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
     /// <summary>
-    /// Known process names of the OWS watcher CLI and test runners.
+    /// Known process names for the OWS Agent and test runners.
     /// </summary>
     private static readonly string[] KnownWatcherProcessNames = ["ows", "dotnet", "testhost"];
 

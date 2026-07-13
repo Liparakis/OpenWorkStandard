@@ -20,7 +20,7 @@ public static class StatusCommandBuilder {
             };
 
             try {
-                var manager = new OwsWatchSessionManager();
+                var manager = new OwsProjectAgent();
                 if (!manager.IsProjectInitialized(response.ProjectRoot)) {
                     response.Status = "Not Initialized";
                     response.Errors.Add("OWS project is not initialized. Run 'ows init' first.");

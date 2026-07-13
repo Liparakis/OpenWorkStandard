@@ -8,7 +8,7 @@ namespace Ows.Core.Agent;
 /// <summary>
 /// Coordinates local project initialization, filesystem observation, and offline packaging.
 /// </summary>
-public sealed class OwsWatchSessionManager : IOwsWatchSessionManager {
+public sealed class OwsProjectAgent {
     private static readonly JsonSerializerOptions ConfigSerializerOptions = new() {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
@@ -64,7 +64,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager {
 
         _activeCts = new CancellationTokenSource();
         var token = _activeCts.Token;
-        WatcherSessionLifecycleCoordinator.StartStopPoller(stopFilePath, _activeCts, token);
+        WatcherLifecycleCoordinator.StartStopPoller(stopFilePath, _activeCts, token);
 
         var projectConfig = GetProjectConfig(projectRoot);
         _activeAgent = new LocalTrackingAgent(new NullLogger<LocalTrackingAgent>());
@@ -134,7 +134,7 @@ public sealed class OwsWatchSessionManager : IOwsWatchSessionManager {
         }
 
         if (File.Exists(watcherJsonPath)) {
-            await WatcherSessionLifecycleCoordinator.ForceKillWatcherProcessAsync(watcherJsonPath);
+            await WatcherLifecycleCoordinator.ForceKillWatcherProcessAsync(watcherJsonPath);
             WatcherStateStore.TryDeleteFile(watcherJsonPath);
         }
 

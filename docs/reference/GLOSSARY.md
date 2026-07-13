@@ -14,4 +14,4 @@
 - `Hash chain`: a sequence of hashes that helps detect tampering or discontinuities.
 - `Package root`: the canonical logical byte representation of package metadata and content hashes, independent of ZIP entry ordering.
 - `Package signature`: an optional public-key signature over the canonical package root for offline authenticity checks.
-- `Signature status`: the package-level state `Valid`, `Unsigned`, `UnsignedLegacy`, or `Invalid` reported by offline verification.
+- `Signature status`: the package-level state `Valid`, `Unsigned`, or `Invalid` reported by offline verification.
