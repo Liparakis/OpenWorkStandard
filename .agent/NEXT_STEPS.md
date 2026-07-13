@@ -1,6 +1,6 @@
 # Next Steps
 
-1. Owner reviews the reduced documentation surface, repository history, license, and current worktree scope.
+1. Owner reviews the reduced documentation surface, retained root configuration files, repository history, license, and current worktree scope.
 2. Owner confirms the release candidate and explicitly authorizes publication.
 3. Only after approval: tag the selected version, push the tag, and create the GitHub release.
 

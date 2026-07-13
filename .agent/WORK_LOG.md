@@ -1651,3 +1651,31 @@
 - Exact next action: Trace `AssessmentSessionId`, institution/assessment metadata, and remote verifier call paths from CLI/Core/server tests.
 - Important context: Do not remove opaque verifier scoping metadata without proving it is management state rather than optional trust-boundary metadata.
 - Files to inspect first: `src/Ows.Core/Notarization`, `src/Ows.Cli/OwsSessionStore.cs`, `src/Ows.Verifier.Server`, and related tests.
+
+## 2026-07-13 — Reconcile final root documentation surface
+
+### Completed
+- Confirmed the remaining root files are active repository inputs, not redundant documentation: README, license, solution, build/package configuration, and local Compose configuration.
+- Confirmed the reduced Markdown surface contains 39 files and all internal Markdown links resolve.
+- Removed a duplicate `Start Here` link from the README.
+- Corrected continuity notes that referenced deleted release/Agent documents or overstated their preservation.
+
+### Changed
+- Added: None.
+- Modified: `README.md`, `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Passed with 0 warnings and 0 errors.
+- Targeted tests: Not needed for documentation-only changes.
+- Full tests: Passed Core 131/131 and CLI/server 80/80.
+- Manual checks: Internal Markdown links clean; ignored build, IDE, verifier, and release outputs removed; `git clean -ndX` is empty.
+
+### Remaining
+- Owner review and explicit publication authorization remain the only release actions in this phase.
+- Optional verifier/session metadata still needs a separate scope decision before any code deletion is justified.
+
+### Handoff
+- Exact next action: Owner reviews the reduced root/docs surface, then authorizes or rejects publication.
+- Important context: Root `Directory.Build.props`, `NuGet.Config`, `docker-compose.local.yml`, `.editorconfig`, and `.gitignore` remain because they are active project configuration, not documentation clutter.
+- Files to inspect first: `README.md`, `docs/START_HERE.md`, `docs/development/RELEASE_CHECKLIST.md`, and `git log --oneline`.

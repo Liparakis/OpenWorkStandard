@@ -17,7 +17,7 @@
 - Files currently being inspected or changed:
   - README.md, docs/START_HERE.md, docs/core/SECURITY.md, docs/development/CLI.md
   - .github/ISSUE_TEMPLATE/*, .github/pull_request_template.md
-  - docs/development/RELEASE_READINESS.md, docs/core/ARCHITECTURE.md
+  - docs/development/RELEASE_CHECKLIST.md, docs/core/ARCHITECTURE.md
   - docs/development/ROADMAP_CHECKLIST.md, docs/workflows/PILOT_DEMO.md
   - all tracked Markdown under `docs/`, root entry points, GitHub templates, and sample/test READMEs for the documentation prune audit
   - src/Ows.Core/Reporting/OwsReportGenerator.cs
@@ -53,8 +53,9 @@
   - [x] Remove ignored generated build, test, verifier, IDE, and release-output files after lifecycle validation.
   - [x] Audit Markdown references, overlap, stale snapshots, and future-scope documentation.
   - [x] Apply the owner-approved documentation prune/merge plan.
-  - [x] Remove agent-oriented files from the repository root while preserving their project-rule and design content.
+  - [x] Remove agent-oriented files and relocated Agent-specific documents from the repository.
   - [x] Remove redundant root documentation aliases and point readers directly to canonical `docs/` files.
+  - [x] Reconcile the post-prune root surface; retain only active README/license and repository/build configuration files.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
   - dotnet build OWS.sln -nologo.
@@ -87,7 +88,7 @@
   - The corrected setup artifact was owner-installed and validated, then removed from the workspace as generated output.
   - Read-only post-uninstall check confirms the `OwsAgent` service, Program Files install directory, and uninstall registry entry are absent.
   - Repository cleanup removed ignored generated outputs; `git clean -ndX` now reports no remaining ignored files.
-  - Documentation cleanup reduced Markdown from 67 to 53 files: stale snapshots/plans, the optional sample, the mutable project-status snapshot, duplicate release docs, and root technical aliases were removed; active remote-verifier operations docs remain.
+  - Documentation cleanup reduced Markdown from 67 to 39 files: stale snapshots/plans, the optional sample, the mutable project-status snapshot, duplicate release docs, root technical aliases, and later owner-removed root hygiene docs are gone; active remote-verifier operations docs remain.
   - Internal Markdown links are clean; graphify's failed semantic cache was removed.
   - Build passes with 0 warnings/errors; full tests pass Core 131/131 and CLI/server 80/80 after the documentation cleanup.
   - Post-validation ignored outputs were removed again; `git clean -ndX` is empty.

@@ -42,7 +42,6 @@ Current status:
 
 Documentation entry point:
 - [Start Here](docs/START_HERE.md)
-- [Start Here](docs/START_HERE.md)
 - [CLI Reference](docs/development/CLI.md)
 - [Security](docs/core/SECURITY.md)
 - [Architecture](docs/core/ARCHITECTURE.md)
