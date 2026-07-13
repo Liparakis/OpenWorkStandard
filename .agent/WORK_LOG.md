@@ -1128,3 +1128,27 @@
 - Exact next action: Run `git diff --check`, then commit this documentation follow-up.
 - Important context: Do not push or publish; the current baseline is `2ef1195`.
 - Files to inspect first: `.agent/CURRENT_TASK.md`, `docs/development/ROADMAP_CHECKLIST.md`, and `docs/development/RELEASE_READINESS.md`.
+
+## 2026-07-13 — Post-commit handoff refresh
+
+### Completed
+- Recorded the documentation follow-up commit and reconciled the live repository state.
+
+### Changed
+- Added: no product files.
+- Modified: `.agent/CURRENT_TASK.md` and `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Not rerun; continuity-only change after the passing build.
+- Targeted tests: Not applicable.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: Working tree clean at `8412adc`; live service remains Running/Automatic/LocalSystem.
+
+### Remaining
+- Run the destructive Installed apps uninstall/reinstall smoke test with UAC approval.
+
+### Handoff
+- Exact next action: Use Windows Installed apps to uninstall, verify cleanup, then reinstall from the current setup artifact if needed.
+- Important context: Do not push or publish; project `.ows` folders must remain untouched.
+- Files to inspect first: `.agent/NEXT_STEPS.md`, `docs/development/RELEASE_READINESS.md`, and `src/Ows.Setup/Program.cs`.

@@ -76,4 +76,4 @@
   - The installer now waits for the SCM service to stop before deletion and prompts whether shared Agent data should be removed.
   - The current shell is not elevated, so destructive uninstall smoke testing requires a UAC-approved run.
   - Live machine evidence: `OwsAgent` is Running, Automatic, LocalSystem, and points to `C:\Program Files\Open Work Standard\Ows.Setup.exe --service`; the process has no main window. The uninstall registry entry is present.
-  - Repository state: clean at commit `2ef1195` before this documentation follow-up; the older uncommitted-status note above is historical.
+  - Repository state: clean at commit `8412adc`; the older uncommitted-status note above is historical.
