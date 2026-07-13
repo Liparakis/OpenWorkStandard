@@ -133,3 +133,25 @@
 - Exact next action: commit the final note/docs/CLI correction, then hand off for owner review.
 - Important context: Local hashes/signatures are the v0 tamper boundary; no server is required.
 - Files to inspect first: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, and `git status`.
+
+## 2026-07-13 - Commit final release reconciliation
+
+### Completed
+- Committed the final CLI/docs and continuity reconciliation as `624ed33`.
+
+### Changed
+- Added: none after the commit.
+- Modified: continuity notes only for the post-commit handoff.
+- Deleted: none after the commit.
+
+### Validation
+- Release build, full tests, release smoke workflow, Markdown link check, legacy-reference scan, and `git diff --check` passed.
+- Generated build outputs were removed; the working tree is clean.
+
+### Remaining
+- Owner review and explicit publication authorization.
+
+### Handoff
+- Exact next action: owner reviews commits `de61aa7` and `624ed33` plus the Windows SCM lifecycle evidence.
+- Important context: Local package integrity is the v0 tamper boundary; hosted anchoring is deferred.
+- Files to inspect first: `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, `docs/development/CLI.md`, and `src/Ows.Core/Verification`.
