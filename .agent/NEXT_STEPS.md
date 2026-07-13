@@ -1,7 +1,7 @@
 # Next Steps
 
-1. Review and commit the validated local-only cleanup slice.
-2. Owner reviews the resulting release candidate, history, license, and manual Windows Agent lifecycle evidence.
+1. Owner reviews the committed local-only cleanup slice, history, license, and manual Windows Agent lifecycle evidence.
+2. Owner confirms the local tamper-detection boundary and release candidate.
 3. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
 
 Current phase remaining:

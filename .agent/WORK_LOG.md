@@ -1785,3 +1785,27 @@
 - Exact next action: review the staged cleanup slice, commit it, then hand off for owner review.
 - Important context: The remote verifier was an optional tamper anchor, not required for the local proof-of-work contract; no hosted stack remains in the tracked tree.
 - Files to inspect first: `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, `src/Ows.Core/Verification`, and `src/Ows.Setup/Program.cs`.
+
+## 2026-07-13 — Commit local-only legacy cleanup
+
+### Completed
+- Committed the validated cleanup as `de61aa7`.
+
+### Changed
+- Added: None after the cleanup commit.
+- Modified: Continuity notes only.
+- Deleted: None after the cleanup commit.
+
+### Validation
+- Build: Release build passed with 0 warnings and 0 errors.
+- Targeted tests: Package signing/tamper tests passed 10/10.
+- Full tests: Core 41/41 and CLI 10/10.
+- Manual checks: Local CLI smoke path passed; tree is clean; ignored outputs are absent.
+
+### Remaining
+- Owner review and explicit publication authorization.
+
+### Handoff
+- Exact next action: owner reviews commit `de61aa7` and confirms the local-only tamper-detection contract.
+- Important context: Hosted verification/anchoring is deferred; it is not required by the v0 proof-of-work workflow.
+- Files to inspect first: `.agent/NEXT_STEPS.md`, `.agent/DECISIONS.md`, `src/Ows.Core/Verification`, and `README.md`.

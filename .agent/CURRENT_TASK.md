@@ -95,4 +95,5 @@
   - Local tamper suite passed 10/10, including modified, removed, and injected archive entries.
   - PowerShell syntax passed for 2 scripts; Bash validation was unavailable because Bash/WSL is not installed.
   - `git diff --check` passed; ignored build/IDE outputs were removed and `git clean -ndX` is empty.
+  - Committed as `de61aa7`; the working tree is clean.
   - Remaining work is owner review; no publication or push is authorized.
