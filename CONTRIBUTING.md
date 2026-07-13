@@ -1,6 +1,6 @@
 # Contributing
 
-1. Read `.agent/PROJECT_RULES.md`, `SPEC.md`, and the architecture documentation.
+1. Read `SPEC.md` and the architecture documentation.
 2. Keep OWS local-first, text-first, IDE-agnostic, and project-scoped.
 3. Add or update tests for public behavior.
 4. Run:

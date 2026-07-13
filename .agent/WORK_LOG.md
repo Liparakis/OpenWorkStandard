@@ -1547,3 +1547,29 @@
 - Exact next action: Review the root directory and relocated rule/design files.
 - Important context: `tests/Ows.Core.Tests/AgentNamespaceTests.cs` contains an unrelated pre-existing user modification and must not be overwritten.
 - Files to inspect first: `.agent/PROJECT_RULES.md`, `docs/core/AGENT_DESIGN.md`, `CONTRIBUTING.md`, and `docs/START_HERE.md`.
+
+## 2026-07-13 — Remove relocated Agent documents
+
+### Completed
+- Removed the relocated project-rules and Agent-design documents after owner clarification.
+- Removed their contributor and Start Here links.
+- Preserved only the four explicitly required continuity files under `.agent/`.
+
+### Changed
+- Added: None.
+- Modified: `CONTRIBUTING.md`, `docs/START_HERE.md`, `.agent/CURRENT_TASK.md`, `.agent/WORK_LOG.md`.
+- Deleted: `.agent/PROJECT_RULES.md`, `docs/core/AGENT_DESIGN.md`.
+
+### Validation
+- Build: Not rerun; documentation-only deletion.
+- Targeted tests: Not rerun.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: No root Agent documents or relocated Agent-document references remain; unrelated test modification preserved.
+
+### Remaining
+- Final owner review and explicit publication approval.
+
+### Handoff
+- Exact next action: Review the root directory and the four required `.agent` continuity files.
+- Important context: The repository no longer carries separate Agent instructions/design documents; project behavior remains documented in the general architecture/specification docs.
+- Files to inspect first: `CONTRIBUTING.md`, `docs/START_HERE.md`, `.agent/CURRENT_TASK.md`, and `.agent/NEXT_STEPS.md`.

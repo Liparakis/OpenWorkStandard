@@ -39,7 +39,6 @@ OWS does not run automated misconduct judgment or AI cheating detection. Unobser
 
 - [Core Overview](core/OVERVIEW.md)
 - [Architecture](core/ARCHITECTURE.md)
-- [Agent Design](AGENT_DESIGN.md)
 - [API Specification](development/API.md)
 - [Roadmap Checklist](development/ROADMAP_CHECKLIST.md)
 - [Release Checklist](development/RELEASE_CHECKLIST.md)
