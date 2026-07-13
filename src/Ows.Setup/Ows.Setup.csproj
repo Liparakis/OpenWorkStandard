@@ -5,6 +5,7 @@
         <TargetFramework>net9.0-windows</TargetFramework>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <UseWindowsForms>true</UseWindowsForms>
+        <ApplicationIcon>assets\logo.ico</ApplicationIcon>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -18,6 +19,10 @@
 
     <ItemGroup Condition="'$(PayloadArchivePath)' != '' and Exists('$(PayloadArchivePath)')">
         <EmbeddedResource Include="$(PayloadArchivePath)" LogicalName="ows-payload.zip"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="assets\logo.ico" LogicalName="ows-logo.ico"/>
     </ItemGroup>
 
 </Project>

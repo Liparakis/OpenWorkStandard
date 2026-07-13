@@ -44,6 +44,7 @@ try
 
     dotnet publish $projectPath --configuration $Configuration --runtime win-x64 --self-contained true `
         -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+        -p:EnableCompressionInSingleFile=true `
         -p:PayloadArchivePath=$payloadArchive --output $outputRoot --nologo
     if ($LASTEXITCODE -ne 0)
     {

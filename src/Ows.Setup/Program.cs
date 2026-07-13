@@ -1,10 +1,8 @@
 using System.Diagnostics;
-using System.Drawing;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Win32;
@@ -497,7 +495,7 @@ internal static class Program {
     ///     Gets the absolute shared data path within CommonApplicationData.
     /// </summary>
     /// <returns>The absolute directory path string.</returns>
-    internal static string GetDataDirectory() {
+    private static string GetDataDirectory() {
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), DataDirectoryName
         );
