@@ -1573,3 +1573,29 @@
 - Exact next action: Review the root directory and the four required `.agent` continuity files.
 - Important context: The repository no longer carries separate Agent instructions/design documents; project behavior remains documented in the general architecture/specification docs.
 - Files to inspect first: `CONTRIBUTING.md`, `docs/START_HERE.md`, `.agent/CURRENT_TASK.md`, and `.agent/NEXT_STEPS.md`.
+
+## 2026-07-13 — Remove redundant root documentation aliases
+
+### Completed
+- Removed root `ARCHITECTURE.md`, `CLI_REFERENCE.md`, `PACKAGE_FORMAT.md`, `SPEC.md`, `THREAT_MODEL.md`, and `RELEASE.md` aliases.
+- Updated README, CONTRIBUTING, and Start Here to link directly to canonical `docs/` files.
+- Kept conventional root files required for GitHub/project onboarding: README, GETTING_STARTED, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, CHANGELOG, and LICENSE.
+
+### Changed
+- Added: None.
+- Modified: `README.md`, `CONTRIBUTING.md`, `docs/START_HERE.md`, `.agent/CURRENT_TASK.md`, `.agent/WORK_LOG.md`.
+- Deleted: Six redundant root documentation aliases.
+
+### Validation
+- Build: Not rerun; documentation-only change.
+- Targeted tests: Not rerun.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: Internal Markdown links clean; no stale root-alias links remain; unrelated test modification preserved.
+
+### Remaining
+- Final owner review and explicit publication approval.
+
+### Handoff
+- Exact next action: Review the reduced repository root and canonical docs under `docs/`.
+- Important context: Root technical aliases are gone; use `docs/core/`, `docs/development/`, and `docs/workflows/` as the canonical documentation locations.
+- Files to inspect first: `README.md`, `GETTING_STARTED.md`, `docs/START_HERE.md`, and `docs/development/RELEASE_CHECKLIST.md`.

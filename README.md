@@ -43,16 +43,16 @@ Current status:
 Documentation entry point:
 - [Start Here](docs/START_HERE.md)
 - [Getting Started](GETTING_STARTED.md)
-- [CLI Reference](CLI_REFERENCE.md)
+- [CLI Reference](docs/development/CLI.md)
 - [Security](SECURITY.md)
-- [Architecture](ARCHITECTURE.md)
-- [Package Format](PACKAGE_FORMAT.md)
-- [Threat Model](THREAT_MODEL.md)
+- [Architecture](docs/core/ARCHITECTURE.md)
+- [Package Format](docs/core/PACKAGE_FORMAT.md)
+- [Threat Model](docs/core/THREAT_MODEL.md)
 - [Contributing](CONTRIBUTING.md)
 
 Key references:
 - [Review Guidance](docs/workflows/REVIEW_GUIDANCE.md)
-- [Project Specification](SPEC.md)
+- [Project Specification](docs/core/OVERVIEW.md)
 - [Roadmap Checklist](docs/development/ROADMAP_CHECKLIST.md)
 
 License:

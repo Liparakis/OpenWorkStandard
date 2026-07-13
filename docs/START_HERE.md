@@ -23,7 +23,7 @@ OWS does not run automated misconduct judgment or AI cheating detection. Unobser
 - [Review Guidance](workflows/REVIEW_GUIDANCE.md)
 - [Pilot Demo](workflows/PILOT_DEMO.md)
 - [Package Format](core/PACKAGE_FORMAT.md)
-- [Local Inspect](../CLI_REFERENCE.md)
+- [Local Inspect](development/CLI.md)
 - [Event Catalog](core/EVENT_CATALOG.md)
 
 ## I am an institution operator or admin

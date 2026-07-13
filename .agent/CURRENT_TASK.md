@@ -54,6 +54,7 @@
   - [x] Audit Markdown references, overlap, stale snapshots, and future-scope documentation.
   - [x] Apply the owner-approved documentation prune/merge plan.
   - [x] Remove agent-oriented files from the repository root while preserving their project-rule and design content.
+  - [x] Remove redundant root documentation aliases and point readers directly to canonical `docs/` files.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
   - dotnet build OWS.sln -nologo.
@@ -96,4 +97,5 @@
   - Post-validation ignored outputs were removed again; `git clean -ndX` is empty.
   - Root `AGENTS.md`, root `AGENT_DESIGN.md`, `.agent/PROJECT_RULES.md`, and `docs/core/AGENT_DESIGN.md` are gone; only the four required continuity files remain under `.agent/`.
   - An unrelated pre-existing modification remains in `tests/Ows.Core.Tests/AgentNamespaceTests.cs` and is intentionally not staged.
+  - Root documentation now keeps only README, onboarding, security, contribution/legal/history files; technical aliases were removed.
   - Automated owner-review checks are clean: MIT `LICENSE` is present; no tracked `bin`, `obj`, `artifacts`, executable, archive, or private-key files were found. Human sign-off remains pending.
