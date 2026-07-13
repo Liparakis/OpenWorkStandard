@@ -1,24 +1,26 @@
 namespace Ows.Core.Agent;
 
 /// <summary>
-/// Runs one OWS project Agent for each registered initialized project.
+///     Runs one OWS project Agent for each registered initialized project.
 /// </summary>
 public sealed class OwsAgentHost {
     /// <summary>
-    /// The project registry containing the registered OWS projects.
-    /// </summary>
-    private readonly OwsProjectRegistry _registry;
-    /// <summary>
-    /// A value indicating whether to use polling for file watchers.
-    /// </summary>
-    private readonly bool _usePolling;
-    /// <summary>
-    /// The debounce delay in milliseconds for file change events.
+    ///     The debounce delay in milliseconds for file change events.
     /// </summary>
     private readonly int _debounceMs;
 
     /// <summary>
-    /// Initializes the local agent host.
+    ///     The project registry containing the registered OWS projects.
+    /// </summary>
+    private readonly OwsProjectRegistry _registry;
+
+    /// <summary>
+    ///     A value indicating whether to use polling for file watchers.
+    /// </summary>
+    private readonly bool _usePolling;
+
+    /// <summary>
+    ///     Initializes the local agent host.
     /// </summary>
     /// <param name="registry">The project registry to check for registered projects.</param>
     /// <param name="usePolling">Whether to use polling file watchers.</param>
@@ -30,9 +32,9 @@ public sealed class OwsAgentHost {
     }
 
     /// <summary>
-    /// Watches all currently registered projects until cancellation.
+    ///     Watches all currently registered projects until cancellation.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation of the runner loop.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous operation of the runner loop.</returns>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     public async Task RunAsync(CancellationToken cancellationToken) {
         var running = new Dictionary<string, RunningProject>(GetPathComparer());
@@ -76,18 +78,19 @@ public sealed class OwsAgentHost {
     }
 
     /// <summary>
-    /// Determines whether the project at the specified root path has been initialized.
+    ///     Determines whether the project at the specified root path has been initialized.
     /// </summary>
-    /// <returns><see langword="true"/> if the project is initialized; otherwise, <see langword="false"/>.</returns>
+    /// <returns><see langword="true" /> if the project is initialized; otherwise, <see langword="false" />.</returns>
     /// <param name="projectRootPath">The path to the project root directory.</param>
-    private static bool IsInitialized(string projectRootPath) =>
-        Directory.Exists(Path.Combine(projectRootPath, OwsConstants.LocalFolderName)) &&
-        File.Exists(Path.Combine(projectRootPath, OwsConstants.LocalFolderName, "config.json"));
+    private static bool IsInitialized(string projectRootPath) {
+        return Directory.Exists(Path.Combine(projectRootPath, OwsConstants.LocalFolderName)) &&
+               File.Exists(Path.Combine(projectRootPath, OwsConstants.LocalFolderName, "config.json"));
+    }
 
     /// <summary>
-    /// Stops the watcher for a running project asynchronously.
+    ///     Stops the watcher for a running project asynchronously.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the stop operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the stop operation.</returns>
     /// <param name="project">The running project container.</param>
     private static async Task StopAsync(RunningProject project) {
         if (!project.Task.IsCompleted) {
@@ -102,7 +105,7 @@ public sealed class OwsAgentHost {
     }
 
     /// <summary>
-    /// Observes the completion of a task and catches any exception it throws to prevent runner crashes.
+    ///     Observes the completion of a task and catches any exception it throws to prevent runner crashes.
     /// </summary>
     /// <param name="task">The task to observe.</param>
     private static void Observe(Task task) {
@@ -114,26 +117,29 @@ public sealed class OwsAgentHost {
     }
 
     /// <summary>
-    /// Gets a path string comparer that matches OS case-sensitivity.
+    ///     Gets a path string comparer that matches OS case-sensitivity.
     /// </summary>
-    /// <returns>An appropriate <see cref="StringComparer"/> for paths on the current platform.</returns>
-    private static StringComparer GetPathComparer() =>
-        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    /// <returns>An appropriate <see cref="StringComparer" /> for paths on the current platform.</returns>
+    private static StringComparer GetPathComparer() {
+        return OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    }
 
     /// <summary>
-    /// Represents the <see cref="RunningProject"/> type.
+    ///     Represents the <see cref="RunningProject" /> type.
     /// </summary>
     private sealed class RunningProject(string projectRootPath, OwsProjectAgent manager, Task task) {
         /// <summary>
-        /// Gets the <see cref="ProjectRootPath"/> value.
+        ///     Gets the <see cref="ProjectRootPath" /> value.
         /// </summary>
         public string ProjectRootPath { get; } = projectRootPath;
+
         /// <summary>
-        /// Gets the <see cref="Manager"/> value.
+        ///     Gets the <see cref="Manager" /> value.
         /// </summary>
         public OwsProjectAgent Manager { get; } = manager;
+
         /// <summary>
-        /// Gets the <see cref="Task"/> value.
+        ///     Gets the <see cref="Task" /> value.
         /// </summary>
         public Task Task { get; } = task;
     }

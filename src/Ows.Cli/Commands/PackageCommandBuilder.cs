@@ -5,11 +5,11 @@ using Ows.Core.Packaging;
 namespace Ows.Cli.Commands;
 
 /// <summary>
-/// Provides construction for the package command group.
+///     Provides construction for the package command group.
 /// </summary>
 public static class PackageCommandBuilder {
     /// <summary>
-    /// Builds the package command that creates an offline OWS package.
+    ///     Builds the package command that creates an offline OWS package.
     /// </summary>
     /// <returns>The configured command.</returns>
     public static Command Build() {

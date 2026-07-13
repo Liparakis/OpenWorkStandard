@@ -5,11 +5,11 @@ using Ows.Core.Agent;
 namespace Ows.Cli.Commands;
 
 /// <summary>
-/// Provides construction for the init command.
+///     Provides construction for the init command.
 /// </summary>
 public static class InitCommandBuilder {
     /// <summary>
-    /// Builds the init command that initializes local OWS tracking metadata for a project.
+    ///     Builds the init command that initializes local OWS tracking metadata for a project.
     /// </summary>
     /// <returns>The configured command.</returns>
     public static Command Build() {

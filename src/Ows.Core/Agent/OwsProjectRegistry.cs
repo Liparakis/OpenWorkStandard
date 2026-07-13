@@ -3,16 +3,16 @@ using System.Text.Json;
 namespace Ows.Core.Agent;
 
 /// <summary>
-/// Stores the explicitly initialized project roots that the local OWS Agent may watch.
+///     Stores the explicitly initialized project roots that the local OWS Agent may watch.
 /// </summary>
 public sealed class OwsProjectRegistry {
     /// <summary>
-    /// Static lock object to synchronize in-process access to the registry.
+    ///     Static lock object to synchronize in-process access to the registry.
     /// </summary>
     private static readonly object InProcessLock = new();
 
     /// <summary>
-    /// Serialization options configured for registry serialization/deserialization.
+    ///     Serialization options configured for registry serialization/deserialization.
     /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new() {
         WriteIndented = true,
@@ -20,7 +20,7 @@ public sealed class OwsProjectRegistry {
     };
 
     /// <summary>
-    /// Initializes a registry backed by the supplied path or the platform default.
+    ///     Initializes a registry backed by the supplied path or the platform default.
     /// </summary>
     /// <param name="registryPath">An optional custom path to the registry file.</param>
     public OwsProjectRegistry(string? registryPath = null) {
@@ -28,14 +28,17 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Gets the registry file path.
+    ///     Gets the registry file path.
     /// </summary>
     public string RegistryPath { get; }
 
     /// <summary>
-    /// Registers an existing initialized project root. Registration is idempotent.
+    ///     Registers an existing initialized project root. Registration is idempotent.
     /// </summary>
-    /// <returns><see langword="true"/> if the project was newly registered; otherwise, <see langword="false"/> if it was already registered.</returns>
+    /// <returns>
+    ///     <see langword="true" /> if the project was newly registered; otherwise, <see langword="false" /> if it was
+    ///     already registered.
+    /// </returns>
     /// <param name="projectRootPath">The project root directory path to register.</param>
     public bool Register(string projectRootPath) {
         var normalizedPath = NormalizeProjectRoot(projectRootPath);
@@ -58,9 +61,9 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Removes a project root from the registry.
+    ///     Removes a project root from the registry.
     /// </summary>
-    /// <returns><see langword="true"/> if the project was removed; otherwise, <see langword="false"/> if it was not found.</returns>
+    /// <returns><see langword="true" /> if the project was removed; otherwise, <see langword="false" /> if it was not found.</returns>
     /// <param name="projectRootPath">The project root directory path to unregister.</param>
     public bool Unregister(string projectRootPath) {
         var normalizedPath = Path.GetFullPath(projectRootPath);
@@ -77,7 +80,7 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Reads all registered projects, including roots that no longer exist.
+    ///     Reads all registered projects, including roots that no longer exist.
     /// </summary>
     /// <returns>A read-only list of registered projects.</returns>
     public IReadOnlyList<RegisteredOwsProject> GetProjects() {
@@ -88,7 +91,7 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Removes roots that no longer exist so moved or deleted projects are not watched.
+    ///     Removes roots that no longer exist so moved or deleted projects are not watched.
     /// </summary>
     /// <returns>The number of missing projects removed from the registry.</returns>
     public int RemoveMissingProjects() {
@@ -105,8 +108,8 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Gets the default registry path for the current platform. Windows uses a
-    /// machine-scoped location so the LocalSystem Agent service and CLI share it.
+    ///     Gets the default registry path for the current platform. Windows uses a
+    ///     machine-scoped location so the LocalSystem Agent service and CLI share it.
     /// </summary>
     /// <returns>The default file path to the OWS agent project registry JSON file.</returns>
     public static string GetDefaultRegistryPath() {
@@ -129,9 +132,9 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Acquires a file-based lock on the registry to prevent concurrent multi-process access.
+    ///     Acquires a file-based lock on the registry to prevent concurrent multi-process access.
     /// </summary>
-    /// <returns>A <see cref="FileStream"/> representing the acquired lock file.</returns>
+    /// <returns>A <see cref="FileStream" /> representing the acquired lock file.</returns>
     private FileStream AcquireLock() {
         var directory = Path.GetDirectoryName(RegistryPath);
         if (string.IsNullOrWhiteSpace(directory)) {
@@ -151,9 +154,9 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Reads the list of registered projects from the registry file.
+    ///     Reads the list of registered projects from the registry file.
     /// </summary>
-    /// <returns>A list of registered <see cref="RegisteredOwsProject"/> objects.</returns>
+    /// <returns>A list of registered <see cref="RegisteredOwsProject" /> objects.</returns>
     private List<RegisteredOwsProject> ReadProjects() {
         if (!File.Exists(RegistryPath)) {
             return [];
@@ -164,7 +167,7 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Writes the collection of registered projects to the registry file.
+    ///     Writes the collection of registered projects to the registry file.
     /// </summary>
     /// <param name="projects">The collection of projects to serialize and write.</param>
     private void WriteProjects(IReadOnlyCollection<RegisteredOwsProject> projects) {
@@ -173,7 +176,7 @@ public sealed class OwsProjectRegistry {
         var temporaryPath = Path.Combine(directory, $"{Path.GetFileName(RegistryPath)}.{Guid.NewGuid():N}.tmp");
         try {
             File.WriteAllText(temporaryPath, JsonSerializer.Serialize(projects, SerializerOptions));
-            File.Move(temporaryPath, RegistryPath, overwrite: true);
+            File.Move(temporaryPath, RegistryPath, true);
         } finally {
             if (File.Exists(temporaryPath)) {
                 File.Delete(temporaryPath);
@@ -182,7 +185,7 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Normalizes the project root path and verifies that the directory exists.
+    ///     Normalizes the project root path and verifies that the directory exists.
     /// </summary>
     /// <returns>The normalized absolute path of the project root.</returns>
     /// <param name="projectRootPath">The project root path to normalize.</param>
@@ -197,20 +200,21 @@ public sealed class OwsProjectRegistry {
     }
 
     /// <summary>
-    /// Compares two paths for equality using platform-specific case-sensitivity.
+    ///     Compares two paths for equality using platform-specific case-sensitivity.
     /// </summary>
-    /// <returns><see langword="true"/> if the paths are equal; otherwise, <see langword="false"/>.</returns>
+    /// <returns><see langword="true" /> if the paths are equal; otherwise, <see langword="false" />.</returns>
     /// <param name="left">The first path to compare.</param>
     /// <param name="right">The second path to compare.</param>
-    private static bool PathsEqual(string left, string right) =>
-        string.Equals(
+    private static bool PathsEqual(string left, string right) {
+        return string.Equals(
             left.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), right,
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal
         );
+    }
 }
 
 /// <summary>
-/// Represents one explicitly registered OWS project root.
+///     Represents one explicitly registered OWS project root.
 /// </summary>
 public sealed record RegisteredOwsProject {
     /// <summary>Gets the absolute project root path.</summary>

@@ -5,59 +5,60 @@ using Ows.Core.Agent.Scanning;
 namespace Ows.Core.Agent;
 
 /// <summary>
-/// Watches a tracked project directory for file-system changes and yields debounced
-/// <see cref="FileWatchEvent"/> records.
+///     Watches a tracked project directory for file-system changes and yields debounced
+///     <see cref="FileWatchEvent" /> records.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Two complementary strategies run concurrently depending on configuration:
-/// </para>
-/// <list type="bullet">
-///   <item>
-///     <description>
-///       <b>Native watcher</b> — wraps <see cref="FileSystemWatcher"/> for low-latency OS signals.
-///       Used by default on Windows and macOS.
-///     </description>
-///   </item>
-///   <item>
-///     <description>
-///       <b>Polling fallback</b> — periodically scans the project tree and compares file sizes and
-///       last-write times against a baseline snapshot. Used when
-///       <see cref="FileWatcherOptions.UsePollingFallback"/> is <see langword="true"/> or when the
-///       native watcher cannot be started. Also acts as a safety net alongside the native watcher to
-///       catch events that OS signals can miss on network drives.
-///     </description>
-///   </item>
-/// </list>
-/// <para>
-/// Both strategies write raw notifications into a shared <see cref="Channel{T}"/>. A debounce loop
-/// drains the channel and withholds events until the configured quiet-time window elapses, then
-/// emits one <see cref="FileWatchEvent"/> per affected path.
-/// </para>
+///     <para>
+///         Two complementary strategies run concurrently depending on configuration:
+///     </para>
+///     <list type="bullet">
+///         <item>
+///             <description>
+///                 <b>Native watcher</b> — wraps <see cref="FileSystemWatcher" /> for low-latency OS signals.
+///                 Used by default on Windows and macOS.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>Polling fallback</b> — periodically scans the project tree and compares file sizes and
+///                 last-write times against a baseline snapshot. Used when
+///                 <see cref="FileWatcherOptions.UsePollingFallback" /> is <see langword="true" /> or when the
+///                 native watcher cannot be started. Also acts as a safety net alongside the native watcher to
+///                 catch events that OS signals can miss on network drives.
+///             </description>
+///         </item>
+///     </list>
+///     <para>
+///         Both strategies write raw notifications into a shared <see cref="Channel{T}" />. A debounce loop
+///         drains the channel and withholds events until the configured quiet-time window elapses, then
+///         emits one <see cref="FileWatchEvent" /> per affected path.
+///     </para>
 /// </remarks>
 public sealed class OwsFileWatcher : IAsyncDisposable {
     /// <summary>
-    /// Absolute path to the tracked project root directory.
-    /// </summary>
-    private readonly string _projectRoot;
-
-    /// <summary>
-    /// A predicate function receiving the absolute file path, returning <see langword="true"/> if the path should be excluded.
-    /// </summary>
-    private readonly Func<string, bool> _shouldExclude;
-
-    /// <summary>
-    /// Debounce and polling fallback behavior options.
+    ///     Debounce and polling fallback behavior options.
     /// </summary>
     private readonly FileWatcherOptions _options;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="OwsFileWatcher"/> class.
+    ///     Absolute path to the tracked project root directory.
+    /// </summary>
+    private readonly string _projectRoot;
+
+    /// <summary>
+    ///     A predicate function receiving the absolute file path, returning <see langword="true" /> if the path should be
+    ///     excluded.
+    /// </summary>
+    private readonly Func<string, bool> _shouldExclude;
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="OwsFileWatcher" /> class.
     /// </summary>
     /// <param name="projectRoot">Absolute path to the tracked project root.</param>
     /// <param name="shouldExclude">
-    /// Predicate receiving the <b>absolute</b> file path; returns <see langword="true"/> when the
-    /// path should be ignored (e.g. paths inside <c>.ows/</c>).
+    ///     Predicate receiving the <b>absolute</b> file path; returns <see langword="true" /> when the
+    ///     path should be ignored (e.g. paths inside <c>.ows/</c>).
     /// </param>
     /// <param name="options">Runtime options for debounce timing and polling behaviour.</param>
     public OwsFileWatcher(string projectRoot, Func<string, bool> shouldExclude, FileWatcherOptions options) {
@@ -71,8 +72,16 @@ public sealed class OwsFileWatcher : IAsyncDisposable {
     }
 
     /// <summary>
-    /// Streams debounced <see cref="FileWatchEvent"/> records until the <paramref name="cancellationToken"/>
-    /// is cancelled.
+    ///     Performs asynchronous disposal task of stopping active file-watching tasks.
+    /// </summary>
+    /// <returns>A <see cref="ValueTask" /> representing the asynchronous operation.</returns>
+    public ValueTask DisposeAsync() {
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    ///     Streams debounced <see cref="FileWatchEvent" /> records until the <paramref name="cancellationToken" />
+    ///     is cancelled.
     /// </summary>
     /// <param name="cancellationToken">Token that stops the watcher when cancelled.</param>
     /// <returns>An async sequence of debounced file-watch events.</returns>
@@ -165,13 +174,7 @@ public sealed class OwsFileWatcher : IAsyncDisposable {
     }
 
     /// <summary>
-    /// Performs asynchronous disposal task of stopping active file-watching tasks.
-    /// </summary>
-    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-
-    /// <summary>
-    /// Runs the native file watcher loop wrapping <see cref="FileSystemWatcher"/> to capture OS file change events.
+    ///     Runs the native file watcher loop wrapping <see cref="FileSystemWatcher" /> to capture OS file change events.
     /// </summary>
     /// <param name="writer">The channel writer where raw events are published.</param>
     /// <param name="cancellationToken">A token to stop the native watcher execution.</param>
@@ -219,7 +222,7 @@ public sealed class OwsFileWatcher : IAsyncDisposable {
     }
 
     /// <summary>
-    /// Periodically triggers scanning the project tree to capture file modifications and creation/deletion.
+    ///     Periodically triggers scanning the project tree to capture file modifications and creation/deletion.
     /// </summary>
     /// <param name="writer">The channel writer where raw events are published.</param>
     /// <param name="cancellationToken">A token to stop the polling watcher execution.</param>
@@ -262,7 +265,7 @@ public sealed class OwsFileWatcher : IAsyncDisposable {
     }
 
     /// <summary>
-    /// Scans the project directory and returns a snapshot mapping paths to their size and last write time details.
+    ///     Scans the project directory and returns a snapshot mapping paths to their size and last write time details.
     /// </summary>
     /// <returns>A snapshot dictionary mapping absolute path keys to size/timestamp tuples.</returns>
     private Dictionary<string, (long Length, DateTime LastWriteUtc)> TakeSnapshot() {

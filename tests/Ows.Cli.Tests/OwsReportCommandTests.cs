@@ -4,14 +4,14 @@ using FluentAssertions;
 namespace Ows.Cli.Tests;
 
 /// <summary>
-/// Tests the report command behavior.
+///     Tests the report command behavior.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class OwsReportCommandTests {
     /// <summary>
-    /// Verifies that the report command writes a text report for a created package.
+    ///     Verifies that the report command writes a text report for a created package.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task ReportCommand_ShouldWriteTextReportInCurrentDirectory() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-report-{Guid.NewGuid():N}");
@@ -37,15 +37,15 @@ public sealed class OwsReportCommandTests {
             Directory.SetCurrentDirectory(originalDirectory);
 
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }
 
     /// <summary>
-    /// Verifies that the report command can write a JSON report for a created package.
+    ///     Verifies that the report command can write a JSON report for a created package.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task ReportCommand_ShouldWriteJsonReportInCurrentDirectory() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-report-json-{Guid.NewGuid():N}");
@@ -61,7 +61,7 @@ public sealed class OwsReportCommandTests {
             (await OwsCommandFactory.BuildRootCommand().Parse(["package"]).InvokeAsync()).Should().Be(0);
 
             var reportResult = await OwsCommandFactory.BuildRootCommand().Parse(["report", "--format", "json"])
-                .InvokeAsync();
+                                                      .InvokeAsync();
             var reportPath = Path.Combine(projectRoot, $"{new DirectoryInfo(projectRoot).Name}.report.json");
 
             reportResult.Should().Be(0);
@@ -73,7 +73,7 @@ public sealed class OwsReportCommandTests {
             Directory.SetCurrentDirectory(originalDirectory);
 
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }

@@ -4,11 +4,11 @@ using Ows.Core.Events;
 namespace Ows.Core.Tests;
 
 /// <summary>
-/// Verifies the OWS event catalog and active/reserved mapping integrity.
+///     Verifies the OWS event catalog and active/reserved mapping integrity.
 /// </summary>
 public sealed class EventCatalogTests {
     /// <summary>
-    /// Searches upward from the execution directory to find the specified documentation file path.
+    ///     Searches upward from the execution directory to find the specified documentation file path.
     /// </summary>
     /// <returns>The absolute path of the found file.</returns>
     /// <param name="filename">The name of the file to search for.</param>
@@ -23,8 +23,8 @@ public sealed class EventCatalogTests {
                 }
 
                 var recursivePath = Directory
-                    .EnumerateFiles(docsPath, filename, SearchOption.AllDirectories)
-                    .FirstOrDefault();
+                                    .EnumerateFiles(docsPath, filename, SearchOption.AllDirectories)
+                                    .FirstOrDefault();
                 if (recursivePath is not null) {
                     return recursivePath;
                 }
@@ -42,14 +42,15 @@ public sealed class EventCatalogTests {
     }
 
     /// <summary>
-    /// Verifies that every event type in OwsEventType is documented in EVENT_CATALOG.md with its active or reserved status.
+    ///     Verifies that every event type in OwsEventType is documented in EVENT_CATALOG.md with its active or reserved
+    ///     status.
     /// </summary>
     [Fact]
     public void EventCatalog_ShouldDocumentEveryOwsEventTypeWithCorrectStatus() {
         var catalogPath = FindCatalogPath("EVENT_CATALOG.md");
         var catalogText = File.ReadAllText(catalogPath);
 
-        foreach (OwsEventType type in Enum.GetValues<OwsEventType>()) {
+        foreach (var type in Enum.GetValues<OwsEventType>()) {
             var typeName = type.ToString();
 
             // Verify that the event type is documented in the file
@@ -77,24 +78,28 @@ public sealed class EventCatalogTests {
                 or OwsEventType.LargeUnobservedChangeDetected
                 or OwsEventType.SnapshotUpdated;
             if (isActive) {
-                catalogText.Should().Contain($"`{typeName}`",
-                    $"'{typeName}' is an active event type and must be documented in EVENT_CATALOG.md");
+                catalogText.Should().Contain(
+                    $"`{typeName}`",
+                    $"'{typeName}' is an active event type and must be documented in EVENT_CATALOG.md"
+                );
             } else {
-                catalogText.Should().Contain($"`{typeName}` is reserved",
-                    $"'{typeName}' is reserved and must be documented as such in EVENT_CATALOG.md");
+                catalogText.Should().Contain(
+                    $"`{typeName}` is reserved",
+                    $"'{typeName}' is reserved and must be documented as such in EVENT_CATALOG.md"
+                );
             }
         }
     }
 
     /// <summary>
-    /// Verifies that every event type in OwsEventType is listed in EVENT_SCHEMA.md.
+    ///     Verifies that every event type in OwsEventType is listed in EVENT_SCHEMA.md.
     /// </summary>
     [Fact]
     public void EventSchema_ShouldListEveryOwsEventType() {
         var schemaPath = FindCatalogPath("EVENT_SCHEMA.md");
         var schemaText = File.ReadAllText(schemaPath);
 
-        foreach (OwsEventType type in Enum.GetValues<OwsEventType>()) {
+        foreach (var type in Enum.GetValues<OwsEventType>()) {
             var typeName = type.ToString();
             schemaText.Should().Contain($"`{typeName}`", $"Event type '{typeName}' must be listed in EVENT_SCHEMA.md");
         }

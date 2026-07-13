@@ -4,14 +4,14 @@ using Ows.Core.Agent;
 namespace Ows.Cli.Tests;
 
 /// <summary>
-/// Tests the init command behavior.
+///     Tests the init command behavior.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class OwsInitCommandTests {
     /// <summary>
-    /// Verifies that the init command creates local OWS state in the current directory.
+    ///     Verifies that the init command creates local OWS state in the current directory.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task InitCommand_ShouldCreateLocalOwsStateInCurrentDirectory() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-init-{Guid.NewGuid():N}");
@@ -32,14 +32,17 @@ public sealed class OwsInitCommandTests {
             File.Exists(Path.Combine(projectRoot, ".ows", "config.json")).Should().BeTrue();
             File.Exists(Path.Combine(projectRoot, ".ows", "timeline.jsonl")).Should().BeTrue();
             new OwsProjectRegistry(registryPath).GetProjects()
-                .Should().ContainSingle(project => string.Equals(project.ProjectRootPath, projectRoot,
-                    StringComparison.OrdinalIgnoreCase));
+                                                .Should().ContainSingle(project => string.Equals(
+                                                        project.ProjectRootPath, projectRoot,
+                                                        StringComparison.OrdinalIgnoreCase
+                                                    )
+                                                );
         } finally {
             Directory.SetCurrentDirectory(originalDirectory);
             Environment.SetEnvironmentVariable("OWS_AGENT_REGISTRY_PATH", originalRegistryPath);
 
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }

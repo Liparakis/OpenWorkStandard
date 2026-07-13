@@ -1,13 +1,14 @@
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Ows.Core.Agent.Watcher;
 
 /// <summary>
-/// Coordinates background checking loops and manages cleaning up active watcher processes.
+///     Coordinates background checking loops and manages cleaning up active watcher processes.
 /// </summary>
 internal static class WatcherLifecycleCoordinator {
     /// <summary>
-    /// Starts a background polling loop that checks for a watcher.stop file to request clean cancellation of the watcher.
+    ///     Starts a background polling loop that checks for a watcher.stop file to request clean cancellation of the watcher.
     /// </summary>
     /// <param name="stopFilePath">The absolute path to the watcher.stop signal file.</param>
     /// <param name="activeCts">The active watcher cancellation source to trigger cancellation.</param>
@@ -36,7 +37,7 @@ internal static class WatcherLifecycleCoordinator {
     }
 
     /// <summary>
-    /// Safely terminates any active watcher process indicated by the PID in the watcher JSON file.
+    ///     Safely terminates any active watcher process indicated by the PID in the watcher JSON file.
     /// </summary>
     /// <param name="watcherJsonPath">The absolute path to the watcher.json PID file.</param>
     /// <returns>A task representing the background cleanup process.</returns>
@@ -47,9 +48,9 @@ internal static class WatcherLifecycleCoordinator {
             var content = await File.ReadAllTextAsync(watcherJsonPath);
             var state = JsonSerializer.Deserialize<WatcherProcessState>(content);
             if (state != null) {
-                var proc = System.Diagnostics.Process.GetProcessById(state.Pid);
+                var proc = Process.GetProcessById(state.Pid);
                 if (!proc.HasExited) {
-                    proc.Kill(entireProcessTree: true);
+                    proc.Kill(true);
                 }
             }
         } catch (ArgumentException) {

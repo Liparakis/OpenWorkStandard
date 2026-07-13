@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core.Agent.Scanning;
@@ -9,11 +10,11 @@ using Ows.Core.Init;
 namespace Ows.Core.Agent;
 
 /// <summary>
-/// Coordinates local project initialization, filesystem observation, and offline packaging.
+///     Coordinates local project initialization, filesystem observation, and offline packaging.
 /// </summary>
 public sealed class OwsProjectAgent {
     /// <summary>
-    /// Serialization options used for formatting and parsing project configuration files.
+    ///     Serialization options used for formatting and parsing project configuration files.
     /// </summary>
     private static readonly JsonSerializerOptions ConfigSerializerOptions = new() {
         WriteIndented = true,
@@ -21,11 +22,12 @@ public sealed class OwsProjectAgent {
     };
 
     /// <summary>
-    /// The active file tracking agent instance for the watched project, if running.
+    ///     The active file tracking agent instance for the watched project, if running.
     /// </summary>
     private LocalTrackingAgent? _activeAgent;
+
     /// <summary>
-    /// The cancellation token source used to signal shutdown to the active tracking agent.
+    ///     The cancellation token source used to signal shutdown to the active tracking agent.
     /// </summary>
     private CancellationTokenSource? _activeCts;
 
@@ -59,7 +61,8 @@ public sealed class OwsProjectAgent {
         if (File.Exists(watcherJsonPath)) {
             try {
                 interruptedState = JsonSerializer.Deserialize<WatcherProcessState>(
-                    await File.ReadAllTextAsync(watcherJsonPath));
+                    await File.ReadAllTextAsync(watcherJsonPath)
+                );
                 wasInterrupted = true;
             } catch {
                 // A corrupt stale state is treated as an interrupted watcher.
@@ -69,10 +72,12 @@ public sealed class OwsProjectAgent {
         }
 
         WatcherStateStore.TryDeleteFile(stopFilePath);
-        await WatcherStateStore.WriteStateAsync(watcherJsonPath, new WatcherProcessState {
-            Pid = System.Diagnostics.Process.GetCurrentProcess().Id,
-            StartedAt = DateTimeOffset.UtcNow
-        });
+        await WatcherStateStore.WriteStateAsync(
+            watcherJsonPath, new WatcherProcessState {
+                Pid = Process.GetCurrentProcess().Id,
+                StartedAt = DateTimeOffset.UtcNow
+            }
+        );
 
         _activeCts = new CancellationTokenSource();
         var token = _activeCts.Token;
@@ -80,17 +85,19 @@ public sealed class OwsProjectAgent {
 
         var projectConfig = GetProjectConfig(projectRoot);
         _activeAgent = new LocalTrackingAgent(new NullLogger<LocalTrackingAgent>());
-        await _activeAgent.PrepareAsync(new TrackingAgentOptions {
-            ProjectRootPath = projectRoot,
-            DatabasePath = Path.Combine(localFolder, "ows.db"),
-            WatcherOptions = new FileWatcherOptions {
-                UsePollingFallback = usePolling,
-                DebounceIntervalMs = debounceMs,
-                ExcludeDirectories = projectConfig?.WatcherSettings?.ExcludeDirectories
-            },
-            WasInterrupted = wasInterrupted,
-            InterruptedState = interruptedState
-        }, token);
+        await _activeAgent.PrepareAsync(
+            new TrackingAgentOptions {
+                ProjectRootPath = projectRoot,
+                DatabasePath = Path.Combine(localFolder, "ows.db"),
+                WatcherOptions = new FileWatcherOptions {
+                    UsePollingFallback = usePolling,
+                    DebounceIntervalMs = debounceMs,
+                    ExcludeDirectories = projectConfig?.WatcherSettings?.ExcludeDirectories
+                },
+                WasInterrupted = wasInterrupted,
+                InterruptedState = interruptedState
+            }, token
+        );
 
         try {
             await _activeAgent.StartAsync(token);
@@ -112,24 +119,29 @@ public sealed class OwsProjectAgent {
 
         if (WatcherStateStore.IsWatcherRunning(projectRoot)) {
             try {
-                await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherStopped, null,
+                await AppendEventToTimelineAsync(
+                    projectRoot, OwsEventType.WatcherStopped, null,
                     Environment.GetEnvironmentVariable("OWS_HOST") ?? "agent", null,
-                    new Dictionary<string, string> { ["reason"] = "user_requested" });
+                    new Dictionary<string, string> { ["reason"] = "user_requested" }
+                );
             } catch {
                 // Shutdown must not be blocked by a best-effort lifecycle event.
             }
         } else {
             try {
                 var previous = JsonSerializer.Deserialize<WatcherProcessState>(
-                    await File.ReadAllTextAsync(watcherJsonPath));
+                    await File.ReadAllTextAsync(watcherJsonPath)
+                );
                 var metadata = new Dictionary<string, string> { ["reason"] = "stale_pid_cleanup" };
                 if (previous is not null) {
                     metadata["previousPid"] = previous.Pid.ToString();
                     metadata["previousStartedAt"] = previous.StartedAt.ToString("o");
                 }
 
-                await AppendEventToTimelineAsync(projectRoot, OwsEventType.WatcherInterrupted, null,
-                    Environment.GetEnvironmentVariable("OWS_HOST") ?? "agent", null, metadata);
+                await AppendEventToTimelineAsync(
+                    projectRoot, OwsEventType.WatcherInterrupted, null,
+                    Environment.GetEnvironmentVariable("OWS_HOST") ?? "agent", null, metadata
+                );
             } catch {
                 // Best-effort crash recovery event.
             }
@@ -174,7 +186,8 @@ public sealed class OwsProjectAgent {
 
         try {
             return JsonSerializer.Deserialize<OwsProjectConfig>(
-                File.ReadAllText(configPath), ConfigSerializerOptions);
+                File.ReadAllText(configPath), ConfigSerializerOptions
+            );
         } catch (IOException) {
             return null;
         } catch (UnauthorizedAccessException) {
@@ -190,8 +203,10 @@ public sealed class OwsProjectAgent {
         EnsureProjectDirectoryExists(projectRoot);
         var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
         Directory.CreateDirectory(localFolder);
-        File.WriteAllText(Path.Combine(localFolder, "config.json"),
-            JsonSerializer.Serialize(config, ConfigSerializerOptions));
+        File.WriteAllText(
+            Path.Combine(localFolder, "config.json"),
+            JsonSerializer.Serialize(config, ConfigSerializerOptions)
+        );
     }
 
     /// <inheritdoc />
@@ -201,7 +216,7 @@ public sealed class OwsProjectAgent {
     }
 
     /// <summary>
-    /// Validates that the specified project root path exists.
+    ///     Validates that the specified project root path exists.
     /// </summary>
     /// <param name="projectRoot">The project root directory path to validate.</param>
     private static void EnsureProjectDirectoryExists(string projectRoot) {
@@ -211,9 +226,9 @@ public sealed class OwsProjectAgent {
     }
 
     /// <summary>
-    /// Creates and appends a lifecycle or file change event to the project's timeline log.
+    ///     Creates and appends a lifecycle or file change event to the project's timeline log.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous operation.</returns>
     /// <param name="projectRoot">The project root directory path.</param>
     /// <param name="eventType">The type of OWS event.</param>
     /// <param name="relativePath">The relative path of the file associated with the event.</param>
@@ -226,22 +241,25 @@ public sealed class OwsProjectAgent {
         string? relativePath,
         string? toolName,
         long? bytesChanged,
-        IReadOnlyDictionary<string, string> metadata) {
+        IReadOnlyDictionary<string, string> metadata
+    ) {
         var timelinePath = Path.Combine(projectRoot, OwsConstants.LocalFolderName, OwsConstants.TimelineFileName);
         var previousEventHash = TimelineEventAppender.ReadLastEventHash(timelinePath);
-        await TimelineEventAppender.AppendEventAsync(timelinePath, new OwsEvent {
-            EventType = eventType,
-            ProjectId = Path.GetFileName(projectRoot),
-            RelativePath = relativePath,
-            ToolName = toolName,
-            BytesChanged = bytesChanged,
-            Metadata = metadata
-        }, previousEventHash, CancellationToken.None);
+        await TimelineEventAppender.AppendEventAsync(
+            timelinePath, new OwsEvent {
+                EventType = eventType,
+                ProjectId = Path.GetFileName(projectRoot),
+                RelativePath = relativePath,
+                ToolName = toolName,
+                BytesChanged = bytesChanged,
+                Metadata = metadata
+            }, previousEventHash, CancellationToken.None
+        );
     }
 }
 
 /// <summary>
-/// State tracking helper for watcher processes.
+///     State tracking helper for watcher processes.
 /// </summary>
 public sealed class WatcherProcessState {
     /// <summary>Gets the operating system process identifier.</summary>

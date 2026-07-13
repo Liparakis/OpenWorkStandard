@@ -6,11 +6,11 @@ using Ows.Core.Packaging;
 namespace Ows.Core.Verification.Helpers;
 
 /// <summary>
-/// Verification helper for validating the presence and JSON validity of required files inside an OWS package.
+///     Verification helper for validating the presence and JSON validity of required files inside an OWS package.
 /// </summary>
 internal static class PackageStructureVerifier {
     /// <summary>
-    /// The array of file entry paths required to exist in every valid OWS package structure.
+    ///     The array of file entry paths required to exist in every valid OWS package structure.
     /// </summary>
     private static readonly string[] RequiredEntries = [
         OwsConstants.ManifestFileName,
@@ -19,7 +19,7 @@ internal static class PackageStructureVerifier {
     ];
 
     /// <summary>
-    /// Checks if all required file entries are present in the ZIP archive.
+    ///     Checks if all required file entries are present in the ZIP archive.
     /// </summary>
     /// <param name="archive">The target ZIP package.</param>
     /// <param name="errors">The list to accumulate verification errors.</param>
@@ -32,11 +32,11 @@ internal static class PackageStructureVerifier {
     }
 
     /// <summary>
-    /// Extracts and parses the <see cref="OwsManifest"/> from the package ZIP archive.
+    ///     Extracts and parses the <see cref="OwsManifest" /> from the package ZIP archive.
     /// </summary>
     /// <param name="archive">The target ZIP package.</param>
     /// <param name="errors">The list to accumulate verification errors.</param>
-    /// <returns>The parsed manifest instance, or <see langword="null"/> if extraction or deserialization fails.</returns>
+    /// <returns>The parsed manifest instance, or <see langword="null" /> if extraction or deserialization fails.</returns>
     public static OwsManifest? ValidateManifest(ZipArchive archive, List<string> errors) {
         var entry = archive.GetEntry(OwsConstants.ManifestFileName);
         if (entry is null) return null;
@@ -53,7 +53,8 @@ internal static class PackageStructureVerifier {
     }
 
     /// <summary>
-    /// Validates that the version graph JSON file inside the ZIP archive compiles to a valid <see cref="WorkVersionGraph"/> structure.
+    ///     Validates that the version graph JSON file inside the ZIP archive compiles to a valid
+    ///     <see cref="WorkVersionGraph" /> structure.
     /// </summary>
     /// <param name="archive">The target ZIP package.</param>
     /// <param name="errors">The list to accumulate verification errors.</param>

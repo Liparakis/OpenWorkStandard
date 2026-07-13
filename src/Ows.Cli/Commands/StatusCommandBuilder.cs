@@ -1,17 +1,16 @@
 using System.CommandLine;
-using Ows.Core;
 using Ows.Core.Agent;
 
 namespace Ows.Cli.Commands;
 
 /// <summary>
-/// Provides construction for the local tracking status command.
+///     Provides construction for the local tracking status command.
 /// </summary>
 public static class StatusCommandBuilder {
     /// <summary>
-    /// Builds the status command that reports local project and Agent state.
+    ///     Builds the status command that reports local project and Agent state.
     /// </summary>
-    /// <returns>The constructed <see cref="Command"/> representing the status command.</returns>
+    /// <returns>The constructed <see cref="Command" /> representing the status command.</returns>
     public static Command Build() {
         var command = new Command("status", "Show local OWS project and Agent status.");
         command.SetAction(parseResult => {

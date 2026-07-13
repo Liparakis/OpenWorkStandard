@@ -1,23 +1,19 @@
-using System;
-using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
 using FluentAssertions;
 using Ows.Core;
 using Ows.Core.Agent;
-using Xunit;
 
 namespace Ows.Cli.Tests;
 
 /// <summary>
-/// Represents the <see cref="CliHardeningTests"/> type.
+///     Represents the <see cref="CliHardeningTests" /> type.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class CliHardeningTests {
     /// <summary>
-    /// Verifies that the OWS status command returns an error status when the watcher has crashed.
+    ///     Verifies that the OWS status command returns an error status when the watcher has crashed.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task Cli_ShouldReturnErrorStatus_WhenWatcherCrashed() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-crash-{Guid.NewGuid():N}");
@@ -54,7 +50,8 @@ public sealed class CliHardeningTests {
                 var doc = JsonDocument.Parse(output);
                 doc.RootElement.GetProperty("Success").GetBoolean().Should().BeFalse();
                 doc.RootElement.GetProperty("Status").GetString().Should().Be("Error");
-                doc.RootElement.GetProperty("Errors")[0].GetString().Should().Contain("Watcher has crashed or is not running.");
+                doc.RootElement.GetProperty("Errors")[0].GetString().Should()
+                   .Contain("Watcher has crashed or is not running.");
             }
         } finally {
             Console.SetOut(originalOut);
@@ -62,13 +59,16 @@ public sealed class CliHardeningTests {
             Directory.SetCurrentDirectory(originalDirectory);
 
             if (Directory.Exists(projectRoot)) {
-                try { Directory.Delete(projectRoot, recursive: true); } catch { }
+                try {
+                    Directory.Delete(projectRoot, true);
+                } catch {
+                }
             }
         }
     }
 
     /// <summary>
-    /// Extracts the JSON object substring from the provided text.
+    ///     Extracts the JSON object substring from the provided text.
     /// </summary>
     /// <returns>The extracted JSON string, or the original text if no JSON brackets are found.</returns>
     /// <param name="text">The raw text content containing JSON.</param>
@@ -78,6 +78,7 @@ public sealed class CliHardeningTests {
         if (startIdx >= 0 && endIdx > startIdx) {
             return text.Substring(startIdx, endIdx - startIdx + 1);
         }
+
         return text;
     }
 }

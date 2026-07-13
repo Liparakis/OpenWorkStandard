@@ -4,15 +4,15 @@ using Ows.Core.Verification;
 namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests verification result helpers.
+///     Tests verification result helpers.
 /// </summary>
 public sealed class VerificationResultTests {
     /// <summary>
-    /// Verifies successful result construction.
+    ///     Verifies successful result construction.
     /// </summary>
     [Fact]
     public void Success_ShouldCreateSuccessfulResult() {
-        var result = VerificationResult.Success("Verified", TrustStatus.Verified);
+        var result = VerificationResult.Success("Verified");
 
         result.IsSuccess.Should().BeTrue();
         result.TrustStatus.Should().Be(TrustStatus.Verified);
@@ -22,7 +22,7 @@ public sealed class VerificationResultTests {
     }
 
     /// <summary>
-    /// Verifies failed result construction.
+    ///     Verifies failed result construction.
     /// </summary>
     [Fact]
     public void Failure_ShouldCreateFailedResultWithErrors() {

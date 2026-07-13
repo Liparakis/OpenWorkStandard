@@ -4,11 +4,11 @@ using Ows.Core.Ignore;
 namespace Ows.Core.Packaging.Helpers;
 
 /// <summary>
-/// Represents the <see cref="PackageArtifactCollector"/> type.
+///     Represents the <see cref="PackageArtifactCollector" /> type.
 /// </summary>
 internal static class PackageArtifactCollector {
     /// <summary>
-    /// Collects and hashes all non-ignored project files relative to the project root.
+    ///     Collects and hashes all non-ignored project files relative to the project root.
     /// </summary>
     /// <returns>A dictionary mapping package-relative artifact paths to their SHA-256 hashes.</returns>
     /// <param name="projectRootPath">The root directory path of the project.</param>

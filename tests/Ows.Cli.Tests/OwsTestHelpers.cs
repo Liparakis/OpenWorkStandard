@@ -6,17 +6,17 @@ using Ows.Core.Agent.Scanning;
 namespace Ows.Cli.Tests;
 
 /// <summary>
-/// Shared helpers for CLI command tests.
+///     Shared helpers for CLI command tests.
 /// </summary>
 internal static class OwsTestHelpers {
     /// <summary>
-    /// Runs a one-shot initial file scan for the given project root, equivalent to what
-    /// The local Agent uses the same preparation path before becoming a persistent watcher.
-    /// Uses the polling fallback with a very short interval so the scan completes in under
-    /// 300 ms and the test does not hang waiting for a long-running watch loop.
+    ///     Runs a one-shot initial file scan for the given project root, equivalent to what
+    ///     The local Agent uses the same preparation path before becoming a persistent watcher.
+    ///     Uses the polling fallback with a very short interval so the scan completes in under
+    ///     300 ms and the test does not hang waiting for a long-running watch loop.
     /// </summary>
     /// <param name="projectRoot">Absolute path to the project root.</param>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation of running the initial scan.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous operation of running the initial scan.</returns>
     public static async Task RunInitialScanAsync(string projectRoot) {
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
         var agent = new LocalTrackingAgent(NullLogger<LocalTrackingAgent>.Instance);
@@ -30,7 +30,8 @@ internal static class OwsTestHelpers {
                     DebounceIntervalMs = 30
                 }
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
         await agent.StartAsync(cts.Token);
     }
 }

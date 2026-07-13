@@ -1,15 +1,15 @@
-using System.Security.Cryptography;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace Ows.Core.Packaging;
 
 /// <summary>
-/// Stores and loads the user's local RSA package-signing key.
+///     Stores and loads the user's local RSA package-signing key.
 /// </summary>
 public sealed class OwsSigningKeyStore {
     /// <summary>
-    /// The file path where the signing key is stored.
+    ///     The file path where the signing key is stored.
     /// </summary>
     private readonly string _keyPath;
 
@@ -64,9 +64,9 @@ public sealed class OwsSigningKeyStore {
     }
 
     /// <summary>
-    /// Loads the signing key from the key file and initializes an OwsPackageSigner.
+    ///     Loads the signing key from the key file and initializes an OwsPackageSigner.
     /// </summary>
-    /// <returns>A configured <see cref="OwsPackageSigner"/> instance.</returns>
+    /// <returns>A configured <see cref="OwsPackageSigner" /> instance.</returns>
     private OwsPackageSigner LoadSigner() {
         var keyFile = JsonSerializer.Deserialize<SigningKeyFile>(File.ReadAllText(_keyPath))
                       ?? throw new InvalidDataException("OWS signing key file is empty.");
@@ -97,7 +97,7 @@ public sealed class OwsSigningKeyStore {
     }
 
     /// <summary>
-    /// Restricts filesystem permissions of the specified file to user read/write access on Unix-like systems.
+    ///     Restricts filesystem permissions of the specified file to user read/write access on Unix-like systems.
     /// </summary>
     /// <param name="path">The file path to restrict.</param>
     private static void RestrictFile(string path) {
@@ -107,62 +107,69 @@ public sealed class OwsSigningKeyStore {
     }
 
     /// <summary>
-    /// Encrypts the private key bytes using DPAPI if on Windows, or returns them unchanged on other platforms.
+    ///     Encrypts the private key bytes using DPAPI if on Windows, or returns them unchanged on other platforms.
     /// </summary>
     /// <returns>The protected or original private key byte array.</returns>
     /// <param name="privateKey">The raw private key bytes to protect.</param>
-    private static byte[] ProtectForCurrentUser(byte[] privateKey) =>
-        OperatingSystem.IsWindows() ? ProtectWindows(privateKey) : privateKey;
+    private static byte[] ProtectForCurrentUser(byte[] privateKey) {
+        return OperatingSystem.IsWindows() ? ProtectWindows(privateKey) : privateKey;
+    }
 
     /// <summary>
-    /// Decrypts the private key bytes using DPAPI if on Windows, or returns them unchanged on other platforms.
+    ///     Decrypts the private key bytes using DPAPI if on Windows, or returns them unchanged on other platforms.
     /// </summary>
     /// <returns>The unprotected or original private key byte array.</returns>
     /// <param name="privateKey">The protected private key bytes to decrypt.</param>
-    private static byte[] UnprotectForCurrentUser(byte[] privateKey) =>
-        OperatingSystem.IsWindows() ? UnprotectWindows(privateKey) : privateKey;
+    private static byte[] UnprotectForCurrentUser(byte[] privateKey) {
+        return OperatingSystem.IsWindows() ? UnprotectWindows(privateKey) : privateKey;
+    }
 
     /// <summary>
-    /// Encrypts the private key bytes using the Windows Data Protection API (DPAPI).
+    ///     Encrypts the private key bytes using the Windows Data Protection API (DPAPI).
     /// </summary>
     /// <returns>The encrypted private key bytes.</returns>
     /// <param name="privateKey">The raw private key bytes.</param>
     [SupportedOSPlatform("windows")]
-    private static byte[] ProtectWindows(byte[] privateKey) =>
-        ProtectedData.Protect(privateKey, null, DataProtectionScope.CurrentUser);
+    private static byte[] ProtectWindows(byte[] privateKey) {
+        return ProtectedData.Protect(privateKey, null, DataProtectionScope.CurrentUser);
+    }
 
     /// <summary>
-    /// Decrypts the private key bytes using the Windows Data Protection API (DPAPI).
+    ///     Decrypts the private key bytes using the Windows Data Protection API (DPAPI).
     /// </summary>
     /// <returns>The decrypted private key bytes.</returns>
     /// <param name="privateKey">The encrypted private key bytes.</param>
     [SupportedOSPlatform("windows")]
-    private static byte[] UnprotectWindows(byte[] privateKey) =>
-        ProtectedData.Unprotect(privateKey, null, DataProtectionScope.CurrentUser);
+    private static byte[] UnprotectWindows(byte[] privateKey) {
+        return ProtectedData.Unprotect(privateKey, null, DataProtectionScope.CurrentUser);
+    }
 
     private sealed record SigningKeyFile {
         /// <summary>Gets the base64-encoded private key, potentially protected by DPAPI.</summary>
         public string PrivateKeyBase64 { get; init; } = string.Empty;
+
         /// <summary>Gets the protection mechanism name applied to the private key.</summary>
         public string Protection { get; init; } = string.Empty;
+
         /// <summary>Gets the private key PEM string, used in legacy unencrypted format.</summary>
         public string PrivateKeyPem { get; init; } = string.Empty;
+
         /// <summary>Gets the public key PEM string.</summary>
         public string PublicKeyPem { get; init; } = string.Empty;
     }
 }
 
 /// <summary>
-/// Performs RSA-SHA256 package-root signatures using one local key.
+///     Performs RSA-SHA256 package-root signatures using one local key.
 /// </summary>
 public sealed class OwsPackageSigner : IDisposable {
     /// <summary>
-    /// The RSA cryptographic instance used for signing.
+    ///     The RSA cryptographic instance used for signing.
     /// </summary>
     private readonly RSA _rsa;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="OwsPackageSigner"/> class.
+    ///     Initializes a new instance of the <see cref="OwsPackageSigner" /> class.
     /// </summary>
     /// <param name="rsa">The RSA instance to use for signing.</param>
     /// <param name="publicKeyPem">The public key material in PEM format.</param>
@@ -178,12 +185,15 @@ public sealed class OwsPackageSigner : IDisposable {
     /// <summary>Gets the lowercase SHA-256 public-key fingerprint.</summary>
     public string KeyFingerprint { get; }
 
+    /// <summary>Releases the private-key handle.</summary>
+    public void Dispose() {
+        _rsa.Dispose();
+    }
+
     /// <summary>Signs canonical package-root bytes.</summary>
     /// <param name="data">The canonical bytes to sign.</param>
     /// <returns>The RSA signature for the supplied bytes.</returns>
-    public byte[] Sign(ReadOnlySpan<byte> data) =>
-        _rsa.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-
-    /// <summary>Releases the private-key handle.</summary>
-    public void Dispose() => _rsa.Dispose();
+    public byte[] Sign(ReadOnlySpan<byte> data) {
+        return _rsa.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+    }
 }

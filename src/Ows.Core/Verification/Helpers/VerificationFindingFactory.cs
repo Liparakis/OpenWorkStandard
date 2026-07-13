@@ -1,11 +1,11 @@
 namespace Ows.Core.Verification.Helpers;
 
 /// <summary>
-/// Represents the <see cref="VerificationFindingFactory"/> type.
+///     Represents the <see cref="VerificationFindingFactory" /> type.
 /// </summary>
 internal static class VerificationFindingFactory {
     /// <summary>
-    /// Gets a verification finding indicating that the local timeline event chain is complete and unbroken.
+    ///     Gets a verification finding indicating that the local timeline event chain is complete and unbroken.
     /// </summary>
     public static readonly VerificationFinding TimelineChainValidFinding = new() {
         Code = "timeline.chain.valid",
@@ -17,7 +17,7 @@ internal static class VerificationFindingFactory {
     };
 
     /// <summary>
-    /// Gets a verification finding indicating that the local timeline event chain is broken or inconsistent.
+    ///     Gets a verification finding indicating that the local timeline event chain is broken or inconsistent.
     /// </summary>
     public static readonly VerificationFinding TimelineChainBrokenFinding = new() {
         Code = "timeline.chain.broken",
@@ -29,7 +29,7 @@ internal static class VerificationFindingFactory {
     };
 
     /// <summary>
-    /// Gets a verification finding indicating that package files have modified hashes that do not match the manifest.
+    ///     Gets a verification finding indicating that package files have modified hashes that do not match the manifest.
     /// </summary>
     public static readonly VerificationFinding PackageHashInvalidFinding = new() {
         Code = "package.hash.invalid",
@@ -41,7 +41,8 @@ internal static class VerificationFindingFactory {
     };
 
     /// <summary>
-    /// Gets a verification finding indicating that the local recovery snapshot did not match the last committed snapshot state.
+    ///     Gets a verification finding indicating that the local recovery snapshot did not match the last committed snapshot
+    ///     state.
     /// </summary>
     public static readonly VerificationFinding SnapshotMismatchFinding = new() {
         Code = "observation.snapshot_mismatch",
@@ -53,7 +54,7 @@ internal static class VerificationFindingFactory {
     };
 
     /// <summary>
-    /// Gets a verification finding indicating that a recovery snapshot was found that was not committed in the timeline.
+    ///     Gets a verification finding indicating that a recovery snapshot was found that was not committed in the timeline.
     /// </summary>
     public static readonly VerificationFinding SnapshotUnboundFinding = new() {
         Code = "observation.snapshot_unbound",

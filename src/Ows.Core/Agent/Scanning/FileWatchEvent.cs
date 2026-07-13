@@ -1,7 +1,7 @@
 namespace Ows.Core.Agent.Scanning;
 
 /// <summary>
-/// Identifies the kind of file-system change detected by the watcher.
+///     Identifies the kind of file-system change detected by the watcher.
 /// </summary>
 public enum FileChangeKind {
     /// <summary>A file was created inside the tracked project boundary.</summary>
@@ -18,8 +18,8 @@ public enum FileChangeKind {
 }
 
 /// <summary>
-/// Represents a debounced file-system notification produced by <see cref="OwsFileWatcher"/>
-/// before it is appended to the provenance timeline.
+///     Represents a debounced file-system notification produced by <see cref="OwsFileWatcher" />
+///     before it is appended to the provenance timeline.
 /// </summary>
 /// <param name="RelativePath">The project-relative path of the affected file.</param>
 /// <param name="ChangeKind">The kind of change detected.</param>

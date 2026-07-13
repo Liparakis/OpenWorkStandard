@@ -5,11 +5,12 @@ using Ows.Core.Agent.Snapshot;
 namespace Ows.Core.Tests;
 
 /// <summary>
-/// Represents the <see cref="SnapshotHashCalculatorTests"/> type.
+///     Represents the <see cref="SnapshotHashCalculatorTests" /> type.
 /// </summary>
 public sealed class SnapshotHashCalculatorTests {
     /// <summary>
-    /// Verifies that snapshot hash calculation is deterministic and produces identical hashes regardless of file ordering or slashes.
+    ///     Verifies that snapshot hash calculation is deterministic and produces identical hashes regardless of file ordering
+    ///     or slashes.
     /// </summary>
     [Fact]
     public void ComputeHash_IsDeterministicAcrossFileOrdering() {

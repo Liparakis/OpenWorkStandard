@@ -4,11 +4,11 @@ using System.Text.Json;
 namespace Ows.Core.Packaging.Helpers;
 
 /// <summary>
-/// Represents the <see cref="PackageArchiveWriter"/> type.
+///     Represents the <see cref="PackageArchiveWriter" /> type.
 /// </summary>
 internal static class PackageArchiveWriter {
     /// <summary>
-    /// Creates a new zip archive containing the OWS package components.
+    ///     Creates a new zip archive containing the OWS package components.
     /// </summary>
     /// <param name="outputPackagePath">The file path where the package zip file will be written.</param>
     /// <param name="projectRootPath">The root directory of the project.</param>

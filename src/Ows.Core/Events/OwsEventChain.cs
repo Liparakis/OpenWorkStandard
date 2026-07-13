@@ -5,23 +5,23 @@ using Ows.Core.Hashing;
 namespace Ows.Core.Events;
 
 /// <summary>
-/// Provides canonical hashing helpers for the timeline event chain.
+///     Provides canonical hashing helpers for the timeline event chain.
 /// </summary>
 public static class OwsEventChain {
     /// <summary>
-    /// Gets the expected previous-hash value for the first event in a timeline.
+    ///     Gets the expected previous-hash value for the first event in a timeline.
     /// </summary>
     public const string GenesisPreviousEventHash = "";
 
     /// <summary>
-    /// Serialization options configured for event chain serialization, including string-based enum converters.
+    ///     Serialization options configured for event chain serialization, including string-based enum converters.
     /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new() {
         Converters = { new JsonStringEnumConverter() }
     };
 
     /// <summary>
-    /// Computes the canonical event hash excluding the <see cref="OwsEvent.EventHash"/> field itself.
+    ///     Computes the canonical event hash excluding the <see cref="OwsEvent.EventHash" /> field itself.
     /// </summary>
     /// <param name="owsEvent">The event to hash.</param>
     /// <returns>The lower-case SHA-256 digest of the canonical event JSON.</returns>
@@ -47,7 +47,7 @@ public static class OwsEventChain {
     }
 
     /// <summary>
-    /// Creates a chained event with populated previous and current hashes.
+    ///     Creates a chained event with populated previous and current hashes.
     /// </summary>
     /// <param name="owsEvent">The source event.</param>
     /// <param name="previousEventHash">The previous event hash, or the genesis value for the first event.</param>
@@ -60,7 +60,7 @@ public static class OwsEventChain {
     }
 
     /// <summary>
-    /// Reads the current timeline head hash from a JSONL event stream.
+    ///     Reads the current timeline head hash from a JSONL event stream.
     /// </summary>
     /// <param name="timelinePath">The path to the timeline file.</param>
     /// <returns>The last event hash, or the genesis value when the timeline is empty.</returns>

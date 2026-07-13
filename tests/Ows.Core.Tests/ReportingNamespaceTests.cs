@@ -6,13 +6,13 @@ using Ows.Core.Verification;
 namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests reporting types after consolidation into Ows.Core.
+///     Tests reporting types after consolidation into Ows.Core.
 /// </summary>
 public sealed class ReportingNamespaceTests {
     /// <summary>
-    /// Verifies that the report generator emits a useful text summary.
+    ///     Verifies that the report generator emits a useful text summary.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task GenerateAsync_ShouldReturnTextSummary() {
         var generator = new OwsReportGenerator();
@@ -22,7 +22,8 @@ public sealed class ReportingNamespaceTests {
                 Format = ReportFormat.Text,
                 VerificationResult = VerificationResult.Success("OWS verify succeeded.", TrustStatus.Unverified)
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         result.Format.Should().Be(ReportFormat.Text);
         result.Content.Should().Contain("Status: Unverified");
@@ -32,9 +33,9 @@ public sealed class ReportingNamespaceTests {
     }
 
     /// <summary>
-    /// Verifies that the text report surfaces findings for human review.
+    ///     Verifies that the text report surfaces findings for human review.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task GenerateAsync_ShouldIncludeFindingsInTextReport() {
         var generator = new OwsReportGenerator();
@@ -45,10 +46,8 @@ public sealed class ReportingNamespaceTests {
                 VerificationResult = VerificationResult.Success(
                     "OWS verify succeeded.",
                     TrustStatus.Unverified,
-                    findings:
                     [
-                        new VerificationFinding
-                        {
+                        new VerificationFinding {
                             Code = "observation.gap",
                             Severity = "Medium",
                             Title = "Observation gap",
@@ -56,9 +55,11 @@ public sealed class ReportingNamespaceTests {
                             TechnicalDetail = "An observation gap was recorded in the local timeline.",
                             ReviewerAction = "Review the interval manually."
                         }
-                    ])
+                    ]
+                )
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         result.Content.Should().Contain("[Medium] observation.gap");
         result.Content.Should().Contain("Observation gap: The Agent was not observing the project for an interval.");
@@ -67,9 +68,9 @@ public sealed class ReportingNamespaceTests {
     }
 
     /// <summary>
-    /// Verifies that the report generator can emit JSON output.
+    ///     Verifies that the report generator can emit JSON output.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task GenerateAsync_ShouldReturnJsonSummary() {
         var generator = new OwsReportGenerator();
@@ -77,9 +78,10 @@ public sealed class ReportingNamespaceTests {
         var result = await OwsReportGenerator.GenerateAsync(
             new ReportRequest {
                 Format = ReportFormat.Json,
-                VerificationResult = VerificationResult.Success("OWS verify succeeded.", TrustStatus.Verified)
+                VerificationResult = VerificationResult.Success("OWS verify succeeded.")
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         using var document = JsonDocument.Parse(result.Content);
         result.Format.Should().Be(ReportFormat.Json);

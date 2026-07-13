@@ -5,11 +5,12 @@ using Ows.Core.Events;
 namespace Ows.Core.Verification.Helpers;
 
 /// <summary>
-/// Analyzes the local timeline event log for indicators of watcher observation gaps and unobserved changes.
+///     Analyzes the local timeline event log for indicators of watcher observation gaps and unobserved changes.
 /// </summary>
 internal static class ObservationContinuityAnalyzer {
     /// <summary>
-    /// Scans the timeline from the packaged archive to build appropriate findings on observation gaps, unobserved changes, and unbound/mismatched snapshot states.
+    ///     Scans the timeline from the packaged archive to build appropriate findings on observation gaps, unobserved changes,
+    ///     and unbound/mismatched snapshot states.
     /// </summary>
     /// <param name="archive">The ZIP archive package containing project files and history.</param>
     /// <param name="findings">The list of findings to append newly discovered anomalies or validations to.</param>

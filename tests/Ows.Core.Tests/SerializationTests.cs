@@ -7,18 +7,18 @@ using Ows.Core.Packaging;
 namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests JSON serialization for core models.
+///     Tests JSON serialization for core models.
 /// </summary>
 public sealed class SerializationTests {
     /// <summary>
-    /// Serialization options configured for event string-based enum converters in tests.
+    ///     Serialization options configured for event string-based enum converters in tests.
     /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new() {
         Converters = { new JsonStringEnumConverter() }
     };
 
     /// <summary>
-    /// Verifies that events serialize and deserialize cleanly.
+    ///     Verifies that events serialize and deserialize cleanly.
     /// </summary>
     [Fact]
     public void OwsEvent_ShouldRoundTripThroughJson() {
@@ -45,7 +45,7 @@ public sealed class SerializationTests {
     }
 
     /// <summary>
-    /// Verifies that manifests serialize and deserialize cleanly.
+    ///     Verifies that manifests serialize and deserialize cleanly.
     /// </summary>
     [Fact]
     public void OwsManifest_ShouldRoundTripThroughJson() {

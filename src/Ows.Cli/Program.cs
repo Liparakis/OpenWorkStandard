@@ -1,11 +1,11 @@
 namespace Ows.Cli;
 
 /// <summary>
-/// Entry point for the OWS command-line interface.
+///     Entry point for the OWS command-line interface.
 /// </summary>
 public static class Program {
     /// <summary>
-    /// Runs the OWS command-line interface.
+    ///     Runs the OWS command-line interface.
     /// </summary>
     /// <param name="args">The process arguments.</param>
     /// <returns>The process exit code.</returns>

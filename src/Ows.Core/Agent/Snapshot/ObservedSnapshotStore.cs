@@ -1,44 +1,45 @@
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
 namespace Ows.Core.Agent.Snapshot;
 
 /// <summary>
-/// Represents the result of an observed snapshot loading operation, including readability and hashing flags.
+///     Represents the result of an observed snapshot loading operation, including readability and hashing flags.
 /// </summary>
 internal sealed class LoadSnapshotResult {
     /// <summary>
-    /// Gets the loaded <see cref="ObservedSnapshot"/> instance when successful; otherwise, <see langword="null"/>.
+    ///     Gets the loaded <see cref="ObservedSnapshot" /> instance when successful; otherwise, <see langword="null" />.
     /// </summary>
     public ObservedSnapshot? Snapshot { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the snapshot file existed but failed to load or parse (corrupt).
+    ///     Gets a value indicating whether the snapshot file existed but failed to load or parse (corrupt).
     /// </summary>
     public bool SnapshotUnreadable { get; init; }
 
     /// <summary>
-    /// Gets the computed hash of the loaded snapshot, or <see langword="null"/> if not loaded.
+    ///     Gets the computed hash of the loaded snapshot, or <see langword="null" /> if not loaded.
     /// </summary>
     public string? ComputedSnapshotHash { get; init; }
 }
 
 /// <summary>
-/// Provides atomic persistence and retrieval of project observed snapshot states on the local file system.
+///     Provides atomic persistence and retrieval of project observed snapshot states on the local file system.
 /// </summary>
 internal static class ObservedSnapshotStore {
     /// <summary>
-    /// Serialization options to save the snapshot file formatted with indentations.
+    ///     Serialization options to save the snapshot file formatted with indentations.
     /// </summary>
     private static readonly JsonSerializerOptions SnapshotSerializerOptions = new() { WriteIndented = true };
 
     /// <summary>
-    /// Loads the observed snapshot from disk, handling missing or corrupt file scenarios.
+    ///     Loads the observed snapshot from disk, handling missing or corrupt file scenarios.
     /// </summary>
     /// <param name="snapshotPath">The absolute path to the snapshot file.</param>
     /// <param name="logger">The logger instance to report warnings/errors.</param>
     /// <param name="cancellationToken">Token to cancel the load operation.</param>
-    /// <returns>A <see cref="LoadSnapshotResult"/> summarizing the outcome of the loading process.</returns>
+    /// <returns>A <see cref="LoadSnapshotResult" /> summarizing the outcome of the loading process.</returns>
     public static async Task<LoadSnapshotResult> LoadSnapshotAsync(
         string snapshotPath,
         ILogger logger,
@@ -78,7 +79,7 @@ internal static class ObservedSnapshotStore {
     }
 
     /// <summary>
-    /// Persists the snapshot state to disk atomically using a temp file write and atomic replace.
+    ///     Persists the snapshot state to disk atomically using a temp file write and atomic replace.
     /// </summary>
     /// <param name="snapshotPath">The absolute path where the snapshot should be saved.</param>
     /// <param name="snapshot">The snapshot model state to persist.</param>
@@ -98,15 +99,15 @@ internal static class ObservedSnapshotStore {
         var json = JsonSerializer.Serialize(snapshot, SnapshotSerializerOptions);
 
         await using (var fs = new FileStream(
-                         tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true
+                         tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true
                      ))
-        await using (var writer = new StreamWriter(fs, System.Text.Encoding.UTF8)) {
+        await using (var writer = new StreamWriter(fs, Encoding.UTF8)) {
             await writer.WriteAsync(json);
             await writer.FlushAsync(cancellationToken);
             await fs.FlushAsync(cancellationToken);
         }
 
         // Atomic move
-        File.Move(tempPath, snapshotPath, overwrite: true);
+        File.Move(tempPath, snapshotPath, true);
     }
 }

@@ -3,11 +3,28 @@ using System.Text.RegularExpressions;
 namespace Ows.Core.Ignore;
 
 /// <summary>
-/// Matches the documented, intentionally small subset of OWS ignore rules.
+///     Matches the documented, intentionally small subset of OWS ignore rules.
 /// </summary>
 public sealed class OwsIgnoreEngine {
     /// <summary>
-    /// Gets the default rules created for a new OWS project.
+    ///     The parsed ignore rules.
+    /// </summary>
+    private readonly IgnoreRule[] _rules;
+
+    /// <summary>
+    ///     Initializes an ignore engine from rule lines.
+    /// </summary>
+    /// <param name="ruleLines">Rule lines from an OWS ignore file.</param>
+    public OwsIgnoreEngine(IEnumerable<string>? ruleLines = null) {
+        _rules = (ruleLines ?? [])
+                 .Select(ParseRule)
+                 .Where(rule => rule is not null)
+                 .Select(rule => rule!)
+                 .ToArray();
+    }
+
+    /// <summary>
+    ///     Gets the default rules created for a new OWS project.
     /// </summary>
     public static IReadOnlyList<string> DefaultPatterns { get; } = [
         ".ows/",
@@ -38,7 +55,7 @@ public sealed class OwsIgnoreEngine {
     ];
 
     /// <summary>
-    /// Gets the starter file content written by <c>ows init</c>.
+    ///     Gets the starter file content written by <c>ows init</c>.
     /// </summary>
     public static string DefaultFileContents { get; } = string.Join(
         Environment.NewLine,
@@ -49,24 +66,7 @@ public sealed class OwsIgnoreEngine {
     ) + Environment.NewLine;
 
     /// <summary>
-    /// The parsed ignore rules.
-    /// </summary>
-    private readonly IgnoreRule[] _rules;
-
-    /// <summary>
-    /// Initializes an ignore engine from rule lines.
-    /// </summary>
-    /// <param name="ruleLines">Rule lines from an OWS ignore file.</param>
-    public OwsIgnoreEngine(IEnumerable<string>? ruleLines = null) {
-        _rules = (ruleLines ?? [])
-                 .Select(ParseRule)
-                 .Where(rule => rule is not null)
-                 .Select(rule => rule!)
-                 .ToArray();
-    }
-
-    /// <summary>
-    /// Loads default rules, project rules, and optional configured directory exclusions.
+    ///     Loads default rules, project rules, and optional configured directory exclusions.
     /// </summary>
     /// <param name="projectRootPath">The project root containing <c>.owsignore</c>.</param>
     /// <param name="additionalDirectoryNames">Additional configured directory names to exclude.</param>
@@ -95,20 +95,23 @@ public sealed class OwsIgnoreEngine {
     }
 
     /// <summary>
-    /// Determines whether a root-relative path is ignored.
+    ///     Determines whether a root-relative path is ignored.
     /// </summary>
     /// <param name="relativePath">A path relative to the initialized project root.</param>
     /// <param name="isDirectory">Whether the path itself is a directory.</param>
-    /// <returns><see langword="true"/> when the path matches an ignore rule.</returns>
+    /// <returns><see langword="true" /> when the path matches an ignore rule.</returns>
     public bool IsIgnored(string relativePath, bool isDirectory = false) {
         var normalizedPath = NormalizeRelativePath(relativePath);
         return normalizedPath is not null && _rules.Any(rule => rule.Matches(normalizedPath, isDirectory));
     }
 
     /// <summary>
-    /// Parses a raw rule string from an ignore file into an IgnoreRule instance.
+    ///     Parses a raw rule string from an ignore file into an IgnoreRule instance.
     /// </summary>
-    /// <returns>An <see cref="IgnoreRule"/> representing the parsed rule, or <see langword="null"/> if the rule is empty, a comment, or invalid.</returns>
+    /// <returns>
+    ///     An <see cref="IgnoreRule" /> representing the parsed rule, or <see langword="null" /> if the rule is empty, a
+    ///     comment, or invalid.
+    /// </returns>
     /// <param name="rawRule">The raw ignore pattern string to parse.</param>
     private static IgnoreRule? ParseRule(string? rawRule) {
         if (string.IsNullOrWhiteSpace(rawRule)) {
@@ -134,9 +137,12 @@ public sealed class OwsIgnoreEngine {
     }
 
     /// <summary>
-    /// Normalizes a relative path by replacing separators and stripping leading/trailing slashes.
+    ///     Normalizes a relative path by replacing separators and stripping leading/trailing slashes.
     /// </summary>
-    /// <returns>The normalized path string, or <see langword="null"/> if the path is invalid or references parent directories.</returns>
+    /// <returns>
+    ///     The normalized path string, or <see langword="null" /> if the path is invalid or references parent
+    ///     directories.
+    /// </returns>
     /// <param name="relativePath">The relative path to normalize.</param>
     private static string? NormalizeRelativePath(string relativePath) {
         if (string.IsNullOrWhiteSpace(relativePath) || Path.IsPathRooted(relativePath)) {
@@ -154,16 +160,16 @@ public sealed class OwsIgnoreEngine {
     }
 
     /// <summary>
-    /// Represents the <see cref="IgnoreRule"/> type.
+    ///     Represents the <see cref="IgnoreRule" /> type.
     /// </summary>
     private sealed class IgnoreRule {
         /// <summary>
-        /// The regular expression used to evaluate path matches for this rule.
+        ///     The regular expression used to evaluate path matches for this rule.
         /// </summary>
         private readonly Regex _regex;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="IgnoreRule"/> class.
+        ///     Initializes a new instance of the <see cref="IgnoreRule" /> class.
         /// </summary>
         /// <param name="pattern">The rule pattern.</param>
         /// <param name="rooted">Indicates if the pattern is anchored to the root path.</param>
@@ -177,26 +183,29 @@ public sealed class OwsIgnoreEngine {
         }
 
         /// <summary>
-        /// Gets the <see cref="Pattern"/> value.
+        ///     Gets the <see cref="Pattern" /> value.
         /// </summary>
         private string Pattern { get; }
+
         /// <summary>
-        /// Gets the <see cref="Rooted"/> value.
+        ///     Gets the <see cref="Rooted" /> value.
         /// </summary>
         private bool Rooted { get; }
+
         /// <summary>
-        /// Gets the <see cref="Directory"/> value.
+        ///     Gets the <see cref="Directory" /> value.
         /// </summary>
         private bool Directory { get; }
+
         /// <summary>
-        /// Gets the <see cref="HasSlash"/> value.
+        ///     Gets the <see cref="HasSlash" /> value.
         /// </summary>
         private bool HasSlash { get; }
 
         /// <summary>
-        /// Evaluates if this ignore rule matches the specified normalized path.
+        ///     Evaluates if this ignore rule matches the specified normalized path.
         /// </summary>
-        /// <returns><see langword="true"/> if the rule matches the path; otherwise, <see langword="false"/>.</returns>
+        /// <returns><see langword="true" /> if the rule matches the path; otherwise, <see langword="false" />.</returns>
         /// <param name="normalizedPath">The normalized path to check.</param>
         /// <param name="isDirectory">Whether the target path points to a directory.</param>
         public bool Matches(string normalizedPath, bool isDirectory) {
@@ -234,7 +243,7 @@ public sealed class OwsIgnoreEngine {
         }
 
         /// <summary>
-        /// Converts a wildcard pattern into a matching regular expression string.
+        ///     Converts a wildcard pattern into a matching regular expression string.
         /// </summary>
         /// <returns>A regular expression string representation of the pattern.</returns>
         /// <param name="pattern">The raw pattern containing wildcards.</param>

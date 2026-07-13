@@ -8,11 +8,11 @@ using Ows.Core.Events;
 namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests agent types after consolidation into Ows.Core.
+///     Tests agent types after consolidation into Ows.Core.
 /// </summary>
 public sealed class AgentNamespaceTests {
     /// <summary>
-    /// Verifies the tracking agent status enum is exposed from Ows.Core.
+    ///     Verifies the tracking agent status enum is exposed from Ows.Core.
     /// </summary>
     [Fact]
     public void TrackingAgentStatus_ShouldExposeIdleState() {
@@ -20,9 +20,9 @@ public sealed class AgentNamespaceTests {
     }
 
     /// <summary>
-    /// Verifies that starting the agent appends file events for existing project files and stops cleanly when cancelled.
+    ///     Verifies that starting the agent appends file events for existing project files and stops cleanly when cancelled.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task StartAsync_ShouldAppendExistingFilesToTimeline() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-watch-{Guid.NewGuid():N}");
@@ -50,7 +50,8 @@ public sealed class AgentNamespaceTests {
                         DebounceIntervalMs = 30
                     }
                 },
-                CancellationToken.None);
+                CancellationToken.None
+            );
 
             // StartAsync blocks until the token is cancelled — cancel after 200 ms.
             var result = await agent.StartAsync(cts.Token);
@@ -62,7 +63,8 @@ public sealed class AgentNamespaceTests {
             events.Select(owsEvent => owsEvent.EventType).Should().ContainInOrder(
                 OwsEventType.FileCreated,
                 OwsEventType.WatcherStarted,
-                OwsEventType.SnapshotUpdated);
+                OwsEventType.SnapshotUpdated
+            );
 
             var trackedEvent = events[0];
             trackedEvent.RelativePath.Should().Be("notes.txt");
@@ -74,15 +76,15 @@ public sealed class AgentNamespaceTests {
             events[2].PreviousEventHash.Should().Be(startedEvent.EventHash);
         } finally {
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }
 
     /// <summary>
-    /// Verifies that the continuous watch loop appends a FileModified event when a tracked file is written.
+    ///     Verifies that the continuous watch loop appends a FileModified event when a tracked file is written.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task WatchAsync_ShouldAppendModifiedFileEvent() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-watch-{Guid.NewGuid():N}");
@@ -109,7 +111,8 @@ public sealed class AgentNamespaceTests {
                         DebounceIntervalMs = 30
                     }
                 },
-                CancellationToken.None);
+                CancellationToken.None
+            );
 
             // Run the agent in the background.
             var agentTask = agent.StartAsync(cts.Token);
@@ -125,8 +128,8 @@ public sealed class AgentNamespaceTests {
             await agentTask;
 
             var lines = File.ReadAllLines(timelinePath)
-                .Where(l => !string.IsNullOrWhiteSpace(l))
-                .ToArray();
+                            .Where(l => !string.IsNullOrWhiteSpace(l))
+                            .ToArray();
 
             // First line is the initial scan FileCreated event.
             lines.Length.Should().BeGreaterThan(1, "the watcher should have appended a FileModified event");
@@ -137,20 +140,22 @@ public sealed class AgentNamespaceTests {
             // Verify the chain is unbroken.
             var allEvents = lines.Select(l => JsonSerializer.Deserialize<OwsEvent>(l)!).ToList();
             for (var i = 1; i < allEvents.Count; i++) {
-                allEvents[i].PreviousEventHash.Should().Be(allEvents[i - 1].EventHash,
-                    "each event must chain to the previous one");
+                allEvents[i].PreviousEventHash.Should().Be(
+                    allEvents[i - 1].EventHash,
+                    "each event must chain to the previous one"
+                );
             }
         } finally {
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }
 
     /// <summary>
-    /// Verifies that the continuous watch loop appends a FileDeleted event when a tracked file is removed.
+    ///     Verifies that the continuous watch loop appends a FileDeleted event when a tracked file is removed.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task WatchAsync_ShouldAppendDeletedFileEvent() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-watch-{Guid.NewGuid():N}");
@@ -177,7 +182,8 @@ public sealed class AgentNamespaceTests {
                         DebounceIntervalMs = 30
                     }
                 },
-                CancellationToken.None);
+                CancellationToken.None
+            );
 
             var agentTask = agent.StartAsync(cts.Token);
 
@@ -192,8 +198,8 @@ public sealed class AgentNamespaceTests {
             await agentTask;
 
             var lines = File.ReadAllLines(timelinePath)
-                .Where(l => !string.IsNullOrWhiteSpace(l))
-                .ToArray();
+                            .Where(l => !string.IsNullOrWhiteSpace(l))
+                            .ToArray();
 
             lines.Length.Should().BeGreaterThan(1, "the watcher should have appended a FileDeleted event");
             var deletedLine = lines.Skip(1).FirstOrDefault(l => l.Contains(nameof(OwsEventType.FileDeleted)));
@@ -201,7 +207,7 @@ public sealed class AgentNamespaceTests {
             deletedLine!.Should().Contain("draft.txt");
         } finally {
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }

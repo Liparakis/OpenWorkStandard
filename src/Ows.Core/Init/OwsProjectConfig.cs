@@ -4,7 +4,7 @@ using Ows.Core.Agent.Scanning;
 namespace Ows.Core.Init;
 
 /// <summary>
-/// Represents the project-level configuration stored in .ows/config.json.
+///     Represents the project-level configuration stored in .ows/config.json.
 /// </summary>
 public sealed class OwsProjectConfig {
     /// <summary>Gets the OWS version.</summary>

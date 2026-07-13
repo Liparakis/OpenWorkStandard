@@ -12,37 +12,39 @@ using Ows.Core.Ignore;
 namespace Ows.Core.Agent;
 
 /// <summary>
-/// Provides the local tracking agent that performs a project scan (baseline or recovery) and then
-/// watches for file-system changes, appending chained provenance events to the timeline.
+///     Provides the local tracking agent that performs a project scan (baseline or recovery) and then
+///     watches for file-system changes, appending chained provenance events to the timeline.
 /// </summary>
 public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     /// <summary>
-    /// The runtime options prepared for the tracking agent containing configuration settings such as paths, directories to exclude, and polling requirements.
-    /// </summary>
-    private TrackingAgentOptions? _options;
-
-    /// <summary>
-    /// The semaphore lock used to synchronize concurrent timeline file append operations, preventing overlap or corruption of the event stream.
+    ///     The semaphore lock used to synchronize concurrent timeline file append operations, preventing overlap or corruption
+    ///     of the event stream.
     /// </summary>
     private readonly SemaphoreSlim _timelineLock = new(1, 1);
 
     /// <summary>
-    /// The ignore rules shared by recovery scans and the active watcher.
-    /// </summary>
-    private OwsIgnoreEngine _ignoreEngine = new();
-
-    /// <summary>
-    /// The currently tracked observed snapshot state containing the project files, hashes, sizes, and timestamps.
+    ///     The currently tracked observed snapshot state containing the project files, hashes, sizes, and timestamps.
     /// </summary>
     private ObservedSnapshot _currentSnapshot = new();
 
     /// <summary>
-    /// Gets or sets the current status of the tracking agent.
+    ///     The ignore rules shared by recovery scans and the active watcher.
+    /// </summary>
+    private OwsIgnoreEngine _ignoreEngine = new();
+
+    /// <summary>
+    ///     The runtime options prepared for the tracking agent containing configuration settings such as paths, directories to
+    ///     exclude, and polling requirements.
+    /// </summary>
+    private TrackingAgentOptions? _options;
+
+    /// <summary>
+    ///     Gets or sets the current status of the tracking agent.
     /// </summary>
     private TrackingAgentStatus Status { get; set; } = TrackingAgentStatus.Idle;
 
     /// <summary>
-    /// Prepares the tracking agent for a project by loading ignore rules and setting its ready state.
+    ///     Prepares the tracking agent for a project by loading ignore rules and setting its ready state.
     /// </summary>
     /// <param name="options">The tracking and watcher options for the project.</param>
     /// <param name="cancellationToken">The token used to cancel preparation.</param>
@@ -73,7 +75,7 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     }
 
     /// <summary>
-    /// Runs the recovery scan and watches the initialized project until cancellation.
+    ///     Runs the recovery scan and watches the initialized project until cancellation.
     /// </summary>
     /// <param name="cancellationToken">The token used to stop the tracking agent.</param>
     /// <returns>The result produced when the tracking agent stops.</returns>
@@ -115,9 +117,10 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     }
 
     /// <summary>
-    /// Performs a recovery scan of the project files to detect and record changes that occurred since the last recorded snapshot.
+    ///     Performs a recovery scan of the project files to detect and record changes that occurred since the last recorded
+    ///     snapshot.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous recovery scan operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous recovery scan operation.</returns>
     /// <param name="projectId">The identifier of the project.</param>
     /// <param name="timelinePath">The file path to the project's timeline log.</param>
     /// <param name="cancellationToken">The token used to cancel the recovery scan.</param>
@@ -406,9 +409,9 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     }
 
     /// <summary>
-    /// Appends watcher lifecycle events (such as interrupted, recovered, or started) to the timeline log during recovery.
+    ///     Appends watcher lifecycle events (such as interrupted, recovered, or started) to the timeline log during recovery.
     /// </summary>
-    /// <returns>A <see cref="Task{TResult}"/> returning the hash of the last appended event.</returns>
+    /// <returns>A <see cref="Task{TResult}" /> returning the hash of the last appended event.</returns>
     /// <param name="gapDurationMsVal">The calculated inactivity gap duration in milliseconds.</param>
     /// <param name="previousEventHash">The hash of the previous event in the timeline log.</param>
     /// <param name="timelinePath">The file path to the timeline log.</param>
@@ -447,9 +450,12 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     }
 
     /// <summary>
-    /// Reads the timeline log in reverse to find the hash of the latest successfully committed snapshot.
+    ///     Reads the timeline log in reverse to find the hash of the latest successfully committed snapshot.
     /// </summary>
-    /// <returns>The latest committed snapshot hash as a string, or <see langword="null"/> if not found or the timeline does not exist.</returns>
+    /// <returns>
+    ///     The latest committed snapshot hash as a string, or <see langword="null" /> if not found or the timeline does
+    ///     not exist.
+    /// </returns>
     /// <param name="timelinePath">The file path to the timeline log.</param>
     private static string? FindLatestCommittedSnapshotHash(string timelinePath) {
         if (!File.Exists(timelinePath)) {
@@ -477,9 +483,10 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     }
 
     /// <summary>
-    /// Maps a file watcher change event to an OWS timeline event, updates the snapshot, and appends the events to the timeline log.
+    ///     Maps a file watcher change event to an OWS timeline event, updates the snapshot, and appends the events to the
+    ///     timeline log.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous operation.</returns>
     /// <param name="projectId">The identifier of the project.</param>
     /// <param name="timelinePath">The file path to the timeline log.</param>
     /// <param name="watchEvent">The file change event detected by the file watcher.</param>
@@ -572,16 +579,16 @@ public sealed class LocalTrackingAgent(ILogger<LocalTrackingAgent> logger) {
     }
 
     /// <summary>
-    /// Determines whether a file or directory at the specified absolute path should be excluded based on ignore rules.
+    ///     Determines whether a file or directory at the specified absolute path should be excluded based on ignore rules.
     /// </summary>
-    /// <returns><see langword="true"/> if the path should be excluded; otherwise, <see langword="false"/>.</returns>
+    /// <returns><see langword="true" /> if the path should be excluded; otherwise, <see langword="false" />.</returns>
     /// <param name="absolutePath">The absolute path of the file or directory to check.</param>
     private bool ShouldExclude(string absolutePath) {
         return ProjectFileScanner.ShouldExclude(absolutePath, _options!.ProjectRootPath, _ignoreEngine);
     }
 
     /// <summary>
-    /// Analyzes the timeline log to determine the last recorded state of the file watcher before the agent started.
+    ///     Analyzes the timeline log to determine the last recorded state of the file watcher before the agent started.
     /// </summary>
     /// <returns>A string representing the previous watcher state.</returns>
     /// <param name="timelinePath">The file path to the timeline log.</param>

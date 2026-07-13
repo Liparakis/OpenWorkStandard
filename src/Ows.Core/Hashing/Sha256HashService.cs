@@ -4,11 +4,11 @@ using System.Text;
 namespace Ows.Core.Hashing;
 
 /// <summary>
-/// Computes SHA-256 hashes for OWS content and metadata.
+///     Computes SHA-256 hashes for OWS content and metadata.
 /// </summary>
 public sealed class Sha256HashService {
     /// <summary>
-    /// Computes a SHA-256 hash for the supplied byte array.
+    ///     Computes a SHA-256 hash for the supplied byte array.
     /// </summary>
     /// <param name="data"></param>
     /// <returns></returns>
@@ -21,7 +21,7 @@ public sealed class Sha256HashService {
     }
 
     /// <summary>
-    /// Computes a SHA-256 hash for the supplied UTF-8 string.
+    ///     Computes a SHA-256 hash for the supplied UTF-8 string.
     /// </summary>
     /// <param name="text"></param>
     /// <returns></returns>

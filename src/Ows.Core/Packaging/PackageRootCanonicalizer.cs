@@ -5,16 +5,16 @@ using Ows.Core.Hashing;
 namespace Ows.Core.Packaging;
 
 /// <summary>
-/// Represents the <see cref="PackageRootCanonicalizer"/> type.
+///     Represents the <see cref="PackageRootCanonicalizer" /> type.
 /// </summary>
 internal static class PackageRootCanonicalizer {
     /// <summary>
-    /// The OWS package root format identifier string.
+    ///     The OWS package root format identifier string.
     /// </summary>
     private const string Format = "OWS-PACKAGE-ROOT-V1";
 
     /// <summary>
-    /// Formats a package manifest and its contents into a canonical byte representation for hashing and signing.
+    ///     Formats a package manifest and its contents into a canonical byte representation for hashing and signing.
     /// </summary>
     /// <returns>A byte array containing the UTF-8 encoded canonical package representation.</returns>
     /// <param name="manifest">The package manifest to serialize canonically.</param>
@@ -39,7 +39,7 @@ internal static class PackageRootCanonicalizer {
             Format,
             $"manifest={new Sha256HashService().ComputeHash(manifestJson)}",
             $"timeline={manifest.TimelineHash}",
-            $"version_graph={manifest.VersionGraphHash}",
+            $"version_graph={manifest.VersionGraphHash}"
         };
         lines.AddRange(
             manifest.ArtifactHashes.OrderBy(pair => pair.Key, StringComparer.Ordinal)
@@ -49,10 +49,11 @@ internal static class PackageRootCanonicalizer {
     }
 
     /// <summary>
-    /// Computes the SHA-256 hash of the canonical package representation.
+    ///     Computes the SHA-256 hash of the canonical package representation.
     /// </summary>
     /// <returns>The hexadecimal SHA-256 digest of the canonical package.</returns>
     /// <param name="manifest">The package manifest to hash.</param>
-    public static string ComputeHash(OwsManifest manifest) =>
-        Sha256HashService.ComputeHash(BuildCanonicalBytes(manifest));
+    public static string ComputeHash(OwsManifest manifest) {
+        return Sha256HashService.ComputeHash(BuildCanonicalBytes(manifest));
+    }
 }

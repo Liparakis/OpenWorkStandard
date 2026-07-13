@@ -5,11 +5,12 @@ using Ows.Core.Events;
 namespace Ows.Core.Verification.Helpers;
 
 /// <summary>
-/// Verification helper that analyzes the timeline integrity, validating parent-child event chains and checksum correctness.
+///     Verification helper that analyzes the timeline integrity, validating parent-child event chains and checksum
+///     correctness.
 /// </summary>
 internal static class TimelineIntegrityVerifier {
     /// <summary>
-    /// Parses the timeline file and validates event chaining, matching parent hashes, and event hashes.
+    ///     Parses the timeline file and validates event chaining, matching parent hashes, and event hashes.
     /// </summary>
     /// <param name="archive">The ZIP package container containing the timeline file.</param>
     /// <param name="errors">The list to accumulate verification errors.</param>

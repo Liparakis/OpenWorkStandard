@@ -5,11 +5,11 @@ using Ows.Core.Init;
 namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests project initialization for local OWS state.
+///     Tests project initialization for local OWS state.
 /// </summary>
 public sealed class OwsProjectInitializerTests {
     /// <summary>
-    /// Verifies that initialization creates the local OWS folder and starter files.
+    ///     Verifies that initialization creates the local OWS folder and starter files.
     /// </summary>
     [Fact]
     public void Initialize_ShouldCreateLocalFolderConfigAndTimeline() {
@@ -38,13 +38,13 @@ public sealed class OwsProjectInitializerTests {
             document.RootElement.GetProperty("projectRoot").GetString().Should().Be(projectRoot);
         } finally {
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }
 
     /// <summary>
-    /// Verifies that initialization does not overwrite project-owned ignore rules.
+    ///     Verifies that initialization does not overwrite project-owned ignore rules.
     /// </summary>
     [Fact]
     public void Initialize_ShouldPreserveExistingIgnoreFile() {
@@ -63,7 +63,7 @@ public sealed class OwsProjectInitializerTests {
             File.ReadAllText(ignorePath).Should().Be(customRules);
         } finally {
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }

@@ -6,11 +6,11 @@ using Ows.Core.Packaging;
 namespace Ows.Core.Agent.Watcher;
 
 /// <summary>
-/// Coordinates the build package process and appends package creation events to the timeline.
+///     Coordinates the build package process and appends package creation events to the timeline.
 /// </summary>
 internal static class PackageCreationCoordinator {
     /// <summary>
-    /// Creates a zip archive package of the project and appends a PackageCreated event to the project timeline.
+    ///     Creates a zip archive package of the project and appends a PackageCreated event to the project timeline.
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <param name="appendEventFunc">Callback function to append events to the project timeline.</param>

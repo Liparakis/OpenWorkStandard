@@ -1,20 +1,20 @@
 using System.IO.Pipes;
 using System.Net.Sockets;
+using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
-using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 
 namespace Ows.Core.Agent;
 
 /// <summary>
-/// Provides the smallest local-only coordination channel for the OWS Agent.
+///     Provides the smallest local-only coordination channel for the OWS Agent.
 /// </summary>
 public static class OwsAgentIpcEndpoint {
     /// <summary>
-    /// Gets the platform endpoint derived from the registry path.
+    ///     Gets the platform endpoint derived from the registry path.
     /// </summary>
     /// <returns>A platform-specific named pipe name or Unix domain socket path.</returns>
     /// <param name="registryPath">The path to the project registry.</param>
@@ -28,22 +28,23 @@ public static class OwsAgentIpcEndpoint {
 }
 
 /// <summary>
-/// Serves local Agent coordination requests. The service accepts only commands
-/// that validate an explicitly registered initialized project; it never returns
-/// project contents through this channel.
+///     Serves local Agent coordination requests. The service accepts only commands
+///     that validate an explicitly registered initialized project; it never returns
+///     project contents through this channel.
 /// </summary>
 public sealed class OwsAgentIpcServer {
     /// <summary>
-    /// JSON serialization options used for Web/CamelCase formatting.
+    ///     JSON serialization options used for Web/CamelCase formatting.
     /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+
     /// <summary>
-    /// The project registry to look up registered projects.
+    ///     The project registry to look up registered projects.
     /// </summary>
     private readonly OwsProjectRegistry _registry;
 
     /// <summary>
-    /// Initializes a local IPC server for the supplied project registry.
+    ///     Initializes a local IPC server for the supplied project registry.
     /// </summary>
     /// <param name="registry">The project registry instance.</param>
     public OwsAgentIpcServer(OwsProjectRegistry registry) {
@@ -51,19 +52,20 @@ public sealed class OwsAgentIpcServer {
     }
 
     /// <summary>
-    /// Runs the local request loop until cancellation.
+    ///     Runs the local request loop until cancellation.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous server loop.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous server loop.</returns>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    public Task RunAsync(CancellationToken cancellationToken) =>
-        OperatingSystem.IsWindows()
+    public Task RunAsync(CancellationToken cancellationToken) {
+        return OperatingSystem.IsWindows()
             ? RunNamedPipeAsync(cancellationToken)
             : RunUnixSocketAsync(cancellationToken);
+    }
 
     /// <summary>
-    /// Runs the server loop using Windows Named Pipes.
+    ///     Runs the server loop using Windows Named Pipes.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the named pipe listener loop.</returns>
+    /// <returns>A <see cref="Task" /> representing the named pipe listener loop.</returns>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     [SupportedOSPlatform("windows")]
     private async Task RunNamedPipeAsync(CancellationToken cancellationToken) {
@@ -85,29 +87,33 @@ public sealed class OwsAgentIpcServer {
     }
 
     /// <summary>
-    /// Creates the local security descriptor for the Windows Agent pipe.
+    ///     Creates the local security descriptor for the Windows Agent pipe.
     /// </summary>
     /// <returns>A security descriptor allowing local users to connect to the Agent.</returns>
     [SupportedOSPlatform("windows")]
     private static PipeSecurity CreatePipeSecurity() {
         var security = new PipeSecurity();
-        security.AddAccessRule(new PipeAccessRule(
-            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
-            PipeAccessRights.FullControl,
-            AccessControlType.Allow
-        ));
-        security.AddAccessRule(new PipeAccessRule(
-            new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
-            PipeAccessRights.ReadWrite | PipeAccessRights.CreateNewInstance,
-            AccessControlType.Allow
-        ));
+        security.AddAccessRule(
+            new PipeAccessRule(
+                new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                PipeAccessRights.FullControl,
+                AccessControlType.Allow
+            )
+        );
+        security.AddAccessRule(
+            new PipeAccessRule(
+                new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
+                PipeAccessRights.ReadWrite | PipeAccessRights.CreateNewInstance,
+                AccessControlType.Allow
+            )
+        );
         return security;
     }
 
     /// <summary>
-    /// Runs the server loop using Unix Domain Sockets on non-Windows platforms.
+    ///     Runs the server loop using Unix Domain Sockets on non-Windows platforms.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the unix socket listener loop.</returns>
+    /// <returns>A <see cref="Task" /> representing the unix socket listener loop.</returns>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     private async Task RunUnixSocketAsync(CancellationToken cancellationToken) {
         var socketPath = OwsAgentIpcEndpoint.Get(_registry.RegistryPath);
@@ -127,7 +133,7 @@ public sealed class OwsAgentIpcServer {
         try {
             while (!cancellationToken.IsCancellationRequested) {
                 using var client = await listener.AcceptAsync(cancellationToken);
-                await using var stream = new NetworkStream(client, ownsSocket: false);
+                await using var stream = new NetworkStream(client, false);
                 await HandleAsync(stream, cancellationToken);
             }
         } finally {
@@ -138,9 +144,9 @@ public sealed class OwsAgentIpcServer {
     }
 
     /// <summary>
-    /// Processes an incoming client connection stream.
+    ///     Processes an incoming client connection stream.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the connection handler operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the connection handler operation.</returns>
     /// <param name="stream">The connection stream.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     private async Task HandleAsync(Stream stream, CancellationToken cancellationToken) {
@@ -161,9 +167,9 @@ public sealed class OwsAgentIpcServer {
     }
 
     /// <summary>
-    /// Checks if the project path is registered and initialized locally.
+    ///     Checks if the project path is registered and initialized locally.
     /// </summary>
-    /// <returns><see langword="true"/> if the project is registered and initialized; otherwise, <see langword="false"/>.</returns>
+    /// <returns><see langword="true" /> if the project is registered and initialized; otherwise, <see langword="false" />.</returns>
     /// <param name="projectRootPath">The project root directory path.</param>
     private bool IsRegisteredInitializedProject(string? projectRootPath) {
         if (string.IsNullOrWhiteSpace(projectRootPath)) {
@@ -187,27 +193,28 @@ public sealed class OwsAgentIpcServer {
 }
 
 /// <summary>
-/// Provides best-effort client operations for the local OWS Agent channel.
+///     Provides best-effort client operations for the local OWS Agent channel.
 /// </summary>
 public static class OwsAgentIpcClient {
     /// <summary>
-    /// JSON serialization options used for client Web/CamelCase formatting.
+    ///     JSON serialization options used for client Web/CamelCase formatting.
     /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>
-    /// Checks whether the local Agent is available for the registry.
+    ///     Checks whether the local Agent is available for the registry.
     /// </summary>
-    /// <returns>A task containing <see langword="true"/> if the ping succeeded; otherwise, <see langword="false"/>.</returns>
+    /// <returns>A task containing <see langword="true" /> if the ping succeeded; otherwise, <see langword="false" />.</returns>
     /// <param name="registryPath">The path to the project registry.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    public static Task<bool> TryPingAsync(string registryPath, CancellationToken cancellationToken = default) =>
-        SendAsync(registryPath, "ping", null, cancellationToken);
+    public static Task<bool> TryPingAsync(string registryPath, CancellationToken cancellationToken = default) {
+        return SendAsync(registryPath, "ping", null, cancellationToken);
+    }
 
     /// <summary>
-    /// Requests a safe journal flush for a registered project.
+    ///     Requests a safe journal flush for a registered project.
     /// </summary>
-    /// <returns>A task containing <see langword="true"/> if the flush request succeeded; otherwise, <see langword="false"/>.</returns>
+    /// <returns>A task containing <see langword="true" /> if the flush request succeeded; otherwise, <see langword="false" />.</returns>
     /// <param name="projectRootPath">The project root path to flush.</param>
     /// <param name="registryPath">The path to the project registry.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
@@ -215,13 +222,17 @@ public static class OwsAgentIpcClient {
         string registryPath,
         string projectRootPath,
         CancellationToken cancellationToken = default
-    ) =>
-        SendAsync(registryPath, "flush", projectRootPath, cancellationToken);
+    ) {
+        return SendAsync(registryPath, "flush", projectRootPath, cancellationToken);
+    }
 
     /// <summary>
-    /// Sends an IPC command to the agent server.
+    ///     Sends an IPC command to the agent server.
     /// </summary>
-    /// <returns>A task containing <see langword="true"/> if the command succeeded and was accepted; otherwise, <see langword="false"/>.</returns>
+    /// <returns>
+    ///     A task containing <see langword="true" /> if the command succeeded and was accepted; otherwise,
+    ///     <see langword="false" />.
+    /// </returns>
     /// <param name="command">The command string to send.</param>
     /// <param name="registryPath">The path to the project registry.</param>
     /// <param name="projectRootPath">The project root path associated with the command, if any.</param>
@@ -252,9 +263,9 @@ public static class OwsAgentIpcClient {
     }
 
     /// <summary>
-    /// Connects to the platform-specific IPC channel.
+    ///     Connects to the platform-specific IPC channel.
     /// </summary>
-    /// <returns>A <see cref="Task{Stream}"/> returning the connected stream.</returns>
+    /// <returns>A <see cref="Task{Stream}" /> returning the connected stream.</returns>
     /// <param name="registryPath">The path to the project registry.</param>
     /// <param name="cancellationToken">A token to cancel the connection.</param>
     private static async Task<Stream> ConnectAsync(string registryPath, CancellationToken cancellationToken) {
@@ -267,7 +278,7 @@ public static class OwsAgentIpcClient {
 
         var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         await socket.ConnectAsync(new UnixDomainSocketEndPoint(endpoint), cancellationToken);
-        return new NetworkStream(socket, ownsSocket: true);
+        return new NetworkStream(socket, true);
     }
 
     private sealed record AgentIpcResponse(bool Accepted, string Message);

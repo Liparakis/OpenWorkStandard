@@ -4,11 +4,11 @@ using Ows.Core.Events;
 namespace Ows.Core.Agent.Timeline;
 
 /// <summary>
-/// Provides utility methods to read and append chained events to local timeline log files.
+///     Provides utility methods to read and append chained events to local timeline log files.
 /// </summary>
 internal static class TimelineEventAppender {
     /// <summary>
-    /// Reads the head event hash of the existing timeline file.
+    ///     Reads the head event hash of the existing timeline file.
     /// </summary>
     /// <param name="timelinePath">The absolute path to the timeline file.</param>
     /// <returns>The last event's hash, or the genesis previous hash if the timeline is empty or missing.</returns>
@@ -19,7 +19,7 @@ internal static class TimelineEventAppender {
     }
 
     /// <summary>
-    /// Appends a new event to the timeline file, establishing parent-child hash chaining.
+    ///     Appends a new event to the timeline file, establishing parent-child hash chaining.
     /// </summary>
     /// <param name="timelinePath">The absolute path to the timeline file.</param>
     /// <param name="owsEvent">The raw event payload details to append.</param>

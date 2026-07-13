@@ -4,17 +4,17 @@ using Ows.Core.Ignore;
 namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests the documented OWS ignore-rule subset.
+///     Tests the documented OWS ignore-rule subset.
 /// </summary>
 public sealed class OwsIgnoreEngineTests {
     /// <summary>
-    /// Verifies that default OWS ignore patterns correctly match common folders, secrets, and binaries.
+    ///     Verifies that default OWS ignore patterns correctly match common folders, secrets, and binaries.
     /// </summary>
     [Fact]
     public void DefaultRules_ShouldIgnoreGeneratedFoldersSecretsAndCommonBinaries() {
         var engine = new OwsIgnoreEngine(OwsIgnoreEngine.DefaultPatterns);
 
-        engine.IsIgnored("bin", isDirectory: true).Should().BeTrue();
+        engine.IsIgnored("bin", true).Should().BeTrue();
         engine.IsIgnored("src\\bin\\Debug\\app.dll").Should().BeTrue();
         engine.IsIgnored("logs/run.log").Should().BeTrue();
         engine.IsIgnored(".env.local").Should().BeTrue();
@@ -22,19 +22,21 @@ public sealed class OwsIgnoreEngineTests {
     }
 
     /// <summary>
-    /// Verifies that ignore rules correctly support comments, wildcards, directory boundaries, and root-relative anchors.
+    ///     Verifies that ignore rules correctly support comments, wildcards, directory boundaries, and root-relative anchors.
     /// </summary>
     [Fact]
     public void Rules_ShouldSupportCommentsWildcardsDirectoryPatternsAndRootRelativePaths() {
-        var engine = new OwsIgnoreEngine([
-            "# comment",
-            "",
-            "generated/",
-            "*.tmp",
-            "src/generated/"
-        ]);
+        var engine = new OwsIgnoreEngine(
+            [
+                "# comment",
+                "",
+                "generated/",
+                "*.tmp",
+                "src/generated/"
+            ]
+        );
 
-        engine.IsIgnored("generated", isDirectory: true).Should().BeTrue();
+        engine.IsIgnored("generated", true).Should().BeTrue();
         engine.IsIgnored("generated/output.txt").Should().BeTrue();
         engine.IsIgnored("nested/generated/output.txt").Should().BeTrue();
         engine.IsIgnored("notes.tmp").Should().BeTrue();
@@ -46,7 +48,7 @@ public sealed class OwsIgnoreEngineTests {
     }
 
     /// <summary>
-    /// Verifies that OwsIgnoreEngine.Load correctly loads project rules files and respects custom exclusion directories.
+    ///     Verifies that OwsIgnoreEngine.Load correctly loads project rules files and respects custom exclusion directories.
     /// </summary>
     [Fact]
     public void Load_ShouldReadProjectRulesAndRetainConfiguredDirectoryExclusions() {
@@ -64,7 +66,7 @@ public sealed class OwsIgnoreEngineTests {
             engine.IsIgnored("src/main.cs").Should().BeFalse();
         } finally {
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }

@@ -1,17 +1,16 @@
 using FluentAssertions;
-using Ows.Core;
 
 namespace Ows.Cli.Tests;
 
 /// <summary>
-/// Tests the offline verify command.
+///     Tests the offline verify command.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class OwsVerifyCommandTests {
     /// <summary>
-    /// Verifies that the verify command succeeds for a newly created OWS package.
+    ///     Verifies that the verify command succeeds for a newly created OWS package.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task VerifyCommand_ShouldSucceedForCreatedPackage() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-verify-{Guid.NewGuid():N}");
@@ -28,7 +27,7 @@ public sealed class OwsVerifyCommandTests {
         } finally {
             Directory.SetCurrentDirectory(originalDirectory);
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }

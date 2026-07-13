@@ -6,11 +6,11 @@ using Ows.Core.Verification;
 namespace Ows.Cli.Commands;
 
 /// <summary>
-/// Provides construction for the report command.
+///     Provides construction for the report command.
 /// </summary>
 public static class ReportCommandBuilder {
     /// <summary>
-    /// Builds the report command that generates an OWS verification report.
+    ///     Builds the report command that generates an OWS verification report.
     /// </summary>
     /// <returns>The configured command.</returns>
     public static Command Build() {

@@ -5,31 +5,32 @@ using Ows.Core.Ignore;
 namespace Ows.Core.Agent.Scanning;
 
 /// <summary>
-/// Provides helper functions to scan project files, apply folder exclusions, and calculate file hashes and line estimates.
+///     Provides helper functions to scan project files, apply folder exclusions, and calculate file hashes and line
+///     estimates.
 /// </summary>
 internal static class ProjectFileScanner {
     /// <summary>
-    /// Determines whether a given absolute file path should be excluded by the loaded ignore rules.
+    ///     Determines whether a given absolute file path should be excluded by the loaded ignore rules.
     /// </summary>
     /// <param name="absolutePath">The absolute path of the file to inspect.</param>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <param name="ignoreEngine">The loaded OWS ignore engine.</param>
-    /// <returns><see langword="true"/> if the file path should be excluded; otherwise, <see langword="false"/>.</returns>
+    /// <returns><see langword="true" /> if the file path should be excluded; otherwise, <see langword="false" />.</returns>
     public static bool ShouldExclude(string absolutePath, string projectRoot, OwsIgnoreEngine ignoreEngine) {
         ArgumentNullException.ThrowIfNull(ignoreEngine);
         var relative = Path.GetRelativePath(projectRoot, absolutePath);
         var isDirectory = Directory.Exists(absolutePath);
         return ignoreEngine.IsIgnored(relative, isDirectory) ||
-               (!File.Exists(absolutePath) && ignoreEngine.IsIgnored(relative, isDirectory: true));
+               (!File.Exists(absolutePath) && ignoreEngine.IsIgnored(relative, true));
     }
 
     /// <summary>
-    /// Scans the current project files and generates observed states containing size, hashes, and line estimates.
+    ///     Scans the current project files and generates observed states containing size, hashes, and line estimates.
     /// </summary>
     /// <param name="projectRoot">The absolute path to the project root directory.</param>
     /// <param name="ignoreEngine">The loaded OWS ignore engine.</param>
     /// <param name="hashService">The hash service to compute file SHA-256 signatures.</param>
-    /// <returns>A dictionary mapping relative file paths to their <see cref="ObservedFileState"/> details.</returns>
+    /// <returns>A dictionary mapping relative file paths to their <see cref="ObservedFileState" /> details.</returns>
     public static Dictionary<string, ObservedFileState> ScanCurrentFiles(
         string projectRoot,
         OwsIgnoreEngine ignoreEngine,
@@ -69,7 +70,7 @@ internal static class ProjectFileScanner {
     }
 
     /// <summary>
-    /// Computes a line count estimate by reading the file bytes and counting newline characters.
+    ///     Computes a line count estimate by reading the file bytes and counting newline characters.
     /// </summary>
     /// <param name="path">The absolute path to the target file.</param>
     /// <returns>The number of lines in the file, or 0 if empty or unreadable.</returns>
@@ -90,7 +91,7 @@ internal static class ProjectFileScanner {
     }
 
     /// <summary>
-    /// Computes the SHA-256 hash of the specified file.
+    ///     Computes the SHA-256 hash of the specified file.
     /// </summary>
     /// <param name="path">The absolute path to the file.</param>
     /// <param name="hashService">The hash service used to generate the checksum.</param>

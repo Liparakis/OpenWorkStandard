@@ -1,16 +1,16 @@
 namespace Ows.Core.Reporting;
 
 /// <summary>
-/// Identifies the supported report output formats.
+///     Identifies the supported report output formats.
 /// </summary>
 public enum ReportFormat {
     /// <summary>
-    /// JSON output.
+    ///     JSON output.
     /// </summary>
     Json,
 
     /// <summary>
-    /// Plain text output.
+    ///     Plain text output.
     /// </summary>
     Text
 }

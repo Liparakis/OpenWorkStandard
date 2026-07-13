@@ -4,14 +4,14 @@ using FluentAssertions;
 namespace Ows.Cli.Tests;
 
 /// <summary>
-/// Tests the package command behavior.
+///     Tests the package command behavior.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class OwsPackageCommandTests {
     /// <summary>
-    /// Verifies that the package command emits a .owspkg archive from local OWS state.
+    ///     Verifies that the package command emits a .owspkg archive from local OWS state.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task PackageCommand_ShouldCreateOwsPackageInCurrentDirectory() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-package-{Guid.NewGuid():N}");
@@ -33,12 +33,12 @@ public sealed class OwsPackageCommandTests {
 
             using var archive = ZipFile.OpenRead(packagePath);
             archive.Entries.Select(entry => entry.FullName).Should()
-                .Contain(["manifest.json", "timeline.jsonl", "artifacts/draft.txt"]);
+                   .Contain(["manifest.json", "timeline.jsonl", "artifacts/draft.txt"]);
         } finally {
             Directory.SetCurrentDirectory(originalDirectory);
 
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }

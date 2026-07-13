@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentAssertions;
 using Ows.Core;
 using Ows.Core.Events;
@@ -6,14 +7,14 @@ using Ows.Core.Packaging;
 namespace Ows.Cli.Tests;
 
 /// <summary>
-/// Tests the local reviewer inspection command.
+///     Tests the local reviewer inspection command.
 /// </summary>
 [Collection(CliCommandCollection.Name)]
 public sealed class OwsInspectCommandTests {
     /// <summary>
-    /// Verifies that the inspect command exposes a local package summary as JSON when executed with the --json flag.
+    ///     Verifies that the inspect command exposes a local package summary as JSON when executed with the --json flag.
     /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous test operation.</returns>
+    /// <returns>A <see cref="Task" /> representing the asynchronous test operation.</returns>
     [Fact]
     public async Task InspectCommand_ShouldExposeLocalPackageSummaryAsJson() {
         var projectRoot = Path.Combine(Path.GetTempPath(), $"ows-cli-inspect-{Guid.NewGuid():N}");
@@ -30,7 +31,7 @@ public sealed class OwsInspectCommandTests {
             );
             File.WriteAllText(
                 Path.Combine(projectRoot, ".ows", OwsConstants.TimelineFileName),
-                System.Text.Json.JsonSerializer.Serialize(timelineEvent) + Environment.NewLine
+                JsonSerializer.Serialize(timelineEvent) + Environment.NewLine
             );
             var packagePath = Path.Combine(projectRoot, "inspection.owspkg");
             await OwsPackageBuilder.CreatePackageAsync(
@@ -54,7 +55,7 @@ public sealed class OwsInspectCommandTests {
             Console.SetOut(originalOut);
             Directory.SetCurrentDirectory(originalDirectory);
             if (Directory.Exists(projectRoot)) {
-                Directory.Delete(projectRoot, recursive: true);
+                Directory.Delete(projectRoot, true);
             }
         }
     }

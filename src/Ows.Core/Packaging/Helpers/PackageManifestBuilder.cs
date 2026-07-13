@@ -3,13 +3,13 @@ using Ows.Core.Hashing;
 namespace Ows.Core.Packaging.Helpers;
 
 /// <summary>
-/// Represents the <see cref="PackageManifestBuilder"/> type.
+///     Represents the <see cref="PackageManifestBuilder" /> type.
 /// </summary>
 internal static class PackageManifestBuilder {
     /// <summary>
-    /// Builds the OwsManifest metadata containing the project information and file hashes.
+    ///     Builds the OwsManifest metadata containing the project information and file hashes.
     /// </summary>
-    /// <returns>The populated <see cref="OwsManifest"/> object.</returns>
+    /// <returns>The populated <see cref="OwsManifest" /> object.</returns>
     /// <param name="projectRootPath">The root directory path of the project.</param>
     /// <param name="timelineText">The raw timeline log contents.</param>
     /// <param name="versionGraphText">The raw version graph contents.</param>

@@ -1,7 +1,7 @@
 namespace Ows.Cli;
 
 /// <summary>
-/// Unified response structure returned by the local OWS CLI.
+///     Unified response structure returned by the local OWS CLI.
 /// </summary>
 public sealed class OwsCliResponse {
     /// <summary>Gets or sets a value indicating whether the command succeeded.</summary>
@@ -24,12 +24,14 @@ public sealed class OwsCliResponse {
 
     /// <summary>Returns the response shape used by JSON output.</summary>
     /// <returns>An object containing the response fields used by JSON output.</returns>
-    public object ToSerializableModel() => new {
-        Success,
-        Status,
-        ProjectRoot,
-        WatcherRunning,
-        Message,
-        Errors
-    };
+    public object ToSerializableModel() {
+        return new {
+            Success,
+            Status,
+            ProjectRoot,
+            WatcherRunning,
+            Message,
+            Errors
+        };
+    }
 }

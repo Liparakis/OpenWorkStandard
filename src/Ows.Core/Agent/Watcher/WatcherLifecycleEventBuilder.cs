@@ -3,15 +3,15 @@ using Ows.Core.Events;
 namespace Ows.Core.Agent.Watcher;
 
 /// <summary>
-/// Provides factory methods to construct timeline watcher events with their appropriate metadata.
+///     Provides factory methods to construct timeline watcher events with their appropriate metadata.
 /// </summary>
 internal static class WatcherLifecycleEventBuilder {
     /// <summary>
-    /// Builds a WatcherStarted event.
+    ///     Builds a WatcherStarted event.
     /// </summary>
     /// <param name="projectId">The identifier of the project.</param>
     /// <param name="reason">The startup reason.</param>
-    /// <returns>A new <see cref="OwsEvent"/> representing the event.</returns>
+    /// <returns>A new <see cref="OwsEvent" /> representing the event.</returns>
     public static OwsEvent BuildWatcherStarted(string projectId, string reason) {
         return new OwsEvent {
             EventType = OwsEventType.WatcherStarted,
@@ -24,12 +24,12 @@ internal static class WatcherLifecycleEventBuilder {
     }
 
     /// <summary>
-    /// Builds a WatcherInterrupted event.
+    ///     Builds a WatcherInterrupted event.
     /// </summary>
     /// <param name="projectId">The identifier of the project.</param>
     /// <param name="previousPid">The process identifier that was interrupted.</param>
     /// <param name="reason">The interruption reason.</param>
-    /// <returns>A new <see cref="OwsEvent"/> representing the event.</returns>
+    /// <returns>A new <see cref="OwsEvent" /> representing the event.</returns>
     public static OwsEvent BuildWatcherInterrupted(string projectId, string? previousPid, string reason) {
         return new OwsEvent {
             EventType = OwsEventType.WatcherInterrupted,
@@ -43,12 +43,12 @@ internal static class WatcherLifecycleEventBuilder {
     }
 
     /// <summary>
-    /// Builds a WatcherRecovered event.
+    ///     Builds a WatcherRecovered event.
     /// </summary>
     /// <param name="projectId">The identifier of the project.</param>
     /// <param name="reason">The recovery reason.</param>
     /// <param name="gapDurationMs">The duration of the recovery interval in milliseconds.</param>
-    /// <returns>A new <see cref="OwsEvent"/> representing the event.</returns>
+    /// <returns>A new <see cref="OwsEvent" /> representing the event.</returns>
     public static OwsEvent BuildWatcherRecovered(string projectId, string reason, long gapDurationMs) {
         return new OwsEvent {
             EventType = OwsEventType.WatcherRecovered,
@@ -62,7 +62,7 @@ internal static class WatcherLifecycleEventBuilder {
     }
 
     /// <summary>
-    /// Builds an ObservationGapDetected event.
+    ///     Builds an ObservationGapDetected event.
     /// </summary>
     /// <param name="projectId">The identifier of the project.</param>
     /// <param name="gapStartedAt">The timestamp indicating when the gap started.</param>
@@ -73,7 +73,7 @@ internal static class WatcherLifecycleEventBuilder {
     /// <param name="baselineState">The baseline snapshot verification status.</param>
     /// <param name="committedSnapshotHash">Optional snapshot hash committed in prior timeline events.</param>
     /// <param name="computedSnapshotHash">Optional snapshot hash computed locally.</param>
-    /// <returns>A new <see cref="OwsEvent"/> representing the gap event.</returns>
+    /// <returns>A new <see cref="OwsEvent" /> representing the gap event.</returns>
     public static OwsEvent BuildObservationGapDetected(
         string projectId,
         DateTimeOffset gapStartedAt,
@@ -111,7 +111,7 @@ internal static class WatcherLifecycleEventBuilder {
     }
 
     /// <summary>
-    /// Builds a SnapshotUpdated event.
+    ///     Builds a SnapshotUpdated event.
     /// </summary>
     /// <param name="projectId">The identifier of the project.</param>
     /// <param name="snapshotHash">The SHA-256 hash of the updated snapshot.</param>
@@ -119,7 +119,7 @@ internal static class WatcherLifecycleEventBuilder {
     /// <param name="observedAt">The timestamp when the snapshot was taken.</param>
     /// <param name="reason">The reason for the update.</param>
     /// <param name="previousSnapshotHash">Optional prior snapshot hash.</param>
-    /// <returns>A new <see cref="OwsEvent"/> representing the update event.</returns>
+    /// <returns>A new <see cref="OwsEvent" /> representing the update event.</returns>
     public static OwsEvent BuildSnapshotUpdated(
         string projectId,
         string snapshotHash,

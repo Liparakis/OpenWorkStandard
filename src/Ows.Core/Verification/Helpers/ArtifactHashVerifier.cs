@@ -5,11 +5,11 @@ using Ows.Core.Packaging;
 namespace Ows.Core.Verification.Helpers;
 
 /// <summary>
-/// Verification helper for validating integrity of archive entry hashes against manifest declarations.
+///     Verification helper for validating integrity of archive entry hashes against manifest declarations.
 /// </summary>
 internal static class ArtifactHashVerifier {
     /// <summary>
-    /// Validates the SHA-256 hashes of standard files and custom artifacts in the zip archive against manifest entries.
+    ///     Validates the SHA-256 hashes of standard files and custom artifacts in the zip archive against manifest entries.
     /// </summary>
     /// <param name="archive">The ZIP archive container of the package.</param>
     /// <param name="manifest">The manifest object declaring expected hashes.</param>

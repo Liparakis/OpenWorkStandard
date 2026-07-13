@@ -4,11 +4,11 @@ using Ows.Core.Hashing;
 namespace Ows.Core.Tests;
 
 /// <summary>
-/// Tests SHA-256 hashing behavior.
+///     Tests SHA-256 hashing behavior.
 /// </summary>
 public sealed class Sha256HashServiceTests {
     /// <summary>
-    /// Verifies that equal text produces equal hashes.
+    ///     Verifies that equal text produces equal hashes.
     /// </summary>
     [Fact]
     public void ComputeHash_ForSameText_ReturnsSameDigest() {
@@ -21,7 +21,7 @@ public sealed class Sha256HashServiceTests {
     }
 
     /// <summary>
-    /// Verifies that text and byte hashing align for the same content.
+    ///     Verifies that text and byte hashing align for the same content.
     /// </summary>
     [Fact]
     public void ComputeHash_ForEquivalentTextAndBytes_ReturnsSameDigest() {

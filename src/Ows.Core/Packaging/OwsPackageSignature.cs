@@ -1,7 +1,7 @@
 namespace Ows.Core.Packaging;
 
 /// <summary>
-/// Describes an optional offline-verifiable package signature.
+///     Describes an optional offline-verifiable package signature.
 /// </summary>
 public sealed record OwsPackageSignature {
     /// <summary>Gets the signature algorithm identifier.</summary>

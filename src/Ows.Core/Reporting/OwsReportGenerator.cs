@@ -3,11 +3,14 @@ using Ows.Core.Reporting.Renderers;
 namespace Ows.Core.Reporting;
 
 /// <summary>
-/// Provides reviewer-facing report generation for verification outcomes by delegating to renderers.
+///     Provides reviewer-facing report generation for verification outcomes by delegating to renderers.
 /// </summary>
 public sealed class OwsReportGenerator {
     /// <inheritdoc />
-    public static Task<ReportGenerationResult> GenerateAsync(ReportRequest request, CancellationToken cancellationToken) {
+    public static Task<ReportGenerationResult> GenerateAsync(
+        ReportRequest request,
+        CancellationToken cancellationToken
+    ) {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
