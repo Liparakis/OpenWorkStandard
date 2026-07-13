@@ -1,6 +1,6 @@
 # Next Steps
 
-1. Rebuild the setup after the SCM stop-wait fix, then run `artifacts\ows-setup\Ows.Setup.exe` with UAC approval.
+1. Run the corrected `artifacts\ows-setup\Ows.Setup.exe` with UAC approval; the service is currently stopped and the old installed payload remains in place.
 2. Confirm `OWS Agent` remains Running/Automatic/LocalSystem and points to the current payload.
 3. Use Add/Remove Programs to remove the service, installed payload, and uninstall entry; choose shared-data deletion only when intended.
 4. Owner reviews repository history, license, generated artifacts, and current worktree scope.

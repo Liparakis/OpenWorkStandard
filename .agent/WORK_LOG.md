@@ -1308,3 +1308,29 @@
 - Exact next action: Click OK on the open `Open Work Standard Setup Error` dialog, then run `.\scripts\windows\build-ows-setup.ps1`.
 - Important context: The source fix is complete and tested; the current artifact has not yet been regenerated because PID 24668 holds it open with elevation.
 - Files to inspect first: `src/Ows.Setup/Program.cs`, `.agent/CURRENT_TASK.md`, and `artifacts/ows-setup/Ows.Setup.exe`.
+
+## 2026-07-13 — Corrected setup artifact republished
+
+### Completed
+- Closed the elevated setup error dialog that was locking the previous artifact.
+- Republished the corrected self-contained setup executable.
+
+### Changed
+- Added: Refreshed `artifacts/ows-setup/Ows.Setup.exe` build output.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Setup publish succeeded.
+- Targeted tests: Source build passed with 0 warnings and 0 errors.
+- Full tests: Core 131/131 and CLI/server 80/80 passed before publish.
+- Manual checks: New setup SHA-256 is `7D87D4EB4EF3198FF5367984B545BCC53970EB8731E193FE038D16B7E9CB85AD`; service is stopped and old installed payload remains preserved.
+
+### Remaining
+- Run the corrected setup with UAC approval and verify service start/recovery settings.
+- Run the Installed apps uninstall cleanup and complete human release sign-off.
+
+### Handoff
+- Exact next action: Double-click `artifacts\ows-setup\Ows.Setup.exe`, approve UAC, then inspect Services and `sc.exe qfailure OwsAgent`.
+- Important context: The corrected installer waits up to 30 seconds for normal SCM shutdown and reports access-denied stop failures directly.
+- Files to inspect first: `src/Ows.Setup/Program.cs`, `artifacts/ows-setup/Ows.Setup.exe`, and `.agent/NEXT_STEPS.md`.
