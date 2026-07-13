@@ -1,6 +1,6 @@
 # OWS Pilot Demo
 
-This is the end-to-end pilot walkthrough for showing Open Work Standard to a professor or sysadmin. It validates the current CLI, verifier, opaque external context metadata, package upload, report, audit, and diagnostics flow.
+This is the end-to-end pilot walkthrough for showing Open Work Standard to a reviewer or sysadmin. It validates the current CLI, verifier, opaque external context metadata, package upload, report, audit, and diagnostics flow.
 
 > [!NOTE]
 > OWS defines a broader event vocabulary for future host integrations. The current MVP emits file-system and session/package events only where explicitly documented. Reserved event types are not currently used as trust evidence. Additionally, OWS packages a `version_graph.json` placeholder today; real graph nodes, edges, validation, and graph-derived trust signals are deferred.

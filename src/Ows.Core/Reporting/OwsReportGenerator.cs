@@ -1,7 +1,7 @@
 namespace Ows.Core.Reporting;
 
 /// <summary>
-/// Provides professor-facing report generation for verification outcomes by delegating to renderers.
+/// Provides reviewer-facing report generation for verification outcomes by delegating to renderers.
 /// </summary>
 public sealed class OwsReportGenerator : IReportGenerator {
     /// <inheritdoc />

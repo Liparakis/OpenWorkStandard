@@ -174,14 +174,13 @@ Reduce the public command and code surface now that package signing is available
 - [x] Scoped upload authorization before blob persistence
 - [x] Archive hardening for entry count, duplicate paths, unsafe paths, and expansion limits
 - [x] Scoped verifier write audit events
-- [x] Enrollment roster-read audit events
 - [x] Bounded audit query limit (`GET /audit/events` max 500)
 
-## 8. Reports and Professor Review
+## 8. Reports and Reviewer Guidance
 
 - [x] Basic text report output
 - [x] JSON report output
-- [x] Rich professor review report
+- [x] Reviewer report output
 - [x] Better degraded-state review guidance
 
 ## 9. Security, Threat Model, and Privacy
@@ -265,7 +264,7 @@ Reduce the public command and code surface now that package signing is available
 ## 18. Pilot End-to-End Validation v0.1
 
 - [x] Pilot fixture setup scripts (`scripts/windows/setup-pilot-fixture.ps1`, `scripts/unix/setup-pilot-fixture.sh`)
-- [x] Main professor/sysadmin walkthrough (`docs/workflows/PILOT_DEMO.md`)
+- [x] Main reviewer/sysadmin walkthrough (`docs/workflows/PILOT_DEMO.md`)
 - [x] Student CLI workflow validation documented
 - [x] StudentClient session/package/upload validation documented
 - [x] Reviewer report workflow validation documented

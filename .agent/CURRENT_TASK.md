@@ -44,7 +44,7 @@
   - [x] Build the single-file Windows setup executable, fix SCM argument handling, and register Windows uninstall metadata.
   - [x] Harden service stop/delete ordering and add an explicit shared-data uninstall choice.
   - [x] Add a regression check for cross-process registry lock contention.
-  - [ ] Reconcile stale reviewer/management wording in the active release surface.
+  - [x] Reconcile stale reviewer/management wording in the active release surface.
   - [ ] Run the Add/Remove Programs uninstall action and confirm complete installed-file cleanup.
   - [ ] Owner performs final history/license/manual sign-off review.
 - Tests required before completion:
@@ -76,3 +76,4 @@
   - The installer now waits for the SCM service to stop before deletion and prompts whether shared Agent data should be removed.
   - The current shell is not elevated, so destructive uninstall smoke testing requires a UAC-approved run.
   - Live machine evidence: `OwsAgent` is Running, Automatic, LocalSystem, and points to `C:\Program Files\Open Work Standard\Ows.Setup.exe --service`; the process has no main window. The uninstall registry entry is present.
+  - Repository state: clean at commit `2ef1195` before this documentation follow-up; the older uncommitted-status note above is historical.

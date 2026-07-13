@@ -1102,3 +1102,29 @@
 - Exact next action: Stage and commit the current worktree, then continue the release audit.
 - Important context: The user explicitly authorized committing all current uncommitted work; do not push or publish without separate authorization.
 - Files to inspect first: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, and `docs/development/RELEASE_READINESS.md`.
+
+## 2026-07-13 — Reviewer-surface terminology cleanup
+
+### Completed
+- Replaced stale professor-facing wording with reviewer-facing language in the active docs and report comment.
+- Removed the obsolete enrollment roster-read checklist item.
+- Recorded the clean baseline commit in the current-task notes.
+
+### Changed
+- Added: no new files.
+- Modified: `docs/development/PROJECT_STATUS.md`, `docs/development/ROADMAP_CHECKLIST.md`, `docs/operations/TROUBLESHOOTING.md`, `docs/workflows/PILOT_DEMO.md`, `src/Ows.Core/Reporting/OwsReportGenerator.cs`, and continuity notes.
+- Deleted: None.
+
+### Validation
+- Build: Not rerun; documentation/comment-only follow-up after the passing 0-warning build.
+- Targeted tests: Not applicable.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: No active deleted bootstrap-script references remain outside intentional legacy-task cleanup.
+
+### Remaining
+- Run the destructive Installed apps uninstall/reinstall smoke test with UAC approval.
+
+### Handoff
+- Exact next action: Run `git diff --check`, then commit this documentation follow-up.
+- Important context: Do not push or publish; the current baseline is `2ef1195`.
+- Files to inspect first: `.agent/CURRENT_TASK.md`, `docs/development/ROADMAP_CHECKLIST.md`, and `docs/development/RELEASE_READINESS.md`.

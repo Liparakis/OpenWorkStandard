@@ -200,7 +200,7 @@ What works:
 Status:
 
 - working
-- richer than the initial stub, but still not a full professor review workflow
+- richer than the initial stub, but still not a full reviewer workflow
 
 ## Verifier Server
 
@@ -380,7 +380,7 @@ Recent uncommitted/working-tree progress:
 - `InstitutionAdmin` and `StudentClient` RBAC roles are implemented with strict opaque institution and ownership metadata scoping
 - Prometheus-compatible `/metrics` endpoint is exposed for scraping without key requirements
 - operational runbooks, backup/restore order, recovery failure modes, and restore drills are fully documented
-- `docs/workflows/PILOT_DEMO.md` now provides the main pilot walkthrough for professors and sysadmins
+- `docs/workflows/PILOT_DEMO.md` now provides the main pilot walkthrough for reviewers and sysadmins
 - `scripts/windows/setup-pilot-fixture.ps1` and `scripts/unix/setup-pilot-fixture.sh` create opaque pilot metadata and delegated student/reviewer keys without management records
 - `scripts/windows/run-live-pilot-dry-run.ps1` and `scripts/unix/run-live-pilot-dry-run.sh` execute the end-to-end pilot rehearsal and write `artifacts/pilot-demo/live-dry-run-summary.json`
 - `scripts/windows/run-release-regression-gate.ps1` and `scripts/unix/run-release-regression-gate.sh` execute the automated release gate and write `artifacts/release-gate/release-gate-summary.json`
