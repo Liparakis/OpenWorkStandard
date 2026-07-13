@@ -1,7 +1,8 @@
+using Ows.Core.Agent.Snapshot;
 using Ows.Core.Hashing;
 using Ows.Core.Ignore;
 
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Scanning;
 
 /// <summary>
 /// Provides helper functions to scan project files, apply folder exclusions, and calculate file hashes and line estimates.
@@ -29,14 +30,17 @@ internal static class ProjectFileScanner {
     /// <param name="ignoreEngine">The loaded OWS ignore engine.</param>
     /// <param name="hashService">The hash service to compute file SHA-256 signatures.</param>
     /// <returns>A dictionary mapping relative file paths to their <see cref="ObservedFileState"/> details.</returns>
-    public static Dictionary<string, ObservedFileState> ScanCurrentFiles(string projectRoot,
-        OwsIgnoreEngine ignoreEngine, Sha256HashService hashService) {
+    public static Dictionary<string, ObservedFileState> ScanCurrentFiles(
+        string projectRoot,
+        OwsIgnoreEngine ignoreEngine,
+        Sha256HashService hashService
+    ) {
         var files = new Dictionary<string, ObservedFileState>(StringComparer.OrdinalIgnoreCase);
 
         var trackedFiles = Directory
-            .EnumerateFiles(projectRoot, "*", SearchOption.AllDirectories)
-            .Where(path => !ShouldExclude(path, projectRoot, ignoreEngine))
-            .ToList();
+                           .EnumerateFiles(projectRoot, "*", SearchOption.AllDirectories)
+                           .Where(path => !ShouldExclude(path, projectRoot, ignoreEngine))
+                           .ToList();
 
         var now = DateTimeOffset.UtcNow;
         foreach (var path in trackedFiles) {
@@ -93,7 +97,7 @@ internal static class ProjectFileScanner {
     /// <returns>A hex-encoded string of the file's hash, or an empty string if unreadable.</returns>
     public static string GetFileHash(string path, Sha256HashService hashService) {
         try {
-            return !File.Exists(path) ? string.Empty : hashService.ComputeHash(File.ReadAllBytes(path));
+            return !File.Exists(path) ? string.Empty : Sha256HashService.ComputeHash(File.ReadAllBytes(path));
         } catch {
             return string.Empty;
         }

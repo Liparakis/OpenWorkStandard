@@ -1,4 +1,4 @@
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Scanning;
 
 /// <summary>
 /// Identifies the kind of file-system change detected by the watcher.

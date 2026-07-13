@@ -3,7 +3,7 @@ using Ows.Core.Events;
 using Ows.Core.Hashing;
 using Ows.Core.Packaging;
 
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Watcher;
 
 /// <summary>
 /// Coordinates the build package process and appends package creation events to the timeline.
@@ -18,17 +18,22 @@ internal static class PackageCreationCoordinator {
     /// <exception cref="InvalidOperationException">Thrown when package creation fails.</exception>
     public static async Task<string> PackageProjectAsync(
         string projectRoot,
-        Func<string, OwsEventType, string?, string?, long?, IReadOnlyDictionary<string, string>, Task> appendEventFunc) {
-        var packagePath = Path.Combine(projectRoot,
-            $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}");
+        Func<string, OwsEventType, string?, string?, long?, IReadOnlyDictionary<string, string>, Task> appendEventFunc
+    ) {
+        var packagePath = Path.Combine(
+            projectRoot,
+            $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}"
+        );
         var builder = new OwsPackageBuilder();
         var signingKeyPath = Environment.GetEnvironmentVariable("OWS_PACKAGE_SIGNING_KEY_PATH");
-        var result = await builder.CreatePackageAsync(new PackageCreationRequest {
-            ProjectRootPath = projectRoot,
-            OutputPackagePath = packagePath,
-            SignPackage = !string.IsNullOrWhiteSpace(signingKeyPath),
-            SigningKeyPath = signingKeyPath
-        }, CancellationToken.None);
+        var result = await OwsPackageBuilder.CreatePackageAsync(
+            new PackageCreationRequest {
+                ProjectRootPath = projectRoot,
+                OutputPackagePath = packagePath,
+                SignPackage = !string.IsNullOrWhiteSpace(signingKeyPath),
+                SigningKeyPath = signingKeyPath
+            }, CancellationToken.None
+        );
 
         if (!result.Created) {
             throw new InvalidOperationException("Packaging failed.");
@@ -42,14 +47,14 @@ internal static class PackageCreationCoordinator {
 
             if (File.Exists(packagePath)) {
                 packageSize = new FileInfo(packagePath).Length;
-                packageHash = new Sha256HashService().ComputeHash(await File.ReadAllBytesAsync(packagePath));
+                packageHash = Sha256HashService.ComputeHash(await File.ReadAllBytesAsync(packagePath));
                 using var archive = ZipFile.OpenRead(packagePath);
                 artifactCount = archive.Entries.Count(entry =>
-                    entry.FullName.StartsWith("artifacts/", StringComparison.OrdinalIgnoreCase));
+                    entry.FullName.StartsWith("artifacts/", StringComparison.OrdinalIgnoreCase)
+                );
             }
 
-            var metadata = new Dictionary<string, string>
-            {
+            var metadata = new Dictionary<string, string> {
                 { "packagePath", Path.GetFileName(packagePath) },
                 { "packageHash", packageHash },
                 { "packageSize", packageSize.ToString() },
@@ -57,8 +62,10 @@ internal static class PackageCreationCoordinator {
                 { "createdAt", DateTimeOffset.UtcNow.ToString("o") }
             };
             var host = Environment.GetEnvironmentVariable("OWS_HOST") ?? "cli";
-            await appendEventFunc(projectRoot, OwsEventType.PackageCreated, Path.GetFileName(packagePath),
-                host, 0, metadata);
+            await appendEventFunc(
+                projectRoot, OwsEventType.PackageCreated, Path.GetFileName(packagePath),
+                host, 0, metadata
+            );
         } catch {
             // Failures in writing the event should not fail the package command itself
         }

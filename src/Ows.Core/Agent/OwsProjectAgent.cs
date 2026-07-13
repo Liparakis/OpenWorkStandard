@@ -1,5 +1,8 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
+using Ows.Core.Agent.Scanning;
+using Ows.Core.Agent.Timeline;
+using Ows.Core.Agent.Watcher;
 using Ows.Core.Events;
 using Ows.Core.Init;
 
@@ -27,7 +30,7 @@ public sealed class OwsProjectAgent {
     /// <inheritdoc />
     public void InitializeProject(string projectRoot) {
         EnsureProjectDirectoryExists(projectRoot);
-        new OwsProjectInitializer().Initialize(projectRoot);
+        OwsProjectInitializer.Initialize(projectRoot);
     }
 
     /// <inheritdoc />

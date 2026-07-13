@@ -7,6 +7,7 @@ namespace Ows.Core.Agent;
 /// </summary>
 public sealed class OwsProjectRegistry {
     private static readonly object InProcessLock = new();
+
     private static readonly JsonSerializerOptions SerializerOptions = new() {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
@@ -36,10 +37,12 @@ public sealed class OwsProjectRegistry {
                 return false;
             }
 
-            projects.Add(new RegisteredOwsProject {
-                ProjectRootPath = normalizedPath,
-                RegisteredAtUtc = DateTimeOffset.UtcNow
-            });
+            projects.Add(
+                new RegisteredOwsProject {
+                    ProjectRootPath = normalizedPath,
+                    RegisteredAtUtc = DateTimeOffset.UtcNow
+                }
+            );
             WriteProjects(projects);
             return true;
         }
@@ -119,7 +122,7 @@ public sealed class OwsProjectRegistry {
 
         Directory.CreateDirectory(directory);
         var lockPath = RegistryPath + ".lock";
-        for (var attempt = 0; ; attempt++) {
+        for (var attempt = 0;; attempt++) {
             try {
                 return File.Open(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             } catch (IOException) when (attempt < 19) {
@@ -163,8 +166,10 @@ public sealed class OwsProjectRegistry {
     }
 
     private static bool PathsEqual(string left, string right) =>
-        string.Equals(left.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), right,
-            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        string.Equals(
+            left.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), right,
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal
+        );
 }
 
 /// <summary>

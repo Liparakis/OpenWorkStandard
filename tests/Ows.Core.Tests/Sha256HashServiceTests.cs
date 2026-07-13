@@ -28,7 +28,7 @@ public sealed class Sha256HashServiceTests {
         var service = new Sha256HashService();
 
         var textHash = service.ComputeHash("Open Work Standard");
-        var byteHash = service.ComputeHash("Open Work Standard"u8.ToArray());
+        var byteHash = Sha256HashService.ComputeHash("Open Work Standard"u8.ToArray());
 
         textHash.Should().Be(byteHash);
     }

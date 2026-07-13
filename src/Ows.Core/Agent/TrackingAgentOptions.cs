@@ -1,3 +1,5 @@
+using Ows.Core.Agent.Scanning;
+
 namespace Ows.Core.Agent;
 
 /// <summary>

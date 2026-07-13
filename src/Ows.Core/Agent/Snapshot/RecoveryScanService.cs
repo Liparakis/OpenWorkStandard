@@ -1,3 +1,5 @@
+using Ows.Core.Agent.Snapshot;
+
 namespace Ows.Core.Agent;
 
 /// <summary>

@@ -25,7 +25,7 @@ public sealed class ReviewerPackageArgumentTests {
                 Path.Combine(packageRoot, ".ows", OwsConstants.TimelineFileName),
                 System.Text.Json.JsonSerializer.Serialize(timelineEvent) + Environment.NewLine);
             var packagePath = Path.Combine(packageRoot, "review.owspkg");
-            await new OwsPackageBuilder().CreatePackageAsync(new PackageCreationRequest {
+            await OwsPackageBuilder.CreatePackageAsync(new PackageCreationRequest {
                 ProjectRootPath = packageRoot,
                 OutputPackagePath = packagePath
             }, CancellationToken.None);

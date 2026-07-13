@@ -29,7 +29,7 @@ public sealed class OwsInspectCommandTests {
                 System.Text.Json.JsonSerializer.Serialize(timelineEvent) + Environment.NewLine
             );
             var packagePath = Path.Combine(projectRoot, "inspection.owspkg");
-            await new OwsPackageBuilder().CreatePackageAsync(
+            await OwsPackageBuilder.CreatePackageAsync(
                 new PackageCreationRequest {
                     ProjectRootPath = projectRoot,
                     OutputPackagePath = packagePath

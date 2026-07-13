@@ -39,7 +39,11 @@ internal static class ObservedSnapshotStore {
     /// <param name="logger">The logger instance to report warnings/errors.</param>
     /// <param name="cancellationToken">Token to cancel the load operation.</param>
     /// <returns>A <see cref="LoadSnapshotResult"/> summarizing the outcome of the loading process.</returns>
-    public static async Task<LoadSnapshotResult> LoadSnapshotAsync(string snapshotPath, ILogger logger, CancellationToken cancellationToken) {
+    public static async Task<LoadSnapshotResult> LoadSnapshotAsync(
+        string snapshotPath,
+        ILogger logger,
+        CancellationToken cancellationToken
+    ) {
         var hadSnapshotFile = File.Exists(snapshotPath);
         var snapshotUnreadable = false;
         ObservedSnapshot? previousSnapshot = null;
@@ -54,8 +58,15 @@ internal static class ObservedSnapshotStore {
                 }
             } catch (Exception ex) {
                 snapshotUnreadable = true;
-                logger.LogWarning("Failed to parse observed snapshot: {Message}. Treating as corrupted and running clean scan.", ex.Message);
-                try { File.Delete(snapshotPath); } catch { /*ignored*/ }
+                logger.LogWarning(
+                    "Failed to parse observed snapshot: {Message}. Treating as corrupted and running clean scan.",
+                    ex.Message
+                );
+                try {
+                    File.Delete(snapshotPath);
+                } catch {
+                    /*ignored*/
+                }
             }
         }
 
@@ -73,7 +84,11 @@ internal static class ObservedSnapshotStore {
     /// <param name="snapshot">The snapshot model state to persist.</param>
     /// <param name="cancellationToken">Token to cancel the save operation.</param>
     /// <returns>A task representing the asynchronous save operation.</returns>
-    public static async Task SaveSnapshotAtomicallyAsync(string snapshotPath, ObservedSnapshot snapshot, CancellationToken cancellationToken) {
+    public static async Task SaveSnapshotAtomicallyAsync(
+        string snapshotPath,
+        ObservedSnapshot snapshot,
+        CancellationToken cancellationToken
+    ) {
         var tempPath = snapshotPath + ".tmp";
         var directory = Path.GetDirectoryName(snapshotPath);
         if (!string.IsNullOrEmpty(directory)) {
@@ -82,7 +97,9 @@ internal static class ObservedSnapshotStore {
 
         var json = JsonSerializer.Serialize(snapshot, SnapshotSerializerOptions);
 
-        await using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true))
+        await using (var fs = new FileStream(
+                         tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true
+                     ))
         await using (var writer = new StreamWriter(fs, System.Text.Encoding.UTF8)) {
             await writer.WriteAsync(json);
             await writer.FlushAsync(cancellationToken);

@@ -36,8 +36,10 @@ public sealed class OwsAgentHost {
                     }
 
                     var manager = new OwsProjectAgent();
-                    running[project.ProjectRootPath] = new RunningProject(project.ProjectRootPath, manager,
-                        manager.StartWatcherAsync(project.ProjectRootPath, _usePolling, _debounceMs));
+                    running[project.ProjectRootPath] = new RunningProject(
+                        project.ProjectRootPath, manager,
+                        manager.StartWatcherAsync(project.ProjectRootPath, _usePolling, _debounceMs)
+                    );
                 }
 
                 foreach (var completed in running.Where(entry => entry.Value.Task.IsCompleted).ToArray()) {
@@ -50,7 +52,7 @@ public sealed class OwsAgentHost {
             }
         } catch (OperationCanceledException) when (token.IsCancellationRequested) {
         } finally {
-            hostCancellation.Cancel();
+            await hostCancellation.CancelAsync();
             foreach (var entry in running.Values) {
                 await StopAsync(entry);
             }

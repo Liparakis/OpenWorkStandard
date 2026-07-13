@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Ows.Core.Events;
 
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Timeline;
 
 /// <summary>
 /// Provides utility methods to read and append chained events to local timeline log files.
@@ -26,8 +26,12 @@ internal static class TimelineEventAppender {
     /// <param name="previousEventHash">The hash of the previous head event.</param>
     /// <param name="cancellationToken">Token to cancel the write operation.</param>
     /// <returns>A task returning the new chained head event hash.</returns>
-    public static async Task<string> AppendEventAsync(string timelinePath, OwsEvent owsEvent, string previousEventHash,
-        CancellationToken cancellationToken) {
+    public static async Task<string> AppendEventAsync(
+        string timelinePath,
+        OwsEvent owsEvent,
+        string previousEventHash,
+        CancellationToken cancellationToken
+    ) {
         var localFolder = Path.GetDirectoryName(timelinePath);
         if (!string.IsNullOrEmpty(localFolder)) {
             Directory.CreateDirectory(localFolder);

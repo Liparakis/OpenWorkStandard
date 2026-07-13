@@ -1,13 +1,15 @@
 using System.Text;
 using Ows.Core.Verification;
 
-namespace Ows.Core.Reporting;
+namespace Ows.Core.Reporting.Renderers;
 
 internal static class TextReportRenderer {
     public static string BuildTextReport(VerificationResult res) {
         var builder = new StringBuilder();
         builder.AppendLine("OWS Verification Report");
-        builder.AppendLine("Event presence is evidence of recorded activity. Event absence is not proof of misconduct.");
+        builder.AppendLine(
+            "Event presence is evidence of recorded activity. Event absence is not proof of misconduct."
+        );
         builder.AppendLine($"Status: {res.TrustStatus}");
         builder.AppendLine($"Package Signature: {res.SignatureStatus}");
         builder.AppendLine($"Recommendation: {res.Recommendation}");

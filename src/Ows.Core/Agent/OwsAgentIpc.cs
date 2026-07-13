@@ -49,8 +49,10 @@ public sealed class OwsAgentIpcServer {
     private async Task RunNamedPipeAsync(CancellationToken cancellationToken) {
         var pipeName = OwsAgentIpcEndpoint.Get(_registry.RegistryPath);
         while (!cancellationToken.IsCancellationRequested) {
-            await using var server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
-                PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            await using var server = new NamedPipeServerStream(
+                pipeName, PipeDirection.InOut, 1,
+                PipeTransmissionMode.Byte, PipeOptions.Asynchronous
+            );
             await server.WaitForConnectionAsync(cancellationToken);
             await HandleAsync(server, cancellationToken);
         }
@@ -70,6 +72,7 @@ public sealed class OwsAgentIpcServer {
         if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsFreeBSD()) {
             File.SetUnixFileMode(socketPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
+
         try {
             while (!cancellationToken.IsCancellationRequested) {
                 using var client = await listener.AcceptAsync(cancellationToken);
@@ -107,13 +110,17 @@ public sealed class OwsAgentIpcServer {
 
         var normalizedPath = Path.GetFullPath(projectRootPath);
         return _registry.GetProjects().Any(project =>
-                   string.Equals(project.ProjectRootPath, normalizedPath,
-                       OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)) &&
+                   string.Equals(
+                       project.ProjectRootPath, normalizedPath,
+                       OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal
+                   )
+               ) &&
                Directory.Exists(Path.Combine(normalizedPath, OwsConstants.LocalFolderName)) &&
                File.Exists(Path.Combine(normalizedPath, OwsConstants.LocalFolderName, "config.json"));
     }
 
     private sealed record AgentIpcRequest(string Command, string? ProjectRootPath);
+
     private sealed record AgentIpcResponse(bool Accepted, string Message);
 }
 
@@ -132,12 +139,19 @@ public static class OwsAgentIpcClient {
     /// <summary>
     /// Requests a safe journal flush for a registered project.
     /// </summary>
-    public static Task<bool> TryFlushAsync(string registryPath, string projectRootPath,
-        CancellationToken cancellationToken = default) =>
+    public static Task<bool> TryFlushAsync(
+        string registryPath,
+        string projectRootPath,
+        CancellationToken cancellationToken = default
+    ) =>
         SendAsync(registryPath, "flush", projectRootPath, cancellationToken);
 
-    private static async Task<bool> SendAsync(string registryPath, string command, string? projectRootPath,
-        CancellationToken cancellationToken) {
+    private static async Task<bool> SendAsync(
+        string registryPath,
+        string command,
+        string? projectRootPath,
+        CancellationToken cancellationToken
+    ) {
         try {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(1));

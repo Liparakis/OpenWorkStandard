@@ -2,7 +2,7 @@ using System.IO.Compression;
 using Ows.Core.Hashing;
 using Ows.Core.Packaging;
 
-namespace Ows.Core.Verification;
+namespace Ows.Core.Verification.Helpers;
 
 /// <summary>
 /// Verification helper for validating integrity of archive entry hashes against manifest declarations.
@@ -17,7 +17,8 @@ internal static class ArtifactHashVerifier {
     public static void ValidateHashes(
         ZipArchive archive,
         OwsManifest manifest,
-        List<string> errors) {
+        List<string> errors
+    ) {
         var hashService = new Sha256HashService();
 
         var timelineEntry = archive.GetEntry(OwsConstants.TimelineFileName);
@@ -48,7 +49,8 @@ internal static class ArtifactHashVerifier {
 
         var declaredArtifactPaths = manifest.ArtifactHashes.Keys.ToHashSet(StringComparer.Ordinal);
         foreach (var artifactEntry in archive.Entries.Where(entry =>
-                     entry.FullName.StartsWith("artifacts/", StringComparison.Ordinal))) {
+                     entry.FullName.StartsWith("artifacts/", StringComparison.Ordinal)
+                 )) {
             if (!declaredArtifactPaths.Contains(artifactEntry.FullName)) {
                 errors.Add($"Unexpected artifact entry not declared in manifest: {artifactEntry.FullName}");
             }
@@ -65,7 +67,7 @@ internal static class ArtifactHashVerifier {
             using var artifactStream = artifactEntry.Open();
             using var memoryStream = new MemoryStream();
             artifactStream.CopyTo(memoryStream);
-            var actualArtifactHash = hashService.ComputeHash(memoryStream.ToArray());
+            var actualArtifactHash = Sha256HashService.ComputeHash(memoryStream.ToArray());
 
             if (!string.Equals(actualArtifactHash, artifact.Value, StringComparison.OrdinalIgnoreCase)) {
                 errors.Add($"Artifact hash does not match manifest: {artifact.Key}");

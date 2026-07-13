@@ -2,6 +2,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core.Agent;
+using Ows.Core.Agent.Scanning;
 using Ows.Core.Events;
 
 namespace Ows.Core.Tests;

@@ -154,7 +154,7 @@ public sealed class PackageSigningTests {
     }
 
     private static async Task CreatePackageAsync(Fixture fixture, bool sign) {
-        await new OwsPackageBuilder().CreatePackageAsync(new PackageCreationRequest {
+        await OwsPackageBuilder.CreatePackageAsync(new PackageCreationRequest {
             ProjectRootPath = fixture.Root,
             OutputPackagePath = fixture.PackagePath,
             SignPackage = sign,
@@ -163,7 +163,7 @@ public sealed class PackageSigningTests {
     }
 
     private static async Task<VerificationResult> VerifyAsync(string packagePath) =>
-        await new OwsPackageVerifier().VerifyAsync(new PackageVerificationRequest {
+        await OwsPackageVerifier.VerifyAsync(new PackageVerificationRequest {
             PackagePath = packagePath
         }, CancellationToken.None);
 

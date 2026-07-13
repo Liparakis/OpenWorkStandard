@@ -31,7 +31,7 @@ public static class ReportCommandBuilder {
                     $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}"
                 );
                 var verifier = new OwsPackageVerifier();
-                var verificationResult = await verifier.VerifyAsync(
+                var verificationResult = await OwsPackageVerifier.VerifyAsync(
                     new PackageVerificationRequest { PackagePath = packagePath },
                     CancellationToken.None
                 );
@@ -49,7 +49,7 @@ public static class ReportCommandBuilder {
                         $"Unsupported report format '{unsupported}'. Supported values: text, json."
                     )
                 };
-                var reportResult = await generator.GenerateAsync(
+                var reportResult = await OwsReportGenerator.GenerateAsync(
                     new ReportRequest {
                         Format = format,
                         VerificationResult = verificationResult

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
+using Ows.Core.Agent.Scanning;
 
 namespace Ows.Core.Agent;
 
@@ -76,10 +77,12 @@ public sealed class OwsFileWatcher : IAsyncDisposable {
     /// <param name="cancellationToken">Token that stops the watcher when cancelled.</param>
     /// <returns>An async sequence of debounced file-watch events.</returns>
     public async IAsyncEnumerable<FileWatchEvent> WatchAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken) {
+        [EnumeratorCancellation] CancellationToken cancellationToken
+    ) {
         // Unbounded channel — producers (OS watcher + poll loop) never block.
         var rawChannel = Channel.CreateUnbounded<(string AbsolutePath, FileChangeKind Kind, DateTimeOffset At)>(
-            new UnboundedChannelOptions { SingleReader = true });
+            new UnboundedChannelOptions { SingleReader = true }
+        );
 
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = linkedCts.Token;
@@ -175,7 +178,8 @@ public sealed class OwsFileWatcher : IAsyncDisposable {
     /// <returns>A task representing the background watcher loop execution.</returns>
     private async Task RunNativeWatcherAsync(
         ChannelWriter<(string, FileChangeKind, DateTimeOffset)> writer,
-        CancellationToken cancellationToken) {
+        CancellationToken cancellationToken
+    ) {
         try {
             using var fsw = new FileSystemWatcher(_projectRoot);
             fsw.IncludeSubdirectories = true;
@@ -222,7 +226,8 @@ public sealed class OwsFileWatcher : IAsyncDisposable {
     /// <returns>A task representing the background polling loop execution.</returns>
     private async Task RunPollingLoopAsync(
         ChannelWriter<(string, FileChangeKind, DateTimeOffset)> writer,
-        CancellationToken cancellationToken) {
+        CancellationToken cancellationToken
+    ) {
         // Baseline snapshot: path → (length, lastWriteUtc).
         var baseline = TakeSnapshot();
 

@@ -3,7 +3,7 @@ using System.Text.Json;
 using Ows.Core.Graph;
 using Ows.Core.Packaging;
 
-namespace Ows.Core.Verification;
+namespace Ows.Core.Verification.Helpers;
 
 /// <summary>
 /// Verification helper for validating the presence and JSON validity of required files inside an OWS package.
@@ -12,8 +12,7 @@ internal static class PackageStructureVerifier {
     /// <summary>
     /// The array of file entry paths required to exist in every valid OWS package structure.
     /// </summary>
-    private static readonly string[] RequiredEntries =
-    [
+    private static readonly string[] RequiredEntries = [
         OwsConstants.ManifestFileName,
         OwsConstants.TimelineFileName,
         OwsConstants.VersionGraphFileName
@@ -71,5 +70,4 @@ internal static class PackageStructureVerifier {
             errors.Add($"Invalid JSON in {OwsConstants.VersionGraphFileName}");
         }
     }
-
 }

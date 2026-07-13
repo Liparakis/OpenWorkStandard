@@ -1,4 +1,4 @@
-namespace Ows.Core.Verification;
+namespace Ows.Core.Verification.Helpers;
 
 internal static class VerificationFindingFactory {
     public static readonly VerificationFinding TimelineChainValidFinding = new() {

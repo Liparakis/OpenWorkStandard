@@ -24,7 +24,7 @@ public static class VerifyCommandBuilder {
                     projectRoot,
                     $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}"
                 );
-                var result = await new OwsPackageVerifier().VerifyAsync(
+                var result = await OwsPackageVerifier.VerifyAsync(
                     new PackageVerificationRequest { PackagePath = packagePath }, CancellationToken.None
                 );
                 Console.WriteLine(result.Summary);

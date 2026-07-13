@@ -1,3 +1,5 @@
+using Ows.Core.Reporting.Renderers;
+
 namespace Ows.Core.Reporting;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace Ows.Core.Reporting;
 /// </summary>
 public sealed class OwsReportGenerator {
     /// <inheritdoc />
-    public Task<ReportGenerationResult> GenerateAsync(ReportRequest request, CancellationToken cancellationToken) {
+    public static Task<ReportGenerationResult> GenerateAsync(ReportRequest request, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -17,9 +19,11 @@ public sealed class OwsReportGenerator {
             _ => throw new NotSupportedException($"Report format '{request.Format}' is not supported yet.")
         };
 
-        return Task.FromResult(new ReportGenerationResult {
-            Format = request.Format,
-            Content = content
-        });
+        return Task.FromResult(
+            new ReportGenerationResult {
+                Format = request.Format,
+                Content = content
+            }
+        );
     }
 }

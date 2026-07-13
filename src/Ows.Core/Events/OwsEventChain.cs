@@ -37,7 +37,7 @@ public static class OwsEventChain {
             owsEvent.BytesChanged,
             owsEvent.PreviousEventHash,
             Metadata = owsEvent.Metadata.OrderBy(pair => pair.Key, StringComparer.Ordinal)
-                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
+                               .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
         };
 
         return new Sha256HashService().ComputeHash(JsonSerializer.Serialize(canonicalEvent, SerializerOptions));

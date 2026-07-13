@@ -58,8 +58,8 @@ public sealed class OwsAgentHostTests {
         var workspace = CreateDirectory();
         var projectOne = Path.Combine(workspace, "one");
         var projectTwo = Path.Combine(workspace, "two");
-        new OwsProjectInitializer().Initialize(projectOne);
-        new OwsProjectInitializer().Initialize(projectTwo);
+        OwsProjectInitializer.Initialize(projectOne);
+        OwsProjectInitializer.Initialize(projectTwo);
         var registry = new OwsProjectRegistry(Path.Combine(workspace, "projects.json"));
         registry.Register(projectOne);
         registry.Register(projectTwo);
@@ -73,7 +73,7 @@ public sealed class OwsAgentHostTests {
             (await OwsAgentIpcClient.TryPingAsync(registry.RegistryPath)).Should().BeTrue();
             (await OwsAgentIpcClient.TryFlushAsync(registry.RegistryPath, projectOne)).Should().BeTrue();
             var packagePath = Path.Combine(projectOne, "agent-active.owspkg");
-            (await new OwsPackageBuilder().CreatePackageAsync(new PackageCreationRequest {
+            (await OwsPackageBuilder.CreatePackageAsync(new PackageCreationRequest {
                 ProjectRootPath = projectOne,
                 OutputPackagePath = packagePath
             }, CancellationToken.None)).Created.Should().BeTrue();

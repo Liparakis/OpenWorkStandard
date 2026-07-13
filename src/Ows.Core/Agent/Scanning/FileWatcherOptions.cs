@@ -1,4 +1,4 @@
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Scanning;
 
 /// <summary>
 /// Configures the runtime behaviour of <see cref="OwsFileWatcher"/>.

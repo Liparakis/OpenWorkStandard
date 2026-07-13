@@ -1,15 +1,17 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Ows.Core.Hashing;
 using Ows.Core.Packaging;
 
-namespace Ows.Core.Verification;
+namespace Ows.Core.Verification.Helpers;
 
 internal static class PackageSignatureVerifier {
     public static string Validate(
         ZipArchive archive,
         OwsManifest manifest,
-        List<string> errors) {
+        List<string> errors
+    ) {
         var signatureEntry = archive.GetEntry(OwsConstants.SignatureFileName);
         if (string.IsNullOrWhiteSpace(manifest.PackageRootHash)) {
             if (signatureEntry is not null) {
@@ -21,7 +23,7 @@ internal static class PackageSignatureVerifier {
         }
 
         var rootBytes = PackageRootCanonicalizer.BuildCanonicalBytes(manifest);
-        var expectedRoot = new Ows.Core.Hashing.Sha256HashService().ComputeHash(rootBytes);
+        var expectedRoot = Sha256HashService.ComputeHash(rootBytes);
         if (!string.Equals(expectedRoot, manifest.PackageRootHash, StringComparison.OrdinalIgnoreCase)) {
             errors.Add("Package root hash does not match canonical package contents.");
         }
@@ -41,7 +43,9 @@ internal static class PackageSignatureVerifier {
 
         if (signature is null ||
             !string.Equals(signature.RootHash, manifest.PackageRootHash, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(signature.KeyFingerprint, manifest.SignatureKeyFingerprint, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(
+                signature.KeyFingerprint, manifest.SignatureKeyFingerprint, StringComparison.OrdinalIgnoreCase
+            ) ||
             !string.Equals(signature.Algorithm, manifest.SignatureAlgorithm, StringComparison.Ordinal)) {
             errors.Add("Package signature metadata does not match the manifest.");
             return "Invalid";
@@ -52,8 +56,10 @@ internal static class PackageSignatureVerifier {
             rsa.ImportFromPem(signature.PublicKeyPem);
             var fingerprint = Convert.ToHexString(SHA256.HashData(rsa.ExportSubjectPublicKeyInfo())).ToLowerInvariant();
             var valid = string.Equals(fingerprint, signature.KeyFingerprint, StringComparison.OrdinalIgnoreCase) &&
-                        rsa.VerifyData(rootBytes, Convert.FromBase64String(signature.SignatureBase64),
-                            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                        rsa.VerifyData(
+                            rootBytes, Convert.FromBase64String(signature.SignatureBase64),
+                            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1
+                        );
             if (!valid) {
                 errors.Add("Package signature verification failed.");
                 return "Invalid";

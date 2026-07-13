@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Watcher;
 
 /// <summary>
 /// Coordinates background checking loops and manages cleaning up active watcher processes.
@@ -12,21 +12,27 @@ internal static class WatcherLifecycleCoordinator {
     /// <param name="stopFilePath">The absolute path to the watcher.stop signal file.</param>
     /// <param name="activeCts">The active watcher cancellation source to trigger cancellation.</param>
     /// <param name="token">A token to stop the background polling task itself.</param>
-    public static void StartStopPoller(string stopFilePath, CancellationTokenSource activeCts, CancellationToken token) {
-        _ = Task.Run(async () => {
-            while (!token.IsCancellationRequested) {
-                if (File.Exists(stopFilePath)) {
-                    await activeCts.CancelAsync();
-                    break;
-                }
+    public static void StartStopPoller(
+        string stopFilePath,
+        CancellationTokenSource activeCts,
+        CancellationToken token
+    ) {
+        _ = Task.Run(
+            async () => {
+                while (!token.IsCancellationRequested) {
+                    if (File.Exists(stopFilePath)) {
+                        await activeCts.CancelAsync();
+                        break;
+                    }
 
-                try {
-                    await Task.Delay(500, token);
-                } catch (OperationCanceledException) {
-                    break;
+                    try {
+                        await Task.Delay(500, token);
+                    } catch (OperationCanceledException) {
+                        break;
+                    }
                 }
-            }
-        }, token);
+            }, token
+        );
     }
 
     /// <summary>

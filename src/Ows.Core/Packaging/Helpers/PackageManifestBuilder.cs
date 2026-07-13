@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using Ows.Core.Hashing;
 
-namespace Ows.Core.Packaging;
+namespace Ows.Core.Packaging.Helpers;
 
 internal static class PackageManifestBuilder {
     public static OwsManifest BuildManifest(
@@ -11,7 +8,8 @@ internal static class PackageManifestBuilder {
         string timelineText,
         string versionGraphText,
         Dictionary<string, string> artifactHashes,
-        Sha256HashService hashService) {
+        Sha256HashService hashService
+    ) {
         return new OwsManifest {
             ProjectName = Path.GetFileName(projectRootPath),
             Platform = Environment.OSVersion.Platform.ToString(),

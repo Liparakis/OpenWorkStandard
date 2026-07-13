@@ -2,7 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using Ows.Core.Events;
 
-namespace Ows.Core.Verification;
+namespace Ows.Core.Verification.Helpers;
 
 /// <summary>
 /// Analyzes the local timeline event log for indicators of watcher observation gaps and unobserved changes.
@@ -21,7 +21,8 @@ internal static class ObservationContinuityAnalyzer {
         List<VerificationFinding> findings,
         out bool sawObservationGap,
         out bool sawLargeUnobservedChange,
-        out bool sawUnobservedChange) {
+        out bool sawUnobservedChange
+    ) {
         sawObservationGap = false;
         sawLargeUnobservedChange = false;
         sawUnobservedChange = false;
@@ -47,23 +48,25 @@ internal static class ObservationContinuityAnalyzer {
                         _ = long.TryParse(gapMsStr, out var gapMs);
                         var gapDurationText = gapMs > 0 ? $"{gapMs / 1000.0:F1} seconds" : "unknown duration";
 
-                        findings.Add(new VerificationFinding {
-                            Code = "observation.gap",
-                            Severity = "Low",
-                            Title = "Observation gap detected",
-                            Detail =
-                                $"OWS was not observing the project for an interval of {gapDurationText} (Previous state: {prevState ?? "Unknown"}).",
-                            TechnicalDetail =
-                                $"Gap Started: {startStr}, Gap Ended: {endStr}, Duration: {gapDurationText}, Previous state: {prevState}.",
-                            ReviewerAction =
-                                "Manual review recommended. Event presence is evidence of recorded activity. Event absence is not proof of misconduct."
-                        });
+                        findings.Add(
+                            new VerificationFinding {
+                                Code = "observation.gap",
+                                Severity = "Low",
+                                Title = "Observation gap detected",
+                                Detail =
+                                    $"OWS was not observing the project for an interval of {gapDurationText} (Previous state: {prevState ?? "Unknown"}).",
+                                TechnicalDetail =
+                                    $"Gap Started: {startStr}, Gap Ended: {endStr}, Duration: {gapDurationText}, Previous state: {prevState}.",
+                                ReviewerAction =
+                                    "Manual review recommended. Event presence is evidence of recorded activity. Event absence is not proof of misconduct."
+                            }
+                        );
 
                         if (string.Equals(baselineState, "unbound_snapshot", StringComparison.Ordinal)) {
                             findings.Add(VerificationFindingFactory.SnapshotUnboundFinding);
                         } else if (string.Equals(baselineState, "snapshot_hash_mismatch", StringComparison.Ordinal) ||
                                    string.Equals(baselineState, "corrupt_snapshot", StringComparison.Ordinal) ||
-                                     string.Equals(baselineState, "missing_snapshot", StringComparison.Ordinal)) {
+                                   string.Equals(baselineState, "missing_snapshot", StringComparison.Ordinal)) {
                             findings.Add(VerificationFindingFactory.SnapshotMismatchFinding);
                         }
                     } else if (owsEvent.EventType == OwsEventType.UnobservedChangeDetected) {
@@ -77,17 +80,19 @@ internal static class ObservationContinuityAnalyzer {
                         _ = long.TryParse(gapMsStr, out var gapMs);
                         var gapDurationText = gapMs > 0 ? $"{gapMs / 1000.0:F1} seconds" : "unknown duration";
 
-                        findings.Add(new VerificationFinding {
-                            Code = "observation.unobserved_change",
-                            Severity = "Medium",
-                            Title = $"Unobserved file change in {relPath ?? "unknown file"}",
-                            Detail =
-                                $"A file change ({kind ?? "Modified"}: {bytesDeltaStr ?? "0"} bytes, {linesStr ?? "0"} lines) appeared while OWS was not observing this project.",
-                            TechnicalDetail =
-                                $"File: {relPath}, Change Kind: {kind}, Bytes Delta: {bytesDeltaStr}, Line Delta Estimate: {linesStr}, Gap Duration: {gapDurationText}.",
-                            ReviewerAction =
-                                "OWS was not observing this project during the interval below. During that interval, file changes appeared. OWS can verify the current package hashes, but cannot verify the unobserved edit process. This is not proof of misconduct. Reviewers should ask the student to explain this interval."
-                        });
+                        findings.Add(
+                            new VerificationFinding {
+                                Code = "observation.unobserved_change",
+                                Severity = "Medium",
+                                Title = $"Unobserved file change in {relPath ?? "unknown file"}",
+                                Detail =
+                                    $"A file change ({kind ?? "Modified"}: {bytesDeltaStr ?? "0"} bytes, {linesStr ?? "0"} lines) appeared while OWS was not observing this project.",
+                                TechnicalDetail =
+                                    $"File: {relPath}, Change Kind: {kind}, Bytes Delta: {bytesDeltaStr}, Line Delta Estimate: {linesStr}, Gap Duration: {gapDurationText}.",
+                                ReviewerAction =
+                                    "OWS was not observing this project during the interval below. During that interval, file changes appeared. OWS can verify the current package hashes, but cannot verify the unobserved edit process. This is not proof of misconduct. Reviewers should ask the student to explain this interval."
+                            }
+                        );
                     } else if (owsEvent.EventType == OwsEventType.LargeUnobservedChangeDetected) {
                         sawLargeUnobservedChange = true;
                         owsEvent.Metadata.TryGetValue("relativePath", out var relPath);
@@ -99,17 +104,19 @@ internal static class ObservationContinuityAnalyzer {
                         _ = long.TryParse(gapMsStr, out var gapMs);
                         var gapDurationText = gapMs > 0 ? $"{gapMs / 1000.0:F1} seconds" : "unknown duration";
 
-                        findings.Add(new VerificationFinding {
-                            Code = "observation.large_unobserved_change",
-                            Severity = "High",
-                            Title = $"Large unobserved change in {relPath ?? "unknown file"}",
-                            Detail =
-                                $"A large file change ({kind ?? "Modified"}: {bytesDeltaStr ?? "0"} bytes, {linesStr ?? "0"} lines) appeared while OWS was not observing this project.",
-                            TechnicalDetail =
-                                $"File: {relPath}, Change Kind: {kind}, Bytes Delta: {bytesDeltaStr}, Line Delta Estimate: {linesStr}, Gap Duration: {gapDurationText}.",
-                            ReviewerAction =
-                                "OWS was not observing this project during the interval below. During that interval, a large file change appeared. OWS can verify the current package hashes, but cannot verify the unobserved edit process. OWS cannot determine the cause. This is not proof of misconduct. Reviewers should ask the student to explain this interval."
-                        });
+                        findings.Add(
+                            new VerificationFinding {
+                                Code = "observation.large_unobserved_change",
+                                Severity = "High",
+                                Title = $"Large unobserved change in {relPath ?? "unknown file"}",
+                                Detail =
+                                    $"A large file change ({kind ?? "Modified"}: {bytesDeltaStr ?? "0"} bytes, {linesStr ?? "0"} lines) appeared while OWS was not observing this project.",
+                                TechnicalDetail =
+                                    $"File: {relPath}, Change Kind: {kind}, Bytes Delta: {bytesDeltaStr}, Line Delta Estimate: {linesStr}, Gap Duration: {gapDurationText}.",
+                                ReviewerAction =
+                                    "OWS was not observing this project during the interval below. During that interval, a large file change appeared. OWS can verify the current package hashes, but cannot verify the unobserved edit process. OWS cannot determine the cause. This is not proof of misconduct. Reviewers should ask the student to explain this interval."
+                            }
+                        );
                     }
                 }
             }

@@ -40,11 +40,13 @@ public sealed class OwsIgnoreEngine {
     /// <summary>
     /// Gets the starter file content written by <c>ows init</c>.
     /// </summary>
-    public static string DefaultFileContents { get; } = string.Join(Environment.NewLine,
+    public static string DefaultFileContents { get; } = string.Join(
+        Environment.NewLine,
         new[] {
             "# OWS ignore rules: blank lines and # comments are ignored.",
             "# Directory patterns end with /. * and ? are simple wildcards."
-        }.Concat(DefaultPatterns)) + Environment.NewLine;
+        }.Concat(DefaultPatterns)
+    ) + Environment.NewLine;
 
     private readonly IgnoreRule[] _rules;
 
@@ -54,10 +56,10 @@ public sealed class OwsIgnoreEngine {
     /// <param name="ruleLines">Rule lines from an OWS ignore file.</param>
     public OwsIgnoreEngine(IEnumerable<string>? ruleLines = null) {
         _rules = (ruleLines ?? [])
-            .Select(ParseRule)
-            .Where(rule => rule is not null)
-            .Select(rule => rule!)
-            .ToArray();
+                 .Select(ParseRule)
+                 .Where(rule => rule is not null)
+                 .Select(rule => rule!)
+                 .ToArray();
     }
 
     /// <summary>
@@ -66,8 +68,10 @@ public sealed class OwsIgnoreEngine {
     /// <param name="projectRootPath">The project root containing <c>.owsignore</c>.</param>
     /// <param name="additionalDirectoryNames">Additional configured directory names to exclude.</param>
     /// <returns>A loaded ignore engine.</returns>
-    public static OwsIgnoreEngine Load(string projectRootPath,
-        IEnumerable<string>? additionalDirectoryNames = null) {
+    public static OwsIgnoreEngine Load(
+        string projectRootPath,
+        IEnumerable<string>? additionalDirectoryNames = null
+    ) {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRootPath);
 
         var rules = new List<string>(DefaultPatterns);
@@ -77,9 +81,11 @@ public sealed class OwsIgnoreEngine {
         }
 
         if (additionalDirectoryNames is not null) {
-            rules.AddRange(additionalDirectoryNames
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Select(name => name.Trim().EndsWith('/') ? name.Trim() : $"{name.Trim()}/"));
+            rules.AddRange(
+                additionalDirectoryNames
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Select(name => name.Trim().EndsWith('/') ? name.Trim() : $"{name.Trim()}/")
+            );
         }
 
         return new OwsIgnoreEngine(rules);
@@ -186,8 +192,8 @@ public sealed class OwsIgnoreEngine {
 
         private static string BuildRegex(string pattern) {
             var escaped = Regex.Escape(pattern)
-                .Replace("\\*", "[^/]*", StringComparison.Ordinal)
-                .Replace("\\?", "[^/]", StringComparison.Ordinal);
+                               .Replace("\\*", "[^/]*", StringComparison.Ordinal)
+                               .Replace("\\?", "[^/]", StringComparison.Ordinal);
             return $"^{escaped}$";
         }
     }

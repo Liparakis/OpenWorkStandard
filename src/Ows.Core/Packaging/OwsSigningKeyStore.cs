@@ -73,6 +73,7 @@ public sealed class OwsSigningKeyStore {
                 // ponytail: accept the pre-DPAPI local format; newly created keys use protected bytes.
                 rsa.ImportFromPem(keyFile.PrivateKeyPem);
             }
+
             var publicKeyPem = rsa.ExportSubjectPublicKeyInfoPem();
             if (!string.Equals(publicKeyPem, keyFile.PublicKeyPem, StringComparison.Ordinal)) {
                 throw new InvalidDataException("OWS signing key public/private material does not match.");
@@ -127,6 +128,7 @@ public sealed class OwsPackageSigner : IDisposable {
 
     /// <summary>Gets the public key in PEM format.</summary>
     public string PublicKeyPem { get; }
+
     /// <summary>Gets the lowercase SHA-256 public-key fingerprint.</summary>
     public string KeyFingerprint { get; }
 

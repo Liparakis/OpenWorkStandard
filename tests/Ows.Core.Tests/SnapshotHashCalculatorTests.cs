@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Ows.Core.Agent;
+using Ows.Core.Agent.Snapshot;
 
 namespace Ows.Core.Tests;
 

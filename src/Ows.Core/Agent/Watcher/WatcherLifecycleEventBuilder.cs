@@ -1,6 +1,6 @@
 using Ows.Core.Events;
 
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Watcher;
 
 /// <summary>
 /// Provides factory methods to construct timeline watcher events with their appropriate metadata.
@@ -17,13 +17,11 @@ internal static class WatcherLifecycleEventBuilder {
             EventType = OwsEventType.WatcherStarted,
             ProjectId = projectId,
             ToolName = "OWS Agent",
-            Metadata = new Dictionary<string, string>
-            {
+            Metadata = new Dictionary<string, string> {
                 { "reason", reason }
             }
         };
     }
-
 
     /// <summary>
     /// Builds a WatcherInterrupted event.
@@ -37,8 +35,7 @@ internal static class WatcherLifecycleEventBuilder {
             EventType = OwsEventType.WatcherInterrupted,
             ProjectId = projectId,
             ToolName = "OWS Agent",
-            Metadata = new Dictionary<string, string>
-            {
+            Metadata = new Dictionary<string, string> {
                 { "previousPid", previousPid ?? "unknown" },
                 { "reason", reason }
             }
@@ -57,8 +54,7 @@ internal static class WatcherLifecycleEventBuilder {
             EventType = OwsEventType.WatcherRecovered,
             ProjectId = projectId,
             ToolName = "OWS Agent",
-            Metadata = new Dictionary<string, string>
-            {
+            Metadata = new Dictionary<string, string> {
                 { "reason", reason },
                 { "gapDurationMs", gapDurationMs.ToString() }
             }
@@ -87,9 +83,9 @@ internal static class WatcherLifecycleEventBuilder {
         string recoveryReason,
         string baselineState,
         string? committedSnapshotHash = null,
-        string? computedSnapshotHash = null) {
-        var metadata = new Dictionary<string, string>
-        {
+        string? computedSnapshotHash = null
+    ) {
+        var metadata = new Dictionary<string, string> {
             { "gapStartedAt", gapStartedAt.ToString("o") },
             { "gapEndedAt", gapEndedAt.ToString("o") },
             { "gapDurationMs", gapDurationMs.ToString() },
@@ -130,9 +126,9 @@ internal static class WatcherLifecycleEventBuilder {
         int fileCount,
         DateTimeOffset observedAt,
         string reason,
-        string? previousSnapshotHash) {
-        var metadata = new Dictionary<string, string>
-        {
+        string? previousSnapshotHash
+    ) {
+        var metadata = new Dictionary<string, string> {
             { "snapshotHash", snapshotHash },
             { "fileCount", fileCount.ToString() },
             { "observedAt", observedAt.ToUniversalTime().ToString("O") },

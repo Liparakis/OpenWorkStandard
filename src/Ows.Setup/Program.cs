@@ -17,16 +17,21 @@ internal static class Program {
     public static async Task<int> Main(string[] args) {
         try {
             if (args.Any(argument => string.Equals(argument, "--service", StringComparison.OrdinalIgnoreCase))) {
-                return await RunServiceAsync(args);
+                return await RunServiceAsync();
             }
 
             if (args.Any(argument => string.Equals(argument, "--uninstall", StringComparison.OrdinalIgnoreCase))) {
-                Uninstall(args.Any(argument => string.Equals(argument, "--purge-data", StringComparison.OrdinalIgnoreCase)));
+                Uninstall(
+                    args.Any(argument => string.Equals(argument, "--purge-data", StringComparison.OrdinalIgnoreCase))
+                );
                 return 0;
             }
 
             Install();
-            ShowMessage("OWS Agent installed and running silently.\n\nIt is available in Services as 'OWS Agent'.", "Open Work Standard");
+            ShowMessage(
+                "OWS Agent installed and running silently.\n\nIt is available in Services as 'OWS Agent'.",
+                "Open Work Standard"
+            );
             return 0;
         } catch (Exception exception) {
             ShowMessage($"OWS Setup failed:\n\n{exception.Message}", "Open Work Standard Setup Error", 0x00000010);
@@ -34,7 +39,7 @@ internal static class Program {
         }
     }
 
-    private static async Task<int> RunServiceAsync(string[] args) {
+    private static async Task<int> RunServiceAsync() {
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddWindowsService(options => options.ServiceName = DisplayName);
         builder.Services.AddHostedService<WindowsAgentHostedService>();
@@ -44,7 +49,8 @@ internal static class Program {
     }
 
     private static void Install() {
-        var sourcePath = Environment.ProcessPath ?? throw new InvalidOperationException("Could not locate Ows.Setup.exe.");
+        var sourcePath = Environment.ProcessPath ??
+                         throw new InvalidOperationException("Could not locate Ows.Setup.exe.");
         var installDirectory = GetInstallDirectory();
         var servicePath = Path.Combine(installDirectory, "Ows.Setup.exe");
 
@@ -67,7 +73,8 @@ internal static class Program {
                 IntPtr.Zero,
                 "Remove the shared OWS Agent data too?\n\nYes removes the Agent registry. No preserves it. Cancel leaves OWS installed.",
                 "Uninstall Open Work Standard",
-                0x00000033);
+                0x00000033
+            );
             if (choice == 2) {
                 return;
             }
@@ -80,28 +87,37 @@ internal static class Program {
         var installDirectory = GetInstallDirectory();
         ScheduleRemoval(installDirectory, purgeData ? GetDataDirectory() : null);
 
-        ShowMessage(purgeData
-            ? "OWS Agent, installed files, and shared Agent data are being removed. Project .ows folders are not touched."
-            : "OWS Agent and installed files are being removed. Shared Agent data is preserved.", "Open Work Standard");
+        ShowMessage(
+            purgeData
+                ? "OWS Agent, installed files, and shared Agent data are being removed. Project .ows folders are not touched."
+                : "OWS Agent and installed files are being removed. Shared Agent data is preserved.",
+            "Open Work Standard"
+        );
     }
 
     private static void CreateService(string servicePath) {
-        RunTool("sc.exe", new[] {
-            "create", ServiceName,
-            "binPath=", $"\"{servicePath}\" --service",
-            "start=", "auto",
-            "obj=", "LocalSystem",
-            "DisplayName=", DisplayName
-        });
-        RunTool("sc.exe", new[] {
-            "description", ServiceName,
-            "Watches explicitly initialized Open Work Standard projects."
-        });
-        RunTool("sc.exe", new[] {
-            "failure", ServiceName,
-            "reset=", "86400",
-            "actions=", "restart/5000/restart/30000/restart/60000"
-        });
+        RunTool(
+            "sc.exe", [
+                "create", ServiceName,
+                "binPath=", $"\"{servicePath}\" --service",
+                "start=", "auto",
+                "obj=", "LocalSystem",
+                "DisplayName=", DisplayName
+            ]
+        );
+        RunTool(
+            "sc.exe", [
+                "description", ServiceName,
+                "Watches explicitly initialized Open Work Standard projects."
+            ]
+        );
+        RunTool(
+            "sc.exe", [
+                "failure", ServiceName,
+                "reset=", "86400",
+                "actions=", "restart/5000/restart/30000/restart/60000"
+            ]
+        );
     }
 
     private static void RemoveService() {
@@ -117,7 +133,8 @@ internal static class Program {
                 !stop.Output.Contains("1062", StringComparison.OrdinalIgnoreCase) &&
                 !stop.Error.Contains("1062", StringComparison.OrdinalIgnoreCase)) {
                 throw new InvalidOperationException(
-                    $"Could not stop the OWS Agent service. {stop.Error.Trim()} {stop.Output.Trim()}".Trim());
+                    $"Could not stop the OWS Agent service. {stop.Error.Trim()} {stop.Output.Trim()}".Trim()
+                );
             }
         }
 
@@ -135,7 +152,8 @@ internal static class Program {
 
         if (!stopped) {
             throw new InvalidOperationException(
-                $"OWS Agent did not stop within {ServiceStopTimeout.TotalSeconds:0} seconds; installed files were left in place.");
+                $"OWS Agent did not stop within {ServiceStopTimeout.TotalSeconds:0} seconds; installed files were left in place."
+            );
         }
 
         RunTool("sc.exe", $"delete {ServiceName}", allowFailure: true);
@@ -143,8 +161,9 @@ internal static class Program {
 
     private static void RegisterUninstallEntry(string servicePath) {
         using var key = Registry.LocalMachine.CreateSubKey(
-            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OpenWorkStandard")
-            ?? throw new InvalidOperationException("Could not create the Windows uninstall entry.");
+                            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OpenWorkStandard"
+                        )
+                        ?? throw new InvalidOperationException("Could not create the Windows uninstall entry.");
         var uninstallCommand = $"\"{servicePath}\" --uninstall";
         key.SetValue("DisplayName", "Open Work Standard");
         key.SetValue("DisplayVersion", "0.1.0");
@@ -159,7 +178,8 @@ internal static class Program {
     private static void RemoveUninstallEntry() {
         Registry.LocalMachine.DeleteSubKeyTree(
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OpenWorkStandard",
-            throwOnMissingSubKey: false);
+            throwOnMissingSubKey: false
+        );
     }
 
     private static void ScheduleRemoval(string installDirectory, string? dataDirectory) {
@@ -171,13 +191,15 @@ internal static class Program {
             commands.Add($"rmdir /s /q \"{dataDirectory}\"");
         }
 
-        Process.Start(new ProcessStartInfo {
-            FileName = "cmd.exe",
-            Arguments = "/c " + string.Join(" & ", commands),
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WindowStyle = ProcessWindowStyle.Hidden
-        });
+        Process.Start(
+            new ProcessStartInfo {
+                FileName = "cmd.exe",
+                Arguments = "/c " + string.Join(" & ", commands),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            }
+        );
     }
 
     private static void PrepareSharedDataDirectory() {
@@ -193,17 +215,23 @@ internal static class Program {
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), DataDirectoryName);
 
     private static ToolResult RunTool(string fileName, string arguments, bool allowFailure = false) {
-        return RunTool(new ProcessStartInfo {
-            FileName = fileName,
-            Arguments = arguments,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        }, allowFailure);
+        return RunTool(
+            new ProcessStartInfo {
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            }, allowFailure
+        );
     }
 
-    private static ToolResult RunTool(string fileName, IReadOnlyCollection<string> arguments, bool allowFailure = false) {
+    private static void RunTool(
+        string fileName,
+        IReadOnlyCollection<string> arguments,
+        bool allowFailure = false
+    ) {
         var startInfo = new ProcessStartInfo {
             FileName = fileName,
             UseShellExecute = false,
@@ -215,17 +243,20 @@ internal static class Program {
             startInfo.ArgumentList.Add(argument);
         }
 
-        return RunTool(startInfo, allowFailure);
+        RunTool(startInfo, allowFailure);
     }
 
     private static ToolResult RunTool(ProcessStartInfo startInfo, bool allowFailure) {
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Could not start {startInfo.FileName}.");
+        using var process = Process.Start(startInfo) ??
+                            throw new InvalidOperationException($"Could not start {startInfo.FileName}.");
         var output = process.StandardOutput.ReadToEnd();
         var error = process.StandardError.ReadToEnd();
         process.WaitForExit();
         var result = new ToolResult(process.ExitCode, output, error);
         if (!allowFailure && result.ExitCode != 0) {
-            throw new InvalidOperationException($"{startInfo.FileName} failed: {result.Error.Trim()} {result.Output.Trim()}".Trim());
+            throw new InvalidOperationException(
+                $"{startInfo.FileName} failed: {result.Error.Trim()} {result.Output.Trim()}".Trim()
+            );
         }
 
         return result;

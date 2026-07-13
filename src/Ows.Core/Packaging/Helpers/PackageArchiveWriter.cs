@@ -1,10 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
 
-namespace Ows.Core.Packaging;
+namespace Ows.Core.Packaging.Helpers;
 
 internal static class PackageArchiveWriter {
     public static void WriteArchive(
@@ -14,7 +11,8 @@ internal static class PackageArchiveWriter {
         string timelineText,
         string versionGraphText,
         Dictionary<string, string> artifactHashes,
-        OwsPackageSignature? signature) {
+        OwsPackageSignature? signature
+    ) {
         if (File.Exists(outputPackagePath)) {
             File.Delete(outputPackagePath);
         }
@@ -39,7 +37,9 @@ internal static class PackageArchiveWriter {
         if (signature is not null) {
             var signatureEntry = archive.CreateEntry(OwsConstants.SignatureFileName);
             using var signatureWriter = new StreamWriter(signatureEntry.Open());
-            signatureWriter.Write(JsonSerializer.Serialize(signature, new JsonSerializerOptions { WriteIndented = true }));
+            signatureWriter.Write(
+                JsonSerializer.Serialize(signature, new JsonSerializerOptions { WriteIndented = true })
+            );
         }
 
         foreach (var artifactPath in artifactHashes.Keys) {

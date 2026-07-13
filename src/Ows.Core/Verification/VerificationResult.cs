@@ -44,7 +44,8 @@ public sealed record VerificationResult {
     public static VerificationResult Success(
         string summary,
         TrustStatus trustStatus = TrustStatus.Verified,
-        IReadOnlyList<VerificationFinding>? findings = null) =>
+        IReadOnlyList<VerificationFinding>? findings = null
+    ) =>
         new() {
             IsSuccess = true,
             TrustStatus = trustStatus,
@@ -62,7 +63,8 @@ public sealed record VerificationResult {
     public static VerificationResult Failure(
         string summary,
         IReadOnlyList<string>? errors = null,
-        IReadOnlyList<VerificationFinding>? findings = null) =>
+        IReadOnlyList<VerificationFinding>? findings = null
+    ) =>
         new() {
             IsSuccess = false,
             TrustStatus = TrustStatus.Invalid,
@@ -95,7 +97,6 @@ public sealed record VerificationResult {
     /// Gets the timeline integrity metadata.
     /// </summary>
     public ReportTimelineInfo Timeline { get; init; } = new();
-
 }
 
 /// <summary>
@@ -116,7 +117,6 @@ public sealed record ReportPackageInfo {
     /// Gets the canonical logical package-root hash.
     /// </summary>
     public string PackageRootHash { get; init; } = string.Empty;
-
 }
 
 /// <summary>

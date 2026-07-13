@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Ows.Core;
 using Ows.Core.Agent;
+using Ows.Core.Agent.Scanning;
 
 namespace Ows.Cli.Tests;
 

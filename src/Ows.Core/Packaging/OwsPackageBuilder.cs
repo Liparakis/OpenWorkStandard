@@ -2,6 +2,7 @@ using System.Text.Json;
 using Ows.Core.Hashing;
 using Ows.Core.Ignore;
 using Ows.Core.Init;
+using Ows.Core.Packaging.Helpers;
 
 namespace Ows.Core.Packaging;
 
@@ -9,9 +10,18 @@ namespace Ows.Core.Packaging;
 /// Provides the OWS package builder that delegates to focused helper services.
 /// </summary>
 public sealed class OwsPackageBuilder {
-    /// <inheritdoc />
-    public Task<PackageCreationResult> CreatePackageAsync(PackageCreationRequest request,
-        CancellationToken cancellationToken) {
+
+    /// <summary>
+    /// Creates an OWS package from the specified project root path and writes it to the output package path.
+    /// </summary>
+    /// <param name="request"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    public static Task<PackageCreationResult> CreatePackageAsync(
+        PackageCreationRequest request,
+        CancellationToken cancellationToken
+    ) {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -28,10 +38,12 @@ public sealed class OwsPackageBuilder {
         const string versionGraphText = "{\"nodes\":[],\"edges\":[]}";
         var artifactHashes = PackageArtifactCollector.CollectArtifacts(
             request.ProjectRootPath, request.OutputPackagePath, hashService,
-            LoadIgnoreEngine(request.ProjectRootPath));
+            LoadIgnoreEngine(request.ProjectRootPath)
+        );
 
         var manifest = PackageManifestBuilder.BuildManifest(
-            request.ProjectRootPath, timelineText, versionGraphText, artifactHashes, hashService);
+            request.ProjectRootPath, timelineText, versionGraphText, artifactHashes, hashService
+        );
         manifest = manifest with { PackageRootHash = PackageRootCanonicalizer.ComputeHash(manifest) };
 
         OwsPackageSignature? signature = null;
@@ -57,11 +69,14 @@ public sealed class OwsPackageBuilder {
             timelineText,
             versionGraphText,
             artifactHashes,
-            signature);
+            signature
+        );
 
-        return Task.FromResult(new PackageCreationResult {
-            Created = true
-        });
+        return Task.FromResult(
+            new PackageCreationResult {
+                Created = true
+            }
+        );
     }
 
     private static OwsIgnoreEngine LoadIgnoreEngine(string projectRootPath) {
@@ -69,8 +84,10 @@ public sealed class OwsPackageBuilder {
         var additionalDirectoryNames = Array.Empty<string>();
 
         if (File.Exists(configPath)) {
-            var config = JsonSerializer.Deserialize<OwsProjectConfig>(File.ReadAllText(configPath),
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var config = JsonSerializer.Deserialize<OwsProjectConfig>(
+                File.ReadAllText(configPath),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
             additionalDirectoryNames = config?.WatcherSettings?.ExcludeDirectories ?? [];
         }
 

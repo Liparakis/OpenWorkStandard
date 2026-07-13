@@ -1,38 +1,33 @@
 # Current Task
 
-- Phase: Phase 9 cleanup - remove dead watcher code and invalid XML documentation
-- Objective: remove unused `BuildWatcherStopped` and invalid `inheritdoc` tags in `LocalTrackingAgent`.
+- Phase: Phase 9 cleanup - commit the current generic cleanup pass
+- Objective: commit all existing working-tree cleanup, formatting, namespace, and related refactor changes under `chore: formatting`.
 - Agreed scope:
-  - Delete the unused watcher-stopped builder method.
-  - Delete the three invalid `inheritdoc` tags reported by the IDE.
-  - Preserve all existing watcher behavior and unrelated working-tree changes.
+  - Include the complete current working-tree diff, as explicitly requested by the owner.
+  - Preserve the dead-code removals and XML documentation cleanup already made.
+  - Record the current compile blocker honestly.
 - Explicit non-goals:
-  - Do not add replacement events, interfaces, or speculative documentation.
-  - Do not alter active lifecycle methods, namespace refactors, scanning changes, or tests already modified in the working tree.
+  - No new feature work, architecture expansion, publication, tag, push, or release action.
+  - Do not claim the commit is formatting-only in technical content or that the build is green.
 - Relevant existing architecture:
-  - `WatcherLifecycleEventBuilder` creates timeline events consumed by the Agent.
-  - `LocalTrackingAgent` is a concrete class with no base/interface contract for `Status`, `PrepareAsync`, or `StartAsync`.
+  - OWS remains a local-first proof-of-work toolchain.
+  - The current diff spans Agent, watcher, packaging, verification, reporting, setup, CLI, and related tests.
 - Files currently being inspected or changed:
-  - `src/Ows.Core/Agent/Watcher/WatcherLifecycleEventBuilder.cs`
-  - `src/Ows.Core/Agent/LocalTrackingAgent.cs`
-  - `.agent/CURRENT_TASK.md`
-  - `.agent/WORK_LOG.md`
-  - `.agent/NEXT_STEPS.md`
+  - All files reported by `git diff --name-only`.
+  - `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`.
 - Implementation checklist:
-  - [x] Remove `BuildWatcherStopped`.
-  - [x] Remove invalid `inheritdoc` tags.
-  - [x] Confirm no dead-method or invalid-tag references remain.
-  - [ ] Run focused and full validation after the unrelated compile blocker is resolved.
-  - [x] Commit only these cleanups and continuity notes; preserve unrelated user changes.
+  - [x] Inspect the complete diff and identify non-formatting changes.
+  - [x] Confirm owner explicitly requested staging everything.
+  - [x] Stage all current changes.
+  - [x] Run `git diff --check` and commit as `chore: formatting`.
+  - [x] Record the final commit and handoff.
 - Tests required before completion:
-  - `dotnet test tests/Ows.Core.Tests/Ows.Core.Tests.csproj -nologo`
-  - `dotnet test OWS.sln -nologo`
-  - `dotnet build OWS.sln -c Release -nologo`
-  - `git diff --check`
+  - `git diff --check` before commit.
+  - Build/test rerun after the packaging namespace blocker is resolved.
 - Blockers, uncertainties, and risks:
-  - The working tree contains unrelated Agent, watcher, scanning, namespace, and test changes; they must not be reverted or included accidentally.
-  - These are deletion/documentation-only changes, but compilation must validate the current working tree.
+  - Current build fails because `OwsPackageBuilder.cs` imports unresolved `Ows.Core.Packaging.Helpers`.
+  - The requested commit contains more than formatting: namespace moves, visibility changes, and refactors are included.
 - Current build/test state:
-  - Prior validation passed before this documentation cleanup: Core 41/41, full suite 51/51, Release build 0 warnings/errors.
-  - Current validation is blocked by unrelated `Ows.PackageBuilder` import `Ows.Core.Packaging.Helpers`, which does not resolve in the current working tree.
-  - `git diff --check` passes; scoped cleanup committed as `ff77cc5`; unrelated changes remain unstaged.
+  - Prior baseline before the in-progress cleanup was Core 41/41, full suite 51/51, Release build clean.
+  - Current working-tree validation is blocked by the unresolved packaging namespace.
+  - Cleanup commit `31837f0` is being amended to remove two trailing-whitespace defects.

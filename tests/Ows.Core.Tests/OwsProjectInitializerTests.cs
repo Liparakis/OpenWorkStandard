@@ -19,7 +19,7 @@ public sealed class OwsProjectInitializerTests {
         try {
             var initializer = new OwsProjectInitializer();
 
-            var result = initializer.Initialize(projectRoot);
+            var result = OwsProjectInitializer.Initialize(projectRoot);
 
             var localFolder = Path.Combine(projectRoot, OwsConstants.LocalFolderName);
             var configPath = Path.Combine(localFolder, "config.json");
@@ -57,8 +57,8 @@ public sealed class OwsProjectInitializerTests {
             File.WriteAllText(ignorePath, customRules);
 
             var initializer = new OwsProjectInitializer();
-            initializer.Initialize(projectRoot);
-            initializer.Initialize(projectRoot);
+            OwsProjectInitializer.Initialize(projectRoot);
+            OwsProjectInitializer.Initialize(projectRoot);
 
             File.ReadAllText(ignorePath).Should().Be(customRules);
         } finally {

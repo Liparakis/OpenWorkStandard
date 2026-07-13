@@ -16,7 +16,7 @@ public sealed class ReportingNamespaceTests {
     public async Task GenerateAsync_ShouldReturnTextSummary() {
         var generator = new OwsReportGenerator();
 
-        var result = await generator.GenerateAsync(
+        var result = await OwsReportGenerator.GenerateAsync(
             new ReportRequest {
                 Format = ReportFormat.Text,
                 VerificationResult = VerificationResult.Success("OWS verify succeeded.", TrustStatus.Unverified)
@@ -37,7 +37,7 @@ public sealed class ReportingNamespaceTests {
     public async Task GenerateAsync_ShouldIncludeFindingsInTextReport() {
         var generator = new OwsReportGenerator();
 
-        var result = await generator.GenerateAsync(
+        var result = await OwsReportGenerator.GenerateAsync(
             new ReportRequest {
                 Format = ReportFormat.Text,
                 VerificationResult = VerificationResult.Success(
@@ -71,7 +71,7 @@ public sealed class ReportingNamespaceTests {
     public async Task GenerateAsync_ShouldReturnJsonSummary() {
         var generator = new OwsReportGenerator();
 
-        var result = await generator.GenerateAsync(
+        var result = await OwsReportGenerator.GenerateAsync(
             new ReportRequest {
                 Format = ReportFormat.Json,
                 VerificationResult = VerificationResult.Success("OWS verify succeeded.", TrustStatus.Verified)

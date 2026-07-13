@@ -318,3 +318,28 @@
 - Exact next action: review the unresolved `Ows.Core.Packaging.Helpers` import, then rerun validation.
 - Important context: unrelated Agent/watcher/scanning/packaging changes remain unstaged and were not reverted.
 - Files to inspect first: `src/Ows.Core/Packaging/OwsPackageBuilder.cs`, `src/Ows.Core/Packaging/Helpers/PackageArtifactCollector.cs`, and `git status --short`.
+
+## 2026-07-13 - Commit generic cleanup pass
+
+### Completed
+- Inspected the complete working-tree diff and confirmed it contains formatting plus namespace/API/refactor changes.
+- Owner explicitly authorized staging all current changes under `chore: formatting`.
+
+### Changed
+- Added: none beyond continuity updates.
+- Modified: all existing working-tree files included by the owner-requested commit.
+- Deleted: none beyond previously recorded dead-code cleanup.
+
+### Validation
+- Build: currently blocked by unresolved `Ows.Core.Packaging.Helpers` import in `OwsPackageBuilder.cs`.
+- Targeted tests: blocked by the same compile error.
+- Full tests: blocked by the same compile error.
+- Manual checks: diff review completed; `git diff --check` required before commit.
+
+### Remaining
+- Resolve the packaging namespace blocker separately; the requested cleanup commit is complete after the whitespace correction.
+
+### Handoff
+- Exact next action: review `chore: formatting` commit `31837f0`, then resolve the packaging namespace blocker.
+- Important context: this commit is broader than formatting despite the requested commit title; build status is not green.
+- Files to inspect first: `src/Ows.Core/Packaging/OwsPackageBuilder.cs` and `src/Ows.Core/Packaging/Helpers/PackageArtifactCollector.cs`.

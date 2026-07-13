@@ -1,4 +1,4 @@
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Snapshot;
 
 /// <summary>
 /// Represents the observed state of a single project file at a specific time.

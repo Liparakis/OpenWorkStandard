@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Watcher;
 
 /// <summary>
 /// Provides utility functions to check if the watcher is running on the OS and manage the watcher state file.

@@ -35,7 +35,7 @@ public static class InspectCommandBuilder {
                         projectRoot,
                         $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}"
                     );
-                var result = await new OwsPackageVerifier().VerifyAsync(
+                var result = await OwsPackageVerifier.VerifyAsync(
                     new PackageVerificationRequest {
                         PackagePath = packagePath
                     }, CancellationToken.None

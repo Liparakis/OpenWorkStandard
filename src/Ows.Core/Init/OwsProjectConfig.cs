@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using Ows.Core.Agent;
+using Ows.Core.Agent.Scanning;
 
 namespace Ows.Core.Init;
 

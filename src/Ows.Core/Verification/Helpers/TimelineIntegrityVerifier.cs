@@ -2,7 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using Ows.Core.Events;
 
-namespace Ows.Core.Verification;
+namespace Ows.Core.Verification.Helpers;
 
 /// <summary>
 /// Verification helper that analyzes the timeline integrity, validating parent-child event chains and checksum correctness.
@@ -15,8 +15,11 @@ internal static class TimelineIntegrityVerifier {
     /// <param name="errors">The list to accumulate verification errors.</param>
     /// <param name="eventTimestamps">Output list containing all validated event timestamps.</param>
     /// <returns>The hash of the last event in the timeline chain, or genesis if broken/missing.</returns>
-    public static string ValidateTimeline(ZipArchive archive, List<string> errors,
-        out List<DateTimeOffset> eventTimestamps) {
+    public static string ValidateTimeline(
+        ZipArchive archive,
+        List<string> errors,
+        out List<DateTimeOffset> eventTimestamps
+    ) {
         eventTimestamps = [];
         var entry = archive.GetEntry(OwsConstants.TimelineFileName);
         if (entry is null) {

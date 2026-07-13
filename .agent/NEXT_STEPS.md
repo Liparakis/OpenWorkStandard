@@ -1,10 +1,9 @@
 # Next Steps
 
-1. Resolve or review the unrelated `Ows.Core.Packaging.Helpers` compile blocker in the current working tree, then rerun Core/full tests and Release build.
-2. Owner reviews commits `6001de1`, `8f9fc3b`, `6856367`, `6d7b7e6`, and the new watcher/XML cleanup commit, plus history, license, and manual Windows Agent lifecycle evidence.
-3. Decide separately whether the existing Agent/scanning/watcher/packaging working-tree changes should be retained and committed.
-4. Owner confirms the local tamper-detection boundary and release candidate.
-5. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
+1. Resolve the packaging namespace blocker, then rerun Core/full tests and Release build.
+2. Owner reviews the new `chore: formatting` commit together with prior cleanup commits, history, license, and manual Windows Agent lifecycle evidence.
+3. Owner confirms the local tamper-detection boundary and release candidate.
+4. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
 
 Current phase remaining:
 

@@ -1,4 +1,5 @@
 using System.Text;
+using Ows.Core.Agent.Snapshot;
 using Ows.Core.Hashing;
 
 namespace Ows.Core.Agent;

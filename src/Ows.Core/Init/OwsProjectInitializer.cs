@@ -12,7 +12,7 @@ public sealed class OwsProjectInitializer {
     /// </summary>
     /// <param name="projectRootPath">The project root path.</param>
     /// <returns>The initialization result.</returns>
-    public OwsInitializationResult Initialize(string projectRootPath) {
+    public static OwsInitializationResult Initialize(string projectRootPath) {
         ArgumentNullException.ThrowIfNull(projectRootPath);
 
         Directory.CreateDirectory(projectRootPath);
@@ -30,9 +30,13 @@ public sealed class OwsProjectInitializer {
             initializedAtUtc = DateTimeOffset.UtcNow
         };
 
-        File.WriteAllText(configPath, JsonSerializer.Serialize(config, new JsonSerializerOptions {
-            WriteIndented = true
-        }));
+        File.WriteAllText(
+            configPath, JsonSerializer.Serialize(
+                config, new JsonSerializerOptions {
+                    WriteIndented = true
+                }
+            )
+        );
 
         if (!File.Exists(timelinePath)) {
             File.WriteAllText(timelinePath, string.Empty);
