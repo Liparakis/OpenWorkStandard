@@ -43,6 +43,3 @@ Current status:
 CLI help:
 - Run `ows --help` for the available commands and options.
 - Run `ows <command> --help` for command-specific help.
-
-License:
-- [LICENSE](LICENSE)
