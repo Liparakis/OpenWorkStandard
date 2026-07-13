@@ -1,9 +1,10 @@
 # Next Steps
 
-1. Owner reviews commits `6001de1`, `8f9fc3b`, and `6856367`, plus the history, license, and manual Windows Agent lifecycle evidence.
-2. Decide whether the separate uncommitted `src/Ows.Cli/OwsCommandFactory.cs` edit should be retained and committed; it is not part of the dead-field fix.
-3. Owner confirms the local tamper-detection boundary and release candidate.
-4. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
+1. Commit the scoped `HadSnapshotFile` cleanup and continuity notes without staging unrelated Agent/scanning changes.
+2. Owner reviews commits `6001de1`, `8f9fc3b`, `6856367`, and the new cleanup commit, plus the history, license, and manual Windows Agent lifecycle evidence.
+3. Decide separately whether the existing Agent/scanning working-tree changes should be retained and committed.
+4. Owner confirms the local tamper-detection boundary and release candidate.
+5. Only after explicit approval: tag, push, and publish; no publication is currently authorized.
 
 Current phase remaining:
 

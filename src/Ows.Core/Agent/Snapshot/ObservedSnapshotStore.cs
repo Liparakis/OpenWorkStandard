@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
-namespace Ows.Core.Agent;
+namespace Ows.Core.Agent.Snapshot;
 
 /// <summary>
 /// Represents the result of an observed snapshot loading operation, including readability and hashing flags.
@@ -11,11 +11,6 @@ internal sealed class LoadSnapshotResult {
     /// Gets the loaded <see cref="ObservedSnapshot"/> instance when successful; otherwise, <see langword="null"/>.
     /// </summary>
     public ObservedSnapshot? Snapshot { get; init; }
-
-    /// <summary>
-    /// Gets a value indicating whether the snapshot file exists on disk.
-    /// </summary>
-    public bool HadSnapshotFile { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether the snapshot file existed but failed to load or parse (corrupt).
@@ -66,7 +61,6 @@ internal static class ObservedSnapshotStore {
 
         return new LoadSnapshotResult {
             Snapshot = previousSnapshot,
-            HadSnapshotFile = hadSnapshotFile,
             SnapshotUnreadable = snapshotUnreadable,
             ComputedSnapshotHash = computedSnapshotHash
         };

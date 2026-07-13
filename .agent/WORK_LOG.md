@@ -268,3 +268,28 @@
 - Exact next action: review the dead-field commit and decide whether to retain the separate factory edit before the next commit.
 - Important context: Core verification trust status remains active and is used by package verification, inspect, and reports.
 - Files to inspect first: `src/Ows.Cli/OwsCliResponse.cs`, `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`, and `src/Ows.Cli/OwsCommandFactory.cs`.
+
+## 2026-07-13 - Remove dead snapshot accessor
+
+### Completed
+- Traced `LoadSnapshotResult` consumers and confirmed `HadSnapshotFile` had no caller.
+- Removed the unused property and object-initializer assignment.
+
+### Changed
+- Added: none.
+- Modified: `src/Ows.Core/Agent/Snapshot/ObservedSnapshotStore.cs` and continuity notes.
+- Deleted: `LoadSnapshotResult.HadSnapshotFile`.
+
+### Validation
+- Build: Release build passed with 0 warnings/errors.
+- Targeted tests: Core tests passed 41/41.
+- Full tests: Core 41/41 and CLI 10/10 passed.
+- Manual checks: no source/test references remain; `git diff --check` passed.
+
+### Remaining
+- Commit this scoped cleanup and notes; unrelated Agent/scanning changes remain unstaged.
+
+### Handoff
+- Exact next action: stage only `ObservedSnapshotStore.cs` and the continuity notes, then commit.
+- Important context: The local `hadSnapshotFile` variable remains required to detect and parse an existing snapshot; only the unused result accessor was removed.
+- Files to inspect first: `src/Ows.Core/Agent/Snapshot/ObservedSnapshotStore.cs` and `git status --short`.

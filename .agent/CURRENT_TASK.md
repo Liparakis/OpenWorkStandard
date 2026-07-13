@@ -1,62 +1,36 @@
 # Current Task
 
-- Phase: Phase 9 - Prepare public open-source release
-- Objective: leave a clean, documented, local-only release candidate for owner review.
+- Phase: Phase 9 cleanup - remove dead snapshot result state
+- Objective: remove `LoadSnapshotResult.HadSnapshotFile` because no caller reads it.
 - Agreed scope:
-  - Keep OWS as a small local-first proof-of-work protocol/toolchain.
-  - Keep `ows init -> work normally -> ows package -> offline verify/inspect/report` as the primary workflow.
-  - Keep the Windows `Ows.Setup.exe` SCM service and native uninstall path.
-  - Remove unreleased remote, management, ceremony, compatibility, and deployment residue.
-  - Treat remote tamper anchoring as optional future enrichment, not an OWS v0 dependency.
+  - Delete the unused auto-property and its object-initializer assignment.
+  - Preserve the existing snapshot load behavior and all unrelated working-tree changes.
 - Explicit non-goals:
-  - No server, hosted verifier, LMS, management layer, IDE integration, desktop UI, or cloud installer.
-  - No public release, tag, push, or external coordination without explicit owner approval.
-  - No preservation of unreleased behavior solely for compatibility.
-- Relevant architecture:
-  - `Ows.Core` owns filesystem observation, project registration, package creation, signatures, and offline verification.
-  - `Ows.Cli` exposes seven local commands: `init`, `agent`, `status`, `package`, `verify`, `inspect`, `report`.
-  - `Ows.Setup` is the Windows-only SCM installer/service host; it does not move platform concerns into Core.
-  - The filesystem and explicitly initialized project roots are the observation boundary.
+  - Do not alter snapshot recovery, corruption handling, hashing, or namespace refactors already in progress.
+  - Do not add a replacement property or abstraction.
+- Relevant existing architecture:
+  - `ObservedSnapshotStore.LoadSnapshotAsync` returns `LoadSnapshotResult`.
+  - `LocalTrackingAgent` consumes only `Snapshot`, `SnapshotUnreadable`, and `ComputedSnapshotHash`.
 - Files currently being inspected or changed:
-  - `src/Ows.Cli/OwsCliResponse.cs`
-  - `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`
-  - `src/Ows.Cli/OwsCommandFactory.cs` (separate pre-existing working-tree edit; not changed by this fix)
-  - `src/Ows.Core/Agent/LocalTrackingAgent.cs`
-  - `src/Ows.Core/Verification/Helpers/{VerificationFindingFactory,ObservationContinuityAnalyzer}.cs`
-  - `tests/Ows.Core.Tests/OwsIgnoreEngineTests.cs`
-  - `docs/development/CLI.md`
-  - `tests/Ows.Cli.Tests/CliJsonProtocolTests.cs`
-  - `.agent/DECISIONS.md`, `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, `.agent/WORK_LOG.md`
+  - `src/Ows.Core/Agent/Snapshot/ObservedSnapshotStore.cs`
+  - `.agent/CURRENT_TASK.md`
+  - `.agent/WORK_LOG.md`
+  - `.agent/NEXT_STEPS.md`
 - Implementation checklist:
-  - [x] Remove unreleased remote verifier, server, deployment, management, ceremony, and compatibility surfaces.
-  - [x] Keep local timeline, artifact, package-root, and optional signature tamper detection.
-  - [x] Validate Windows setup/service/uninstall behavior from the owner smoke test.
-  - [x] Keep docs aligned with the actual seven-command local CLI.
-  - [x] Remove redundant one-implementation interfaces and stale CLI JSON claims.
-  - [x] Remove the last active legacy terminology from snapshot continuity and ignore-rule tests.
-  - [x] Remove the unused `OwsCliResponse.TrustStatus` property and serialized field.
-  - [x] Validate build, tests, smoke workflow, syntax, links, and generated-output cleanup.
-  - [ ] Owner performs final history/license/manual sign-off review.
+  - [x] Remove `HadSnapshotFile` and its assignment.
+  - [x] Confirm no source/test references remain.
+  - [x] Run focused and full validation.
+  - [ ] Commit only this cleanup and continuity notes; preserve unrelated user changes.
 - Tests required before completion:
-  - `dotnet build OWS.sln -c Release -nologo`
+  - `dotnet test tests/Ows.Core.Tests/Ows.Core.Tests.csproj -nologo`
   - `dotnet test OWS.sln -nologo`
-  - Local `init -> package -> verify -> inspect -> report` smoke path.
-  - Local tamper tests for changed, removed, and injected package entries.
-  - PowerShell syntax, Bash syntax when available, `git diff --check`, and `git clean -ndX`.
+  - `dotnet build OWS.sln -c Release -nologo`
+  - `git diff --check`
 - Blockers, uncertainties, and risks:
-  - Windows SCM install requires UAC; manual service lifecycle evidence remains owner-provided.
-  - Bash/WSL is unavailable in this environment, so Unix syntax cannot be rerun here.
-  - Long-lived timelines remain append-only until a chain-preserving retention design exists.
-  - Owner review is required before any publication action.
+  - The working tree contains unrelated Agent namespace/scanning changes; they must not be reverted or included accidentally.
+  - Removing an unread accessor should not change runtime behavior, but the current working tree still requires compilation validation.
 - Current build/test state:
-  - Focused inspect test passes: 1/1.
-  - Release build passed with 0 warnings/errors after the final CLI correction.
-  - Release build passed again after the final terminology correction.
-  - Full tests pass: Core 41/41 and CLI 10/10; focused inspect test passes 1/1.
-  - Release-binary smoke passed: `init -> package -> verify -> inspect --json -> report --format json`.
-  - Real Agent smoke passed: `init -> running Agent -> file change -> package -> valid non-empty timeline` (8 events observed).
-  - Dead-field cleanup is committed as `6856367`; focused CLI JSON test and Release build pass with 0 warnings/errors.
-  - Markdown relative links, `git diff --check`, and forbidden legacy-reference scans pass.
-  - Generated build outputs were removed; `git clean -ndX` is empty.
-  - Final terminology correction committed as `6001de1`; runtime evidence notes committed as `8f9fc3b`; dead CLI trust field committed as `6856367`.
-  - A separate uncommitted `src/Ows.Cli/OwsCommandFactory.cs` edit remains untouched for owner review; it is outside the dead-field fix.
+  - Core tests pass: 41/41.
+  - Full solution tests pass: Core 41/41 and CLI 10/10.
+  - Release build passes with 0 warnings/errors.
+  - `git diff --check` passes; unrelated Agent/scanning changes remain unstaged.
