@@ -1152,3 +1152,28 @@
 - Exact next action: Use Windows Installed apps to uninstall, verify cleanup, then reinstall from the current setup artifact if needed.
 - Important context: Do not push or publish; project `.ows` folders must remain untouched.
 - Files to inspect first: `.agent/NEXT_STEPS.md`, `docs/development/RELEASE_READINESS.md`, and `src/Ows.Setup/Program.cs`.
+
+## 2026-07-13 — Installed payload freshness audit
+
+### Completed
+- Compared the live Program Files service binary with the current self-contained setup artifact.
+- Confirmed the service and uninstall registration are healthy but the installed payload predates the current artifact.
+
+### Changed
+- Added: no product files.
+- Modified: `.agent/CURRENT_TASK.md`, `.agent/NEXT_STEPS.md`, and `.agent/WORK_LOG.md`.
+- Deleted: None.
+
+### Validation
+- Build: Not rerun; state-audit only after the passing build.
+- Targeted tests: Not applicable.
+- Full tests: Last run passed Core 131/131 and CLI/server 80/80.
+- Manual checks: Installed hash `602C2510DF807A5A20012091BAADFA43D3E2732003594CD19D022EB5AC33EC02`; artifact hash `B78291E88F1143A4805EE0867E43EEEFB480006AA9BF410853F43678100CF116`; service Running/Automatic/LocalSystem.
+
+### Remaining
+- UAC reinstall of the current artifact, followed by Add/Remove Programs uninstall cleanup.
+
+### Handoff
+- Exact next action: Double-click `artifacts\ows-setup\Ows.Setup.exe`, approve UAC, and recheck the service path/hash.
+- Important context: Do not claim the current installer code is live until the hashes match; project `.ows` folders must remain untouched.
+- Files to inspect first: `.agent/NEXT_STEPS.md`, `src/Ows.Setup/Program.cs`, and `artifacts/ows-setup/Ows.Setup.exe`.

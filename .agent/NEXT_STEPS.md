@@ -1,9 +1,9 @@
 # Next Steps
 
-1. Run the self-contained `Ows.Setup.exe` uninstall/reinstall smoke check with UAC approval.
-2. Confirm Add/Remove Programs removes the service, installed payload, and uninstall entry; choose shared-data deletion only when intended.
-3. Owner reviews repository history, license, generated artifacts, and current worktree scope.
-4. Owner performs manual release sign-off.
+1. Run the current `artifacts\ows-setup\Ows.Setup.exe` with UAC approval to replace the older installed payload.
+2. Confirm `OWS Agent` remains Running/Automatic/LocalSystem and points to the current payload.
+3. Use Add/Remove Programs to remove the service, installed payload, and uninstall entry; choose shared-data deletion only when intended.
+4. Owner reviews repository history, license, generated artifacts, and current worktree scope.
 5. Only after approval: tag the selected version, push the tag, and create the GitHub release.
 
 Post-release roadmap:
