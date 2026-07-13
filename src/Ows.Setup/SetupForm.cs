@@ -309,8 +309,7 @@ internal sealed class SetupForm : Form {
                 Location = new Point(0, 2)
             };
             var label = new Label { Text = row, AutoSize = true, ForeColor = Ink, Location = new Point(28, 7) };
-            var status = new Label
-                { Text = "Pending", AutoSize = true, ForeColor = Muted, Location = new Point(300, 5) };
+            var status = new Label { Text = "Pending", AutoSize = true, ForeColor = Muted, Location = new Point(300, 5) };
             rowPanel.Controls.Add(marker);
             rowPanel.Controls.Add(label);
             rowPanel.Controls.Add(status);
@@ -352,8 +351,7 @@ internal sealed class SetupForm : Form {
                     : "The Agent service is installed but was not started. You can start it in Windows Services.",
                 0, 155
             );
-            var services = new Button
-                { Text = "Open Windows Services", Location = ContentPoint(0, 210), Size = new Size(160, 30) };
+            var services = new Button { Text = "Open Windows Services", Location = ContentPoint(0, 210), Size = new Size(160, 30) };
             services.Click += (_, _) => Process.Start(new ProcessStartInfo("services.msc") { UseShellExecute = true });
             _body.Controls.Add(services);
         } else {
@@ -678,19 +676,19 @@ internal sealed class SetupForm : Form {
     private static Task<string?> PickFolderAsync(string initialPath) {
         var completion = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() => {
-                try {
-                    using var dialog = new FolderBrowserDialog();
-                    dialog.SelectedPath = initialPath;
-                    dialog.RootFolder = Environment.SpecialFolder.MyComputer;
-                    dialog.AutoUpgradeEnabled = false;
-                    dialog.Description = "Choose the parent folder for Open Work Standard";
-                    dialog.ShowNewFolderButton = true;
-                    dialog.UseDescriptionForTitle = true;
-                    completion.SetResult(dialog.ShowDialog() == DialogResult.OK ? dialog.SelectedPath : null);
-                } catch (Exception exception) {
-                    completion.SetException(exception);
-                }
+            try {
+                using var dialog = new FolderBrowserDialog();
+                dialog.SelectedPath = initialPath;
+                dialog.RootFolder = Environment.SpecialFolder.MyComputer;
+                dialog.AutoUpgradeEnabled = false;
+                dialog.Description = "Choose the parent folder for Open Work Standard";
+                dialog.ShowNewFolderButton = true;
+                dialog.UseDescriptionForTitle = true;
+                completion.SetResult(dialog.ShowDialog() == DialogResult.OK ? dialog.SelectedPath : null);
+            } catch (Exception exception) {
+                completion.SetException(exception);
             }
+        }
         ) {
             IsBackground = true
         };
