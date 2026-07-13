@@ -49,9 +49,9 @@ public sealed class OwsAgentHostTests {
             FileShare.None
         );
         var releaseTask = Task.Run(async () => {
-                await Task.Delay(150);
-                heldLock.Dispose();
-            }
+            await Task.Delay(150);
+            heldLock.Dispose();
+        }
         );
 
         try {

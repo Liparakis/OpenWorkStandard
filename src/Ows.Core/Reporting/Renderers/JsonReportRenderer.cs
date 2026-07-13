@@ -37,13 +37,13 @@ internal static class JsonReportRenderer {
                     headEventHash = res.Timeline.HeadEventHash
                 },
                 findings = res.Findings.Select(finding => new {
-                        code = finding.Code,
-                        severity = finding.Severity,
-                        title = finding.Title,
-                        detail = finding.Detail,
-                        technicalDetail = finding.TechnicalDetail,
-                        reviewerAction = finding.ReviewerAction
-                    }
+                    code = finding.Code,
+                    severity = finding.Severity,
+                    title = finding.Title,
+                    detail = finding.Detail,
+                    technicalDetail = finding.TechnicalDetail,
+                    reviewerAction = finding.ReviewerAction
+                }
                 ),
                 errors = res.Errors
             }, SerializerOptions

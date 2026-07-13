@@ -26,9 +26,9 @@ internal static class PackageArtifactCollector {
         return Directory
                .EnumerateFiles(projectRootPath, "*", SearchOption.AllDirectories)
                .Select(filePath => new {
-                       FilePath = filePath,
-                       RelativePath = Path.GetRelativePath(projectRootPath, filePath)
-                   }
+                   FilePath = filePath,
+                   RelativePath = Path.GetRelativePath(projectRootPath, filePath)
+               }
                )
                .Where(file =>
                    !string.Equals(file.FilePath, outputPackagePath, StringComparison.OrdinalIgnoreCase) &&

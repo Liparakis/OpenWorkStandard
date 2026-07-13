@@ -30,100 +30,100 @@ public static class InspectCommandBuilder {
         command.Arguments.Add(packageArgument);
         command.Options.Add(packagePathOption);
         command.SetAction(async parseResult => {
-                var projectRoot = Directory.GetCurrentDirectory();
-                var packagePath = parseResult.GetValue(packageArgument) ?? parseResult.GetValue(packagePathOption) ??
-                    Path.Combine(
-                        projectRoot,
-                        $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}"
-                    );
-                var result = await OwsPackageVerifier.VerifyAsync(
-                    new PackageVerificationRequest {
-                        PackagePath = packagePath
-                    }, CancellationToken.None
+            var projectRoot = Directory.GetCurrentDirectory();
+            var packagePath = parseResult.GetValue(packageArgument) ?? parseResult.GetValue(packagePathOption) ??
+                Path.Combine(
+                    projectRoot,
+                    $"{new DirectoryInfo(projectRoot).Name}{OwsConstants.PackageExtension}"
                 );
-                OwsManifest? manifest = null;
-                var artifacts = Array.Empty<ArtifactInspection>();
-                var timelineEvents = Array.Empty<TimelineInspectionEvent>();
-                var activityPeriods = Array.Empty<ActivityPeriod>();
-                string? archiveError = null;
-                try {
-                    if (File.Exists(packagePath)) {
-                        using var archive = ZipFile.OpenRead(packagePath);
-                        manifest = ReadEntry<OwsManifest>(archive, OwsConstants.ManifestFileName);
-                        var artifactEntries = archive.Entries
-                                                     .Where(entry =>
-                                                         entry.FullName.StartsWith(
-                                                             "artifacts/", StringComparison.Ordinal
-                                                         ) &&
-                                                         !string.IsNullOrEmpty(entry.Name)
-                                                     )
-                                                     .OrderBy(entry => entry.FullName, StringComparer.Ordinal)
-                                                     .ToArray();
-                        artifacts = artifactEntries.Select(entry => new ArtifactInspection(
-                                entry.FullName["artifacts/".Length..],
-                                entry.Length,
-                                manifest?.ArtifactHashes.GetValueOrDefault(entry.FullName) ?? string.Empty
-                            )
-                        ).ToArray();
-
-                        var events = ReadTimelineEvents(archive);
-                        timelineEvents = events.Select(eventRecord => new TimelineInspectionEvent(
-                                eventRecord.TimestampUtc, eventRecord.EventType.ToString(), eventRecord.RelativePath
-                            )
-                        ).ToArray();
-                        activityPeriods = InferActivityPeriods(events).ToArray();
-                    }
-                } catch (Exception ex) when (ex is InvalidDataException or IOException or JsonException) {
-                    archiveError = ex.Message;
-                }
-
-                if (parseResult.GetValue(SharedCliOptions.JsonOption)) {
-                    Console.WriteLine(
-                        JsonSerializer.Serialize(
-                            new {
-                                packagePath,
-                                manifest,
-                                status = result.TrustStatus.ToString(),
-                                signatureStatus = result.SignatureStatus,
-                                packageRootHash = result.Package.PackageRootHash,
-                                artifacts,
-                                timeline = result.Timeline,
-                                timelineEvents,
-                                inferredActivityPeriods = activityPeriods,
-                                findings = result.Findings,
-                                errors = result.Errors,
-                                archiveError
-                            }, new JsonSerializerOptions { WriteIndented = true }
+            var result = await OwsPackageVerifier.VerifyAsync(
+                new PackageVerificationRequest {
+                    PackagePath = packagePath
+                }, CancellationToken.None
+            );
+            OwsManifest? manifest = null;
+            var artifacts = Array.Empty<ArtifactInspection>();
+            var timelineEvents = Array.Empty<TimelineInspectionEvent>();
+            var activityPeriods = Array.Empty<ActivityPeriod>();
+            string? archiveError = null;
+            try {
+                if (File.Exists(packagePath)) {
+                    using var archive = ZipFile.OpenRead(packagePath);
+                    manifest = ReadEntry<OwsManifest>(archive, OwsConstants.ManifestFileName);
+                    var artifactEntries = archive.Entries
+                                                 .Where(entry =>
+                                                     entry.FullName.StartsWith(
+                                                         "artifacts/", StringComparison.Ordinal
+                                                     ) &&
+                                                     !string.IsNullOrEmpty(entry.Name)
+                                                 )
+                                                 .OrderBy(entry => entry.FullName, StringComparer.Ordinal)
+                                                 .ToArray();
+                    artifacts = artifactEntries.Select(entry => new ArtifactInspection(
+                            entry.FullName["artifacts/".Length..],
+                            entry.Length,
+                            manifest?.ArtifactHashes.GetValueOrDefault(entry.FullName) ?? string.Empty
                         )
-                    );
-                } else {
-                    Console.WriteLine($"Package: {packagePath}");
-                    Console.WriteLine($"Manifest: {(manifest is null ? "unavailable" : manifest.PackageId)}");
-                    Console.WriteLine($"Trust status: {result.TrustStatus}");
-                    Console.WriteLine($"Signature status: {result.SignatureStatus}");
-                    Console.WriteLine($"Package root: {result.Package.PackageRootHash}");
-                    Console.WriteLine($"Artifacts: {artifacts.Length}");
-                    foreach (var artifact in artifacts) {
-                        Console.WriteLine($"Artifact: {artifact.Path} ({artifact.Size} bytes, sha256={artifact.Hash})");
-                    }
+                    ).ToArray();
 
-                    Console.WriteLine($"Timeline: {result.Timeline.Integrity} ({result.Timeline.EventCount} events)");
-                    Console.WriteLine($"Inferred activity periods: {activityPeriods.Length}");
-                    if (archiveError is not null) {
-                        Console.WriteLine($"Archive inspection error: {archiveError}");
-                    }
+                    var events = ReadTimelineEvents(archive);
+                    timelineEvents = events.Select(eventRecord => new TimelineInspectionEvent(
+                            eventRecord.TimestampUtc, eventRecord.EventType.ToString(), eventRecord.RelativePath
+                        )
+                    ).ToArray();
+                    activityPeriods = InferActivityPeriods(events).ToArray();
+                }
+            } catch (Exception ex) when (ex is InvalidDataException or IOException or JsonException) {
+                archiveError = ex.Message;
+            }
 
-                    foreach (var finding in result.Findings) {
-                        Console.WriteLine($"Finding: {finding.Code} - {finding.Title}");
-                    }
-
-                    foreach (var error in result.Errors) {
-                        Console.WriteLine($"Error: {error}");
-                    }
+            if (parseResult.GetValue(SharedCliOptions.JsonOption)) {
+                Console.WriteLine(
+                    JsonSerializer.Serialize(
+                        new {
+                            packagePath,
+                            manifest,
+                            status = result.TrustStatus.ToString(),
+                            signatureStatus = result.SignatureStatus,
+                            packageRootHash = result.Package.PackageRootHash,
+                            artifacts,
+                            timeline = result.Timeline,
+                            timelineEvents,
+                            inferredActivityPeriods = activityPeriods,
+                            findings = result.Findings,
+                            errors = result.Errors,
+                            archiveError
+                        }, new JsonSerializerOptions { WriteIndented = true }
+                    )
+                );
+            } else {
+                Console.WriteLine($"Package: {packagePath}");
+                Console.WriteLine($"Manifest: {(manifest is null ? "unavailable" : manifest.PackageId)}");
+                Console.WriteLine($"Trust status: {result.TrustStatus}");
+                Console.WriteLine($"Signature status: {result.SignatureStatus}");
+                Console.WriteLine($"Package root: {result.Package.PackageRootHash}");
+                Console.WriteLine($"Artifacts: {artifacts.Length}");
+                foreach (var artifact in artifacts) {
+                    Console.WriteLine($"Artifact: {artifact.Path} ({artifact.Size} bytes, sha256={artifact.Hash})");
                 }
 
-                return result.IsSuccess ? 0 : 1;
+                Console.WriteLine($"Timeline: {result.Timeline.Integrity} ({result.Timeline.EventCount} events)");
+                Console.WriteLine($"Inferred activity periods: {activityPeriods.Length}");
+                if (archiveError is not null) {
+                    Console.WriteLine($"Archive inspection error: {archiveError}");
+                }
+
+                foreach (var finding in result.Findings) {
+                    Console.WriteLine($"Finding: {finding.Code} - {finding.Title}");
+                }
+
+                foreach (var error in result.Errors) {
+                    Console.WriteLine($"Error: {error}");
+                }
             }
+
+            return result.IsSuccess ? 0 : 1;
+        }
         );
         return command;
     }

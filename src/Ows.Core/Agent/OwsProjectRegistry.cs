@@ -143,7 +143,7 @@ public sealed class OwsProjectRegistry {
 
         Directory.CreateDirectory(directory);
         var lockPath = RegistryPath + ".lock";
-        for (var attempt = 0;; attempt++) {
+        for (var attempt = 0; ; attempt++) {
             try {
                 return File.Open(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             } catch (IOException) when (attempt < 19) {
